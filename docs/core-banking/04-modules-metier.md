@@ -1,0 +1,264 @@
+# 04 — Modules métier
+
+Chaque module publie des **événements métier**. Il ne produit jamais d'écriture lui-même :
+la product factory traduit l'événement en écritures via le schéma comptable du produit.
+
+---
+
+## 1. Clients & KYC (`party`)
+
+### Modèle
+
+```
+Party (abstrait)
+  ├── NaturalPerson    état civil, pièces d'identité, situation familiale, profession
+  └── LegalPerson      raison sociale, forme juridique, registre du commerce, NIF
+        └── BeneficialOwner *   bénéficiaires effectifs, % de détention
+
+Party ──* PartyRelationship ──* Party    (mandataire, représentant légal, groupe, conjoint)
+Party ──* Contract                        (comptes, crédits, dépôts à terme)
+Party ──1 KycFile                         (dossier de connaissance client)
+Party ──* RiskAssessment                  (notation du risque, historisée)
+```
+
+### Décisions structurantes
+
+**Le client est une entité distincte du compte.** Un client détient N contrats ; un contrat
+peut avoir N titulaires. Modéliser le client comme un attribut du compte — erreur fréquente
+des systèmes maison — rend impossibles la vue 360°, l'agrégation des risques et la
+contagion réglementaire de déclassement.
+
+**Identifiant unique par entité juridique, résolution de doublons obligatoire.** Un
+dédoublonnage (nom, date de naissance, pièce d'identité, téléphone) s'exécute à la création
+et périodiquement. Un client en double casse les plafonds réglementaires d'engagement et
+les états de concentration des risques.
+
+### KYC
+
+| Élément | Contenu |
+|---|---|
+| Niveau de diligence | Simplifiée / standard / renforcée, dérivé du score de risque |
+| Documents | Pièce d'identité, justificatif de domicile, de revenus, statuts — avec dates d'expiration |
+| Revue périodique | Échéance par niveau de risque (12 / 24 / 36 mois), pilotée par l'EOD |
+| Complétude | Un dossier incomplet restreint les opérations selon une matrice paramétrée |
+| Bénéficiaires effectifs | Obligatoire pour les personnes morales, seuil paramétrable |
+
+Un document expiré déclenche une alerte, puis une restriction progressive — jamais un blocage
+brutal non annoncé.
+
+### Filtrage (screening)
+
+- **À la création et à chaque modification** : listes de sanctions, PPE, listes internes.
+- **Périodiquement** : rescan complet du portefeuille à chaque mise à jour des listes.
+- **Sur transaction** : filtrage du donneur d'ordre et du bénéficiaire pour les paiements
+  internationaux, avec mise en attente en cas de correspondance.
+
+Le moteur de correspondance approximative (phonétique, translittération, permutations) est
+**externalisé** vers un éditeur spécialisé. Le socle expose une interface et gère le
+workflow de levée de doute ; il ne réimplémente pas l'algorithme de matching, domaine où un
+développement maison produit des taux de faux négatifs inacceptables.
+
+---
+
+## 2. Dépôts (`deposits`)
+
+### Produits couverts
+
+| Produit | Spécificités |
+|---|---|
+| Compte courant | Découvert autorisé, agios, commission de mouvement, échelles d'intérêts |
+| Compte d'épargne | Intérêts créditeurs, base de calcul paramétrable, plafond de retraits |
+| Dépôt à terme | Capital bloqué, échéance, pénalité de sortie anticipée, renouvellement |
+| Compte sur livret | Fiscalité spécifique, plafond réglementaire |
+| Compte de dépôt de garantie | Blocage total, affectation à un engagement |
+
+### Cycle de vie
+
+```
+PROJET → OUVERT → ACTIF ⇄ DORMANT → EN CLÔTURE → CLÔTURÉ
+            │                            │
+            └──► BLOQUÉ (saisie, opposition, gel judiciaire)
+```
+
+- **Dormance** : absence de mouvement pendant N mois (paramétré). Déclenche une notification
+  client, puis un régime de frais spécifique, puis un transfert vers un compte
+  d'abandon si la réglementation locale l'impose.
+- **Clôture** : impossible tant que le solde n'est pas nul, qu'un blocage est actif ou qu'un
+  engagement reste attaché. Les intérêts courus sont arrêtés et capitalisés au prorata.
+- **Blocage** : un blocage judiciaire prime sur toute opération, y compris les prélèvements
+  automatiques du produit.
+
+### Moteur d'intérêts
+
+Le composant le plus sensible après le ledger.
+
+```java
+public interface InterestEngine {
+    /** Calcule l'intérêt couru d'un contrat pour une date de valeur donnée. */
+    InterestAccrual accrue(ContractId contract, LocalDate valueDate);
+
+    /** Recalcule rétroactivement depuis une date (écriture antidatée). */
+    RetroactiveResult recompute(ContractId contract, LocalDate from);
+}
+```
+
+Bases de calcul supportées :
+
+| Base | Description |
+|---|---|
+| `DAILY_BALANCE` | Solde de chaque jour en date de valeur |
+| `MIN_MONTHLY_BALANCE` | Solde minimum de la période (épargne classique) |
+| `AVG_DAILY_BALANCE` | Moyenne des soldes quotidiens |
+| `TIERED` | Barème par tranches de solde, cumulatif ou non |
+| `SCALE` | Méthode des échelles (nombres débiteurs / créditeurs) |
+
+Conventions de décompte des jours : `ACT/360`, `ACT/365`, `ACT/ACT`, `30/360`.
+
+**Le recalcul rétroactif est une exigence de conception, pas une fonctionnalité
+optionnelle.** Une écriture antidatée modifie la série des soldes en date de valeur et donc
+tous les accruals postérieurs. Le moteur contre-passe les accruals invalidés et les réémet.
+Un moteur incapable de cela produit des agios faux dès la première opération antidatée —
+cas qui survient dans les premières semaines d'exploitation.
+
+### Découvert
+
+- **Autorisé** : contrat avec montant, durée, taux, commission de mise en place.
+- **Non autorisé** : dépassement toléré ou rejeté selon paramétrage, taux majoré, commission
+  de dépassement, plafonné par le taux d'usure quand le pays en impose un.
+- Les agios se calculent par la méthode des échelles sur les nombres débiteurs.
+
+---
+
+## 3. Crédits (`lending`)
+
+### Cycle
+
+```
+DEMANDE → INSTRUCTION → DÉCISION → CONTRACTUALISATION → DÉBLOCAGE
+   → EN COURS → (RECOUVREMENT) → SOLDÉ | PASSÉ EN PERTE
+```
+
+### Modèle
+
+```
+LoanApplication      demande, pièces, scoring, décision, comité
+  └── LoanContract   montant, taux, durée, différé, garanties, conditions suspensives
+        ├── DisbursementSchedule   déblocages (unique ou par tranches)
+        ├── RepaymentSchedule *    échéancier, versionné
+        │     └── ScheduleLine     échéance : capital, intérêt, commission, assurance, taxe
+        ├── Collateral *           garanties, valorisation, rang, réalisation
+        └── Classification         bucket réglementaire, provision, historique
+```
+
+### Méthodes d'amortissement
+
+| Méthode | Usage |
+|---|---|
+| Annuités constantes | Crédit habitat, consommation |
+| Amortissement constant du capital | Crédit d'équipement |
+| In fine | Crédit relais, trésorerie |
+| Différé partiel (intérêts seuls) | Crédit d'investissement en phase de montée en charge |
+| Différé total (capitalisation) | Crédit étudiant, projet agricole |
+| Échéances irrégulières | Crédit agricole saisonnier, adossé à un plan de trésorerie |
+| Révisable / indexé | Taux indexé sur un indice, avec cap/floor et périodicité de révision |
+
+L'échéancier est **versionné** : un rééchelonnement, un remboursement anticipé partiel ou
+une révision de taux produit une nouvelle version. L'ancienne est conservée. L'échéancier
+contractuel initial reste consultable — exigence de traçabilité et de preuve en cas de
+contentieux.
+
+### Imputation d'un règlement
+
+Ordre paramétrable par produit, valeur par défaut :
+
+```
+1. Frais de recouvrement
+2. Pénalités de retard
+3. Commissions et assurances échues
+4. Intérêts de retard
+5. Intérêts échus (les plus anciens d'abord)
+6. Capital échu (le plus ancien d'abord)
+7. Capital non échu (remboursement anticipé)
+```
+
+L'ordre a un impact financier direct et est parfois imposé par la réglementation locale :
+il est donc dans le paramétrage, jamais codé en dur.
+
+### Classification et provisionnement
+
+Piloté par le profil réglementaire ([03](03-referentiel-parametrage.md#7-profil-réglementaire-par-pays)) :
+
+1. Calcul du nombre de jours de retard du plus ancien impayé.
+2. Détermination du bucket selon la méthode du profil.
+3. **Contagion** : si le profil l'impose, tous les encours du client (voire du groupe)
+   sont déclassés au bucket le plus défavorable.
+4. Assiette de provision = encours − garanties éligibles pondérées.
+5. Provision = assiette × taux du bucket ; comptabilisation de la dotation ou de la reprise.
+6. **Suspension des intérêts** à partir du bucket déclencheur : les intérêts cessent d'être
+   comptabilisés en produits et sont enregistrés en intérêts réservés, hors résultat.
+
+L'étape 6 est régulièrement omise dans les développements maison. Son absence surévalue le
+produit net bancaire et constitue une non-conformité directe.
+
+---
+
+## 4. Paiements (`payments`)
+
+### Canaux
+
+Virements internes, virements interbancaires (compensation locale, RTGS), virements
+internationaux (SWIFT / ISO 20022), prélèvements, chèques, effets, mobile money, cartes.
+
+### Machine à états
+
+```
+REÇU → VALIDÉ → AUTORISÉ → EXÉCUTÉ → COMPENSÉ → SOLDÉ
+   │       │         │          │
+   └───────┴─────────┴──────────┴──► REJETÉ / RETOURNÉ / RAPPELÉ
+```
+
+Chaque transition est horodatée, tracée, et produit son propre jeu d'écritures. Le passage
+par un **compte de suspens** entre l'exécution et la compensation est obligatoire : les
+fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
+
+### Points de conception
+
+- **Idempotence de bout en bout** : la référence de bout en bout (`end-to-end id`) est la
+  clé d'idempotence. Un fichier de compensation rejoué ne double aucune opération.
+- **Cut-off** : au-delà de l'heure limite du canal, l'opération porte la date de valeur du
+  jour ouvré suivant. Le calcul dépend du calendrier de l'entité.
+- **Rappels et retours** : un retour interbancaire arrive après la compensation. Il se
+  traite par contre-passation et non par suppression.
+- **Réconciliation des suspens** : un compte de suspens non soldé à la fin du jour est une
+  anomalie remontée à l'arrêté, avec ancienneté et responsable assigné.
+
+---
+
+## 5. Trésorerie & change (`treasury`)
+
+- **Positions de change** par devise et par entité, alimentées par les écritures de change.
+- **Revalorisation** à chaque arrêté au cours officiel de clôture ; écart porté en résultat
+  de change.
+- **Placements et emprunts interbancaires** : contrats, intérêts courus, échéances.
+- **Nostro / Vostro** : comptes de correspondants, rapprochement automatique des relevés
+  `camt.053`, gestion des suspens de rapprochement.
+- **Position de liquidité** : projection des flux entrants et sortants sur horizon glissant.
+
+---
+
+## 6. Comptabilité générale (`accounting`)
+
+Rappel : la comptabilité générale n'est **pas** une base alimentée par interface. C'est une
+**vue agrégée du ledger**.
+
+| État | Définition |
+|---|---|
+| Balance générale | Agrégation des soldes par compte, par entité, par devise et en contre-valeur |
+| Grand livre | Détail des écritures d'un compte sur une période |
+| Journal | Écritures chronologiques d'une période |
+| Bilan / compte de résultat | Balance projetée sur le référentiel réglementaire via `gl_mapping` |
+| Consolidation | Agrégation multi-entités avec conversion et élimination des opérations intragroupe |
+
+La clôture annuelle produit : détermination du résultat, affectation, report à nouveau,
+réouverture des comptes de bilan et remise à zéro des comptes de gestion — par écritures
+générées selon le schéma de clôture de l'entité, pas par mise à jour de soldes.
