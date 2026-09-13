@@ -291,6 +291,13 @@ regulatory_profile:
     - { code: RATIOS_PRUDENTIELS,frequency: QUARTERLY, deadline_days: 45 }
 ```
 
+Le profil UEMOA / BCEAO livré en configuration de référence est détaillé en
+[11](11-profil-uemoa-bceao.md). Il introduit un raffinement du modèle : le profil
+réglementaire est **régional** (PCB, provisionnement, ratios, systèmes de paiement) tandis
+que la **fiscalité et le droit local sont nationaux**, portés par une `CountryOverlay`. Sans
+cette séparation, l'ouverture du deuxième pays de l'Union impose de dupliquer tout le
+profil.
+
 Un autre profil (`IFRS9_EU`, `BASEL_III_STANDARD`) décrit une méthode de classification
 différente — par exemple par étages de dépréciation (`stage 1/2/3`) avec pertes attendues.
 

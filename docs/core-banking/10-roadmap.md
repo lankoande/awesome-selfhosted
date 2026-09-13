@@ -59,15 +59,17 @@ exponentielle avec l'avancement.
   rétroactif**.
 - Découverts autorisés et non autorisés, agios par la méthode des échelles.
 - Commissions, frais périodiques, fiscalité associée.
-- **Moteur d'arrêté complet** : EOD, EOM, EOY, reprise, annulation.
+- **Moteur de TFJ complet** : TFJ, TFM, TFA, TFJ à blanc, reprise, annulation.
 - Clients et KYC : niveau nécessaire à l'ouverture de compte.
 - API REST des opérations de dépôt.
 
 **Critères de sortie**
 
-- Arrêté de 2 millions de comptes en moins de 90 minutes.
-- Arrêté de référence exact au centime sur 90 jours simulés.
-- Reprise d'arrêté testée à chaque étape ; annulation d'arrêté testée intégralement.
+- TFJ de 2 millions de comptes en moins de 90 minutes, et trois TFJ consécutifs
+  dans la fenêtre de nuit (rattrapage de retard).
+- TFJ de référence exact à l'unité sur 90 jours simulés.
+- Reprise de TFJ testée à chaque étape ; annulation de TFJ testée intégralement ;
+  TFJ à blanc conforme au TFJ réel.
 - Recalcul rétroactif validé sur les cas d'antidatage en cascade.
 
 ---

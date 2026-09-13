@@ -65,8 +65,8 @@ Le **ledger, la product factory et le moteur d'arrêté ne sont jamais découpé
 └────────────────────────────┬────────────────────────────────────────┘
                              │
 ┌──────────────┬─────────────┴─────────┬───────────────┬──────────────┐
-│  COMPTA GÉN. │  MOTEUR D'ARRÊTÉ      │  RÉGLEMENTAIRE│  RÉFÉRENTIEL │
-│  Balance     │  EOD · EOM · EOY      │  Reporting    │  Entités     │
+│  COMPTA GÉN. │  MOTEUR DE TFJ        │  RÉGLEMENTAIRE│  RÉFÉRENTIEL │
+│  Balance     │  TFJ · TFM · TFA      │  Reporting    │  Entités     │
 │  Grand livre │  Intérêts · Provisions│  Déclaratifs  │  Devises     │
 │  États fin.  │  Échéances · Change   │  Fiscalité    │  Calendriers │
 └──────────────┴───────────────────────┴───────────────┴──────────────┘

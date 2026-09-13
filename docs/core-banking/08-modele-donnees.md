@@ -367,7 +367,7 @@ CREATE TABLE batch_run (
     id              UUID PRIMARY KEY,
     legal_entity_id UUID NOT NULL REFERENCES legal_entity(id),
     business_date   DATE NOT NULL,
-    run_type        TEXT NOT NULL,          -- EOD|EOM|EOY|ADHOC
+    run_type        TEXT NOT NULL,          -- TFJ|TFM|TFT|TFA|ADHOC
     status          TEXT NOT NULL,          -- PLANNED|RUNNING|COMPLETED|FAILED|CANCELLED
     started_at      TIMESTAMPTZ,
     finished_at     TIMESTAMPTZ,

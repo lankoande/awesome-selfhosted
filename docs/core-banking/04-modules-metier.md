@@ -39,7 +39,7 @@ les états de concentration des risques.
 |---|---|
 | Niveau de diligence | Simplifiée / standard / renforcée, dérivé du score de risque |
 | Documents | Pièce d'identité, justificatif de domicile, de revenus, statuts — avec dates d'expiration |
-| Revue périodique | Échéance par niveau de risque (12 / 24 / 36 mois), pilotée par l'EOD |
+| Revue périodique | Échéance par niveau de risque (12 / 24 / 36 mois), pilotée par le TFJ |
 | Complétude | Un dossier incomplet restreint les opérations selon une matrice paramétrée |
 | Bénéficiaires effectifs | Obligatoire pour les personnes morales, seuil paramétrable |
 

@@ -1,7 +1,45 @@
-# 05 — Moteur d'arrêté (EOD / EOM / EOY)
+# 05 — Moteur de TFJ (Traitement de Fin de Journée)
 
-Le second composant critique. Un arrêté non idempotent transforme le premier incident de
+Le second composant critique. Un TFJ non idempotent transforme le premier incident de
 production en crise comptable.
+
+---
+
+## 0. Terminologie
+
+Le vocabulaire du marché francophone est retenu comme terminologie de référence du projet.
+
+| Sigle | Signification | Équivalent international |
+|---|---|---|
+| **TFJ** | Traitement de Fin de Journée | EOD — End of Day |
+| **TFM** | Traitement de Fin de Mois | EOM — End of Month |
+| **TFT** | Traitement de Fin de Trimestre | EOQ — End of Quarter |
+| **TFA** | Traitement de Fin d'Année | EOY — End of Year |
+| **TDJ** | Traitement de Début de Journée | SOD — Start of Day |
+
+Notions associées, employées telles quelles dans la suite du dossier :
+
+| Notion | Définition retenue |
+|---|---|
+| **Journée comptable** | Période rattachée à une `booking_date`. Elle ne coïncide pas nécessairement avec la journée calendaire : un TFJ lancé à 22 h ou à 2 h du matin porte la date comptable de la journée qu'il clôture. |
+| **Bascule de journée** | Changement de date comptable de l'entité, opéré par la dernière étape du TFJ. C'est le seul mécanisme autorisé à modifier `legal_entity.current_business_date`. |
+| **Arrêté de caisse** | Contrôle et clôture des caisses par guichetier en agence. Il précède le TFJ et le conditionne : une caisse non arrêtée bloque le traitement. |
+| **TFJ à blanc** | Exécution complète du TFJ en simulation, sans comptabilisation. Produit tous les états et tous les contrôles, ne crée aucune écriture. |
+| **Chaîne de nuit** | Enchaînement TFJ → états → sauvegarde → alimentation du décisionnel → TDJ. |
+| **Comptes d'attente / suspens** | Comptes techniques dont le solde doit être justifié à chaque TFJ. Leur apurement est un contrôle bloquant. |
+
+### TFJ à blanc
+
+Fonction attendue par les exploitants, à prévoir dès la conception : le moteur s'exécute en
+mode `dry_run`, écrit ses écritures dans une table de simulation au lieu du journal, et
+produit l'intégralité des états et des compteurs.
+
+Trois usages : valider un changement de paramétrage avant activation (nouveau barème,
+nouveau taux), vérifier l'impact d'une reprise de données, et former les équipes
+d'exploitation sans risque.
+
+Le mode est un drapeau du run, **pas un second code** : un TFJ à blanc qui n'emprunte pas
+exactement le même chemin que le TFJ réel ne prouve rien.
 
 ---
 
@@ -33,7 +71,7 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 
 ---
 
-## 2. Séquence de l'arrêté quotidien
+## 2. Séquence du TFJ
 
 | # | Étape | Contenu | Bloquant |
 |---|---|---|---|
@@ -70,18 +108,18 @@ Trois contraintes d'ordre sont structurelles :
 
 ### Étapes supplémentaires
 
-**Mensuel (EOM)** : capitalisation des intérêts, échelles et agios, commissions mensuelles,
+**TFM (mensuel)** : capitalisation des intérêts, échelles et agios, commissions mensuelles,
 arrêté de la balance, contrôle de rejeu **intégral** des soldes, états réglementaires,
 clôture de la période.
 
-**Annuel (EOY)** : détermination du résultat, affectation, report à nouveau, réouverture des
+**TFA (annuel)** : détermination du résultat, affectation, report à nouveau, réouverture des
 comptes de bilan, états financiers, liasse réglementaire, archivage de l'exercice.
 
 ---
 
 ## 3. Performance
 
-Cible : 2 millions de comptes traités en moins de 90 minutes.
+Cible : 2 millions de comptes traités en moins de 90 minutes, fenêtre de TFJ comprise.
 
 ### Partitionnement
 
@@ -134,7 +172,7 @@ N = 64, la contention devient négligeable.
 4. Reprise : `POST /eod/runs/{id}/resume`. Les étapes terminées ne sont pas rejouées ; les
    partitions terminées de l'étape en échec ne le sont pas non plus.
 
-### Annulation d'un arrêté
+### Annulation d'un TFJ
 
 ```
 POST /eod/runs/{id}/cancel
@@ -146,16 +184,20 @@ POST /eod/runs/{id}/cancel
 - Réouverture de la date comptable.
 - Opération soumise à double validation, tracée et notifiée.
 
-C'est la fonction qui distingue un arrêté industriel d'un script de batch. Sans elle, une
+C'est la fonction qui distingue un TFJ industriel d'un script de batch. Sans elle, une
 erreur de paramétrage détectée après l'arrêté impose une correction manuelle compte par
 compte — en pratique, plusieurs semaines de travail et un risque d'erreur majeur.
 
-### Retard d'arrêté
+### Retard de TFJ
 
-Si l'arrêté du jour J n'a pas été exécuté, l'arrêté J+1 est **refusé**. Le rattrapage
-s'effectue en exécutant les arrêtés dans l'ordre chronologique, chacun avec sa date
-comptable et son paramétrage d'époque. Aucun mécanisme de « fusion » de plusieurs jours :
-il produirait des intérêts faux.
+Si le TFJ du jour J n'a pas été exécuté, le TFJ de J+1 est **refusé**. Le rattrapage
+s'effectue en exécutant les TFJ dans l'ordre chronologique, chacun avec sa date comptable et
+son paramétrage d'époque. Aucun mécanisme de « fusion » de plusieurs jours : il produirait
+des intérêts faux.
+
+Corollaire d'exploitation : un TFJ en retard se rattrape en enchaînant autant de TFJ que de
+jours manqués. La fenêtre de nuit doit donc pouvoir absorber deux à trois TFJ consécutifs —
+c'est le dimensionnement à retenir, pas la durée d'un TFJ isolé.
 
 ---
 
@@ -187,7 +229,7 @@ SELECT b.account_id, b.balance AS materialise, r.balance AS rejoue
 -- 7. Aucune écriture en période clôturée
 ```
 
-Un écart, même unitaire, bloque l'ouverture du jour suivant et déclenche une alerte de
+Un écart, même unitaire, bloque la bascule de journée et déclenche une alerte de
 niveau critique.
 
 Ce choix est délibéré. La tentation d'un seuil de tolérance est forte en exploitation ; elle

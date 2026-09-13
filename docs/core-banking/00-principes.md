@@ -95,11 +95,11 @@ l'applicatif.
 
 Rétro-installer le multi-entités dans un socle mono-entité représente une réécriture.
 
-## 11. L'arrêté est rejouable et redémarrable
+## 11. Le TFJ est rejouable et redémarrable
 
-L'EOD est une suite d'étapes ordonnées, chacune idempotente et traçée. Un échec en étape 7
+Le TFJ est une suite d'étapes ordonnées, chacune idempotente et traçée. Un échec en étape 7
 sur 15 se reprend à l'étape 7, pas depuis le début, et ne produit aucun doublon.
-L'arrêté d'une date donnée peut être **annulé intégralement** (contre-passation de
+Le TFJ d'une date donnée peut être **annulé intégralement** (contre-passation de
 l'ensemble des écritures du run) puis rejoué.
 
 ## 12. La réconciliation est automatique et quotidienne
