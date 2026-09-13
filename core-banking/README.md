@@ -19,8 +19,8 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 72 tests verts** — 44 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
-générés), 28 sur PostgreSQL réel.
+**État actuel : 101 tests verts** — 68 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
+générés), 33 sur PostgreSQL réel.
 
 ## Ce que le P0 garantit, et comment c'est prouvé
 
@@ -44,6 +44,11 @@ générés), 28 sur PostgreSQL réel.
 | Recalcul rétroactif réappliquant les taux d'époque | idem | `retroactive_recompute_reapplies_historical_rates` |
 | Jamais deux versions de produit actives simultanées | `EXCLUDE USING gist` | `overlapping_versions_are_rejected` |
 | Le rédacteur d'un paramétrage ne l'active pas | `CHECK (approved_by <> created_by)` | `maker_cannot_be_checker` |
+| Toute opération protégée porte une règle | Bloc statique de `SecurityConfig` | `the_policy_is_exhaustive` |
+| Aucune annotation d'habilitation dans le code | Scan du code de production | `no_authorization_annotation_anywhere` |
+| Refus avant tout effet de bord | `UseCaseExecutor`, point unique | `a_denial_happens_before_any_side_effect` |
+| Jeton sans entité juridique rejeté | `KeycloakCallerFactory` | `a_token_without_legal_entity_is_rejected` |
+| Consultations tracées, refus tracés | `JdbcAuthorizationAudit` | `a_successful_read_is_traced` |
 
 ## Les trois choix qui vont au-delà des progiciels établis
 
@@ -90,7 +95,26 @@ premières semaines d'exploitation — extourne les écritures devenues fausses,
 de soldes corrigée, et conserve la génération précédente pour l'audit. Chaque journée reste
 explicable : assiette, taux effectif, fraction d'année.
 
-### 4. Le XOF traité comme une vraie contrainte
+### 4. Une politique d'habilitation qui ne peut pas être incomplète
+
+Toutes les règles dans une seule classe, **zéro annotation** — un test échoue si l'une réapparaît.
+
+Le risque évident de cette approche est qu'une table centrale incomplète laisse un trou plus
+discret qu'une annotation oubliée. Deux garde-fous le neutralisent, et ce sont eux qui rendent
+l'approche plus sûre que les annotations :
+
+1. Le catalogue d'opérations est une énumération, et `SecurityConfig` **refuse de charger** si une
+   valeur n'a pas de règle : l'application ne démarre pas.
+2. Un cas d'usage ne s'invoque que par `UseCaseExecutor`. Un appel qui l'évite n'est pas un contrôle
+   oublié, c'est un cas d'usage inaccessible.
+
+Avec des annotations, l'oubli laisse une méthode ouverte et s'exécute sans bruit. Ici, l'oubli
+possible porte sur la règle, et il empêche le démarrage.
+
+Keycloak fournit l'identité et le périmètre ; **les plafonds restent dans le code revu**. Un
+attribut mal renseigné dans un annuaire ne doit pas pouvoir élever le plafond d'un guichetier.
+
+### 5. Le XOF traité comme une vraie contrainte
 
 Échelle nulle native, accumulation en précision étendue, arrondi au seul moment de la
 comptabilisation, écart d'arrondi restitué explicitement. `MoneyTest.daily_rounding_drifts_measurably`

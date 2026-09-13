@@ -14,10 +14,12 @@
 
   <modules>
     <module>platform-kernel</module>
+    <module>security-core</module>
     <module>ledger-domain</module>
     <module>interest-domain</module>
     <module>product-catalog</module>
     <module>ledger-store</module>
+    <module>security-store</module>
     <module>interest-service</module>
   </modules>
 
@@ -47,6 +49,10 @@
       </dependency>
       <dependency>
         <groupId>io.corebanking</groupId><artifactId>platform-kernel</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.corebanking</groupId><artifactId>security-core</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>

@@ -19,34 +19,106 @@ une identité nominative — y compris les actions techniques.
 
 ---
 
-## 2. Autorisation : RBAC + ABAC
+## 2. Autorisation : politique centralisée, zéro annotation
 
-Le RBAC seul est insuffisant en banque : un chargé de clientèle de l'agence A ne doit pas
-accéder au portefeuille de l'agence B, alors qu'il a le même rôle.
+### Décision
 
-```java
-@PreAuthorize("hasPermission(#accountId, 'Account', 'READ')")
-public AccountView getAccount(AccountId accountId) { ... }
-```
+**Toutes les règles d'habilitation vivent dans une seule classe, `SecurityConfig`.** Aucune
+annotation (`@PreAuthorize`, `@Secured`, `@RolesAllowed`) n'existe dans le code — une règle de
+construction échoue si l'une réapparaît.
 
-Le contrôle combine :
+Trois raisons :
 
-| Dimension | Exemple |
+| Raison | Ce que ça change |
 |---|---|
-| Rôle | `TELLER`, `BRANCH_MANAGER`, `CREDIT_OFFICER`, `ACCOUNTANT`, `AUDITOR` |
-| Entité juridique | Cloisonnement filiale, appliqué aussi en Row Level Security |
-| Agence / portefeuille | Périmètre d'affectation de l'agent |
-| Montant | Plafond d'opération par rôle et par grade |
-| Segment client | Accès restreint aux comptes sensibles (dirigeants, PPE) |
-| Horaire | Opérations de caisse limitées aux heures d'ouverture |
+| **Auditabilité** | La matrice des habilitations s'imprime depuis la politique réellement appliquée. Dispersée en annotations, elle se reconstitue à la main — et cette reconstitution est fausse dès la livraison suivante. |
+| **Cohérence** | Deux opérations équivalentes finissent toujours par diverger quand leurs règles sont écrites à deux endroits, à six mois d'intervalle, par deux personnes. |
+| **Revue** | Un changement d'habilitation apparaît dans le diff d'un seul fichier, qu'on peut exiger de faire relire par le contrôle interne. |
 
-### Défense en profondeur
+### Le risque que cette centralisation doit neutraliser
 
-Le cloisonnement par entité est appliqué **deux fois** : dans l'applicatif et par Row Level
-Security PostgreSQL. La seconde barrière protège contre le cas réel le plus fréquent — une
-requête de reporting écrite sans le filtre d'entité.
+Il est réel et il faut le nommer : **une annotation oubliée laisse une méthode ouverte ; une table
+centrale incomplète fait exactement la même chose, en moins visible.** La méthode n'apparaît nulle
+part, donc personne ne la cherche. Sans compensation, centraliser affaiblit la sécurité au lieu de
+la renforcer.
 
----
+Deux garde-fous répondent à ce risque, et ce sont eux qui rendent l'approche plus sûre que les
+annotations :
+
+1. **Le catalogue d'opérations est une énumération.** Un bloc statique refuse de charger
+   `SecurityConfig` si une seule valeur n'a pas de règle : **l'application ne démarre pas**. Une
+   opération ajoutée sans habilitation ne peut donc pas atteindre la production.
+2. **Il n'existe qu'un seul point d'application.** Un cas d'usage ne s'invoque que par
+   `UseCaseExecutor`, qui applique la politique avant d'exécuter. Un appel qui l'évite n'est pas un
+   contrôle oublié : c'est un cas d'usage inaccessible.
+
+C'est la différence de fond. Une méthode sans annotation reste appelable et s'exécute sans contrôle
+— l'oubli est silencieux et se découvre à l'audit, ou après l'incident. Ici, l'oubli possible n'est
+pas celui du contrôle mais celui de la **règle**, et cet oubli-là empêche le démarrage.
+
+### Dimensions évaluées
+
+Le RBAC seul est insuffisant en banque : un chargé de clientèle de l'agence A ne doit pas accéder au
+portefeuille de l'agence B, alors qu'il a le même rôle.
+
+| Dimension | Exemple | Ordre d'évaluation |
+|---|---|---|
+| Entité juridique | Cloisonnement filiale | **1** — une tentative transverse est un signal plus grave qu'un défaut de rôle |
+| Rôle | `TELLER`, `BRANCH_MANAGER`, `ACCOUNTANT`, `AUDITOR`… | 2 |
+| Agence | Périmètre d'affectation de l'agent | 3 |
+| Montant | Plafond par rôle | 4 |
+| Séparation des tâches | L'auteur ne valide pas | 5 |
+
+Le cloisonnement par entité est appliqué **deux fois** : dans la politique et par Row Level Security
+PostgreSQL. La seconde barrière protège contre le cas réel le plus fréquent — une requête de
+reporting écrite sans le filtre d'entité.
+
+### Keycloak : ce que le jeton dit, et ce qu'il ne dit pas
+
+**Le jeton dit qui vous êtes et où vous travaillez ; la politique dit ce que vous avez le droit de
+faire.**
+
+| Porté par le jeton | Porté par `SecurityConfig` |
+|---|---|
+| `sub`, `preferred_username` | Rôles autorisés par opération |
+| `realm_access.roles` | Périmètre (agence / entité / groupe) |
+| `legal_entity`, `branch` | **Plafonds de montant** |
+| | Exigence de double validation |
+| | Traçage des consultations |
+
+Cette séparation n'est pas cosmétique. Porter les plafonds dans le jeton confierait une décision
+d'habilitation à la configuration d'un annuaire : un attribut mal renseigné dans Keycloak élèverait
+le plafond d'un guichetier sans qu'aucune revue applicative ne le voie, et le plafond effectif
+serait introuvable ailleurs que dans un jeton expiré.
+
+Trois refus explicites à l'extraction des revendications :
+
+- **Pas d'entité juridique → jeton rejeté.** Aucune valeur par défaut : un jeton sans entité
+  interprété comme un accès global est précisément la faille que ce refus prévient.
+- **Rôles d'autres clients ignorés.** `resource_access` peut contenir les rôles détenus sur
+  d'autres applications ; les accepter laisserait une habilitation accordée ailleurs ouvrir un
+  droit ici.
+- **Plafond absent dans la devise concernée → refus.** Un plafond n'est jamais converti : le cours
+  introduirait une donnée de marché dans une décision d'habilitation, et un plafond qui varie avec
+  le change n'est pas un plafond.
+
+### Traçabilité des décisions
+
+Tous les refus, sans exception. Et les accès **réussis** aux opérations déclarées sensibles en
+lecture — consultation de solde, de journal, de dossier client.
+
+Ce second point est le plus important : un journal limité aux modifications ne voit pas l'agent
+habilité qui consulte sans motif les comptes d'un tiers, alors que c'est la forme de fraude interne
+la plus courante.
+
+Deux choix d'implémentation à expliciter :
+
+- **La trace est écrite dans sa propre transaction.** Un refus survient avant l'opération et la
+  transaction métier est annulée ; si la trace la partageait, elle disparaîtrait avec elle — le
+  système n'aurait aucune mémoire des tentatives refusées.
+- **Un échec d'écriture de la trace interrompt l'opération.** C'est le contraire de l'usage courant
+  en journalisation applicative. Une opération bancaire qui s'exécute sans pouvoir être tracée est
+  une opération dont personne ne pourra rendre compte.
 
 ## 3. Maker-checker
 
