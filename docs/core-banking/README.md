@@ -38,6 +38,12 @@ Aucune n'est à reprendre telle quelle.
 
 ---
 
+## Implémentation
+
+Le noyau comptable (P0) est implémenté et testé : [`../../core-banking`](../../core-banking) —
+Java 21, PostgreSQL, 32 tests verts. Le dossier ci-dessous reste la référence de conception ; le
+code en est la mise en œuvre, et les écarts constatés à l'implémentation y ont été répercutés.
+
 ## Sommaire
 
 | # | Document | Objet |

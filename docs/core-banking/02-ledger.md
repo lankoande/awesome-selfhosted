@@ -127,6 +127,47 @@ prévu dès la conception du moteur d'intérêts, pas ajouté ensuite.
 
 ---
 
+## 4 bis. Le troisième axe : l'instant de connaissance
+
+Au-delà des trois dates ci-dessus, le ledger conserve **l'instant où chaque écriture est entrée
+dans le système** (`knowledge_time`). Ce n'est pas un simple horodatage technique : c'est un axe
+d'interrogation à part entière.
+
+### Le problème que cela résout
+
+Un état arrêté au 31 décembre est édité le 5 janvier. Régénéré en mars, il ne donne pas le même
+chiffre : des écritures antidatées sont arrivées entre-temps. La question posée en inspection n'est
+pas « quel est le bon chiffre », mais **« pourquoi les deux diffèrent, et lequel a été transmis »**.
+
+Un ledger mono-temporel ne sait que constater l'écart. La pratique courante — archiver le PDF de
+l'état — prouve ce qui a été édité, mais ne permet ni de le recalculer, ni d'en isoler la cause.
+
+### Ce que permet le second axe
+
+```
+solde au 31/12, tel que connu au 05/01     →   800 000   (l'état transmis, reproductible)
+solde au 31/12, tel que connu aujourd'hui  →   950 000   (le solde courant)
+                                               ───────
+écart entièrement expliqué                     150 000   (écritures antidatées, listables)
+```
+
+Les trois valeurs sont calculées depuis le même journal, sans archive parallèle. L'état transmis
+reste reproductible à l'identique des années après, et l'écart se décompose écriture par écriture.
+
+### Coût de mise en œuvre
+
+Marginal, **à condition d'y penser dès l'origine** : une colonne horodatée sur la ligne, un index,
+une clause supplémentaire dans les requêtes de rejeu. Le journal étant déjà immuable, aucune
+information n'a besoin d'être ajoutée — seulement d'être exploitée.
+
+Une contrainte conditionne la justesse de l'ensemble : **toutes les lignes d'une écriture partagent
+un seul instant de connaissance**, celui de l'écriture. Laisser chaque ligne prendre son propre
+horodatage les placerait après l'écriture qui les porte — l'horloge avance à l'intérieur d'une
+transaction — et une requête « tel que connu au moment de l'écriture E » exclurait les lignes de E
+elle-même. Une écriture entre dans le système d'un seul tenant ; elle porte donc un seul instant.
+
+---
+
 ## 5. Multi-devises
 
 ### Structure d'une ligne
@@ -160,7 +201,22 @@ Achat de 1 000 EUR contre 655 957 XOF (cours 655,957)
 mesure l'exposition et est revalorisée à chaque arrêté.
 
 **Jamais** de « conversion puis équilibrage global » : cela dissimule le risque de change
-et rend la position inauditable.
+et rend la position inauditable. Une conversion directe à deux lignes — débit EUR, crédit XOF,
+sans compte de position — est d'ailleurs rejetée d'office : elle n'est équilibrée dans aucune des
+deux devises.
+
+### Portée exacte du contrôle en contre-valeur
+
+À garder en tête, car elle est facilement surestimée. Une fois l'équilibre par devise acquis, le
+contrôle en contre-valeur détecte **des cours incohérents entre lignes d'une même devise** au sein
+d'une même écriture — le cas d'un schéma qui applique le cours acheteur d'un côté et le cours de
+référence de l'autre, laissant une perte de change non comptabilisée.
+
+Il ne détecte **pas** un cours erroné appliqué uniformément : dans la structure à quatre lignes
+ci-dessus, les contre-valeurs des lignes en devise se compensent deux à deux, quel que soit le
+cours. Seule la confrontation au cours de référence — table des cours, tolérances, marges — le
+détecte. C'est un contrôle du référentiel des cours, pas du ledger, et il doit être prévu comme
+tel.
 
 ---
 
