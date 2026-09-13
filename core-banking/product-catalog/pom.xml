@@ -6,14 +6,12 @@
   <parent>
     <groupId>io.corebanking</groupId><artifactId>core-banking</artifactId><version>0.1.0-SNAPSHOT</version>
   </parent>
-  <artifactId>interest-service</artifactId>
-  <name>interest-service</name>
-  <description>Comptabilisation des interets courus et recalcul retroactif.</description>
+  <artifactId>product-catalog</artifactId>
+  <name>product-catalog</name>
+  <description>Product factory : versions de produit datees, parametres, baremes.</description>
   <dependencies>
     <dependency><groupId>io.corebanking</groupId><artifactId>platform-kernel</artifactId></dependency>
-    <dependency><groupId>io.corebanking</groupId><artifactId>ledger-domain</artifactId></dependency>
     <dependency><groupId>io.corebanking</groupId><artifactId>interest-domain</artifactId></dependency>
-    <dependency><groupId>io.corebanking</groupId><artifactId>product-catalog</artifactId></dependency>
     <dependency>
       <groupId>io.corebanking</groupId><artifactId>ledger-store</artifactId>
       <version>${project.version}</version>

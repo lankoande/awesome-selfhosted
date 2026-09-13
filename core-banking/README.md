@@ -19,8 +19,8 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 61 tests verts** — 44 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
-générés), 17 sur PostgreSQL réel.
+**État actuel : 72 tests verts** — 44 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
+générés), 28 sur PostgreSQL réel.
 
 ## Ce que le P0 garantit, et comment c'est prouvé
 
@@ -40,6 +40,10 @@ générés), 17 sur PostgreSQL réel.
 | Recalcul rétroactif sur écriture antidatée | `InterestAccrualService.recomputeFrom` | `an_antedated_entry_triggers_retroactive_recompute` |
 | Tout mois vaut 30/360, février compris | `DayCountConvention` | `thirty_360_compensates_february` |
 | Découpage d'une période sans effet sur le total | Additivité | `le_decoupage_dune_periode_ne_change_pas_le_total` |
+| Taux résolu à la date de la journée, pas du traitement | `product_version` daté + `CatalogTermsResolver` | `each_day_uses_the_rate_in_force_that_day` |
+| Recalcul rétroactif réappliquant les taux d'époque | idem | `retroactive_recompute_reapplies_historical_rates` |
+| Jamais deux versions de produit actives simultanées | `EXCLUDE USING gist` | `overlapping_versions_are_rejected` |
+| Le rédacteur d'un paramétrage ne l'active pas | `CHECK (approved_by <> created_by)` | `maker_cannot_be_checker` |
 
 ## Les trois choix qui vont au-delà des progiciels établis
 
@@ -97,7 +101,7 @@ mesure la dérive évitée : **25 XOF par an et par compte**, soit 12,5 M XOF su
 P0 livre le noyau comptable. Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
 - API REST et couche Spring Boot (le ledger reste sans framework, c'est délibéré) ;
-- product factory et schémas comptables paramétrés ;
+- schémas comptables paramétrés (événement → écritures) ;
 - moteur de TFJ, mode « à blanc », reprise et annulation ;
 - snapshots quotidiens et archivage des partitions ;
 - contrôle du cours appliqué contre la table de référence — le ledger valide la cohérence des

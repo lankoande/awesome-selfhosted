@@ -69,9 +69,10 @@ public final class InterestAccrualService {
      * lendemain de la derniere journee deja calculee.
      */
     public AccrualOutcome accrueThrough(UUID legalEntityId, UUID accountId, LocalDate through,
-                                        InterestTerms terms, LocalDate bookingDate, UUID actorId,
-                                        UUID batchRunId) {
-        AccrualState state = database.inTransaction(c -> loadState(c, accountId, terms.side()));
+                                        InterestTermsResolver resolver, LocalDate bookingDate,
+                                        UUID actorId, UUID batchRunId) {
+        InterestTerms reference = resolver.termsAt(through);
+        AccrualState state = database.inTransaction(c -> loadState(c, accountId, reference.side()));
 
         LocalDate from = state.lastAccrualDate() == null
             ? database.inTransaction(c -> ValueDatedSeries.firstValueDate(c, accountId))
@@ -82,8 +83,8 @@ public final class InterestAccrualService {
                                       state.cumulativePrecise(), state.postedTotal(),
                                       Money.zero(state.currency()), null);
         }
-        return compute(legalEntityId, accountId, from, through, terms, bookingDate, actorId,
-                       batchRunId, state);
+        return compute(legalEntityId, accountId, from, through, resolver, reference, bookingDate,
+                       actorId, batchRunId, state);
     }
 
     /**
@@ -96,19 +97,20 @@ public final class InterestAccrualService {
      * peut donc toujours reconstituer ce qui avait ete facture, et pourquoi.
      */
     public AccrualOutcome recomputeFrom(UUID legalEntityId, UUID accountId, LocalDate fromValueDate,
-                                        InterestTerms terms, LocalDate bookingDate, UUID actorId,
-                                        UUID batchRunId) {
+                                        InterestTermsResolver resolver, LocalDate bookingDate,
+                                        UUID actorId, UUID batchRunId) {
+        InterestTerms reference = resolver.termsAt(fromValueDate);
         LocalDate lastAccrued = database.inTransaction(
-            c -> loadState(c, accountId, terms.side()).lastAccrualDate());
+            c -> loadState(c, accountId, reference.side()).lastAccrualDate());
         if (lastAccrued == null || lastAccrued.isBefore(fromValueDate)) {
             // Rien n'a encore ete remunere sur cette periode : le calcul courant suffira.
             return accrueThrough(legalEntityId, accountId, lastAccrued == null ? fromValueDate
                                                                               : lastAccrued,
-                                 terms, bookingDate, actorId, batchRunId);
+                                 resolver, bookingDate, actorId, batchRunId);
         }
 
         List<PostedAccrual> aReprendre = database.inTransaction(
-            c -> loadActiveEntriesFrom(c, accountId, terms.side(), fromValueDate));
+            c -> loadActiveEntriesFrom(c, accountId, reference.side(), fromValueDate));
 
         // 1. Contre-passer les ecritures d'interets devenues fausses.
         for (PostedAccrual posted : aReprendre) {
@@ -121,28 +123,29 @@ public final class InterestAccrualService {
 
         // 2. Neutraliser les journees de calcul concernees, sans les supprimer.
         database.inTransaction(c -> {
-            markReversed(c, accountId, terms.side(), fromValueDate);
+            markReversed(c, accountId, reference.side(), fromValueDate);
             return null;
         });
 
-        // 3. Recalculer sur la serie corrigee.
-        AccrualState state = database.inTransaction(c -> loadState(c, accountId, terms.side()));
-        return compute(legalEntityId, accountId, fromValueDate, lastAccrued, terms, bookingDate,
-                       actorId, batchRunId, state);
+        // 3. Recalculer sur la serie corrigee, avec le parametrage en vigueur a chaque journee.
+        AccrualState state = database.inTransaction(c -> loadState(c, accountId, reference.side()));
+        return compute(legalEntityId, accountId, fromValueDate, lastAccrued, resolver, reference,
+                       bookingDate, actorId, batchRunId, state);
     }
 
     // ------------------------------------------------------------------ calcul
 
     private AccrualOutcome compute(UUID legalEntityId, UUID accountId, LocalDate from,
-                                   LocalDate through, InterestTerms terms, LocalDate bookingDate,
-                                   UUID actorId, UUID batchRunId, AccrualState state) {
+                                   LocalDate through, InterestTermsResolver resolver,
+                                   InterestTerms reference, LocalDate bookingDate, UUID actorId,
+                                   UUID batchRunId, AccrualState state) {
 
         // La generation doit etre determinee AVANT l'imputation : elle entre dans la cle
         // d'idempotence. Sans elle, une reemission apres extourne porterait la meme cle que
         // l'ecriture d'origine, serait prise pour un rejeu, et n'imputerait rien — le compte
         // d'interets courus resterait a zero apres un recalcul retroactif.
         int generation = database.inTransaction(
-            c -> nextGeneration(c, accountId, terms.side(), from));
+            c -> nextGeneration(c, accountId, reference.side(), from));
 
         List<DailyBalance> series = database.inTransaction(
             c -> ValueDatedSeries.build(c, accountId, from, through));
@@ -156,13 +159,19 @@ public final class InterestAccrualService {
         Money cumulative = state.cumulativePrecise().isZero()
             ? Money.zero(currency) : state.cumulativePrecise();
 
+        // Chaque journee est remuneree avec le parametrage en vigueur ce jour-la. Un changement
+        // de taux en cours de periode est donc pris en compte a la date exacte de son entree en
+        // vigueur, et le rejeu du meme arrete redonne les memes montants.
         List<DailyAccrual> daily = new ArrayList<>(series.size());
         for (DailyBalance day : series) {
-            Money basis = terms.side().basis(day.balance());
-            BigDecimal fraction = terms.dayCount().dayFraction(day.day());
-            Money amount = terms.rates().accrue(basis, fraction);
+            InterestTerms termsOfDay = resolver.termsAt(day.day());
+            requireStableStructure(reference, termsOfDay, day.day());
+
+            Money basis = termsOfDay.side().basis(day.balance());
+            BigDecimal fraction = termsOfDay.dayCount().dayFraction(day.day());
+            Money amount = termsOfDay.rates().accrue(basis, fraction);
             cumulative = cumulative.plus(amount);
-            daily.add(new DailyAccrual(day.day(), basis, terms.rates().effectiveRate(basis),
+            daily.add(new DailyAccrual(day.day(), basis, termsOfDay.rates().effectiveRate(basis),
                                        fraction, amount));
         }
 
@@ -172,18 +181,38 @@ public final class InterestAccrualService {
 
         UUID entryId = delta.isZero()
             ? null
-            : postAccrual(legalEntityId, accountId, terms, delta, bookingDate, through, generation,
-                          actorId, batchRunId);
+            : postAccrual(legalEntityId, accountId, reference, delta, bookingDate, through,
+                          generation, actorId, batchRunId);
 
         Money cumulativeFinal = cumulative;
         database.inTransaction(c -> {
-            recordDays(c, accountId, terms.side(), generation, daily, cumulativeFinal,
+            recordDays(c, accountId, reference.side(), generation, daily, cumulativeFinal,
                        delta, entryId, bookingDate);
             return null;
         });
 
         return new AccrualOutcome(accountId, from, through, generation, cumulative, target, delta,
                                   entryId);
+    }
+
+    /**
+     * Le taux et la convention de jours peuvent varier d'une journee a l'autre : c'est le cas
+     * normal d'un changement de bareme. Le <b>cote</b> remunere et les <b>comptes d'imputation</b>,
+     * eux, ne le peuvent pas au sein d'un meme calcul : l'ecriture produite est unique et ne
+     * saurait viser deux couples de comptes. Un tel changement est une migration de parametrage,
+     * qui suppose de solder le calcul en cours avant de basculer. Le refus est explicite plutot que
+     * silencieux — une imputation sur le mauvais compte de resultat ne se detecte qu'a l'arrete.
+     */
+    private void requireStableStructure(InterestTerms reference, InterestTerms ofDay,
+                                        LocalDate day) {
+        if (reference.side() != ofDay.side()
+            || !reference.debitAccount().equals(ofDay.debitAccount())
+            || !reference.creditAccount().equals(ofDay.creditAccount())) {
+            throw new IllegalStateException(
+                "Le parametrage du " + day + " change le cote remunere ou les comptes "
+                + "d'imputation en cours de periode. Solder le calcul en cours avant de basculer : "
+                + "une seule ecriture ne peut pas viser deux couples de comptes.");
+        }
     }
 
     /**

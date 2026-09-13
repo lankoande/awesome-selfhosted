@@ -52,8 +52,9 @@ class InterestAccrualIT extends InterestTestBase {
         InterestTerms terms = terms(charges, courus, "3.5");
         AccrualOutcome last = null;
         for (int day = 0; day < 365; day++) {
-            last = interestService.accrueThrough(ENTITY, client.id(), DEPART.plusDays(day), terms,
-                                                 BUSINESS_DATE, ACTOR, RUN);
+            last = interestService.accrueThrough(ENTITY, client.id(), DEPART.plusDays(day),
+                                                 InterestTermsResolver.fixed(terms), BUSINESS_DATE,
+                                                 ACTOR, RUN);
         }
 
         // Le cumul exact est 41 999,998 85 ; arrondi une seule fois, il donne 42 000.
@@ -83,7 +84,7 @@ class InterestAccrualIT extends InterestTestBase {
         InterestTerms terms = terms(charges, courus, "3.5");
         for (int day = 0; day < 60; day++) {
             AccrualOutcome outcome = interestService.accrueThrough(
-                ENTITY, client.id(), DEPART.plusDays(day), terms, BUSINESS_DATE, ACTOR, RUN);
+                ENTITY, client.id(), DEPART.plusDays(day), InterestTermsResolver.fixed(terms), BUSINESS_DATE, ACTOR, RUN);
 
             // Aucun montant a decimales n'atteint jamais le journal.
             assertThat(outcome.postedDelta().isBookable()).isTrue();
@@ -105,7 +106,7 @@ class InterestAccrualIT extends InterestTestBase {
         // 1. Un mois remunere sur 1 000 000.
         deposit(client, caisse, "1000000", DEPART, "dep-402-1");
         AccrualOutcome avant = interestService.accrueThrough(
-            ENTITY, client.id(), DEPART.plusDays(29), terms, BUSINESS_DATE, ACTOR, RUN);
+            ENTITY, client.id(), DEPART.plusDays(29), InterestTermsResolver.fixed(terms), BUSINESS_DATE, ACTOR, RUN);
         assertThat(avant.produced()).isTrue();
 
         // 2. Une operation arrive apres coup, avec une date de valeur au 11e jour.
@@ -113,7 +114,7 @@ class InterestAccrualIT extends InterestTestBase {
 
         // 3. Sans recalcul, les interets des 20 dernieres journees sont faux. On recalcule.
         AccrualOutcome apres = interestService.recomputeFrom(
-            ENTITY, client.id(), DEPART.plusDays(10), terms, BUSINESS_DATE, ACTOR, RUN);
+            ENTITY, client.id(), DEPART.plusDays(10), InterestTermsResolver.fixed(terms), BUSINESS_DATE, ACTOR, RUN);
 
         // Le resultat doit coincider avec un calcul mene d'un seul tenant sur la serie corrigee.
         List<DailyBalance> serieCorrigee = new ArrayList<>();
@@ -146,11 +147,11 @@ class InterestAccrualIT extends InterestTestBase {
         InterestTerms terms = terms(charges, courus, "6");
 
         deposit(client, caisse, "1000000", DEPART, "dep-403-1");
-        interestService.accrueThrough(ENTITY, client.id(), DEPART.plusDays(19), terms,
-                                      BUSINESS_DATE, ACTOR, RUN);
+        interestService.accrueThrough(ENTITY, client.id(), DEPART.plusDays(19),
+                                      InterestTermsResolver.fixed(terms), BUSINESS_DATE, ACTOR, RUN);
         deposit(client, caisse, "500000", DEPART.plusDays(5), "dep-403-2");
-        interestService.recomputeFrom(ENTITY, client.id(), DEPART.plusDays(5), terms,
-                                      BUSINESS_DATE, ACTOR, RUN);
+        interestService.recomputeFrom(ENTITY, client.id(), DEPART.plusDays(5),
+                                      InterestTermsResolver.fixed(terms), BUSINESS_DATE, ACTOR, RUN);
 
         database.inTransaction(c -> {
             try (var ps = c.prepareStatement(
@@ -195,10 +196,10 @@ class InterestAccrualIT extends InterestTestBase {
 
         InterestTerms terms = terms(charges, courus, "5");
         AccrualOutcome premier = interestService.accrueThrough(
-            ENTITY, client.id(), DEPART.plusDays(9), terms, BUSINESS_DATE, ACTOR, RUN);
+            ENTITY, client.id(), DEPART.plusDays(9), InterestTermsResolver.fixed(terms), BUSINESS_DATE, ACTOR, RUN);
         // Une seconde execution sur la meme periode ne trouve plus de journee a remunerer.
         AccrualOutcome second = interestService.accrueThrough(
-            ENTITY, client.id(), DEPART.plusDays(9), terms, BUSINESS_DATE, ACTOR, RUN);
+            ENTITY, client.id(), DEPART.plusDays(9), InterestTermsResolver.fixed(terms), BUSINESS_DATE, ACTOR, RUN);
 
         assertThat(premier.produced()).isTrue();
         assertThat(second.produced()).isFalse();
