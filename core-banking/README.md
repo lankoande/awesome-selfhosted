@@ -19,8 +19,8 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 32 tests verts** — 20 sur le domaine (dont 4 propriétés × 500 tirages = 1 700 cas
-générés), 12 sur PostgreSQL réel.
+**État actuel : 61 tests verts** — 44 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
+générés), 17 sur PostgreSQL réel.
 
 ## Ce que le P0 garantit, et comment c'est prouvé
 
@@ -36,6 +36,10 @@ générés), 12 sur PostgreSQL réel.
 | Aucun interblocage sur virements croisés | Ordre total sur `account_id` | `ConcurrencyIT.cross_transfers_never_deadlock` |
 | Compte chaud exact sous contention | Striping 32 sous-soldes | `ConcurrencyIT.hot_account_stays_exact_under_contention` |
 | Soldes = rejeu du journal | `Reconciliation` | asserté dans chaque test d'intégration |
+| Accruals sans dérive sur 365 jours | Imputation de l'écart du cumul arrondi | `daily_accrual_over_a_year_does_not_drift` |
+| Recalcul rétroactif sur écriture antidatée | `InterestAccrualService.recomputeFrom` | `an_antedated_entry_triggers_retroactive_recompute` |
+| Tout mois vaut 30/360, février compris | `DayCountConvention` | `thirty_360_compensates_february` |
+| Découpage d'une période sans effet sur le total | Additivité | `le_decoupage_dune_periode_ne_change_pas_le_total` |
 
 ## Les trois choix qui vont au-delà des progiciels établis
 
@@ -63,7 +67,26 @@ est violée, et les tests de propriétés explorent des combinaisons qu'aucune r
 n'anticipe — même compte débité et crédité dans une écriture, montants extrêmes, écritures à huit
 lignes, dates de valeur décalées.
 
-### 3. Le XOF traité comme une vraie contrainte
+### 3. Des intérêts exacts, y compris rétroactivement
+
+En devise sans subdivision, un accrual quotidien n'est jamais imputable tel quel : 115,068 49 XOF
+ne s'écrit pas au journal. Trois stratégies existent, deux sont fausses.
+
+| Stratégie | Verdict |
+|---|---|
+| Arrondir chaque jour | Dérive de 25 XOF/an/compte — des millions à l'échelle du portefeuille |
+| Attendre la capitalisation | Exact, mais les intérêts courus disparaissent du bilan — non conforme |
+| **Imputer l'écart du cumul arrondi** | Montant toujours entier, écart au cumul exact < 1 unité en permanence |
+
+La troisième est retenue. `daily_accrual_over_a_year_does_not_drift` le vérifie sur 365 journées
+réelles : **42 000 XOF imputés**, là où l'arrondi quotidien aurait donné 41 975.
+
+Et le **recalcul rétroactif** — risque R1 du dossier, celui qui produit des agios faux dès les
+premières semaines d'exploitation — extourne les écritures devenues fausses, recalcule sur la série
+de soldes corrigée, et conserve la génération précédente pour l'audit. Chaque journée reste
+explicable : assiette, taux effectif, fraction d'année.
+
+### 4. Le XOF traité comme une vraie contrainte
 
 Échelle nulle native, accumulation en précision étendue, arrondi au seul moment de la
 comptabilisation, écart d'arrondi restitué explicitement. `MoneyTest.daily_rounding_drifts_measurably`
@@ -76,7 +99,6 @@ P0 livre le noyau comptable. Restent, dans l'ordre du [plan](../docs/core-bankin
 - API REST et couche Spring Boot (le ledger reste sans framework, c'est délibéré) ;
 - product factory et schémas comptables paramétrés ;
 - moteur de TFJ, mode « à blanc », reprise et annulation ;
-- moteur d'intérêts avec recalcul rétroactif ;
 - snapshots quotidiens et archivage des partitions ;
 - contrôle du cours appliqué contre la table de référence — le ledger valide la cohérence des
   contre-valeurs, pas la justesse d'un cours uniforme.
@@ -91,3 +113,5 @@ P0 livre le noyau comptable. Restent, dans l'ordre du [plan](../docs/core-bankin
 | Idempotence dans une table satellite | Toute contrainte unique d'une table partitionnée doit contenir la clé de partitionnement ; l'unicité doit être globale |
 | Un seul instant de connaissance par écriture | `clock_timestamp()` avance dans une transaction ; par ligne, il placerait les lignes après leur propre écriture |
 | Compte à contrôle de disponible ⇒ une seule stripe | Vérifier un disponible exigerait de verrouiller toutes les stripes, ce qui annulerait la répartition |
+| La génération de recalcul entre dans la clé d'idempotence | Sans elle, une réémission après extourne porte la clé de l'écriture d'origine, passe pour un rejeu et n'impute rien |
+| La série de soldes est reconstruite à chaque calcul, jamais mise en cache | Une opération antidatée modifie les journées passées ; un cache servirait l'ancienne série |

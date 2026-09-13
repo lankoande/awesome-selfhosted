@@ -6,18 +6,16 @@
   <parent>
     <groupId>io.corebanking</groupId><artifactId>core-banking</artifactId><version>0.1.0-SNAPSHOT</version>
   </parent>
-  <artifactId>ledger-store</artifactId>
-  <name>ledger-store</name>
+  <artifactId>interest-service</artifactId>
+  <name>interest-service</name>
+  <description>Comptabilisation des interets courus et recalcul retroactif.</description>
   <dependencies>
     <dependency><groupId>io.corebanking</groupId><artifactId>platform-kernel</artifactId></dependency>
     <dependency><groupId>io.corebanking</groupId><artifactId>ledger-domain</artifactId></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>interest-domain</artifactId></dependency>
     <dependency>
-      <groupId>org.postgresql</groupId><artifactId>postgresql</artifactId>
-      <version>${postgresql.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>com.zaxxer</groupId><artifactId>HikariCP</artifactId>
-      <version>${hikari.version}</version>
+      <groupId>io.corebanking</groupId><artifactId>ledger-store</artifactId>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId><artifactId>slf4j-simple</artifactId>
@@ -33,5 +31,4 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
-
 </project>

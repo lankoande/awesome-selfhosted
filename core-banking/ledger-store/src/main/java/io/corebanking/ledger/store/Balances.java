@@ -115,7 +115,8 @@ public final class Balances {
         }
     }
 
-    static CurrencyRef currencyOf(Connection c, UUID accountId) {
+    /** Devise de tenue d'un compte. Publique : les moteurs metier en ont besoin. */
+    public static CurrencyRef currencyOf(Connection c, UUID accountId) {
         try (PreparedStatement ps = c.prepareStatement(
             "SELECT cur.code, cur.scale, cur.rounding_mode FROM account a"
             + " JOIN currency cur ON cur.code = a.currency WHERE a.id = ?")) {

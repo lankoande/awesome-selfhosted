@@ -15,7 +15,9 @@
   <modules>
     <module>platform-kernel</module>
     <module>ledger-domain</module>
+    <module>interest-domain</module>
     <module>ledger-store</module>
+    <module>interest-service</module>
   </modules>
 
   <properties>
@@ -48,6 +50,10 @@
       </dependency>
       <dependency>
         <groupId>io.corebanking</groupId><artifactId>ledger-domain</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.corebanking</groupId><artifactId>interest-domain</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>
