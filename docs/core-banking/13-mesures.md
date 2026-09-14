@@ -187,9 +187,10 @@ donc impayée dès le lendemain — afin de mesurer aussi le chemin de retard :
 
 | Étape | Coût unitaire | Portée |
 |---|---|---|
-| Exigibilité et prélèvement | 1,630 ms par contrat | la moitié seulement produit une seconde écriture |
-| Intérêts de retard et pénalités | 1,500 ms par impayé | reconstitution de l'assiette, journée d'accrual, pénalité, imputation |
-| Classification et provisionnement | 1,286 ms par crédit | tout le portefeuille, y compris les crédits sains |
+| Exigibilité et prélèvement | 1,788 ms par contrat | la moitié seulement produit une seconde écriture |
+| Intérêts de retard et pénalités | 1,585 ms par impayé | reconstitution de l'assiette, journée d'accrual, pénalité, imputation |
+| Classification et provisionnement | 1,168 ms par crédit | tout le portefeuille, y compris les crédits sains |
+| Mobilisation et intérêts intercalaires | 0,605 ms par crédit en cours de tirage | une écriture et une créance, le jour d'échéance intercalaire |
 
 La classification porte sur **tout** le portefeuille et non sur les seuls impayés : c'est elle qui
 établit qu'un crédit est sain. Séquentielle, elle coûtait 3,502 ms par crédit ; le classement reste
@@ -208,12 +209,18 @@ Une requête a été supprimée au passage : le service demandait d'abord si le 
 créances ouvertes, puis les relisait pour prélever. Tenter le prélèvement sans condition coûte
 moins qu'une requête de plus pour savoir s'il faut le tenter.
 
-Le TFJ complet, commissions et crédits inclus, redescend à **0,809 ms par compte**, soit
-**27,0 minutes** extrapolées pour 2 M de comptes.
+La mobilisation est la moins chère des quatre étapes : une écriture par crédit au lieu de deux, et
+pas de prélèvement. Elle ne coûte ce prix que les jours d'échéance intercalaire — mensuels, en
+général ; les autres jours, elle lit et ne produit rien. Le chiffre est mesuré sur le jour coûteux,
+et le portefeuille en mobilisation est par nature une fraction du portefeuille de crédits.
 
-> À lire correctement : les deux extrapolations portent sur des volumétries différentes — 2 M de
+Le TFJ complet, commissions et crédits inclus, se mesure à **0,881 ms par compte**, soit
+**29,4 minutes** extrapolées pour 2 M de comptes. L'étape `LOAN_MOBILISATION` y coûte 3 ms fixes
+quand aucun crédit n'est en tirage : une requête, pas un balayage.
+
+> À lire correctement : les extrapolations portent sur des volumétries différentes — 2 M de
 > comptes, 200 k de crédits — et ne s'additionnent pas telles quelles. Un portefeuille réel les
-> cumule : **27 minutes de TFJ plus 7 minutes d'exigibilité** dans l'hypothèse où tout le
+> cumule : **29 minutes de TFJ plus 7 minutes d'exigibilité** dans l'hypothèse où tout le
 > portefeuille de crédits échéance le même jour, ce qui est le pire cas et non le cas courant.
 
 ---

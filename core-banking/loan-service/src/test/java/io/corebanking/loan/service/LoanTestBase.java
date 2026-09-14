@@ -37,6 +37,7 @@ abstract class LoanTestBase {
     protected static Database database;
     protected static JdbcPostingService postingService;
     protected static LoanService loanService;
+    protected static LoanMobilisationService mobilisationService;
 
     protected static final UUID ACTOR = UUID.fromString("00000000-0000-0000-0000-0000000000ac");
     protected static final UUID APPROVER = UUID.fromString("00000000-0000-0000-0000-0000000000af");
@@ -58,6 +59,7 @@ abstract class LoanTestBase {
         applyScript("/db/V12__loan_teg.sql");
         applyScript("/db/V13__loan_prepayment.sql");
         applyScript("/db/V14__collateral.sql");
+        applyScript("/db/V15__tranches.sql");
         SchemaMigrator.ensurePartitions(database, DEBLOCAGE.minusMonths(2),
                                         DEBLOCAGE.plusMonths(36));
 
@@ -67,6 +69,7 @@ abstract class LoanTestBase {
         });
         postingService = new JdbcPostingService(database);
         loanService = new LoanService(database, postingService);
+        mobilisationService = new LoanMobilisationService(database, postingService);
     }
 
     @AfterAll

@@ -199,6 +199,7 @@ public final class TfjEngine {
             neutraliseAccruals(connection, runId);
             neutraliseFees(connection, runId);
             neutraliseLoanDues(connection, runId);
+            neutraliseMobilisation(connection, runId);
             setBusinessDate(connection, run.legalEntityId(), run.businessDate());
             markCancelled(connection, runId, actorId, reason);
             return null;
@@ -309,6 +310,77 @@ public final class TfjEngine {
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new LedgerStoreException("Annulation des creances de credit du TFJ", e);
+        }
+    }
+
+    /**
+     * Rouvre les mobilisations closes par le traitement annule et rend leurs periodes
+     * intercalaires a nouveau facturables.
+     *
+     * <p>Quatre effets a defaire, et l'ordre importe : les periodes facturees, le curseur de
+     * facturation, les tranches tombees a la date limite, et l'echeancier definitif publie sur le
+     * capital tire. Sans cela, les ecritures seraient contre-passees mais le credit resterait
+     * amortissable sur un capital que plus aucune ecriture ne justifie — et la mobilisation,
+     * close, ne pourrait plus recevoir la tranche qui restait a verser.
+     */
+    private void neutraliseMobilisation(Connection connection, UUID runId) {
+        try (PreparedStatement ps = connection.prepareStatement(
+            "UPDATE loan_interim_interest SET status = 'REVERSED'"
+            + " WHERE batch_run_id = ? AND status = 'ACTIVE'")) {
+            ps.setObject(1, runId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Reprise des interets intercalaires du TFJ", e);
+        }
+        // Le curseur revient a la veille de la premiere periode reprise : les journees redeviennent
+        // facturables exactement la ou elles l'etaient avant le traitement.
+        try (PreparedStatement ps = connection.prepareStatement(
+            "UPDATE loan_mobilisation m SET interim_billed_through = x.restart"
+            + "  FROM (SELECT contract_id, MIN(period_start) - 1 AS restart"
+            + "          FROM loan_interim_interest WHERE batch_run_id = ?"
+            + "         GROUP BY contract_id) x"
+            + " WHERE m.contract_id = x.contract_id AND m.interim_billed_through > x.restart")) {
+            ps.setObject(1, runId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Recul du curseur des interets intercalaires", e);
+        }
+        try (PreparedStatement ps = connection.prepareStatement(
+            "DELETE FROM loan_schedule WHERE created_run_id = ?")) {
+            ps.setObject(1, runId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Retrait de l'echeancier publie par le TFJ", e);
+        }
+        try (PreparedStatement ps = connection.prepareStatement(
+            "UPDATE loan_tranche SET status = 'PLANNED', cancelled_on = NULL,"
+            + " cancellation_reason = NULL, cancelled_run_id = NULL WHERE cancelled_run_id = ?")) {
+            ps.setObject(1, runId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Retablissement des tranches annulees par le TFJ", e);
+        }
+        try (PreparedStatement ps = connection.prepareStatement(
+            "UPDATE loan_mobilisation SET closed_on = NULL, closed_run_id = NULL"
+            + " WHERE closed_run_id = ?")) {
+            ps.setObject(1, runId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Reouverture des mobilisations closes par le TFJ", e);
+        }
+        // Le contrat clos faute de tirage redevient actif : la date limite qui l'a fait tomber
+        // appartient a une journee qui n'a plus eu lieu.
+        try (PreparedStatement ps = connection.prepareStatement(
+            "UPDATE loan_contract l SET status = 'ACTIVE'"
+            + "  FROM loan_mobilisation m"
+            + " WHERE m.contract_id = l.id AND m.closed_run_id IS NULL AND m.closed_on IS NULL"
+            + "   AND l.status = 'CLOSED'"
+            + "   AND EXISTS (SELECT 1 FROM loan_tranche t"
+            + "                WHERE t.contract_id = l.id AND t.cancelled_run_id IS NULL"
+            + "                  AND t.status = 'PLANNED')")) {
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Reouverture des credits clos par le TFJ", e);
         }
     }
 

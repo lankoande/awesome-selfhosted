@@ -7,6 +7,8 @@ import io.corebanking.ledger.domain.account.AccountKind;
 import io.corebanking.ledger.domain.account.AccountStatus;
 import io.corebanking.ledger.domain.account.NormalBalance;
 import io.corebanking.ledger.store.Accounts;
+import io.corebanking.kernel.id.IdempotencyKey;
+import io.corebanking.loan.DisbursementPlan;
 import io.corebanking.loan.LoanTerms;
 import io.corebanking.loan.ScheduleGenerator;
 import io.corebanking.loan.service.LoanCatalog;
@@ -15,6 +17,7 @@ import io.corebanking.loan.RiskBucket;
 import io.corebanking.loan.RiskGrid;
 import io.corebanking.loan.service.LoanClassificationService;
 import io.corebanking.loan.service.LoanLateChargesService;
+import io.corebanking.loan.service.LoanMobilisationService;
 import io.corebanking.loan.service.LoanService;
 import io.corebanking.loan.service.LoanStore;
 import io.corebanking.loan.service.RiskProfiles;
@@ -162,6 +165,65 @@ class LoanBenchmark extends BenchmarkBase {
                            perClassMillis * TARGET_LOANS / 60_000.0));
 
         org.assertj.core.api.Assertions.assertThat(classOutcome.anomalies()).isEmpty();
+
+        // ---------------------------------------------------------------- mobilisation
+        //
+        // Les credits en cours de mobilisation sont ensemences apres les mesures precedentes :
+        // l'exigibilite balaie tous les credits actifs, et les y melanger fausserait son cout par
+        // contrat. Le jour mesure est une date d'echeance intercalaire — le cas le plus couteux,
+        // ou chaque contrat produit une ecriture et une creance. Les autres jours, l'etape se
+        // contente de lire.
+        LoanMobilisationService mobilisationService = new LoanMobilisationService(database,
+                                                                                  postingService);
+        produit("CRED-BENCH-MOB", creances, produits, taxe, retard, false);
+        seedMobilisations(loanCount, mobilisationService);
+        analyze();
+
+        long mobStart = System.currentTimeMillis();
+        LoanMobilisationService.Outcome mobOutcome = mobilisationService.process(
+            ENTITY, DAY, ACTOR, UUID.randomUUID());
+        long mobElapsed = System.currentTimeMillis() - mobStart;
+
+        line("");
+        line("=== Mobilisation et interets intercalaires ===");
+        line("credits en mobilisation : " + mobOutcome.examined()
+             + ", periodes facturees : " + mobOutcome.periodsBilled()
+             + ", anomalies : " + mobOutcome.anomalies().size());
+        line("duree : " + mobElapsed + " ms");
+
+        double perMobMillis = mobElapsed * 1.0 / loanCount;
+        line(String.format("cout par credit mobilise : %.3f ms", perMobMillis));
+        line(String.format("extrapolation %d k       : %.1f minutes", TARGET_LOANS / 1000,
+                           perMobMillis * TARGET_LOANS / 60_000.0));
+
+        org.assertj.core.api.Assertions.assertThat(mobOutcome.anomalies()).isEmpty();
+        org.assertj.core.api.Assertions.assertThat(mobOutcome.periodsBilled()).isEqualTo(loanCount);
+    }
+
+    /**
+     * Credits en cours de mobilisation : plan de deux tranches, la premiere debloquee, la date
+     * limite hors de portee du jour mesure.
+     */
+    private static void seedMobilisations(int count, LoanMobilisationService service) {
+        LoanTerms conditions = LoanTerms.of(Money.of("1000000", Currencies.XOF)).ratePercent("12")
+            .instalments(12).disbursedOn(DISBURSED).firstDueDate(DAY.plusMonths(1)).build();
+        for (int index = 0; index < count; index++) {
+            String suffix = String.format("%07d", index);
+            Account pret = customerAccount("M-PRET-" + suffix, NormalBalance.DEBIT);
+            Account courant = customerAccount("M-COURANT-" + suffix, NormalBalance.CREDIT);
+            UUID contract = database.inTransaction(c -> LoanStore.createContract(
+                c, new LoanStore.ContractDraft(ENTITY, "MOB-" + suffix, "CRED-BENCH-MOB",
+                                               Currencies.XOF, pret.id(), courant.id(),
+                                               Money.of("1000000", Currencies.XOF), DISBURSED,
+                                               ACTOR)));
+            DisbursementPlan plan = DisbursementPlan.of(Currencies.XOF)
+                .tranche(DISBURSED, Money.of("600000", Currencies.XOF))
+                .tranche(DAY.plusDays(2), Money.of("400000", Currencies.XOF))
+                .deadline(DAY.plusDays(5)).build();
+            service.open(contract, plan, conditions, null, ACTOR, APPROVER);
+            service.release(contract, 1, Money.of("600000", Currencies.XOF), DISBURSED,
+                            IdempotencyKey.of("MOBTR|" + contract), ACTOR, APPROVER);
+        }
     }
 
     private static Account dotations;

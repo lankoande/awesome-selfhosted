@@ -401,6 +401,69 @@ l'annulation du traitement, peut neutraliser une ligne. Le rang `generation` com
 et entre dans la clé d'idempotence de la refacturation : l'écriture d'origine subsiste au journal,
 contre-passée, et réutiliser sa clé ferait passer la refacturation pour un rejeu.
 
+### Mobilisation d'un crédit
+
+```sql
+CREATE TABLE loan_mobilisation (
+    contract_id            UUID PRIMARY KEY REFERENCES loan_contract(id),
+    drawdown_deadline      DATE NOT NULL,
+    instalment_count       INTEGER NOT NULL,
+    grace_instalments      INTEGER NOT NULL DEFAULT 0,
+    first_due_date         DATE NOT NULL,
+    upfront_fees           NUMERIC(23,5) NOT NULL DEFAULT 0,
+    interim_billed_through DATE NOT NULL,
+    closed_on              DATE,
+    closed_run_id          UUID,
+    opened_by              UUID NOT NULL,
+    approved_by            UUID NOT NULL,
+
+    CONSTRAINT ck_mobilisation_window CHECK (drawdown_deadline < first_due_date),
+    CONSTRAINT ck_mobilisation_close  CHECK (closed_on IS NULL OR closed_on < first_due_date - 1),
+    CONSTRAINT ck_mobilisation_approval CHECK (approved_by <> opened_by)
+);
+
+CREATE TABLE loan_tranche (
+    id              UUID PRIMARY KEY,
+    contract_id     UUID NOT NULL REFERENCES loan_contract(id),
+    number          INTEGER NOT NULL,
+    planned_on      DATE NOT NULL,
+    planned_amount  NUMERIC(23,5) NOT NULL CHECK (planned_amount > 0),
+    condition_label TEXT,
+    status          TEXT NOT NULL DEFAULT 'PLANNED',   -- PLANNED, RELEASED, CANCELLED
+    released_on     DATE,
+    released_amount NUMERIC(23,5),
+    ...
+    CONSTRAINT ck_tranche_release_amount CHECK (
+        released_amount IS NULL
+        OR (released_amount > 0 AND released_amount <= planned_amount)),
+    CONSTRAINT ck_tranche_approval CHECK (
+        status <> 'RELEASED' OR (approved_by IS NOT NULL AND approved_by <> released_by))
+);
+```
+
+Quatre points portés par le schéma.
+
+**La durée accordée vit sur la mobilisation, pas sur le contrat.** Pendant la phase de tirage, il
+n'existe aucun échéancier où la loger — et en publier un reviendrait à réclamer l'amortissement
+d'un capital non versé. La ligne subsiste après la clôture, comme trace de ce qui a été accordé face
+à ce qui a été tiré.
+
+**Le montant mobilisé n'est stocké nulle part.** Il se lit sur les tranches débloquées. Le
+dénormaliser ferait exister deux vérités sur le capital, et rien ne garantirait que celle qui
+commande l'échéancier définitif soit la bonne.
+
+**Le montant prévu et le montant versé sont deux colonnes.** Une tranche se débloque à hauteur de
+l'avancement constaté ; réécrire le prévu ferait disparaître l'écart, et avec lui la trace de
+l'engagement non tenu. Un déclencheur différé vérifie que la somme des montants **prévus** égale le
+capital accordé : sans lui, l'écart serait débloqué hors plan ou perdu pour l'emprunteur, et aucune
+écriture ne le signalerait.
+
+**Le curseur `interim_billed_through` est l'invariant de la facturation intercalaire.** Il garantit
+qu'aucune journée n'est facturée deux fois ni oubliée, y compris sur un TFJ rejoué ; l'annulation
+d'un traitement le fait reculer exactement à la veille de la première période reprise. `closed_run_id`
+joue le même rôle pour la clôture : sans lui, l'annulation d'un TFJ laisserait un échéancier
+définitif arrêté sur un capital dont les écritures viennent d'être contre-passées.
+
 ---
 
 ## 6. Batch et outbox

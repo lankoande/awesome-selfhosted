@@ -60,7 +60,7 @@ class LoanSchemaTest {
             .containsExactly("amount");
         assertThat(LoanSchemas.provisionRelease(Currencies.XOF).freeVariables())
             .containsExactly("amount");
-        assertThat(LoanSchemas.standard(Currencies.XOF).templates()).hasSize(8);
+        assertThat(LoanSchemas.standard(Currencies.XOF).templates()).hasSize(10);
     }
 
     @Test

@@ -2,9 +2,11 @@ package io.corebanking.loan;
 
 import io.corebanking.interest.rate.MathContexts;
 import io.corebanking.kernel.money.Money;
+import io.corebanking.kernel.time.Periodicity;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -85,12 +87,83 @@ public final class EffectiveRate {
     }
 
     /**
+     * Taux effectif d'un credit <b>debloque par tranches</b>.
+     *
+     * <h2>Pourquoi il ne se calcule pas sur l'echeancier seul</h2>
+     *
+     * <p>Une tranche versee six mois apres la signature ne vaut pas, pour l'emprunteur, une tranche
+     * versee le jour meme : il n'en a pas dispose pendant six mois. Faire comme s'il avait tout
+     * recu a l'origine lui prete une somme qu'il n'avait pas, et <b>sous-estime</b> le taux
+     * effectif. Le sens de l'erreur importe : c'est celui qui fait passer sous le plafond d'usure
+     * un credit qui le depasse.
+     *
+     * <p>Les deux cotes sont donc actualises : ce que l'emprunteur recoit, tranche par tranche, et
+     * ce qu'il paie — frais retenus, interets intercalaires, echeances. L'origine des temps est la
+     * premiere mise a disposition, la seule date a laquelle l'emprunteur n'a encore rien recu.
+     *
+     * @param origin    date de la premiere mise a disposition
+     * @param frequency periodicite du credit, qui donne l'unite de l'axe des temps
+     */
+    public static Teg between(LocalDate origin, Periodicity frequency, List<DatedFlow> received,
+                              List<DatedFlow> paid, RateAnnualisation method) {
+        if (received.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Aucune mise a disposition : un credit non mobilise n'a pas de taux effectif.");
+        }
+        List<TimedFlow> in = timed(received, origin, frequency);
+        List<TimedFlow> out = timed(paid, origin, frequency);
+        BigDecimal periodic = periodicRate(in, out);
+        BigDecimal annual = annualise(periodic, frequency.periodsPerYear(), method);
+        return new Teg(percent(periodic), percent(annual), method, total(received), total(paid));
+    }
+
+    private static List<TimedFlow> timed(List<DatedFlow> flows, LocalDate origin,
+                                         Periodicity frequency) {
+        List<TimedFlow> timed = new ArrayList<>(flows.size());
+        for (DatedFlow flow : flows) {
+            if (flow.on().isBefore(origin)) {
+                throw new IllegalArgumentException(
+                    "Flux au " + flow.on() + ", anterieur a l'origine du " + origin + ".");
+            }
+            timed.add(new TimedFlow(periods(origin, flow.on(), frequency), flow.amount()));
+        }
+        return timed;
+    }
+
+    private static Money total(List<DatedFlow> flows) {
+        Money total = flows.get(0).amount();
+        for (int index = 1; index < flows.size(); index++) {
+            total = total.plus(flows.get(index).amount());
+        }
+        return total;
+    }
+
+    /** Position d'une date sur l'axe des periodes, comptee en jours reels. */
+    private static BigDecimal periods(LocalDate origin, LocalDate date, Periodicity frequency) {
+        BigDecimal daysPerPeriod = BigDecimal.valueOf(365)
+            .divide(BigDecimal.valueOf(frequency.periodsPerYear()), CONTEXT);
+        return BigDecimal.valueOf(ChronoUnit.DAYS.between(origin, date))
+            .divide(daysPerPeriod, CONTEXT);
+    }
+
+    /**
      * Taux periodique annulant la valeur actuelle.
      *
      * @param received somme mise a disposition a l'origine
      * @param flows    remboursements, dates en periodes
      */
     public static BigDecimal periodicRate(Money received, List<TimedFlow> flows) {
+        return periodicRate(List.of(new TimedFlow(BigDecimal.ZERO, received)), flows);
+    }
+
+    /**
+     * Taux periodique annulant la valeur actuelle, les deux cotes etant dates.
+     *
+     * <p>La monotonie qui rend la dichotomie sure tient tant que les sommes recues precedent les
+     * sommes payees — ce qui est le cas de tout credit. Un montage ou l'emprunteur paierait avant
+     * de recevoir n'est pas un credit et son taux n'aurait pas de sens.
+     */
+    public static BigDecimal periodicRate(List<TimedFlow> received, List<TimedFlow> flows) {
         if (flows.isEmpty()) {
             throw new IllegalArgumentException("Aucun flux de remboursement : taux indefini.");
         }
@@ -146,10 +219,13 @@ public final class EffectiveRate {
      * que ce qui a ete recu — et croissant avec lui. C'est cette monotonie qui rend la dichotomie
      * sure.
      */
-    private static BigDecimal presentValueGap(Money received, List<TimedFlow> flows,
+    private static BigDecimal presentValueGap(List<TimedFlow> received, List<TimedFlow> flows,
                                               BigDecimal rate) {
-        BigDecimal value = received.amount();
         BigDecimal base = BigDecimal.ONE.add(rate);
+        BigDecimal value = BigDecimal.ZERO;
+        for (TimedFlow flow : received) {
+            value = value.add(flow.amount().amount().divide(power(base, flow.periods()), CONTEXT));
+        }
         for (TimedFlow flow : flows) {
             value = value.subtract(flow.amount().amount().divide(power(base, flow.periods()),
                                                                  CONTEXT));

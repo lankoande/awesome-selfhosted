@@ -87,7 +87,8 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | 3 | `FX_RATES` | Chargement et contrôle des cours de clôture | ✔ |
 | 4 | `VALUE_DATE_REBUILD` | Reconstruction des soldes en date de valeur, détection des antidatages | ✔ |
 | 5 | `INTEREST_ACCRUAL` | Accruals créditeurs et débiteurs, y compris recalculs rétroactifs | ✔ |
-| 6 | `LOAN_SCHEDULE` | Échéances du jour, exigibilité, prélèvement, passage en impayé | ✔ |
+| 6 | `LOAN_MOBILISATION` | Intérêts intercalaires, clôture de la mobilisation, échéancier définitif | ✔ |
+| 6b | `LOAN_SCHEDULE` | Échéances du jour, exigibilité, prélèvement, passage en impayé | ✔ |
 | 7 | `LOAN_LATE_CHARGES` | Intérêts de retard, pénalités | ✔ |
 | 8 | `FEE_CHARGING` | Commissions périodiques, frais de tenue de compte, taxes associées | ✔ |
 | 9 | `LOAN_CLASSIFICATION` | Jours de retard, buckets, contagion, provision, suspension | ✔ |
@@ -105,9 +106,9 @@ Une étape **bloquante** en échec arrête le run. Les autres consignent une ano
 laissent le run se poursuivre, avec restitution à la clôture.
 
 > **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `FEE_CHARGING` →
-> `LOAN_SCHEDULE` → `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` → `INTEREST_ACCRUAL` →
-> `BALANCE_SNAPSHOT` → `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans
-> toucher au moteur.
+> `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` →
+> `INTEREST_ACCRUAL` → `BALANCE_SNAPSHOT` → `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes
+> s'insèrent sans toucher au moteur.
 >
 > Classification et provisionnement sont **une seule étape** et non deux : la provision se calcule
 > à partir de la classe, et les séparer laisserait entre elles un instant où le portefeuille est
@@ -127,6 +128,16 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > anomalie : c'est un fait de gestion, traité selon la politique du produit et consigné liquidation
 > par liquidation. La signaler arrêterait le TFJ de la banque entière parce qu'un client est à
 > découvert.
+>
+> `LOAN_MOBILISATION` précède `LOAN_SCHEDULE` parce que c'est elle qui publie l'échéancier
+> définitif d'un crédit débloqué par tranches. Une échéance ne se rend pas exigible sur un plan qui
+> n'existe pas encore, et l'ordre inverse reporterait d'une journée entière la première échéance de
+> tout crédit mobilisé — un décalage invisible, qui ne se verrait qu'au rapprochement des dates de
+> valeur. L'étape est **bloquante** : une mobilisation qui ne se clôt pas laisse un crédit sans
+> échéancier, donc rien à réclamer, rien en retard, rien à déclasser — le portefeuille paraît sain
+> et la comptabilité reste équilibrée. Une tranche non tirée à la date limite, en revanche, n'est
+> pas une anomalie : c'est un chantier qui n'a pas avancé, et il n'a pas à bloquer l'arrêté de la
+> banque.
 >
 > `LOAN_SCHEDULE` fait deux choses dans la même étape : rendre l'échéance exigible, puis la
 > prélever quand le produit le prévoit. Les séparer ferait apparaître en impayé, entre les deux,

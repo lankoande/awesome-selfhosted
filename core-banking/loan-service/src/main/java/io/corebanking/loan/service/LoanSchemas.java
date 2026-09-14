@@ -41,6 +41,8 @@ public final class LoanSchemas {
     public static final String EVENT_PROVISION_CHARGE = "LOAN_PROVISION_CHARGE";
     public static final String EVENT_PROVISION_RELEASE = "LOAN_PROVISION_RELEASE";
     public static final String EVENT_INTEREST_SUSPENSION = "LOAN_INTEREST_SUSPENSION";
+    public static final String EVENT_TRANCHE_RELEASE = "LOAN_TRANCHE_RELEASE";
+    public static final String EVENT_INTERIM_INTEREST = "LOAN_INTERIM_INTEREST";
 
     public static final String ROLE_SETTLEMENT = "settlement";
     public static final String ROLE_ACCRUED = "accrued_receivable";
@@ -82,6 +84,54 @@ public final class LoanSchemas {
                                       "Mise a disposition des fonds").onlyIf("net > 0"))
             .line(TemplateLine.credit("PARAM:" + ROLE_FEE_INCOME, "frais",
                                       "Frais de dossier").onlyIf("frais > 0"))
+            .build();
+    }
+
+    /**
+     * Deblocage d'une tranche : l'encours augmente du montant mis a disposition, et de lui seul.
+     *
+     * <p>Le schema est celui du deblocage — meme ecriture, meme retenue de frais — mais l'evenement
+     * est distinct. Un credit mobilise en quatre fois produit quatre ecritures de deblocage : les
+     * confondre avec un deblocage unique rendrait le journal incapable de dire a quelle date chaque
+     * franc a ete verse, ce qui est precisement l'information dont le taux effectif et les interets
+     * intercalaires dependent.
+     */
+    public static EventTemplate trancheRelease(CurrencyRef currency) {
+        int scale = currency.scale();
+        return EventTemplate.of(EVENT_TRANCHE_RELEASE)
+            .derive("capital", "round(amount, " + scale + ")")
+            .derive("frais", "min(round(upfront_fees, " + scale + "), capital)")
+            .derive("net", "capital - frais")
+            .line(TemplateLine.debit("CONTRACT", "capital", "Deblocage de tranche"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_SETTLEMENT, "net",
+                                      "Mise a disposition des fonds").onlyIf("net > 0"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_FEE_INCOME, "frais",
+                                      "Frais de dossier").onlyIf("frais > 0"))
+            .build();
+    }
+
+    /**
+     * Interets intercalaires : ce que coute le credit pendant sa mobilisation.
+     *
+     * <p>Ils sont constates en produits d'interets, comme les interets d'une echeance, et portes en
+     * creances rattachees en attendant leur reglement. Ce ne sont pas des interets de retard : la
+     * periode intercalaire est une periode normale du credit, simplement anterieure au debut de
+     * l'amortissement.
+     *
+     * <p>Le capital ne bouge pas. Un modele qui capitaliserait les interets intercalaires dans
+     * l'encours produirait des interets sur des interets, ce que le socle refuse par construction.
+     */
+    public static EventTemplate interimInterest(CurrencyRef currency) {
+        int scale = currency.scale();
+        return EventTemplate.of(EVENT_INTERIM_INTEREST)
+            .derive("i", "round(interest, " + scale + ")")
+            .derive("t", "round(tax, " + scale + ")")
+            .derive("total", "i + t")
+            .line(TemplateLine.debit("PARAM:" + ROLE_ACCRUED, "total",
+                                     "Interets intercalaires exigibles"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_INTEREST_INCOME, "i",
+                                      "Interets de la periode de mobilisation").onlyIf("i > 0"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_TAX, "t", "Taxe collectee").onlyIf("t > 0"))
             .build();
     }
 
@@ -231,6 +281,8 @@ public final class LoanSchemas {
             .on(provisionRelease(currency))
             .on(interestSuspension(currency))
             .on(prepayment(currency))
+            .on(trancheRelease(currency))
+            .on(interimInterest(currency))
             .build();
     }
 }

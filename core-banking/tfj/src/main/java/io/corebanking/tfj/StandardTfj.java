@@ -4,6 +4,7 @@ import io.corebanking.calendar.BusinessCalendar;
 import io.corebanking.fee.service.FeeChargingService;
 import io.corebanking.loan.service.LoanClassificationService;
 import io.corebanking.loan.service.LoanLateChargesService;
+import io.corebanking.loan.service.LoanMobilisationService;
 import io.corebanking.loan.service.LoanService;
 import io.corebanking.interest.service.BatchInterestAccrualService;
 import io.corebanking.ledger.domain.posting.PostingService;
@@ -13,6 +14,7 @@ import io.corebanking.tfj.steps.FeeChargingStep;
 import io.corebanking.tfj.steps.InterestAccrualStep;
 import io.corebanking.tfj.steps.LoanClassificationStep;
 import io.corebanking.tfj.steps.LoanLateChargesStep;
+import io.corebanking.tfj.steps.LoanMobilisationStep;
 import io.corebanking.tfj.steps.LoanScheduleStep;
 import io.corebanking.tfj.steps.OpenNextDayStep;
 import io.corebanking.tfj.steps.PreChecksStep;
@@ -60,12 +62,14 @@ public final class StandardTfj {
     public static List<TfjStep> steps(Database database,
                                       BatchInterestAccrualService interestService,
                                       FeeChargingService feeService, LoanService loanService,
+                                      LoanMobilisationService mobilisationService,
                                       LoanLateChargesService lateService,
                                       LoanClassificationService classificationService,
                                       BusinessCalendar calendar) {
         return List.of(
             new PreChecksStep(database),
             new FeeChargingStep(database, feeService),
+            new LoanMobilisationStep(mobilisationService),
             new LoanScheduleStep(loanService),
             new LoanLateChargesStep(lateService),
             new LoanClassificationStep(classificationService),
@@ -78,11 +82,13 @@ public final class StandardTfj {
     public static TfjEngine engine(Database database, PostingService postingService,
                                    BatchInterestAccrualService interestService,
                                    FeeChargingService feeService, LoanService loanService,
+                                   LoanMobilisationService mobilisationService,
                                    LoanLateChargesService lateService,
                                    LoanClassificationService classificationService,
                                    BusinessCalendar calendar) {
         return new TfjEngine(database, postingService,
-                             steps(database, interestService, feeService, loanService, lateService,
-                                   classificationService, calendar));
+                             steps(database, interestService, feeService, loanService,
+                                   mobilisationService, lateService, classificationService,
+                                   calendar));
     }
 }

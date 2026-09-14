@@ -61,6 +61,7 @@ class TfjBenchmark extends BenchmarkBase {
             database, postingService, interestService,
             new io.corebanking.fee.service.FeeChargingService(database, postingService),
             new io.corebanking.loan.service.LoanService(database, postingService),
+            new io.corebanking.loan.service.LoanMobilisationService(database, postingService),
             new io.corebanking.loan.service.LoanLateChargesService(database, postingService),
             new io.corebanking.loan.service.LoanClassificationService(
                 database, postingService,

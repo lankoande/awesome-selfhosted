@@ -213,6 +213,36 @@ nommé comme tel.
 
 Les deux plafonds d'indemnité s'appliquent ensemble, et c'est **le plus bas** qui l'emporte.
 
+### Déblocage par tranches — `loan_mobilisation` et `loan_tranche` ✅
+
+Le plan de déblocage n'est **pas** un paramètre produit : il appartient au dossier, comme le
+montant et la durée. Ce que le socle contrôle à l'ouverture, il le tire du plan et des conditions
+du contrat, pas du paramétrage.
+
+| Élément | Contenu |
+|---|---|
+| Tranches | rang, date prévue, montant engagé, condition en clair (« fondations achevées ») |
+| Date limite | fin de la période de mobilisation, obligatoirement antérieure à la première échéance |
+| Durée accordée | nombre d'échéances, différé, première échéance — logés sur la mobilisation tant qu'il n'existe pas d'échéancier |
+| Frais de dossier | retenus sur la première tranche, et sur elle seule |
+
+Les paramètres produit employés sont ceux du crédit ordinaire : `loan.interest_income`,
+`loan.accrued_receivable`, `loan.tax_account`, `loan.fee_income` pour les frais retenus,
+`loan.teg_method` et `loan.usury_rate` pour le contrôle du coût, `loan.direct_debit` pour le
+prélèvement des intérêts intercalaires — qui sont des créances ordinaires.
+
+**La condition de déblocage est conservée en clair et jamais interprétée.** Sa constatation est un
+acte humain ; prétendre l'automatiser reviendrait à débloquer des fonds sur la foi d'une date.
+
+**Le contrôle d'usure joue deux fois, et pas de la même façon.** À l'ouverture, sur le coût
+prévisionnel — toutes tranches tirées comme prévu — et il **refuse** : aucun franc n'est sorti. À la
+clôture, sur les dates réelles de versement, et il ne peut plus refuser : le dépassement est signalé
+comme anomalie bloquante de l'arrêté, la ristourne de frais qui le corrige étant une décision ⚠.
+
+**La commission d'engagement sur la fraction non tirée n'a pas de barème dédié** ⚠. Elle se
+paramètre comme une commission ordinaire ; son assiette — l'engagement non mobilisé — n'est pas
+encore une assiette reconnue par `FeeBasis`.
+
 ### Profil de risque — `risk_profile` et `risk_bucket` ✅
 
 Grille datée, versionnée, sous double validation, résolue à la date de l'arrêté.

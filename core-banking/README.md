@@ -12,8 +12,8 @@ core-banking/
 ├── interest-service    Intérêts courus, recalcul rétroactif, calcul par lot
 ├── fee-domain          Périodicité, assiette, proratisation, fiscalité des commissions
 ├── fee-service         Perception : échéances, provision, impayés, exonérations
-├── loan-domain         Échéanciers d'amortissement, imputation d'un règlement — arithmétique pure
-├── loan-service        Contrats : déblocage, exigibilité, prélèvement, retard, classification
+├── loan-domain         Échéanciers, imputation, plan de déblocage, intérêts intercalaires — pur
+├── loan-service        Contrats : déblocage, mobilisation, exigibilité, retard, classification
 ├── schema-engine       Traduction événement métier → écritures, validation par tirage
 ├── product-catalog     Product factory datée, schémas comptables, barèmes
 ├── calendar            Jours ouvrés, conventions et conditions de date de valeur
@@ -33,14 +33,15 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 409 tests verts** — 252 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 157 sur PostgreSQL réel.
+**État actuel : 436 tests verts** — 258 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 178 sur PostgreSQL réel.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
-interblocage ; TFJ complet — commissions **et** intérêts — à 0,809 ms par compte dans le cas le plus
-défavorable, soit **27,0 minutes** extrapolées pour 2 M de comptes contre 90 de fenêtre ;
-exigibilité des crédits à 1,630 ms par contrat, charges de retard à 1,500 ms par impayé,
-classification et provisionnement à 1,286 ms par crédit.
+interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
+défavorable, soit **29,4 minutes** extrapolées pour 2 M de comptes contre 90 de fenêtre ;
+exigibilité des crédits à 1,788 ms par contrat, charges de retard à 1,585 ms par impayé,
+classification et provisionnement à 1,168 ms par crédit, mobilisation et intérêts intercalaires à
+0,605 ms par crédit en cours de déblocage.
 
 ## Ce que le P0 garantit, et comment c'est prouvé
 
@@ -140,6 +141,17 @@ classification et provisionnement à 1,286 ms par crédit.
 | Une sûreté partagée n'est comptée qu'à sa quote-part | idem | `suretePartagee` |
 | Une sûreté ne peut pas être affectée à plus de 100 % | Déclencheur différé | `quotePartsExcessives` |
 | Deux sûretés de même rang sur le même actif sont refusées | `uq_collateral_rank` | `rangsEnDoublon` |
+| Les intérêts intercalaires ne courent que sur le capital mobilisé | `InterimInterest` | `assietteMobilisee`, `mobilisationComplete` |
+| Une tranche porte intérêt du jour de sa mise à disposition, pas du suivant | idem | `deblocageEnCoursDePeriode` |
+| La série des périodes intercalaires couvre la mobilisation sans trou ni recouvrement | `InterimInterest.periodEnds` | `serieContinue` |
+| Un plan de déblocage dont le total diffère du capital accordé est refusé | `DisbursementPlan` + déclencheur différé | `totalDifferent`, `planIncoherent` |
+| Une tranche ne se débloque ni hors délai, ni hors ordre, ni deux fois | `LoanMobilisationService` | `trancheHorsDelai`, `ordreDesTranches` |
+| Verser plus que le montant prévu est refusé | idem | `depassementDuPlan` |
+| Aucun échéancier n'existe avant la clôture de la mobilisation | idem | `echeancierALaCloture` |
+| Tirer moins que le montant accordé réduit l'échéance, jamais la durée | `LoanTerms.forDrawn` | `tranchePartielle` |
+| Une période intercalaire n'est facturée qu'une fois, TFJ rejoué compris | Index unique partiel | `reprise` |
+| Le TEG d'un crédit par tranches actualise aussi ce qui est reçu | `EffectiveRate.between` | `tauxEffectifDesTranches` |
+| L'annulation du TFJ rouvre la mobilisation et retire l'échéancier publié | `TfjEngine.cancel` | `annulationRouvreLaMobilisation` |
 
 ## Les choix qui vont au-delà des progiciels établis
 
@@ -426,7 +438,54 @@ n'est pas une valeur — et un type de sûreté sans quotité paramétrée, éca
 100 %. Une garantie silencieusement exclue laisse croire à une couverture qui n'existe pas, et cela
 ne se découvre qu'à la réalisation.
 
-### 14. Le XOF traité comme une vraie contrainte
+### 14. Le déblocage par tranches, et les intérêts qu'il ne fait pas courir
+
+Un crédit de construction, de campagne ou d'équipement ne verse pas la totalité à la signature : les
+fonds suivent l'avancement. Le contournement habituel — tout débloquer sur un compte d'attente puis
+« reverser » au fur et à mesure — laisse une comptabilité parfaitement équilibrée et fait payer à
+l'emprunteur des fonds qu'il n'a pas reçus.
+
+Sur le dossier de référence du test — 10 M XOF en deux tranches, 4 M à la signature et 6 M deux mois
+plus tard, cinq mois de mobilisation à 12 % — l'écart se chiffre :
+
+| Assiette des intérêts intercalaires | Coût pour l'emprunteur |
+|---|---|
+| Le montant **mobilisé**, jour par jour | 376 110 XOF |
+| Le montant **accordé**, dès la signature | 506 302 XOF |
+
+**130 192 XOF de trop**, soit un tiers, sur un seul dossier — et rien dans le journal ne le signale.
+
+Trois moments, trois décisions différentes :
+
+1. **À l'ouverture**, le plan est confronté aux conditions du crédit et le coût prévisionnel au
+   plafond d'usure. C'est le seul moment où le refus a un sens : aucun franc n'est sorti.
+2. **À chaque tranche**, les fonds sortent. L'ordre, la date limite et le montant prévu sont
+   contrôlés ; au-delà, c'est le constat de la condition — « fondations achevées » — qui commande,
+   et il est humain. Le socle conserve la condition en clair et ne l'interprète pas : prétendre
+   l'automatiser reviendrait à débloquer des fonds sur la foi d'une date.
+3. **À la clôture**, le capital tiré est connu. L'échéancier définitif est publié sur lui, et le TEG
+   arrêté sur les **dates réelles** de versement.
+
+Ce dernier point compte. Faire comme si tout avait été reçu à l'origine prête à l'emprunteur une
+somme qu'il n'avait pas, et **sous-estime** le taux effectif — 11,83 % au lieu de 12,83 % sur le
+dossier de référence. L'erreur va exactement dans le sens qui fait passer sous le plafond d'usure un
+crédit qui le dépasse.
+
+Trois conséquences qu'un modèle à déblocage unique ne sait pas porter :
+
+- **Aucun échéancier n'existe pendant la mobilisation.** Tant qu'une tranche reste à débloquer, le
+  capital à amortir n'est pas connu ; en publier un reviendrait à réclamer l'amortissement d'un
+  capital non versé.
+- **Tirer moins réduit l'échéance, pas la durée.** Ce que l'emprunteur a signé est un calendrier.
+- **La mobilisation se clôt à sa date limite, et à elle seule.** Avoir tout tiré en avance ne
+  raccourcit pas la période : c'est le contrat qui fixe le début de l'amortissement, et l'emprunteur
+  qui détient les fonds en paie les intérêts jusque-là.
+
+Le capital ne bouge pas : les intérêts intercalaires sont constatés en produits et portés en
+créances rattachées, jamais capitalisés dans l'encours — ce qui produirait des intérêts sur des
+intérêts, que le socle refuse par construction.
+
+### 15. Le XOF traité comme une vraie contrainte
 
 Échelle nulle native, accumulation en précision étendue, arrondi au seul moment de la
 comptabilisation, écart d'arrondi restitué explicitement. `MoneyTest.daily_rounding_drifts_measurably`
@@ -438,8 +497,9 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
 - API REST et couche Spring Boot (le ledger reste sans framework, c'est délibéré), qui câblera
   `RoleStartupTask`, `UseCaseExecutor` et le serveur de ressources Keycloak ;
-- crédit : origination (demande, scoring, décision, conditions suspensives) et déblocage par
-  tranches ;
+- crédit : origination (demande, scoring, décision, conditions suspensives) — le déblocage par
+  tranches, lui, est fait ; la commission d'engagement sur la fraction non tirée se paramètre comme
+  une commission ordinaire et n'a pas encore de barème dédié ;
 - plafonds et limites paramétrés, et le maker-checker généralisé (la table `pending_operation`
   existe, le workflow n'est pas écrit) ;
 - capitalisation des intérêts, dormance, découverts et agios côté produit ;
@@ -491,3 +551,9 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Les rangs antérieurs comptent toutes affectations confondues, y compris d'autres banques | Ce qui compte est ce qui reste de l'actif, pas ce que la banque en a déjà pris pour elle |
 | Une sûreté écartée est signalée, jamais ignorée | Croire couvrir un encours qu'on ne couvre pas ne se découvre qu'à la réalisation |
 | Une mainlevée marque la sûreté, elle ne la supprime pas | L'historique des rangs est une pièce du dossier |
+| Aucun échéancier n'est publié pendant la mobilisation | Le capital à amortir n'est pas connu ; en publier un réclamerait l'amortissement d'un capital non versé |
+| La mobilisation se clôt à sa date limite, même si tout est tiré | C'est le contrat qui fixe le début de l'amortissement, pas le rythme du chantier |
+| Le montant mobilisé n'est pas stocké, il se lit sur les tranches débloquées | Le dénormaliser ferait exister deux vérités sur le capital, et rien ne garantirait que celle qui commande l'échéancier soit la bonne |
+| Les frais de dossier sont retenus sur la première tranche, et sur elle seule | Les étaler ferait dépendre leur montant du nombre de tranches réellement tirées |
+| Un dépassement d'usure constaté à la clôture est bloquant, pas un fait de gestion | Les fonds sont versés : la banque est en infraction tant que la ristourne n'est pas décidée |
+| Une tranche non tirée à la date limite n'est pas une anomalie | Un chantier qui n'a pas avancé n'a pas à bloquer l'arrêté de la banque |

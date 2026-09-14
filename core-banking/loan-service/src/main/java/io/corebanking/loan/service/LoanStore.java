@@ -108,6 +108,35 @@ public final class LoanStore {
         }
     }
 
+    /**
+     * Enregistre les conditions financieres sans arreter le taux effectif.
+     *
+     * <p>Un credit mobilise par tranches a besoin de ses conditions des l'ouverture — les interets
+     * intercalaires s'en servent — mais son taux effectif n'est connu qu'a la cloture, quand le
+     * capital tire et les dates de versement le sont. Les ecrire ensemble obligerait a inventer un
+     * taux effectif provisoire et a le laisser dans la base sous le meme nom que le definitif.
+     */
+    public static void recordFinancialTerms(Connection c, UUID contractId, LoanTerms terms) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE loan_contract SET annual_rate_percent = ?, frequency = ?,"
+            + " amortisation_method = ?, day_count = ?, periodic_fee = ?, insurance_basis = ?,"
+            + " insurance_rate_percent = ?, tax_on_interest_percent = ? WHERE id = ?")) {
+            ps.setBigDecimal(1, terms.annualRatePercent());
+            ps.setString(2, terms.frequency().name());
+            ps.setString(3, terms.method().name());
+            ps.setString(4, terms.dayCount().name());
+            ps.setBigDecimal(5, terms.periodicFee().amount());
+            ps.setString(6, terms.insuranceBasis().name());
+            ps.setBigDecimal(7, terms.insuranceRatePercent());
+            ps.setBigDecimal(8, terms.taxOnInterestRatePercent());
+            ps.setObject(9, contractId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Enregistrement des conditions du contrat " + contractId,
+                                           e);
+        }
+    }
+
     public static void close(Connection c, UUID contractId) {
         try (PreparedStatement ps = c.prepareStatement(
             "UPDATE loan_contract SET status = 'CLOSED' WHERE id = ? AND status = 'ACTIVE'")) {
@@ -244,7 +273,9 @@ public final class LoanStore {
 
     // ------------------------------------------------------------------ echeanciers
 
-    public enum ScheduleReason { INITIAL, RESCHEDULING, EARLY_REPAYMENT, RATE_REVISION }
+    public enum ScheduleReason {
+        INITIAL, RESCHEDULING, EARLY_REPAYMENT, RATE_REVISION, MOBILISATION
+    }
 
     /**
      * Publie une version d'echeancier et clot la precedente a la veille de sa prise d'effet.
@@ -256,6 +287,18 @@ public final class LoanStore {
     public static UUID publishSchedule(Connection c, UUID contractId, AmortisationSchedule schedule,
                                        ScheduleReason reason, LocalDate effectiveFrom,
                                        UUID createdBy, UUID approvedBy) {
+        return publishSchedule(c, contractId, schedule, reason, effectiveFrom, createdBy,
+                               approvedBy, null);
+    }
+
+    /**
+     * @param batchRunId traitement qui publie la version, lorsqu'elle nait d'un traitement de fin
+     *                   de journee. Son annulation doit pouvoir la retirer : un echeancier publie
+     *                   par un TFJ annule ne repose plus sur aucune ecriture.
+     */
+    public static UUID publishSchedule(Connection c, UUID contractId, AmortisationSchedule schedule,
+                                       ScheduleReason reason, LocalDate effectiveFrom,
+                                       UUID createdBy, UUID approvedBy, UUID batchRunId) {
         int version = nextVersion(c, contractId);
         if (version > 1) {
             requireStartsAtEffectiveDate(schedule, effectiveFrom, contractId);
@@ -264,7 +307,7 @@ public final class LoanStore {
         UUID id = Ids.newId();
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO loan_schedule(id, contract_id, version, reason, effective_from,"
-            + " created_by, approved_by) VALUES (?,?,?,?,?,?,?)")) {
+            + " created_by, approved_by, created_run_id) VALUES (?,?,?,?,?,?,?,?)")) {
             ps.setObject(1, id);
             ps.setObject(2, contractId);
             ps.setInt(3, version);
@@ -272,6 +315,7 @@ public final class LoanStore {
             ps.setObject(5, effectiveFrom);
             ps.setObject(6, createdBy);
             ps.setObject(7, approvedBy);
+            ps.setObject(8, batchRunId);
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new LedgerStoreException("Publication de l'echeancier du contrat " + contractId, e);

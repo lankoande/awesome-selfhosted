@@ -105,6 +105,43 @@ public record LoanTerms(
                              insuranceRatePercent, taxOnInterestRatePercent);
     }
 
+    /**
+     * Memes conditions, completees par la duree et la premiere echeance.
+     *
+     * <p>Le contrat conserve le taux, la methode et les accessoires, mais pas la duree : celle-ci
+     * appartient a l'echeancier, qui est versionne. Pendant une mobilisation, il n'y a pas encore
+     * d'echeancier — la duree accordee est alors relue de la ligne de mobilisation et rendue aux
+     * conditions par cette methode.
+     */
+    public LoanTerms withTerm(int instalments, int grace, LocalDate firstDue) {
+        return new LoanTerms(principal, currency, annualRatePercent, frequency, instalments, grace,
+                             disbursedOn, firstDue, method, dayCount, periodicFee, insuranceBasis,
+                             insuranceRatePercent, taxOnInterestRatePercent);
+    }
+
+    /**
+     * Memes conditions, ramenees au capital reellement mobilise a la cloture d'un deblocage
+     * echelonne.
+     *
+     * <p>Le nombre d'echeances, la periodicite et les dates d'echeance ne bougent pas : ce que
+     * l'emprunteur a signe, c'est une duree et un calendrier, pas un montant d'echeance. Tirer
+     * moins que le montant accorde reduit l'echeance, pas le terme.
+     *
+     * <p>Le differe d'amortissement est conserve : il porte sur la phase d'amortissement et n'a
+     * rien a voir avec la mobilisation, qui vient de s'achever.
+     *
+     * @param from premier jour de la periode d'interets de la premiere echeance : la date de
+     *             cloture de la mobilisation. Les jours anterieurs ont deja ete factures en
+     *             interets intercalaires ; les reprendre ici les compterait deux fois.
+     */
+    public LoanTerms forDrawn(Money drawn, LocalDate from) {
+        require(!drawn.isGreaterThan(principal),
+                "capital mobilise de " + drawn + " superieur au montant accorde de " + principal);
+        return new LoanTerms(drawn, currency, annualRatePercent, frequency, instalmentCount,
+                             graceInstalments, from, firstDueDate, method, dayCount, periodicFee,
+                             insuranceBasis, insuranceRatePercent, taxOnInterestRatePercent);
+    }
+
     /** Date d'echeance de rang donne, de 1 a {@link #instalmentCount()}. */
     public LocalDate dueDate(int number) {
         require(number >= 1 && number <= instalmentCount,

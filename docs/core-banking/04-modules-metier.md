@@ -182,6 +182,44 @@ LoanApplication      demande, pièces, scoring, décision, comité
         └── Classification         bucket réglementaire, provision, historique
 ```
 
+### Déblocage par tranches et période de mobilisation
+
+Un crédit de construction, de campagne ou d'équipement verse ses fonds au rythme de l'avancement.
+La période pendant laquelle les tranches peuvent être tirées est la **mobilisation** ; elle se clôt
+à une date limite contractuelle, avant la première échéance d'amortissement.
+
+| Objet | Rôle |
+|---|---|
+| `DisbursementPlan` | Tranches (rang, date prévue, montant, condition en clair) et date limite |
+| `Tranche` | Montant engagé, à ne pas confondre avec le montant versé : une tranche se débloque à hauteur de l'avancement constaté, et le reliquat tombe avec elle |
+| `InterimInterest` | Intérêts intercalaires : assiette = somme des tranches déjà versées, jour par jour |
+| `loan_mobilisation` | État de la phase : date limite, durée accordée, curseur de facturation, clôture |
+
+Trois règles structurent le modèle, et chacune corrige une erreur qui ne se voit pas en
+comptabilité :
+
+1. **Les intérêts ne courent que sur le montant mobilisé.** Les faire courir sur le montant accordé
+   fait payer à l'emprunteur des fonds qu'il n'a pas reçus ; ne les faire courir qu'à partir du
+   dernier tirage lui offre plusieurs mois de trésorerie gratuite.
+2. **Aucun échéancier n'existe pendant la mobilisation.** Tant qu'une tranche reste à débloquer, le
+   capital à amortir n'est pas connu.
+3. **La mobilisation se clôt à sa date limite, et à elle seule.** Avoir tout tiré en avance ne
+   raccourcit pas la période : c'est le contrat qui fixe le début de l'amortissement.
+
+Les périodes intercalaires se **calent à rebours sur la première échéance** d'amortissement : le
+client paie ses intérêts intercalaires le jour du mois où il paiera ensuite ses échéances, et le
+passage de la mobilisation à l'amortissement ne produit pas une période bâtarde à cheval sur deux
+calendriers. La dernière période s'arrête à la clôture, et l'échéancier définitif prend effet le
+lendemain : aucune journée n'est facturée deux fois, aucune n'est oubliée.
+
+Le **taux effectif** d'un crédit par tranches actualise les deux côtés — ce qui est reçu, tranche
+par tranche, et ce qui est payé. Faire comme si tout avait été reçu à l'origine sous-estime le taux
+et fait passer sous le plafond d'usure un crédit qui le dépasse.
+
+Ce qui n'est **pas** couvert : la capitalisation des intérêts intercalaires dans le capital — elle
+produirait des intérêts sur des intérêts — et la commission d'engagement sur la fraction non tirée,
+qui se paramètre comme une commission ordinaire.
+
 ### Méthodes d'amortissement
 
 | Méthode | Usage |
@@ -304,9 +342,16 @@ Piloté par le profil réglementaire ([03](03-referentiel-parametrage.md#7-profi
 > fraîcheur de l'expertise, rang sur l'actif, quote-part entre plusieurs crédits, mainlevée. Les
 > quatre réductions s'appliquent dans cet ordre, et une sûreté écartée est toujours signalée.
 >
-> **Ce qui manque** : l'origination (demande, scoring, décision, comité, conditions suspensives) et
-> le déblocage par tranches. L'opposabilité juridique d'une sûreté — inscription, publicité, délais
-> de purge — reste hors du socle : elle se constate au dossier, pas au calcul.
+> **Le déblocage par tranches est implémenté** : plan de tranches daté et conditionné, intérêts
+> intercalaires sur le seul capital mobilisé jour par jour, échéancier définitif arrêté à la clôture
+> de la mobilisation sur le capital réellement tiré, TEG calculé sur les dates réelles de versement.
+> L'assiette est le point qui coûte : sur un dossier de 10 M XOF tiré en deux fois, faire courir les
+> intérêts sur le montant accordé plutôt que sur le mobilisé coûte 130 192 XOF de trop à
+> l'emprunteur, et la comptabilité reste équilibrée. Voir plus bas.
+>
+> **Ce qui manque** : l'origination (demande, scoring, décision, comité, conditions suspensives).
+> L'opposabilité juridique d'une sûreté — inscription, publicité, délais de purge — reste hors du
+> socle : elle se constate au dossier, pas au calcul.
 
 1. Calcul du nombre de jours de retard du plus ancien impayé.
 2. Détermination du bucket selon la méthode du profil.

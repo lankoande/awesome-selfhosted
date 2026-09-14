@@ -59,6 +59,24 @@ public enum Periodicity {
                              : anchor.plusMonths((long) months * index);
     }
 
+    /**
+     * Date situee un nombre entier de periodes <b>avant</b> l'ancrage.
+     *
+     * <p>Meme discipline que {@link #startOfPeriod} : le calcul repart de l'ancrage a chaque fois,
+     * jamais du resultat precedent. Sert aux series qui se construisent a rebours — les periodes
+     * d'interets intercalaires, calees sur la premiere echeance d'amortissement — ou remonter de
+     * proche en proche deplacerait le jour d'echeance des le premier mois court.
+     */
+    public LocalDate beforeAnchor(LocalDate anchor, int periodsBack) {
+        Objects.requireNonNull(anchor, "anchor");
+        if (periodsBack < 0) {
+            throw new IllegalArgumentException(
+                "Nombre de periodes a remonter negatif : " + periodsBack);
+        }
+        return this == DAILY ? anchor.minusDays(periodsBack)
+                             : anchor.minusMonths((long) months * periodsBack);
+    }
+
     /** Periode de rang donne, bornes incluses. Les periodes successives sont jointives. */
     public SchedulePeriod period(LocalDate anchor, int index) {
         return new SchedulePeriod(index, startOfPeriod(anchor, index),
