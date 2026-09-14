@@ -142,6 +142,28 @@ Chaque paramètre est **historisé par période de validité**. Un arrêté rejo
 passée lit les paramètres en vigueur à cette date. Sans cela, un rejeu produit des montants
 différents de l'original — et l'arrêté devient invérifiable.
 
+### Le type de produit est un contrat, pas une étiquette
+
+> **Implémenté.** Le type porte une **famille de produit** qui déclare ce que le produit doit
+> porter : paramètres exigés, paramètres admis, exigences conditionnelles, blocs répétés. Elle est
+> déclarée dans `resources/product/families.json`, chargée et validée au démarrage, et appliquée à
+> l'activation d'une version.
+>
+> C'est ce qui manquait pour que la frontière code / paramétrage décrite plus haut tienne
+> réellement. Sans elle, le type n'était qu'une chaîne libre : le comportement était bien du code,
+> mais rien ne vérifiait que le paramétrage fournissait au code ce qu'il allait lire. Un produit de
+> crédit sans compte de créances rattachées s'activait sans rien dire, et le manque se découvrait au
+> premier traitement de fin de journée qui en avait besoin.
+>
+> Corollaire : **un paramètre que la famille ne déclare pas est refusé**. Une clé jamais lue est
+> indiscernable d'une clé mal nommée, et les deux donnent à leur auteur la certitude d'avoir
+> paramétré quelque chose. C'est la règle 9 de la gouvernance du paramétrage, désormais tenue par un
+> test plutôt que par la discipline.
+>
+> Les familles déclarées aujourd'hui sont `CURRENT_ACCOUNT`, `SAVINGS_ACCOUNT` et `TERM_LOAN`.
+> `TERM_DEPOSIT` et `REVOLVING_CREDIT` figurent dans le schéma ci-dessus mais n'ont pas de code qui
+> les traite : les déclarer sans cela reviendrait à promettre un contrat que personne n'honore.
+
 ---
 
 ## 4. Schémas comptables

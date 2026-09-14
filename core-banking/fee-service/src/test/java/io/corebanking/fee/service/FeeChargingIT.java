@@ -489,22 +489,55 @@ class FeeChargingIT extends FeeTestBase {
     }
 
     @Test
-    @DisplayName("un parametrage incomplet est signale par compte, sans interrompre les autres")
-    void parametrageIncomplet() {
+    @DisplayName("une commission forfaitaire sans montant ne se deploie pas")
+    void commissionSansMontantRefuseeAuDeploiement() {
         Map<String, String> parametres = new LinkedHashMap<>();
         parametres.put(FeeCatalog.P_FEE_CODES, "TENUE");
         parametres.put("fee.TENUE.basis", "FLAT");
         parametres.put("fee.TENUE.income_account", produitCommissions.id().toString());
-        // Le montant du forfait manque.
-        product("P-INCOMPLET", parametres, OUVERTURE);
+        // Le montant du forfait manque : la commission se percevrait a zero sur tout le
+        // portefeuille, et rien dans la comptabilite ne le signalerait.
+        assertThatThrownBy(() -> product("P-REFUSE", parametres, OUVERTURE))
+            .isInstanceOf(io.corebanking.product.ProductFamily.IncompleteProductException.class)
+            .hasMessageContaining("fee.TENUE.amount");
+    }
+
+    @Test
+    @DisplayName("un parametre supprime en base apres coup est signale par compte, sans interrompre les autres")
+    void parametrageIncomplet() {
+        Map<String, String> parametres = new LinkedHashMap<>();
+        parametres.put(FeeCatalog.P_FEE_CODES, "TENUE");
+        parametres.put("fee.TENUE.basis", "FLAT");
+        parametres.put("fee.TENUE.amount", "2000");
+        parametres.put("fee.TENUE.income_account", produitCommissions.id().toString());
+        UUID version = product("P-INCOMPLET", parametres, OUVERTURE);
         Account compte = client("C-INCOMPLET", OUVERTURE);
         assign(compte, "P-INCOMPLET", OUVERTURE);
+
+        // Le controle de famille ferme la porte du deploiement, pas celle de la base : un
+        // correctif manuel reste possible, et la perception doit y survivre compte par compte
+        // plutot que d'arreter l'arrete de la banque.
+        supprimerParametre(version, "fee.TENUE.amount");
 
         FeeChargingService.Outcome bilan = percevoir(compte, FIN_SEPTEMBRE);
 
         assertThat(bilan.anomalies()).hasSize(1);
         assertThat(bilan.anomalies().get(0)).contains("fee.TENUE.amount");
         assertThat(charges(compte.id())).isEmpty();
+    }
+
+    private static void supprimerParametre(UUID versionId, String name) {
+        database.inTransaction(c -> {
+            try (var ps = c.prepareStatement(
+                "DELETE FROM product_parameter WHERE product_version_id = ? AND name = ?")) {
+                ps.setObject(1, versionId);
+                ps.setString(2, name);
+                ps.executeUpdate();
+                return null;
+            } catch (java.sql.SQLException e) {
+                throw new io.corebanking.ledger.store.LedgerStoreException("Suppression", e);
+            }
+        });
     }
 
     // ------------------------------------------------------------------ outillage

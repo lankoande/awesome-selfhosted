@@ -36,6 +36,10 @@ abstract class FeeTestBase {
     protected static JdbcPostingService postingService;
     protected static FeeChargingService feeService;
 
+    /** Comptes d'interets du compte courant non remunere : le taux est nul, pas le parametrage. */
+    protected static Account chargesInterets;
+    protected static Account interetsCourus;
+
     protected static final UUID ENTITY = UUID.fromString("00000000-0000-0000-0000-0000000000e1");
     protected static final UUID ACTOR = UUID.fromString("00000000-0000-0000-0000-0000000000ac");
     protected static final UUID APPROVER = UUID.fromString("00000000-0000-0000-0000-0000000000af");
@@ -64,6 +68,8 @@ abstract class FeeTestBase {
 
         postingService = new JdbcPostingService(database);
         feeService = new FeeChargingService(database, postingService);
+        chargesInterets = glDebit("GL-INT-CHARGES");
+        interetsCourus = gl("GL-INT-COURUS");
     }
 
     @AfterAll
@@ -112,12 +118,26 @@ abstract class FeeTestBase {
         return account(code, AccountKind.CUSTOMER, NormalBalance.CREDIT, openedAt);
     }
 
+    /**
+     * Compte courant non remunere.
+     *
+     * <p>Le taux nul est <b>explicite</b>, et les comptes d'imputation designes : le traitement de
+     * fin de journee remunere tout compte rattache a un produit, et sa famille exige donc ces
+     * parametres. Les omettre ferait echouer une etape bloquante la nuit suivante — c'est ce que la
+     * famille de produit interdit desormais de deployer.
+     */
     protected static UUID product(String code, Map<String, String> parameters,
                                   LocalDate validFrom) {
+        Map<String, String> complets = new java.util.LinkedHashMap<>(parameters);
+        complets.putIfAbsent(ProductCatalog.P_RATE, "0");
+        complets.putIfAbsent(ProductCatalog.P_DAY_COUNT, "ACT_365");
+        complets.putIfAbsent(ProductCatalog.P_SIDE, "CREDITOR");
+        complets.putIfAbsent(ProductCatalog.P_DEBIT_ACCOUNT, chargesInterets.id().toString());
+        complets.putIfAbsent(ProductCatalog.P_CREDIT_ACCOUNT, interetsCourus.id().toString());
         return database.inTransaction(c -> {
             UUID version = ProductCatalog.createDraft(c, new ProductCatalog.Draft(
                 ENTITY, code, "CURRENT_ACCOUNT", "Compte courant", "XOF", validFrom, null,
-                parameters, List.of(), ACTOR));
+                complets, List.of(), ACTOR));
             ProductCatalog.activate(c, version, APPROVER);
             return version;
         });

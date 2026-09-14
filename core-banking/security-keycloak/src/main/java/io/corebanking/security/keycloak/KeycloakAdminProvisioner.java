@@ -3,7 +3,7 @@ package io.corebanking.security.keycloak;
 import io.corebanking.security.KeycloakProvisioning;
 import io.corebanking.security.RoleDefinition;
 import io.corebanking.security.RoleProvisioner;
-import io.corebanking.security.json.Json;
+import io.corebanking.kernel.json.Json;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;

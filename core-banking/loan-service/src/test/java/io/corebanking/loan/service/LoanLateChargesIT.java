@@ -50,7 +50,12 @@ class LoanLateChargesIT extends LoanTestBase {
                                     NormalBalance.CREDIT);
         Map<String, String> parametres = new LinkedHashMap<>(regime);
         parametres.put(LoanCatalog.P_LATE_INCOME, produitsRetard.id().toString());
-        parametres.put(LoanCatalog.P_PENALTY_INCOME, penalites.id().toString());
+        // Le compte de penalites n'est designe que lorsqu'un mode de penalite l'est aussi : un
+        // compte sans mode donne a celui qui parametre la certitude d'avoir prevu une penalite que
+        // rien ne percevra jamais. La famille du produit refuse desormais ce couple incomplet.
+        if (regime.containsKey(LoanCatalog.P_PENALTY_MODE)) {
+            parametres.put(LoanCatalog.P_PENALTY_INCOME, penalites.id().toString());
+        }
         product(decor, "CRED-" + code, parametres);
 
         UUID contrat = contract(decor, "REF-" + code, "CRED-" + code, "1000000");

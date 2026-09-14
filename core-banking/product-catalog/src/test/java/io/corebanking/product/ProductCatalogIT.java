@@ -134,19 +134,50 @@ class ProductCatalogIT extends ProductTestBase {
     }
 
     @Test
-    @DisplayName("un parametre absent est nomme explicitement, produit compris")
-    void missing_parameter_is_named() {
+    @DisplayName("un parametrage incomplet est refuse a l'activation, tout ce qui manque nomme")
+    void incomplete_parameters_are_refused_at_activation() {
         var incomplet = new ProductCatalog.Draft(ENTITY, "EP-INCOMPLET", "SAVINGS_ACCOUNT",
             "Epargne", "XOF", D, null,
             Map.of(ProductCatalog.P_DAY_COUNT, "ACT_365"), List.of(), REDACTEUR);
-        publish(incomplet);
 
+        // Le meme produit s'activait jusqu'ici sans rien dire, et l'etape d'accrual — bloquante —
+        // echouait la nuit suivante. Le refus intervient maintenant devant celui qui parametre.
+        assertThatThrownBy(() -> publish(incomplet))
+            .isInstanceOf(ProductFamily.IncompleteProductException.class)
+            .hasMessageContaining("EP-INCOMPLET")
+            .hasMessageContaining("interest.side")
+            .hasMessageContaining("interest.debit_account")
+            .hasMessageContaining("interest.credit_account")
+            .hasMessageContaining("aucun de [interest.rate, tier:INTEREST]");
+
+        // Les manques sont restitues tous ensemble : s'arreter au premier obligerait a redeployer
+        // autant de fois qu'il manque de lignes, et le controle finirait par etre desactive.
+        assertThatThrownBy(() -> publish(incomplet))
+            .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.type(
+                ProductFamily.IncompleteProductException.class))
+            .extracting(ProductFamily.IncompleteProductException::problems)
+            .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.list(String.class))
+            .hasSize(4);
+
+        // Le brouillon subsiste : il n'est simplement resolvable par aucun traitement.
         assertThatThrownBy(() -> database.inTransaction(c ->
-            ProductCatalog.resolveAt(c, ENTITY, "EP-INCOMPLET", D)
-                .parameters().requireDecimal(ProductCatalog.P_RATE)))
-            .isInstanceOf(ParameterSet.MissingParameterException.class)
-            .hasMessageContaining("interest.rate")
-            .hasMessageContaining("EP-INCOMPLET");
+            ProductCatalog.resolveAt(c, ENTITY, "EP-INCOMPLET", D)))
+            .isInstanceOf(ProductNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("un type de produit hors catalogue est refuse des la saisie")
+    void unknown_family_is_refused_upfront() {
+        var exotique = new ProductCatalog.Draft(ENTITY, "EP-EXOTIQUE", "COMPTE_EXOTIQUE",
+            "Produit sans famille", "XOF", D, null, Map.of(), List.of(), REDACTEUR);
+
+        // Le refus a la saisie plutot qu'a l'activation : decouvrir la faute de frappe apres avoir
+        // renseigne trente parametres coute le double.
+        assertThatThrownBy(() -> database.inTransaction(c ->
+            ProductCatalog.createDraft(c, exotique)))
+            .isInstanceOf(ProductFamilies.UnknownFamilyException.class)
+            .hasMessageContaining("COMPTE_EXOTIQUE")
+            .hasMessageContaining("SAVINGS_ACCOUNT");
     }
 
     @Test

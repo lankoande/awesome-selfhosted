@@ -15,7 +15,7 @@ core-banking/
 ├── loan-domain         Échéanciers, imputation, plan de déblocage, intérêts intercalaires — pur
 ├── loan-service        Contrats : déblocage, mobilisation, exigibilité, retard, classification
 ├── schema-engine       Traduction événement métier → écritures, validation par tirage
-├── product-catalog     Product factory datée, schémas comptables, barèmes
+├── product-catalog     Product factory datée, familles de produit, schémas comptables, barèmes
 ├── calendar            Jours ouvrés, conventions et conditions de date de valeur
 ├── security-core       Politique d'habilitation centralisée, catalogue de rôles
 ├── security-keycloak   Adaptateur vers l'API d'administration Keycloak
@@ -33,8 +33,8 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 436 tests verts** — 258 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 178 sur PostgreSQL réel.
+**État actuel : 465 tests verts** — 291 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 174 sur PostgreSQL réel.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -65,6 +65,13 @@ classification et provisionnement à 1,168 ms par crédit, mobilisation et inté
 | Recalcul rétroactif réappliquant les taux d'époque | idem | `retroactive_recompute_reapplies_historical_rates` |
 | Jamais deux versions de produit actives simultanées | `EXCLUDE USING gist` | `overlapping_versions_are_rejected` |
 | Le rédacteur d'un paramétrage ne l'active pas | `CHECK (approved_by <> created_by)` | `maker_cannot_be_checker` |
+| Un type de produit hors catalogue est refusé dès la saisie | `ProductFamilies` | `unknown_family_is_refused_upfront` |
+| Un paramétrage incomplet ne s'active pas, et tout ce qui manque est nommé | `ProductFamily.validate` | `incomplete_parameters_are_refused_at_activation` |
+| Un paramètre que la famille ne déclare pas est refusé | idem | `parametreEtranger` |
+| Une exigence conditionnelle joue aussi sur la valeur par défaut | idem | `assietteParDefaut` |
+| Une commission déclarée sans compte de produit ne se déploie pas | Bloc répété du descripteur | `commissionSansCompte` |
+| Un fichier de familles incohérent fait échouer le chargement | `ProductFamilies.parse` | `conditionSansDeclencheur`, `marqueurMalPlace` |
+| Tout paramètre lu par le code est déclaré par une famille, et réciproquement | Test d'accord par module | `parametresDeCreditDeclares`, `aucunParametreMort` |
 | Toute opération protégée porte une règle | Bloc statique de `SecurityConfig` | `the_policy_is_exhaustive` |
 | Aucune annotation d'habilitation dans le code | Scan du code de production | `no_authorization_annotation_anywhere` |
 | Refus avant tout effet de bord | `UseCaseExecutor`, point unique | `a_denial_happens_before_any_side_effect` |
@@ -438,7 +445,61 @@ n'est pas une valeur — et un type de sûreté sans quotité paramétrée, éca
 100 %. Une garantie silencieusement exclue laisse croire à une couverture qui n'existe pas, et cela
 ne se découvre qu'à la réalisation.
 
-### 14. Le déblocage par tranches, et les intérêts qu'il ne fait pas courir
+### 14. Un paramétrage qui ne peut pas être incomplet
+
+Le paramétrage produit était un sac de couples clé/valeur, typé à la lecture. Trois conséquences,
+toutes silencieuses :
+
+- un produit de crédit sans compte de créances rattachées **s'activait sans rien dire**, et l'erreur
+  ne se découvrait qu'au premier TFJ qui en avait besoin — la nuit, sur une étape bloquante, avec un
+  arrêté à reprendre ;
+- rien n'empêchait un produit d'épargne de porter `loan.penalty_rate` : le paramètre n'était jamais
+  lu, et il donnait à son auteur la **certitude d'avoir paramétré une pénalité** qui ne
+  s'appliquerait jamais ;
+- `product_type` était stocké, relu, et **lu par aucune logique**.
+
+La famille de produit est le contrat manquant. Elle vit dans `resources/product/families.json` —
+même régime que `roles.json` : ressource versionnée avec le code, chargée et validée au démarrage,
+jamais éditée depuis une console.
+
+```json
+{ "code": "TERM_LOAN", "label": "Credit amortissable",
+  "required": ["loan.accrued_receivable", "loan.interest_income", "loan.tax_account"],
+  "conditions": [
+    { "when": "loan.risk_profile", "present": true,
+      "require": ["loan.provision_expense", "loan.provision_allowance", "loan.reserved_interest"],
+      "because": "classer un credit sans compte de dotation arrete le TFJ a la premiere provision" }
+  ] }
+```
+
+Quatre mécanismes, chacun pour une classe de faute :
+
+| Mécanisme | La faute qu'il attrape |
+|---|---|
+| **Exigence simple** | Le compte d'imputation oublié |
+| **Exigence conditionnelle** | Le mode de pénalité sans son montant — et, parce qu'une condition porte aussi sur la **valeur par défaut**, la commission forfaitaire sans forfait, qui se percevrait à zéro |
+| **Alternative** (`interest.rate` **ou** un barème) | L'exigence qui forcerait à saisir un taux fictif à côté d'un barème |
+| **Bloc répété** (une commission par code de `fee.codes`) | La commission déclarée dont l'écriture n'aurait nulle part où aller |
+
+Et une règle négative : **tout paramètre non déclaré est refusé**. C'est le seul moyen de distinguer
+une valeur inutile d'une valeur mal nommée.
+
+Le contrôle s'exécute à l'`activate()`, **avant** la double validation : faire valider par un second
+regard un paramétrage que la machine sait incomplet lui ferait porter une responsabilité sur une
+pièce incomplète. Tous les manques sont restitués d'un coup — s'arrêter au premier obligerait à
+redéployer autant de fois qu'il manque de lignes, et le contrôle finirait par être désactivé.
+
+Le fichier vit dans `product-catalog`, dont les modules de service dépendent : le compilateur ne
+peut pas vérifier l'accord. Un test par module le fait, et dans les deux sens — `aucunParametreMort`
+échoue aussi bien sur un paramètre lu et non déclaré que sur un paramètre déclaré et lu par
+personne.
+
+**Trois défauts réels trouvés par ce contrôle, en l'écrivant :** des produits de compte courant sans
+paramètres d'intérêts — qui auraient arrêté l'étape d'accrual, bloquante, dès leur premier arrêté ;
+un compte de pénalités désigné sans mode de pénalité, c'est-à-dire une pénalité jamais perçue ; et
+une commission forfaitaire sans montant, qui se serait perçue à zéro sur tout le portefeuille.
+
+### 15. Le déblocage par tranches, et les intérêts qu'il ne fait pas courir
 
 Un crédit de construction, de campagne ou d'équipement ne verse pas la totalité à la signature : les
 fonds suivent l'avancement. Le contournement habituel — tout débloquer sur un compte d'attente puis
@@ -485,7 +546,7 @@ Le capital ne bouge pas : les intérêts intercalaires sont constatés en produi
 créances rattachées, jamais capitalisés dans l'encours — ce qui produirait des intérêts sur des
 intérêts, que le socle refuse par construction.
 
-### 15. Le XOF traité comme une vraie contrainte
+### 16. Le XOF traité comme une vraie contrainte
 
 Échelle nulle native, accumulation en précision étendue, arrondi au seul moment de la
 comptabilisation, écart d'arrondi restitué explicitement. `MoneyTest.daily_rounding_drifts_measurably`
@@ -551,6 +612,11 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Les rangs antérieurs comptent toutes affectations confondues, y compris d'autres banques | Ce qui compte est ce qui reste de l'actif, pas ce que la banque en a déjà pris pour elle |
 | Une sûreté écartée est signalée, jamais ignorée | Croire couvrir un encours qu'on ne couvre pas ne se découvre qu'à la réalisation |
 | Une mainlevée marque la sûreté, elle ne la supprime pas | L'historique des rangs est une pièce du dossier |
+| Le contrat de paramétrage est un fichier, pas du code Java | Les noms de paramètres vivent dans les modules de service, qui dépendent du catalogue ; un descripteur en Java y créerait un cycle. Un test par module tient l'accord, dans les deux sens |
+| Le contrôle de complétude précède la double validation | Faire valider par un second regard un paramétrage que la machine sait incomplet lui ferait porter une responsabilité sur une pièce incomplète |
+| Un paramètre non déclaré par la famille est refusé, pas ignoré | C'est le seul moyen de distinguer une valeur inutile d'une valeur mal nommée |
+| Une condition de paramétrage porte aussi sur la valeur par défaut | Un paramètre absent est un paramètre qu'on a oublié : n'examiner que les valeurs saisies laisserait passer le cas le plus fréquent |
+| Un produit non rémunéré se paramètre à taux nul, explicitement | L'accrual visite tout compte rattaché à un produit ; le laisser sauter les produits sans taux ferait payer zéro intérêt à un livret mal paramétré, en silence |
 | Aucun échéancier n'est publié pendant la mobilisation | Le capital à amortir n'est pas connu ; en publier un réclamerait l'amortissement d'un capital non versé |
 | La mobilisation se clôt à sa date limite, même si tout est tiré | C'est le contrat qui fixe le début de l'amortissement, pas le rythme du chantier |
 | Le montant mobilisé n'est pas stocké, il se lit sur les tranches débloquées | Le dénormaliser ferait exister deux vérités sur le capital, et rien ne garantirait que celle qui commande l'échéancier soit la bonne |

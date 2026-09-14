@@ -13,8 +13,10 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -55,8 +57,16 @@ public final class ProductCatalog {
 
     // ------------------------------------------------------------------ ecriture
 
-    /** Cree une version a l'etat DRAFT. Elle n'est visible d'aucun traitement tant qu'elle l'est. */
+    /**
+     * Cree une version a l'etat DRAFT. Elle n'est visible d'aucun traitement tant qu'elle l'est.
+     *
+     * <p>Seul le type de produit est controle ici : il designe la famille, donc le contrat de
+     * parametrage a respecter. Le refuser des la saisie evite de decouvrir la faute de frappe apres
+     * avoir renseigne trente parametres. Leur completude, elle, est verifiee a l'activation — un
+     * brouillon a le droit d'etre incomplet, c'est ce qui en fait un brouillon.
+     */
     public static UUID createDraft(Connection c, Draft draft) {
+        ProductFamilies.require(draft.productType());
         UUID id = Ids.newId();
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO product_version(id, legal_entity_id, code, product_type, label, currency,"
@@ -88,7 +98,20 @@ public final class ProductCatalog {
      * la base, pas seulement par l'applicatif : un parametrage produit des montants sur des comptes
      * clients, il releve du meme regime de double validation qu'une operation.
      */
+    /**
+     * Active une version apres controle de completude.
+     *
+     * <p>C'est <b>ici</b> que le parametrage est confronte a sa famille, et nulle part ailleurs.
+     * Un parametre manquant decouvert au traitement de fin de journee coute une nuit d'exploitation
+     * et un arrete a reprendre ; decouvert ici, il coute une ligne a ajouter, devant celui qui sait
+     * quoi y mettre.
+     *
+     * <p>Le controle vient <b>avant</b> la double validation, et non apres : faire valider par un
+     * second regard un parametrage que la machine sait incomplet lui ferait porter une
+     * responsabilite sur une piece incomplete.
+     */
     public static void activate(Connection c, UUID versionId, UUID approverId) {
+        validate(c, versionId);
         try (PreparedStatement ps = c.prepareStatement(
             "UPDATE product_version SET status = 'ACTIVE', approved_by = ?, approved_at = now()"
             + " WHERE id = ? AND status = 'DRAFT'")) {
@@ -224,6 +247,45 @@ public final class ProductCatalog {
         } catch (SQLException e) {
             throw new LedgerStoreException("Insertion du bareme", e);
         }
+    }
+
+    /**
+     * Confronte une version a la famille de son type.
+     *
+     * @throws ProductFamily.IncompleteProductException avec la liste complete de ce qui manque
+     */
+    private static void validate(Connection c, UUID versionId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT code, product_type FROM product_version WHERE id = ?")) {
+            ps.setObject(1, versionId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return;                       // absente : l'activation echouera d'elle-meme
+                }
+                ProductFamilies.require(rs.getString(2))
+                    .validate(rs.getString(1), loadParameters(c, versionId),
+                              loadTierPurposes(c, versionId));
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Controle du parametrage de la version " + versionId, e);
+        }
+    }
+
+    /** Discriminants des baremes portes par la version : « INTEREST », « FEE:TENUE »... */
+    private static Set<String> loadTierPurposes(Connection c, UUID versionId) {
+        Set<String> purposes = new LinkedHashSet<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT DISTINCT purpose FROM product_rate_tier WHERE product_version_id = ?")) {
+            ps.setObject(1, versionId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    purposes.add(rs.getString(1));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des baremes de la version " + versionId, e);
+        }
+        return purposes;
     }
 
     private static Map<String, String> loadParameters(Connection c, UUID versionId) {

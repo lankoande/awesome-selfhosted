@@ -1,6 +1,6 @@
 package io.corebanking.security;
 
-import io.corebanking.security.json.Json;
+import io.corebanking.kernel.json.Json;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;

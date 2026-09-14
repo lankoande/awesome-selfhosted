@@ -1,0 +1,176 @@
+{
+  "comment": [
+    "Familles de produit : ce que chaque type de produit doit porter pour etre exploitable.",
+    "Fichier versionne avec le code et revu comme lui. Une famille ne s'ajoute pas depuis une",
+    "console d'administration : elle decrit ce que le code sait lire, et le code est ici.",
+    "Verifie au chargement des classes, applique a l'activation d'une version de produit."
+  ],
+
+  "blocks": {
+    "interest": {
+      "comment": [
+        "Le traitement de fin de journee remunere tout compte rattache a un produit, sans",
+        "exception. Un produit d'ou ces parametres sont absents fait echouer l'etape d'accrual,",
+        "qui est bloquante : ce n'est pas le compte qui est ecarte, c'est l'arrete de la banque",
+        "qui s'arrete. Un produit non remunere se parametre donc a taux nul, explicitement."
+      ],
+      "required": [
+        "interest.day_count",
+        "interest.side",
+        "interest.debit_account",
+        "interest.credit_account"
+      ],
+      "optional": ["interest.tiering_mode"],
+      "requireOneOf": [
+        {
+          "of": ["interest.rate", "tier:INTEREST"],
+          "because": "sans taux ni bareme, aucun interet ne serait jamais calcule et le compte paraitrait remunere"
+        }
+      ]
+    },
+
+    "overdraft": {
+      "optional": ["overdraft.limit"]
+    },
+
+    "fees": {
+      "groups": [
+        {
+          "listParameter": "fee.codes",
+          "required": ["fee.{code}.income_account"],
+          "optional": [
+            "fee.{code}.label",
+            "fee.{code}.frequency",
+            "fee.{code}.anchor",
+            "fee.{code}.timing",
+            "fee.{code}.basis",
+            "fee.{code}.proration",
+            "fee.{code}.tax_rate",
+            "fee.{code}.tax_account",
+            "fee.{code}.on_insufficient_funds",
+            "fee.{code}.arrear_max_age_days",
+            "fee.{code}.floor",
+            "fee.{code}.cap",
+            "fee.{code}.schema",
+            "fee.{code}.tiering_mode"
+          ],
+          "conditions": [
+            {
+              "when": "fee.{code}.basis",
+              "fallback": "FLAT",
+              "in": ["FLAT"],
+              "require": ["fee.{code}.amount"],
+              "because": "une commission forfaitaire sans montant se percevrait a zero, sans que rien ne le signale"
+            },
+            {
+              "when": "fee.{code}.basis",
+              "in": ["RATE_ON_CLOSING_BALANCE", "RATE_ON_HIGHEST_DEBIT_BALANCE"],
+              "require": ["fee.{code}.rate"],
+              "because": "une commission au taux sans taux se percevrait a zero"
+            },
+            {
+              "when": "fee.{code}.basis",
+              "in": ["TIERED_ON_CLOSING_BALANCE"],
+              "requireTier": "FEE:{code}",
+              "because": "le bareme par tranches de la commission n'existe pas, et la perception echouerait au premier arrete"
+            },
+            {
+              "when": "fee.{code}.tax_rate",
+              "present": true,
+              "require": ["fee.{code}.tax_account"],
+              "because": "une taxe calculee et sans compte de collecte resterait dans le produit de la banque, et la declaration serait fausse"
+            }
+          ]
+        }
+      ]
+    }
+  },
+
+  "families": [
+    {
+      "code": "CURRENT_ACCOUNT",
+      "label": "Compte courant",
+      "includes": ["interest", "overdraft", "fees"]
+    },
+    {
+      "code": "SAVINGS_ACCOUNT",
+      "label": "Compte d'epargne",
+      "includes": ["interest", "fees"]
+    },
+    {
+      "code": "TERM_LOAN",
+      "label": "Credit amortissable",
+      "required": [
+        "loan.accrued_receivable",
+        "loan.interest_income",
+        "loan.tax_account"
+      ],
+      "optional": [
+        "loan.allocation_order",
+        "loan.direct_debit",
+        "loan.grace_days",
+        "loan.insurance_income",
+        "loan.fee_income",
+        "loan.late_interest_basis",
+        "loan.late_day_count",
+        "loan.penalty_floor",
+        "loan.penalty_cap",
+        "loan.max_rate",
+        "loan.teg_method",
+        "loan.usury_rate",
+        "loan.provision_release",
+        "loan.prepayment_cap_percent",
+        "loan.prepayment_cap_months"
+      ],
+      "conditions": [
+        {
+          "when": "loan.late_interest_rate",
+          "present": true,
+          "require": ["loan.late_interest_income"],
+          "because": "les produits sur creances en souffrance forment une ligne a part des etats reglementaires ; sans compte dedie, l'imputation echoue de nuit"
+        },
+        {
+          "when": "loan.penalty_mode",
+          "fallback": "NONE",
+          "in": ["FLAT_PER_INSTALMENT"],
+          "require": ["loan.penalty_amount"],
+          "because": "une penalite forfaitaire sans montant se percevrait a zero sur tout le portefeuille"
+        },
+        {
+          "when": "loan.penalty_mode",
+          "in": ["PERCENT_OF_OVERDUE"],
+          "require": ["loan.penalty_rate"],
+          "because": "une penalite proportionnelle sans taux se percevrait a zero sur tout le portefeuille"
+        },
+        {
+          "when": "loan.penalty_mode",
+          "in": ["FLAT_PER_INSTALMENT", "PERCENT_OF_OVERDUE"],
+          "require": ["loan.late_interest_income"],
+          "because": "la penalite s'impute sur un produit sur creances en souffrance, a defaut de compte dedie"
+        },
+        {
+          "when": "loan.penalty_income",
+          "present": true,
+          "require": ["loan.penalty_mode"],
+          "because": "un compte de penalites sans mode de penalite designe une penalite jamais percue"
+        },
+        {
+          "when": "loan.risk_profile",
+          "present": true,
+          "require": [
+            "loan.provision_expense",
+            "loan.provision_allowance",
+            "loan.reserved_interest"
+          ],
+          "because": "classer un credit sans compte de dotation ni d'interets reserves arrete le TFJ a la premiere provision, et la suspension des interets ne pourrait pas etre comptabilisee"
+        },
+        {
+          "when": "loan.prepayment_indemnity_rate",
+          "present": true,
+          "require": ["loan.prepayment_indemnity_account"],
+          "because": "une indemnite de remboursement anticipe n'est pas un interet : la crediter sur le produit d'interets fausserait la marge et le rendement du portefeuille"
+        }
+      ]
+    }
+  ]
+}

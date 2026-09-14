@@ -62,6 +62,26 @@ public final class FeeCatalog {
     /** Decouvert autorise, ajoute au disponible lors du controle de provision. */
     public static final String P_OVERDRAFT_LIMIT = "overdraft.limit";
 
+    /**
+     * Tous les parametres qu'une commission peut porter.
+     *
+     * <p>Sert au controle d'accord entre ce que ce code lit et ce que la famille de produit
+     * declare : un parametre lu ici et absent de la famille serait refuse a l'activation d'un
+     * produit qui l'emploie, et un parametre declare par la famille mais lu par personne serait un
+     * parametre mort. Les deux se detectent en confrontant les deux listes, pas en les relisant.
+     */
+    static java.util.Set<String> parameterNames(String feeCode) {
+        String prefix = "fee." + feeCode + ".";
+        java.util.Set<String> names = new java.util.TreeSet<>();
+        for (String suffix : new String[] {
+            LABEL, FREQUENCY, ANCHOR, TIMING, BASIS, AMOUNT, RATE, TIERING_MODE, FLOOR, CAP,
+            PRORATION, TAX_RATE, INCOME_ACCOUNT, TAX_ACCOUNT, ON_INSUFFICIENT, ARREAR_MAX_AGE,
+            SCHEMA_CODE}) {
+            names.add(prefix + suffix);
+        }
+        return names;
+    }
+
     private FeeCatalog() {}
 
     /** Codes des commissions declarees par le produit, dans l'ordre de declaration. */

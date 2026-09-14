@@ -294,6 +294,48 @@ l'instruction en vigueur.
 
 ---
 
+## 2 bis. Le contrat de paramétrage : les familles de produit
+
+`product_type` désignait jusqu'ici une chaîne libre, stockée et lue par aucune logique. Une
+**famille de produit** lui donne un contrat, déclaré dans
+`product-catalog/src/main/resources/product/families.json` — ressource versionnée avec le code,
+chargée et validée au démarrage, jamais éditée depuis une console d'administration.
+
+| Élément du descripteur | Ce qu'il exprime |
+|---|---|
+| `required` | Paramètre sans lequel le produit n'est pas exploitable |
+| `optional` | Paramètre admis, avec un comportement par défaut documenté côté code |
+| `requireOneOf` | Alternative : `interest.rate` **ou** un barème `tier:INTEREST` |
+| `conditions` | Ce qu'un autre paramètre rend obligatoire — y compris par sa **valeur par défaut** |
+| `groups` | Bloc répété, indexé par une liste (`fee.codes`) : un jeu de paramètres par commission |
+
+Chaque exigence porte un `because` : la conséquence de l'absence, restituée telle quelle à celui qui
+paramètre.
+
+**Quand le contrôle joue.** Le type est vérifié à la création du brouillon — découvrir une faute de
+frappe après avoir renseigné trente paramètres coûte le double. La complétude est vérifiée à
+l'**activation**, et avant la double validation : faire valider par un second regard un paramétrage
+que la machine sait incomplet lui ferait porter une responsabilité sur une pièce incomplète. Un
+brouillon a le droit d'être incomplet — c'est ce qui en fait un brouillon.
+
+**Tout paramètre non déclaré est refusé.** Un produit d'épargne portant `loan.penalty_rate` donnait
+à son auteur la certitude d'avoir paramétré une pénalité qui ne s'appliquerait jamais. C'est le seul
+moyen de distinguer une valeur inutile d'une valeur mal nommée.
+
+**Les familles déclarées** sont `CURRENT_ACCOUNT`, `SAVINGS_ACCOUNT` et `TERM_LOAN` — celles que le
+code sait traiter. En ajouter une est une modification du fichier **et** du code qui lira ses
+paramètres : le test d'accord de chaque module échoue tant que les deux ne coïncident pas, dans les
+deux sens.
+
+> **Un effet de bord à connaître.** Les familles de compte exigent les paramètres d'intérêts, y
+> compris le compte courant non rémunéré, qui se paramètre alors à `interest.rate = 0`. Ce n'est pas
+> une coquetterie du descripteur : l'étape d'accrual visite **tout** compte rattaché à un produit et
+> elle est bloquante. La seule alternative — la faire sauter les produits sans taux — ferait payer
+> zéro intérêt à un livret mal paramétré, en silence. Le refus bruyant est le bon comportement ; ce
+> qui manquait était de le déplacer au déploiement.
+
+---
+
 ## 3. Ce qui n'est pas encore paramétré
 
 Liste exhaustive, par ordre de criticité. Chaque ligne est aujourd'hui soit absente, soit portée par
@@ -304,6 +346,7 @@ le code appelant.
 | Élément | État | Conséquence de l'absence |
 |---|---|---|
 | **Plafonds et limites** (par produit, canal, client, période) | ⬜ | Contrôles absents ou codés en dur |
+| **Familles de produit** (contrat de paramétrage par type) | ✅ | — |
 | **Circuits de double validation** (seuils par rôle et montant) | ⬜ | Maker-checker non généralisé hors paramétrage produit |
 
 ### Nécessaire à la couverture fonctionnelle visée
@@ -327,17 +370,22 @@ Elles s'appliquent à tout ce qui reste à implémenter.
 1. **Tout paramètre est daté.** Sans période de validité, un arrêté rejoué ne redonne pas les
    montants d'origine — et le problème n'apparaît qu'au premier changement, donc trop tard.
 2. **Résolution à la date traitée**, jamais à la date du traitement.
-3. **Aucun repli silencieux.** Une période non couverte est une erreur nommée, pas un repli sur la
+3. **Tout paramètre appartient à une famille**, qui dit s'il est exigé, admis, ou exigé sous
+   condition. Un paramètre hors famille est refusé au déploiement : une valeur jamais lue est
+   indiscernable d'une valeur mal nommée, et les deux donnent à leur auteur la certitude d'avoir
+   paramétré quelque chose.
+4. **Aucun repli silencieux.** Une période non couverte est une erreur nommée, pas un repli sur la
    version la plus proche.
-4. **Validation à la saisie**, pas à l'exécution. Un barème lacunaire est refusé au déploiement du
+5. **Validation à la saisie**, pas à l'exécution. Un barème lacunaire est refusé au déploiement du
    paramétrage, pas découvert au milieu d'un TFJ sur un compte quelconque.
-5. **Double validation**, portée par la base. Un paramétrage produit des montants sur des comptes
+6. **Double validation**, portée par la base. Un paramétrage produit des montants sur des comptes
    clients : il relève du même régime qu'une opération.
-6. **Journal immuable** des modifications : qui, quand, quoi, valeur avant et après.
-7. **La frontière code / paramétrage est assumée.** La *méthode* est du code — méthode
+7. **Journal immuable** des modifications : qui, quand, quoi, valeur avant et après.
+8. **La frontière code / paramétrage est assumée.** La *méthode* est du code — méthode
    d'amortissement, algorithme de provisionnement, convention de décompte. Les *valeurs* sont du
    paramétrage — taux, seuils, tranches, comptes. Un moteur de règles totalement libre devient un
    langage de programmation sans tests ni revue ; c'est le principal facteur d'ingouvernabilité des
    core banking anciens.
-8. **Un paramètre qui ne pilote rien est pire qu'absent** : il laisse croire qu'il agit. Aucune clé
-   déclarée sans effet.
+9. **Un paramètre qui ne pilote rien est pire qu'absent** : il laisse croire qu'il agit. Aucune clé
+   déclarée sans effet — et c'est désormais vérifié : le test d'accord de chaque module échoue
+   aussi bien sur un paramètre lu et non déclaré que sur un paramètre déclaré et lu par personne.

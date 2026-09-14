@@ -1,4 +1,4 @@
-package io.corebanking.security.json;
+package io.corebanking.kernel.json;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -8,10 +8,11 @@ import java.util.Map;
 /**
  * Lecture et ecriture JSON, reduites au strict necessaire.
  *
- * <p>Le module de securite ne depend d'aucune bibliotheque tierce. Ce n'est pas de la coquetterie :
- * une dependance de ce module est une dependance qui s'execute dans le chemin d'etablissement de
- * l'identite et de chargement des habilitations. Cent cinquante lignes lues et testees valent mieux,
- * ici, qu'un analyseur generaliste et sa chaine de transitives.
+ * <p>Deux catalogues du socle sont des fichiers JSON versionnes avec le code : les roles
+ * d'habilitation et les familles de produit. Tous deux sont lus au chargement des classes, l'un
+ * dans le chemin d'etablissement de l'identite, l'autre avant que le moindre parametrage ne soit
+ * active. Cent cinquante lignes lues et testees valent mieux, a cet endroit, qu'un analyseur
+ * generaliste et sa chaine de transitives.
  *
  * <p>Le sous-ensemble couvre ce qu'un fichier de catalogue emploie : objets, tableaux, chaines,
  * nombres, booleens, {@code null}. Ni commentaires, ni virgule finale, ni references.
