@@ -19,7 +19,7 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 146 tests verts** — 108 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
+**État actuel : 159 tests verts** — 121 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
 générés), 38 sur PostgreSQL réel.
 
 ## Ce que le P0 garantit, et comment c'est prouvé
@@ -49,7 +49,8 @@ générés), 38 sur PostgreSQL réel.
 | Refus avant tout effet de bord | `UseCaseExecutor`, point unique | `a_denial_happens_before_any_side_effect` |
 | Jeton sans entité juridique rejeté | `KeycloakCallerFactory` | `a_token_without_legal_entity_is_rejected` |
 | Consultations tracées, refus tracés | `JdbcAuthorizationAudit` | `a_successful_read_is_traced` |
-| Catalogue de rôles ≡ politique, aucun orphelin | `RoleCatalogue` | `constants_and_policy_agree` |
+| Catalogue `roles.json` ≡ politique, aucun orphelin | `RoleCatalogue.validateAgainstPolicy` | `constants_and_policy_agree` |
+| Provisionnement idempotent et jamais destructeur | `RoleStartupTask` | `an_orphan_realm_role_is_reported_never_deleted` |
 | Tout rôle est porté par un poste, sinon inattribuable | `JobProfile` | `every_role_is_carried_by_a_profile` |
 | Écart de provisionnement Keycloak détecté | `KeycloakProvisioning.drift` | `a_missing_role_is_reported_as_silently_blocking` |
 | Un auditeur qui opère voit son jeton refusé | Ségrégation des tâches | `an_auditor_holding_an_operational_role_is_refused` |

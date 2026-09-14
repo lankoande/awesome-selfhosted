@@ -124,60 +124,91 @@ Trois refus explicites à l'extraction des revendications :
   introduirait une donnée de marché dans une décision d'habilitation, et un plafond qui varie avec
   le change n'est pas un plafond.
 
-### Création des rôles : dérivés, jamais saisis
+### Création des rôles : catalogue déclaratif, provisionné au démarrage
 
-**Un rôle n'a pas d'existence propre** — ce n'est qu'un nom qui apparaît dans une règle de
-`SecurityConfig`. Le catalogue est donc *calculé* comme l'union des rôles cités par les règles.
-Keycloak en est le **reflet provisionné**, pas la source.
+Les rôles sont décrits dans une ressource du produit, `resources/security/roles.json`, versionnée
+avec le code et revue comme lui :
 
-Créer les rôles à la main dans la console inverse la flèche, et l'inversion coûte dans les deux
-sens :
+```json
+{
+  "code": "teller",
+  "name": "Guichetier",
+  "description": "Operations de caisse et consultation des comptes de son agence.",
+  "isSystem": true,
+  "category": "RESEAU",
+  "attributes": { "reviewFrequencyMonths": "6", "requiresBranch": "true" }
+}
+```
 
-| Écart | Symptôme |
+| Champ | Rôle |
 |---|---|
-| Rôle dans Keycloak, absent de la politique | Il est attribué, apparaît dans les jetons, rassure — et n'ouvre rien. Refus incompréhensible : l'agent « a le rôle » et n'accède pas. |
-| Rôle dans la politique, absent de Keycloak | **Personne ne peut le détenir.** L'opération est inaccessible à tous, sans aucune erreur. Tout est cohérent, les refus sont réguliers, l'opération est morte. |
+| `code` | Identifiant technique — celui du rôle Keycloak et celui cité par `SecurityConfig` |
+| `name` | Libellé métier, affiché dans les écrans d'habilitation |
+| `description` | Ce que le rôle permet, en langage métier |
+| `isSystem` | Livré avec le produit : créé et tenu à jour à chaque démarrage, sa disparition est une anomalie bloquante. Un rôle non système est amorcé une fois puis laissé à la banque. |
+| `category` | Regroupement pour la revue : RÉSEAU, SIÈGE, PARAMÉTRAGE, EXPLOITATION, CONTRÔLE |
+| `attributes` | Tout le reste, reporté tel quel en attributs de rôle Keycloak |
 
-Le second est le plus perfide. D'où un détecteur d'écart (`KeycloakProvisioning.drift`) à exécuter
-au déploiement.
+**Les attributs portent du descriptif, jamais un droit.** Périodicité de revue, exigence d'un
+rattachement d'agence, exclusivité. Un attribut qui accorderait un droit reviendrait à déplacer une
+décision d'habilitation hors de la politique.
 
-**Chaîne complète**
+### Deux sources, deux rôles, une cohérence exigée
+
+Le catalogue est **descriptif** ; `SecurityConfig` reste **normatif** — seule une règle ouvre une
+opération. D'où deux écarts possibles, tous deux interdits au démarrage :
+
+| Écart | Conséquence |
+|---|---|
+| Rôle cité par une règle, absent du catalogue | Jamais provisionné. **L'opération devient inaccessible à tous**, sans aucune erreur. |
+| Rôle au catalogue, cité par aucune règle | Attribuable et sans effet : il fait croire à un droit qui n'existe pas. |
+
+`RoleCatalogue.validateAgainstPolicy()` s'exécute **avant** tout appel au fournisseur d'identité :
+un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servir.
+
+### Provisionnement au démarrage
 
 ```
-SecurityConfig (règles)
-      │  union des rôles cités
-      ▼
-RoleCatalogue          ──── test : ≡ constantes de Roles, aucun orphelin des deux côtés
-      │
-      │  + JobProfile (postes)
-      ▼
-KeycloakProvisioning.partialImport("core-banking")
-      │  fichier d'import partiel, rejoué à chaque livraison
-      ▼
-Keycloak : rôles du client + groupes de postes
-      │
-      ▼
-drift(observé) ──── écart = défaut de déploiement, pas divergence à arbitrer
+roles.json ──► RoleCatalogue ──► validateAgainstPolicy()   ← échec ⇒ l'application ne démarre pas
+                     │
+                     ▼
+              RoleStartupTask ──► RoleProvisioner ──► Keycloak
+                     │
+                     ├─ absent du royaume      → création
+                     ├─ présent et isSystem    → mise à jour (convergence)
+                     └─ présent hors catalogue → signalé, jamais supprimé
 ```
 
-La description de chaque rôle dans Keycloak est **engendrée** : elle énumère les opérations
-réellement ouvertes. Un auditeur qui lit la console voit `teller → [ACCOUNT_BALANCE_READ,
-CASH_OPERATION, PARTY_READ, TRANSFER]`, pas un commentaire écrit il y a trois ans.
+Trois propriétés :
 
-**Les rôles ne s'attribuent pas à des personnes.** Un rôle est un regroupement technique ; ce que
-la banque gère, ce sont des **postes**. Un groupe Keycloak par poste, l'agent est placé dans un
-groupe. L'attribution individuelle dérive : au bout de deux ans plus personne ne sait pourquoi tel
-agent détient tel rôle, et la revue périodique devient un inventaire de cas particuliers. Avec des
-groupes, la revue porte sur huit postes au lieu de huit cents agents.
+- **Idempotente.** La rejouer converge sans rien casser — indispensable en montée de version
+  progressive, où plusieurs versions cohabitent quelques minutes.
+- **Convergente.** Les rôles système sont republiés à chaque démarrage : modifier le fichier suffit
+  à propager un libellé ou un attribut, sans intervention dans la console.
+- **Jamais destructrice.** Supprimer un rôle dans Keycloak le révoque instantanément à tous ses
+  porteurs et perd les affectations. Un rôle disparu du catalogue est signalé ; la décision
+  appartient à la sécurité opérationnelle.
 
-**Aucun poste n'est décliné par entité ni par agence.** Ces dimensions viennent des revendications
-du jeton. Les faire porter par le rôle produirait `teller_CI`, `teller_SN`,
-`teller_CI_agence_007` — une explosion combinatoire dont personne ne sort.
+L'attribut `operations` est **engendré** à chaque provisionnement depuis la politique : un auditeur
+qui ouvre la console lit `teller → ACCOUNT_BALANCE_READ, CASH_OPERATION, PARTY_READ, TRANSFER`,
+c'est-à-dire la réalité courante, et non un texte figé dans une description. L'ordre de déclaration
+du fichier est préservé, de sorte que le fichier d'import engendré soit reproductible et que le
+diff d'une livraison ne montre que ce qui a changé.
 
-**Ce que le provisionnement ne contient pas** : aucun utilisateur, aucune affectation. Le pipeline
-crée rôles et groupes ; rattacher un agent à un groupe relève de la sécurité opérationnelle, avec
-double validation et revue périodique. Mélanger les deux ferait passer une décision d'habilitation
-nominative dans un pipeline de livraison, où elle échapperait au contrôle interne.
+**Les rôles ne s'attribuent pas à des personnes.** Un groupe Keycloak par **poste**
+(`JobProfile`), l'agent est placé dans un groupe. L'attribution individuelle dérive : au bout de
+deux ans plus personne ne sait pourquoi tel agent détient tel rôle, et la revue périodique devient
+un inventaire de cas particuliers. Avec des groupes, elle porte sur huit postes au lieu de huit
+cents agents.
+
+**Aucun poste décliné par entité ni par agence** — ces dimensions viennent des revendications du
+jeton. Les faire porter par le rôle produirait `teller_CI`, `teller_SN`,
+`teller_CI_agence_007`.
+
+**Le provisionnement ne contient ni utilisateur ni affectation.** Rattacher un agent à un groupe
+relève de la sécurité opérationnelle, avec double validation et revue périodique. Le faire passer
+par un pipeline de livraison sortirait une décision d'habilitation nominative du champ du contrôle
+interne.
 
 ### Ségrégation : le seul cumul réellement interdit
 
@@ -190,8 +221,9 @@ Reste un cas qu'aucun contrôle par opération ne peut détecter : **l'auditeur 
 problème n'est pas qu'il valide sa propre écriture, c'est qu'il contrôle a posteriori un périmètre
 dont il fait partie. Chacune de ses actions, prise isolément, est régulière.
 
-Le cumul `auditor` + rôle opérationnel fait donc **rejeter le jeton en bloc**, pas seulement les
-opérations conflictuelles. Un accès partiel rendrait l'anomalie invisible et durable ; le refus
+L'exclusivité est **déclarative** : l'attribut `exclusive` du catalogue produit la règle de
+ségrégation. Déclarer un nouveau profil exclusif reste donc du paramétrage. Le cumul `auditor` +
+tout autre rôle fait **rejeter le jeton en bloc**, pas seulement les opérations conflictuelles. Un accès partiel rendrait l'anomalie invisible et durable ; le refus
 total se corrige en retirant l'agent d'un groupe — à condition que quelqu'un s'en aperçoive.
 
 ### Traçabilité des décisions

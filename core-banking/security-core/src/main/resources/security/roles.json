@@ -1,0 +1,94 @@
+{
+  "client": "core-banking",
+  "roles": [
+    {
+      "code": "teller",
+      "name": "Guichetier",
+      "description": "Operations de caisse et consultation des comptes de son agence.",
+      "isSystem": true,
+      "category": "RESEAU",
+      "attributes": {
+        "reviewFrequencyMonths": "6",
+        "requiresBranch": "true"
+      }
+    },
+    {
+      "code": "branch_manager",
+      "name": "Chef d'agence",
+      "description": "Encadrement d'une agence : ouverture et cloture de comptes, blocages, validation des operations au-dela du plafond guichetier.",
+      "isSystem": true,
+      "category": "RESEAU",
+      "attributes": {
+        "reviewFrequencyMonths": "6",
+        "requiresBranch": "true"
+      }
+    },
+    {
+      "code": "customer_officer",
+      "name": "Charge de clientele",
+      "description": "Gestion du portefeuille clients : ouverture de comptes, virements, consultation du journal.",
+      "isSystem": true,
+      "category": "RESEAU",
+      "attributes": {
+        "reviewFrequencyMonths": "12",
+        "requiresBranch": "true"
+      }
+    },
+    {
+      "code": "accountant",
+      "name": "Comptable",
+      "description": "Comptabilite generale : contre-passation, reouverture de periode, annulation de TFJ.",
+      "isSystem": true,
+      "category": "SIEGE",
+      "attributes": {
+        "reviewFrequencyMonths": "12",
+        "requiresBranch": "false"
+      }
+    },
+    {
+      "code": "product_manager",
+      "name": "Gestionnaire de produits",
+      "description": "Redaction et activation du parametrage produit et des schemas comptables.",
+      "isSystem": true,
+      "category": "PARAMETRAGE",
+      "attributes": {
+        "reviewFrequencyMonths": "12",
+        "requiresBranch": "false"
+      }
+    },
+    {
+      "code": "risk_officer",
+      "name": "Responsable des risques",
+      "description": "Blocages de comptes et seconde validation du parametrage produit.",
+      "isSystem": true,
+      "category": "CONTROLE",
+      "attributes": {
+        "reviewFrequencyMonths": "12",
+        "requiresBranch": "false"
+      }
+    },
+    {
+      "code": "operator",
+      "name": "Exploitant",
+      "description": "Lancement et annulation des traitements de fin de journee.",
+      "isSystem": true,
+      "category": "EXPLOITATION",
+      "attributes": {
+        "reviewFrequencyMonths": "6",
+        "requiresBranch": "false"
+      }
+    },
+    {
+      "code": "auditor",
+      "name": "Auditeur",
+      "description": "Consultation transverse aux entites et acces a la piste d'audit. Profil exclusif : ne se cumule avec aucun role operationnel.",
+      "isSystem": true,
+      "category": "CONTROLE",
+      "attributes": {
+        "reviewFrequencyMonths": "12",
+        "requiresBranch": "false",
+        "exclusive": "true"
+      }
+    }
+  ]
+}

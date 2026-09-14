@@ -189,12 +189,22 @@ public final class SecurityConfig {
      */
     private static final List<RoleConflict> SEGREGATION = buildSegregation();
 
+    /**
+     * Les cumuls interdits sont <b>derives du catalogue</b> : un role portant l'attribut
+     * {@code exclusive} ne se cumule avec aucun autre. Declarer un nouveau profil exclusif reste
+     * donc du parametrage, sans toucher a cette classe.
+     */
     private static List<RoleConflict> buildSegregation() {
         List<RoleConflict> conflicts = new java.util.ArrayList<>();
-        for (String operational : List.of(TELLER, BRANCH_MANAGER, CUSTOMER_OFFICER, ACCOUNTANT,
-                                          PRODUCT_MANAGER, RISK_OFFICER, OPERATOR)) {
-            conflicts.add(new RoleConflict(AUDITOR, operational,
-                "un auditeur ne peut pas operer sur le perimetre qu'il controle"));
+        java.util.Set<String> exclusives = RoleCatalogue.exclusiveRoles();
+        for (String exclusive : exclusives) {
+            for (String other : RoleCatalogue.declared()) {
+                if (!other.equals(exclusive)) {
+                    conflicts.add(new RoleConflict(exclusive, other,
+                        "role exclusif : son porteur ne peut pas operer sur le perimetre "
+                        + "qu'il controle"));
+                }
+            }
         }
         return List.copyOf(conflicts);
     }

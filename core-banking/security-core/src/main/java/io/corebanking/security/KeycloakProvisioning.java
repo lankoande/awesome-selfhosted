@@ -47,6 +47,10 @@ public final class KeycloakProvisioning {
      * <p>A appliquer sur le royaume avec {@code Partial import}, ou via
      * {@code kcadm.sh create partialImport}.
      */
+    public static String partialImport() {
+        return partialImport(RoleCatalogue.clientId());
+    }
+
     public static String partialImport(String clientId) {
         Objects.requireNonNull(clientId, "clientId");
         StringBuilder json = new StringBuilder();
@@ -55,11 +59,12 @@ public final class KeycloakProvisioning {
         json.append("  \"roles\": {\n    \"client\": {\n      ")
             .append(quote(clientId)).append(": [\n");
 
-        List<String> roles = new ArrayList<>(RoleCatalogue.declared());
+        List<RoleDefinition> roles = new ArrayList<>(RoleCatalogue.definitions().values());
         for (int i = 0; i < roles.size(); i++) {
-            String role = roles.get(i);
-            json.append("        { \"name\": ").append(quote(role))
-                .append(", \"description\": ").append(quote(describe(role))).append(" }")
+            RoleDefinition role = roles.get(i);
+            json.append("        { \"name\": ").append(quote(role.code()))
+                .append(", \"description\": ").append(quote(describe(role)))
+                .append(", \"attributes\": ").append(attributesJson(role)).append(" }")
                 .append(i < roles.size() - 1 ? "," : "").append('\n');
         }
         json.append("      ]\n    }\n  },\n");
@@ -81,12 +86,31 @@ public final class KeycloakProvisioning {
         return json.toString();
     }
 
-    /** Description engendree : les operations que le role ouvre effectivement. */
-    static String describe(String role) {
-        Set<Operation> operations = RoleCatalogue.operationsOf(role);
-        return operations.isEmpty()
-            ? "Role sans operation associee — anomalie de politique"
-            : "Ouvre : " + operations.stream().map(Enum::name).sorted().toList();
+    /**
+     * Description poussee dans Keycloak : celle du catalogue, en langage metier.
+     *
+     * <p>La liste des operations reellement ouvertes n'y est pas concatenee — elle vieillirait mal
+     * dans un champ libre. Elle est poussee en attribut {@code operations}, engendre depuis la
+     * politique a chaque provisionnement : un auditeur qui ouvre la console y lit la realite
+     * courante, pas un texte fige.
+     */
+    static String describe(RoleDefinition role) {
+        return role.description();
+    }
+
+    /** Attributs du catalogue, enrichis des operations ouvertes et de la categorie. */
+    static String attributesJson(RoleDefinition role) {
+        Set<Operation> operations = RoleCatalogue.operationsOf(role.code());
+        StringBuilder sb = new StringBuilder("{ ");
+        sb.append(quote("category")).append(": [").append(quote(role.category())).append("], ");
+        sb.append(quote("isSystem")).append(": [").append(quote(String.valueOf(role.isSystem())))
+          .append("], ");
+        sb.append(quote("operations")).append(": [")
+          .append(quote(String.join(",", operations.stream().map(Enum::name).sorted().toList())))
+          .append("]");
+        role.attributes().forEach((key, value) ->
+            sb.append(", ").append(quote(key)).append(": [").append(quote(value)).append("]"));
+        return sb.append(" }").toString();
     }
 
     /**

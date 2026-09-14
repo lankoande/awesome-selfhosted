@@ -18,18 +18,16 @@ class RoleProvisioningTest {
     private static final String CLIENT = "core-banking";
 
     @Test
-    @DisplayName("le catalogue de roles est celui de la politique, pas une liste tenue a part")
-    void the_catalogue_is_derived_from_the_policy() {
+    @DisplayName("aucun role du catalogue n'est decoratif : chacun ouvre au moins une operation")
+    void no_catalogue_role_is_decorative() {
         Set<String> catalogue = RoleCatalogue.declared();
 
         assertThat(catalogue).isNotEmpty();
-        // Chaque role du catalogue ouvre au moins une operation : aucun role decoratif.
         for (String role : catalogue) {
             assertThat(RoleCatalogue.operationsOf(role))
-                .as("role %s", role)
+                .as("role %s : declare au catalogue et cite par aucune regle", role)
                 .isNotEmpty();
         }
-        assertThat(RoleCatalogue.grantingNothing()).isEmpty();
     }
 
     @Test
@@ -42,11 +40,13 @@ class RoleProvisioningTest {
             }
         }
 
-        // Une constante jamais citee par une regle est un role mort : il sera provisionne,
-        // attribue, et n'ouvrira rien.
+        // Trois declarations doivent coincider : les constantes Java, le catalogue JSON et les
+        // roles cites par la politique. Un ecart quelconque cree un role mort ou une operation
+        // inaccessible.
         assertThat(constants)
-            .as("constantes de Roles non citees dans SecurityConfig")
-            .isEqualTo(RoleCatalogue.declared());
+            .as("constantes de Roles, catalogue JSON et politique doivent coincider")
+            .isEqualTo(RoleCatalogue.declared())
+            .isEqualTo(RoleCatalogue.usedByPolicy());
     }
 
     @Test
@@ -78,8 +78,11 @@ class RoleProvisioningTest {
         for (JobProfile profile : JobProfile.values()) {
             assertThat(json).as("poste %s", profile).contains('"' + profile.groupName() + '"');
         }
-        // La description est engendree : elle enumere les operations reellement ouvertes.
-        assertThat(KeycloakProvisioning.describe(Roles.TELLER)).contains("CASH_OPERATION");
+        // La description poussee est celle du catalogue, en langage metier...
+        assertThat(KeycloakProvisioning.describe(RoleCatalogue.require(Roles.TELLER)))
+            .contains("Operations de caisse");
+        // ... et les operations reellement ouvertes sont engendrees en attribut, donc toujours a jour.
+        assertThat(json).contains("CASH_OPERATION");
     }
 
     @Test
