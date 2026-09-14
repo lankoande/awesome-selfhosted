@@ -69,6 +69,7 @@ abstract class TfjTestBase {
         applyScript("/db/V11__loan_risk.sql");
         applyScript("/db/V12__loan_teg.sql");
         applyScript("/db/V13__loan_prepayment.sql");
+        applyScript("/db/V14__collateral.sql");
         SchemaMigrator.ensurePartitions(database, J1.minusMonths(1), J1.plusMonths(2));
 
         database.inTransaction(c -> {

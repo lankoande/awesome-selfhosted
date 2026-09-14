@@ -812,50 +812,6 @@ public final class LoanStore {
         return principal.plus(accessories);
     }
 
-    /** Garanties en vigueur a une date, deja ponderees de leur quotite d'eligibilite. */
-    public static Money eligibleCollateral(Connection c, UUID contractId, CurrencyRef currency,
-                                           LocalDate date) {
-        try (PreparedStatement ps = c.prepareStatement(
-            "SELECT COALESCE(SUM(value * eligible_rate_percent / 100), 0) FROM loan_collateral"
-            + " WHERE contract_id = ? AND valid_from <= ?"
-            + "   AND (valid_to IS NULL OR valid_to >= ?)")) {
-            ps.setObject(1, contractId);
-            ps.setObject(2, date);
-            ps.setObject(3, date);
-            try (ResultSet rs = ps.executeQuery()) {
-                rs.next();
-                return Money.of(rs.getBigDecimal(1).setScale(5, RoundingMode.HALF_EVEN), currency);
-            }
-        } catch (SQLException e) {
-            throw new LedgerStoreException("Lecture des garanties du contrat " + contractId, e);
-        }
-    }
-
-    public static UUID addCollateral(Connection c, UUID contractId, String label, String kind,
-                                     Money value, BigDecimal eligibleRatePercent,
-                                     LocalDate validFrom, LocalDate validTo, UUID createdBy) {
-        UUID id = Ids.newId();
-        try (PreparedStatement ps = c.prepareStatement(
-            "INSERT INTO loan_collateral(id, contract_id, label, kind, value,"
-            + " eligible_rate_percent, valid_from, valid_to, created_by)"
-            + " VALUES (?,?,?,?,?,?,?,?,?)")) {
-            ps.setObject(1, id);
-            ps.setObject(2, contractId);
-            ps.setString(3, label);
-            ps.setString(4, kind);
-            ps.setBigDecimal(5, value.amount());
-            ps.setBigDecimal(6, eligibleRatePercent);
-            ps.setObject(7, validFrom);
-            ps.setObject(8, validTo);
-            ps.setObject(9, createdBy);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new LedgerStoreException("Enregistrement de la garantie du contrat " + contractId,
-                                           e);
-        }
-        return id;
-    }
-
     /** Derniere classification active d'un credit. */
     public record ClassificationState(LocalDate on, String bucketCode, int ordinal,
                                       boolean suspended, Money provisioned) {}

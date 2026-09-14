@@ -33,8 +33,8 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 389 tests verts** — 241 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 148 sur PostgreSQL réel.
+**État actuel : 409 tests verts** — 252 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 157 sur PostgreSQL réel.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,809 ms par compte dans le cas le plus
@@ -134,6 +134,12 @@ classification et provisionnement à 1,286 ms par crédit.
 | Le plan reconstruit conserve le taux et les accessoires du contrat | `LoanTerms.forRemaining` | `conditionsReconduites` |
 | Un crédit régularisé reste déclassé pendant la période d'observation | `RiskGrid.stillUnderObservation` | `periodeDObservation` |
 | L'observation ne joue que dans un sens : une dégradation reste immédiate | idem | `degradationImmediate` |
+| La quotité d'une sûreté vient du référentiel, jamais de la saisie | `CollateralPolicy` | `quotiteDuReferentiel` |
+| Un second rang n'est couvert que par ce que le premier laisse | `CollateralValuation` | `secondRang` |
+| Une expertise périmée ne couvre rien, et l'exclusion remonte | idem | `expertisePerimee` |
+| Une sûreté partagée n'est comptée qu'à sa quote-part | idem | `suretePartagee` |
+| Une sûreté ne peut pas être affectée à plus de 100 % | Déclencheur différé | `quotePartsExcessives` |
+| Deux sûretés de même rang sur le même actif sont refusées | `uq_collateral_rank` | `rangsEnDoublon` |
 
 ## Les choix qui vont au-delà des progiciels établis
 
@@ -398,7 +404,29 @@ dégénéré, et un moteur de calcul réglementaire ne peut pas se permettre un 
 réponse. L'intervalle s'élargit tant que la racine n'y est pas : un crédit bonifié, donc à taux
 négatif, est chiffré et non refusé.
 
-### 13. Le XOF traité comme une vraie contrainte
+### 13. Des garanties qui ne couvrent que ce qu'elles couvrent
+
+Surévaluer une sûreté réduit directement la provision, et rien dans l'écriture ne le signale. Quatre
+réductions s'appliquent donc, dans cet ordre, et chacune corrige une erreur courante :
+
+| Réduction | L'erreur qu'elle évite |
+|---|---|
+| **Le rang** | Un second rang compté comme s'il était seul fait garantir deux fois le même immeuble |
+| **Le montant garanti** | Une hypothèque de 10 M sur un immeuble qui en vaut 30 ne couvre que 10 — et l'inverse aussi |
+| **La quote-part** | Une même hypothèque comptée en entier sur deux crédits divise la provision du client par deux |
+| **La quotité réglementaire** | Elle vient du type de sûreté, jamais de la saisie |
+
+Ce dernier point est le plus structurant. Laisser saisir la décote sur le dossier revient à laisser
+un agent décider du niveau de provision de son propre portefeuille : une hypothèque retenue à 100 %
+au lieu de 50 % divise la provision par deux. La quotité est donc une donnée du référentiel, datée
+et sous double validation, comme un barème tarifaire.
+
+Deux exclusions, **toujours signalées** : une expertise périmée — une valeur d'il y a quatre ans
+n'est pas une valeur — et un type de sûreté sans quotité paramétrée, écarté plutôt que retenu à
+100 %. Une garantie silencieusement exclue laisse croire à une couverture qui n'existe pas, et cela
+ne se découvre qu'à la réalisation.
+
+### 14. Le XOF traité comme une vraie contrainte
 
 Échelle nulle native, accumulation en précision étendue, arrondi au seul moment de la
 comptabilisation, écart d'arrondi restitué explicitement. `MoneyTest.daily_rounding_drifts_measurably`
@@ -410,8 +438,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
 - API REST et couche Spring Boot (le ledger reste sans framework, c'est délibéré), qui câblera
   `RoleStartupTask`, `UseCaseExecutor` et le serveur de ressources Keycloak ;
-- crédit : origination (demande, scoring, décision, conditions suspensives), déblocage par
-  tranches, et un vrai module de garanties (éligibilité, rang, fraîcheur des expertises) ;
+- crédit : origination (demande, scoring, décision, conditions suspensives) et déblocage par
+  tranches ;
 - plafonds et limites paramétrés, et le maker-checker généralisé (la table `pending_operation`
   existe, le workflow n'est pas écrit) ;
 - capitalisation des intérêts, dormance, découverts et agios côté produit ;
@@ -459,3 +487,7 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Un remboursement anticipé ne révise ni le taux ni les accessoires | Les réviser au passage transformerait un droit de l'emprunteur en renégociation, qui demande un autre consentement |
 | La période d'observation retient la classe, pas le montant de la provision | L'encours a réellement baissé ; geler aussi le montant surprovisionnerait |
 | Les conditions financières sont portées par le contrat, la durée par l'échéancier | La durée change à chaque rééchelonnement ; la stocker deux fois ferait exister deux vérités sur le même sujet |
+| La quotité d'une sûreté est une donnée du référentiel, pas du dossier | La saisir revient à laisser un agent décider du niveau de provision de son propre portefeuille |
+| Les rangs antérieurs comptent toutes affectations confondues, y compris d'autres banques | Ce qui compte est ce qui reste de l'actif, pas ce que la banque en a déjà pris pour elle |
+| Une sûreté écartée est signalée, jamais ignorée | Croire couvrir un encours qu'on ne couvre pas ne se découvre qu'à la réalisation |
+| Une mainlevée marque la sûreté, elle ne la supprime pas | L'historique des rangs est une pièce du dossier |

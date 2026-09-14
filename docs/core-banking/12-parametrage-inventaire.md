@@ -235,11 +235,22 @@ paramétrage ⚠ — les grilles qui figurent dans les tests sont illustratives 
 **La grille est revalidée à chaque relecture**, et pas seulement à l'enregistrement : un correctif
 manuel sur une ligne de barème s'appliquerait sinon à tout le portefeuille au prochain arrêté.
 
-### Garanties — `loan_collateral` 🔶
+### Garanties — `collateral_policy`, `collateral`, `collateral_allocation` ✅
 
-Valeur et quotité d'éligibilité, datées. L'éligibilité réelle — nature de la sûreté, rang,
-fraîcheur de l'expertise, opposabilité — relève d'un module de garanties qui n'est pas écrit. La
-quotité en tient lieu.
+Le régime d'éligibilité est **paramétré par type de sûreté**, daté et sous double validation :
+quotité retenue et ancienneté maximale de l'expertise. La sûreté, elle, porte la valeur de l'actif,
+le montant garanti, son rang, et la date de son expertise ; son affectation à un crédit porte une
+quote-part.
+
+| Table | Ce qu'elle fixe |
+|---|---|
+| `collateral_policy` ⚠ | Quotité et fraîcheur exigée, par type de sûreté |
+| `collateral` | Valeur de l'actif, montant garanti, rang, expertise, mainlevée |
+| `collateral_allocation` | Quote-part affectée à chaque crédit, somme plafonnée à 100 % |
+
+**La quotité ne se saisit pas sur le dossier.** La laisser saisir reviendrait à laisser un agent
+décider du niveau de provision de son propre portefeuille. Les valeurs réglementaires ⚠ relèvent de
+l'instruction en vigueur.
 
 ### Référentiel ✅
 
@@ -272,7 +283,6 @@ le code appelant.
 | Capitalisation des intérêts (périodicité, base minimum/moyenne) | ⬜ |
 | Conditions de découvert rattachées au produit — agios, échelles (seul `overdraft.limit` existe, employé au contrôle de provision) | 🔶 |
 | Dormance (délai, régime de frais) | ⬜ |
-| Éligibilité et fraîcheur des garanties (quotité seule pour l'instant) | 🔶 |
 | Profil réglementaire régional et surcouche nationale ([11](11-profil-uemoa-bceao.md)) | ⬜ |
 | Ratios prudentiels | ⬜ |
 | Mapping plan comptable interne → réglementaire | ⬜ |

@@ -7,7 +7,9 @@ import io.corebanking.ledger.domain.posting.PostingCommand;
 import io.corebanking.ledger.domain.posting.PostingLine;
 import io.corebanking.ledger.domain.posting.PostingService;
 import io.corebanking.ledger.store.Database;
+import io.corebanking.loan.CollateralValuation;
 import io.corebanking.loan.Contagion;
+import io.corebanking.loan.Coverage;
 import io.corebanking.loan.Provisioning;
 import io.corebanking.loan.RiskBucket;
 import io.corebanking.loan.RiskGrid;
@@ -249,9 +251,17 @@ public final class LoanClassificationService {
                                                         : Money.zero(contract.currency());
 
             Money exposure = LoanStore.exposureOf(c, contract);
-            Money collateral = LoanStore.eligibleCollateral(c, contract.id(), contract.currency(),
-                                                            businessDate);
-            Provisioning.Provision provision = Provisioning.compute(exposure, collateral,
+            Coverage coverage = CollateralValuation.evaluate(
+                Collaterals.chargesOf(c, contract.legalEntityId(), contract.id(),
+                                      contract.currency()),
+                Collaterals.policiesAt(c, contract.legalEntityId(), businessDate), businessDate,
+                contract.currency());
+            // Une surete ecartee est signalee, jamais passee sous silence : croire couvrir un
+            // encours qu'on ne couvre pas ne se decouvre qu'a la realisation.
+            coverage.excluded().forEach(line -> tally.anomaly(
+                "credit " + contract.reference() + ", surete " + line.kind() + " : "
+                + line.exclusion()));
+            Provisioning.Provision provision = Provisioning.compute(exposure, coverage.eligible(),
                                                                     assessment.bucket());
             Money delta = provision.deltaFrom(alreadyProvisioned);
 

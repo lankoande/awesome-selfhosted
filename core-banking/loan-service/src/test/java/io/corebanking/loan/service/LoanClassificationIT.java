@@ -181,15 +181,13 @@ class LoanClassificationIT extends LoanTestBase {
     void garanties() {
         Risque risque = decorRisque("X5", Contagion.NONE, "DOUTEUX");
         UUID contrat = credit(risque, "REF-X5", "CRED-X5", Map.of());
-        database.inTransaction(c -> LoanStore.addCollateral(
-            c, contrat, "Hypotheque", "REAL_ESTATE", xof("800000"), new BigDecimal("50"),
-            DEBLOCAGE, null, ACTOR));
+        UUID entite = risque.decor().entityId();
+        hypotheque(entite, contrat, "IMM-X5", "800000", "800000", 1, DEBLOCAGE, "100");
 
-        service().classify(risque.decor().entityId(), LocalDate.of(2027, 1, 13), ACTOR,
-                           UUID.randomUUID());
+        service().classify(entite, LocalDate.of(2027, 1, 13), ACTOR, UUID.randomUUID());
 
-        // 800 000 a 50 % de quotite = 400 000 retenus. Assiette 1 010 000 - 400 000 = 610 000,
-        // provisionnee a 20 % = 122 000.
+        // 800 000 garantis, retenus a 50 % par le regime des hypotheques : 400 000. Assiette
+        // 1 010 000 - 400 000 = 610 000, provisionnee a 20 % = 122 000.
         assertThat(soldeDe(risque.provisions())).isEqualTo(xof("122000"));
     }
 
@@ -458,6 +456,26 @@ class LoanClassificationIT extends LoanTestBase {
             c, risque.decor().entityId(), "GRILLE", DEBLOCAGE)))
             .isInstanceOf(RiskGrid.InvalidRiskGridException.class)
             .hasMessageContaining("ne sont couverts par aucune classe");
+    }
+
+    /** Enregistre une hypotheque et l'affecte au credit. Le regime est cree une fois par entite. */
+    private static UUID hypotheque(UUID entite, UUID contrat, String actif, String valeur,
+                                   String garanti, int rang, LocalDate expertise,
+                                   String quotePart) {
+        return database.inTransaction(c -> {
+            if (Collaterals.policiesAt(c, entite, DEBLOCAGE).isEmpty()) {
+                UUID regime = Collaterals.createPolicy(c, new Collaterals.PolicyDraft(
+                    entite, new io.corebanking.loan.CollateralPolicy(
+                        "HYPOTHEQUE", "Hypotheque", new BigDecimal("50"), 36),
+                    DEBLOCAGE.minusYears(1), null, ACTOR));
+                Collaterals.activatePolicy(c, regime, APPROVER);
+            }
+            UUID surete = Collaterals.register(c, new Collaterals.Draft(
+                entite, null, actif, "HYPOTHEQUE", "Hypotheque " + actif, xof(valeur),
+                xof(garanti), rang, expertise, ACTOR, APPROVER));
+            Collaterals.allocate(c, surete, contrat, new BigDecimal(quotePart));
+            return surete;
+        });
     }
 
     // ------------------------------------------------------------------ outillage

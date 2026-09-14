@@ -300,8 +300,13 @@ Piloté par le profil réglementaire ([03](03-referentiel-parametrage.md#7-profi
 > une dégradation reste immédiate, et l'observation retient la **classe**, pas le montant de la
 > provision, qui suit l'encours.
 >
-> **Ce qui manque** : le module de garanties (éligibilité réelle, rang, fraîcheur des expertises,
-> opposabilité) n'existe pas — une quotité d'éligibilité en tient lieu, et le dit.
+> **Le module de garanties est implémenté** : quotité par type de sûreté venue du référentiel,
+> fraîcheur de l'expertise, rang sur l'actif, quote-part entre plusieurs crédits, mainlevée. Les
+> quatre réductions s'appliquent dans cet ordre, et une sûreté écartée est toujours signalée.
+>
+> **Ce qui manque** : l'origination (demande, scoring, décision, comité, conditions suspensives) et
+> le déblocage par tranches. L'opposabilité juridique d'une sûreté — inscription, publicité, délais
+> de purge — reste hors du socle : elle se constate au dossier, pas au calcul.
 
 1. Calcul du nombre de jours de retard du plus ancien impayé.
 2. Détermination du bucket selon la méthode du profil.
