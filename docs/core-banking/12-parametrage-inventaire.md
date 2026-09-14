@@ -66,6 +66,35 @@ défaut réellement coûteux — trois composantes arrondies séparément qui ne
 Ce que cela débloque directement : **commissions et taxes deviennent des lignes de schéma**. Une TVA
 qui change de taux est une nouvelle version datée, pas une livraison.
 
+### Calendrier et dates de valeur ✅
+
+| Table | Contenu |
+|---|---|
+| `business_calendar` | Période **réellement saisie** : au-delà, le calendrier refuse de répondre |
+| `calendar_weekend` | Jours de week-end — paramétrés, car ils ne tombent pas partout le samedi et le dimanche |
+| `calendar_holiday` | Fériés, date par date |
+| `value_date_rule` | Décalage par type d'opération, canal et **sens**, avec convention de report |
+
+**La date de valeur se calcule, elle ne se fournit pas.** Tant que l'appelant la transmet, chaque
+canal finit par appliquer sa propre lecture des conditions de banque, et l'écart ne se voit pas :
+l'écriture est équilibrée, la comptabilité juste, seuls les agios sont faux.
+
+**Le sens fait partie de la clé** — c'est le sujet. Les conditions décalent rarement le débit et le
+crédit de la même façon : un retrait porte souvent une date de valeur antérieure, un versement une
+date postérieure. Ces journées sont un produit pour la banque et un coût pour le client ; un modèle
+qui n'en tiendrait pas compte ne saurait pas représenter les conditions réellement pratiquées.
+
+Le prix est mesuré par un test : sur 10 M XOF à 6 %, **deux jours de valeur valent 3 288 XOF par
+opération**. Sur cent mille versements par mois, l'écart dépasse trois cents millions par an.
+
+Deux unités de décalage, et la distinction est financière : « deux jours ouvrés » depuis un
+vendredi donne le mardi, « deux jours calendaires ajustés au suivant » donne le lundi.
+
+Conventions de report : `UNADJUSTED`, `FOLLOWING`, `MODIFIED_FOLLOWING`, `PRECEDING`,
+`MODIFIED_PRECEDING`. Sur une échéance de fin de mois tombant un dimanche, `FOLLOWING` la bascule
+d'un exercice mensuel à l'autre, `MODIFIED_FOLLOWING` la garde dans son mois. Les deux sont
+licites ; aucune n'est un défaut raisonnable.
+
 ### Intérêts — `product_parameter` ✅
 
 | Paramètre | Valeurs | Effet |
@@ -110,8 +139,7 @@ le code appelant.
 |---|---|---|
 | **Commissions et frais** (périodicité, déclencheur) | 🔶 | Le calcul et l'imputation sont paramétrés ; le déclenchement périodique reste à faire |
 | **Plafonds et limites** (par produit, canal, client, période) | ⬜ | Contrôles absents ou codés en dur |
-| **Calendrier et jours fériés** par entité | ⬜ | Dates de valeur et échéances fausses les jours non ouvrés |
-| **Conventions de date de valeur** par type d'opération | ⬜ | Agios faux — point 11 de la checklist UEMOA, le plus coûteux |
+
 | **Circuits de double validation** (seuils par rôle et montant) | ⬜ | Maker-checker non généralisé hors paramétrage produit |
 
 ### Nécessaire à la couverture fonctionnelle visée

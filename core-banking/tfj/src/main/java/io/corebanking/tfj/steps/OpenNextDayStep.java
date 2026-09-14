@@ -1,5 +1,6 @@
 package io.corebanking.tfj.steps;
 
+import io.corebanking.calendar.BusinessCalendar;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.tfj.StepResult;
@@ -17,16 +18,23 @@ import java.time.LocalDate;
  * journee ne bascule pas, et le systeme refuse par construction de travailler sur une journee
  * suivante alors que la precedente n'est pas arretee.
  *
- * <p>Le calendrier des jours ouvres n'est pas encore parametre : la bascule avance d'un jour
- * calendaire. Un jour ferie doit etre arrete comme un autre — les interets y courent — mais les
- * dates de valeur et les echeances, elles, dependront du calendrier une fois celui-ci disponible.
+ * <p>La journee avance au <b>jour ouvre suivant</b>. Un week-end ou un pont n'est donc pas arrete,
+ * et c'est sans consequence sur les interets : le calcul couvre toutes les journees depuis la
+ * derniere remuneree jusqu'a celle traitee. Le TFJ du lundi remunere donc samedi, dimanche et
+ * lundi, en une fois et pour les montants exacts.
+ *
+ * <p>Faire l'inverse — arreter chaque jour calendaire — est egalement pratique dans la profession.
+ * Le choix se parametrera par entite ; en attendant, la bascule sur jour ouvre est le comportement
+ * retenu, et il est explicite plutot que subi.
  */
 public final class OpenNextDayStep implements TfjStep {
 
     private final Database database;
+    private final BusinessCalendar calendar;
 
-    public OpenNextDayStep(Database database) {
+    public OpenNextDayStep(Database database, BusinessCalendar calendar) {
         this.database = database;
+        this.calendar = calendar;
     }
 
     @Override
@@ -41,7 +49,7 @@ public final class OpenNextDayStep implements TfjStep {
 
     @Override
     public StepResult execute(TfjContext context) {
-        LocalDate next = context.businessDate().plusDays(1);
+        LocalDate next = calendar.nextBusinessDay(context.businessDate());
         database.inTransaction(c -> {
             try (PreparedStatement ps = c.prepareStatement(
                 "UPDATE legal_entity SET current_business_date = ?"

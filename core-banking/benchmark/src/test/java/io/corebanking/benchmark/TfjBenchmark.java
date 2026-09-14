@@ -42,7 +42,7 @@ class TfjBenchmark extends BenchmarkBase {
         line("=== Traitement de fin de journee ===");
         line("comptes remuneres : " + accountCount);
 
-        TfjEngine engine = StandardTfj.engine(database, postingService, interestService);
+        TfjEngine engine = StandardTfj.engine(database, postingService, interestService, calendar);
 
         long start = System.currentTimeMillis();
         TfjRun run = engine.run(ENTITY, DAY, ACTOR, RunMode.REAL);

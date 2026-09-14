@@ -1,5 +1,6 @@
 package io.corebanking.tfj;
 
+import io.corebanking.calendar.BusinessCalendar;
 import io.corebanking.interest.service.BatchInterestAccrualService;
 import io.corebanking.ledger.domain.posting.PostingService;
 import io.corebanking.ledger.store.Database;
@@ -35,17 +36,19 @@ public final class StandardTfj {
     private StandardTfj() {}
 
     public static List<TfjStep> steps(Database database,
-                                      BatchInterestAccrualService interestService) {
+                                      BatchInterestAccrualService interestService,
+                                      BusinessCalendar calendar) {
         return List.of(
             new PreChecksStep(database),
             new InterestAccrualStep(database, interestService),
             new BalanceSnapshotStep(database),
             new ReconciliationStep(database),
-            new OpenNextDayStep(database));
+            new OpenNextDayStep(database, calendar));
     }
 
     public static TfjEngine engine(Database database, PostingService postingService,
-                                   BatchInterestAccrualService interestService) {
-        return new TfjEngine(database, postingService, steps(database, interestService));
+                                   BatchInterestAccrualService interestService,
+                                   BusinessCalendar calendar) {
+        return new TfjEngine(database, postingService, steps(database, interestService, calendar));
     }
 }

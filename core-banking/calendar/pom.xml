@@ -6,23 +6,19 @@
   <parent>
     <groupId>io.corebanking</groupId><artifactId>core-banking</artifactId><version>0.1.0-SNAPSHOT</version>
   </parent>
-  <artifactId>tfj</artifactId>
-  <name>tfj</name>
-  <description>Moteur de traitement de fin de journee : orchestration, reprise, annulation, TFJ a blanc.</description>
+  <artifactId>calendar</artifactId>
+  <name>calendar</name>
+  <description>Calendrier des jours ouvres et conventions de date de valeur.</description>
   <dependencies>
     <dependency><groupId>io.corebanking</groupId><artifactId>platform-kernel</artifactId></dependency>
-    <dependency><groupId>io.corebanking</groupId><artifactId>ledger-domain</artifactId></dependency>
-    <dependency><groupId>io.corebanking</groupId><artifactId>interest-domain</artifactId></dependency>
     <dependency>
       <groupId>io.corebanking</groupId><artifactId>ledger-store</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>io.corebanking</groupId><artifactId>interest-service</artifactId>
-      <version>${project.version}</version>
+      <groupId>io.corebanking</groupId><artifactId>interest-domain</artifactId>
+      <scope>test</scope>
     </dependency>
-    <dependency><groupId>io.corebanking</groupId><artifactId>product-catalog</artifactId></dependency>
-    <dependency><groupId>io.corebanking</groupId><artifactId>calendar</artifactId></dependency>
     <dependency>
       <groupId>org.slf4j</groupId><artifactId>slf4j-simple</artifactId>
       <version>${slf4j.version}</version><scope>test</scope>

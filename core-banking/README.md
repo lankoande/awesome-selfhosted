@@ -19,8 +19,8 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 185 tests verts** — 133 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
-générés), 52 sur PostgreSQL réel.
+**État actuel : 201 tests verts** — 146 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
+générés), 55 sur PostgreSQL réel.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ à 0,128 ms par compte, soit 4,3 minutes extrapolées pour 2 M de comptes contre
@@ -63,6 +63,9 @@ interblocage ; TFJ à 0,128 ms par compte, soit 4,3 minutes extrapolées pour 2 
 | TFJ à blanc : même chemin de code, aucune trace | Transaction annulée | `a_dry_run_reports_everything_and_leaves_nothing` |
 | Calcul par lot ≡ calcul compte par compte | `BatchInterestAccrualService` | `batch_and_per_account_agree_exactly` |
 | Un compte sans mouvement mais mal paramétré est signalé | idem | `a_movementless_but_misconfigured_account_is_reported` |
+| Date de valeur calculée, jamais fournie ; absence de règle = refus | `ValueDatePolicy` | `a_missing_rule_is_a_refusal` |
+| Le calendrier refuse de répondre hors de sa période saisie | `BusinessCalendar` | `the_calendar_refuses_beyond_its_coverage` |
+| La journée bascule au jour ouvré ; le lundi rémunère le week-end | `OpenNextDayStep` | `the_day_rolls_to_the_next_business_day_and_monday_pays_the_weekend` |
 | Le secret du compte de service ne fuit nulle part | `KeycloakAdminConfig` | `the_service_account_secret_never_leaks` |
 | Tout rôle est porté par un poste, sinon inattribuable | `JobProfile` | `every_role_is_carried_by_a_profile` |
 | Écart de provisionnement Keycloak détecté | `KeycloakProvisioning.drift` | `a_missing_role_is_reported_as_silently_blocking` |
@@ -173,7 +176,20 @@ Contrepartie à connaître : l'ensemble tient dans une seule transaction, donc u
 verrous. Sur un portefeuille entier, un TFJ à blanc est long et bloquant — il se lance sur un
 échantillon ou hors des heures de service.
 
-### 7. Le XOF traité comme une vraie contrainte
+### 7. Des dates de valeur calculées, avec leur prix mesuré
+
+La date de valeur ne se fournit pas, elle se calcule. Tant que l'appelant la transmet, chaque canal
+applique sa propre lecture des conditions de banque, et l'écart ne se voit pas : l'écriture est
+équilibrée, la comptabilité juste, **seuls les agios sont faux**.
+
+Le **sens fait partie de la clé** de la règle, parce que c'est là qu'est le sujet : un retrait porte
+souvent une date de valeur antérieure, un versement une date postérieure. Un test chiffre l'enjeu —
+sur 10 M XOF à 6 %, deux jours de valeur valent **3 288 XOF par opération**.
+
+L'absence de règle est un refus, jamais un repli sur la date comptable : ce repli serait la forme la
+plus discrète de l'erreur, puisqu'il produit un résultat plausible.
+
+### 8. Le XOF traité comme une vraie contrainte
 
 Échelle nulle native, accumulation en précision étendue, arrondi au seul moment de la
 comptabilisation, écart d'arrondi restitué explicitement. `MoneyTest.daily_rounding_drifts_measurably`

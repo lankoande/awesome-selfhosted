@@ -258,4 +258,37 @@ class TfjEngineIT extends TfjTestBase {
             .isInstanceOf(TfjEngine.TfjRefusedException.class)
             .hasMessageContaining("Motif d'annulation obligatoire");
     }
+
+    @Test
+    @DisplayName("la journee bascule au jour ouvre suivant, et le lundi remunere tout le week-end")
+    void the_day_rolls_to_the_next_business_day_and_monday_pays_the_weekend() {
+        Account charges = gl(NormalBalance.DEBIT);
+        Account courus = gl(NormalBalance.CREDIT);
+
+        // On se place un vendredi : il faut arreter les journees jusque-la.
+        while (businessDate().getDayOfWeek() != java.time.DayOfWeek.FRIDAY) {
+            engine.run(ENTITY, businessDate(), ACTOR, RunMode.REAL);
+        }
+        var vendredi = businessDate();
+
+        Account client = savingsAccount("CLI-710", charges, courus, "EP-710");
+        deposit(client, cash(), "10000000", vendredi, "dep-710");
+
+        engine.run(ENTITY, vendredi, ACTOR, RunMode.REAL);
+        Money apresVendredi = database.inTransaction(c -> Balances.current(c, courus.id()));
+
+        // Ni samedi ni dimanche ne sont arretes : la journee saute au lundi.
+        var lundi = businessDate();
+        assertThat(lundi).isEqualTo(vendredi.plusDays(3));
+        assertThat(lundi.getDayOfWeek()).isEqualTo(java.time.DayOfWeek.MONDAY);
+
+        engine.run(ENTITY, lundi, ACTOR, RunMode.REAL);
+        Money apresLundi = database.inTransaction(c -> Balances.current(c, courus.id()));
+
+        // Le TFJ du lundi remunere samedi, dimanche et lundi : trois journees en une fois.
+        // 10 000 000 a 6 % en ACT/365 valent 1 643,8356 par jour ; le cumul exact de quatre
+        // journees est 6 575,34, arrondi a 6 575, contre 1 644 apres la seule journee du vendredi.
+        assertThat(apresVendredi).isEqualTo(Money.of("1644", XOF));
+        assertThat(apresLundi).isEqualTo(Money.of("6575", XOF));
+    }
 }

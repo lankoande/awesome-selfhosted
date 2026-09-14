@@ -16,6 +16,8 @@ import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.Entities;
 import io.corebanking.ledger.store.JdbcPostingService;
 import io.corebanking.ledger.store.LedgerStoreException;
+import io.corebanking.calendar.BusinessCalendar;
+import io.corebanking.calendar.Calendars;
 import io.corebanking.ledger.store.SchemaMigrator;
 import io.corebanking.product.ProductCatalog;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
@@ -53,6 +55,7 @@ abstract class BenchmarkBase {
     protected static Database database;
     protected static JdbcPostingService postingService;
     protected static BatchInterestAccrualService interestService;
+    protected static BusinessCalendar calendar;
 
     protected static final UUID ENTITY = UUID.fromString("00000000-0000-0000-0000-0000000000e1");
     protected static final UUID ACTOR = UUID.fromString("00000000-0000-0000-0000-0000000000ac");
@@ -77,6 +80,7 @@ abstract class BenchmarkBase {
         applyScript("/db/V3__product.sql");
         applyScript("/db/V2__interest.sql");
         applyScript("/db/V6__tfj.sql");
+        applyScript("/db/V7__calendar.sql");
         SchemaMigrator.ensurePartitions(database, DAY.minusMonths(1), DAY.plusMonths(2));
 
         database.inTransaction(c -> {
@@ -86,6 +90,15 @@ abstract class BenchmarkBase {
                                 DAY.withDayOfMonth(1).plusMonths(2).minusDays(1));
             return null;
         });
+        UUID calendarId = database.inTransaction(c -> {
+            UUID id = Calendars.createCalendar(c, "CI", "Cote d'Ivoire",
+                java.util.Set.of(java.time.DayOfWeek.SATURDAY, java.time.DayOfWeek.SUNDAY),
+                DAY.minusYears(1), DAY.plusYears(2));
+            Calendars.attachToEntity(c, ENTITY, id);
+            return id;
+        });
+        calendar = Calendars.load(database, ENTITY).calendar();
+
         postingService = new JdbcPostingService(database);
         interestService = new BatchInterestAccrualService(database, postingService);
     }

@@ -237,6 +237,14 @@ Une échéance tombant un jour non ouvré est décalée selon une convention par
 `FOLLOWING`, `MODIFIED_FOLLOWING`, `PRECEDING`. La convention est un attribut de produit,
 pas une constante de code.
 
+> **Implémenté** ([`core-banking/calendar`](../../core-banking/calendar)). Le calendrier porte sa
+> **période de saisie** et refuse de répondre au-delà : présumer qu'un jour non saisi est ouvré
+> reviendrait à traiter le 1ᵉʳ janvier comme un jour ordinaire dès que la saisie des fériés prend du
+> retard, et l'erreur ne se verrait qu'à la réclamation. Les dates de valeur sont calculées par le
+> moteur à partir des conditions en vigueur à la date comptable traitée ; l'absence de règle est un
+> refus, jamais un repli sur la date comptable — ce repli serait la forme la plus discrète de
+> l'erreur, puisqu'il produit un résultat plausible.
+
 ### Périodes comptables
 
 ```
