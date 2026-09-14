@@ -10,6 +10,7 @@ import io.corebanking.ledger.store.Accounts;
 import io.corebanking.loan.LoanTerms;
 import io.corebanking.loan.ScheduleGenerator;
 import io.corebanking.loan.service.LoanCatalog;
+import io.corebanking.loan.service.LoanLateChargesService;
 import io.corebanking.loan.service.LoanService;
 import io.corebanking.loan.service.LoanStore;
 import io.corebanking.product.ProductCatalog;
@@ -49,21 +50,15 @@ class LoanBenchmark extends BenchmarkBase {
         Account produits = gl("GL-PRODUITS-L", NormalBalance.CREDIT, 64);
         Account taxe = gl("GL-TAXE-L", NormalBalance.CREDIT, 64);
 
-        Map<String, String> parametres = new LinkedHashMap<>();
-        parametres.put(LoanCatalog.P_ACCRUED, creances.id().toString());
-        parametres.put(LoanCatalog.P_INTEREST_INCOME, produits.id().toString());
-        parametres.put(LoanCatalog.P_TAX_ACCOUNT, taxe.id().toString());
-        parametres.put(LoanCatalog.P_DIRECT_DEBIT, "true");
-        database.inTransaction(c -> {
-            UUID version = ProductCatalog.createDraft(c, new ProductCatalog.Draft(
-                ENTITY, "CRED-BENCH", "TERM_LOAN", "Credit amortissable", "XOF",
-                DISBURSED.minusDays(1), null, parametres, List.of(), ACTOR));
-            ProductCatalog.activate(c, version, APPROVER);
-            return null;
-        });
+        Account retard = gl("GL-RETARD-L", NormalBalance.CREDIT, 64);
+        // Deux produits : l'un preleve d'office, l'autre non. La seconde moitie du portefeuille se
+        // retrouve donc impayee des le lendemain, ce qui permet de mesurer le chemin d'accrual sur
+        // le meme jeu de contrats.
+        produit("CRED-BENCH", creances, produits, taxe, retard, true);
+        produit("CRED-BENCH-LATE", creances, produits, taxe, retard, false);
 
         LoanService loanService = new LoanService(database, postingService);
-        List<UUID> contracts = seedLoans(loanCount, loanService);
+        seedLoans(loanCount, loanService);
         analyze();
 
         line("");
@@ -92,7 +87,53 @@ class LoanBenchmark extends BenchmarkBase {
         org.assertj.core.api.Assertions.assertThat(outcome.anomalies()).isEmpty();
         org.assertj.core.api.Assertions.assertThat(outcome.instalmentsMadeDue())
             .isEqualTo(loanCount);
-        org.assertj.core.api.Assertions.assertThat(outcome.collected()).isEqualTo(loanCount);
+        org.assertj.core.api.Assertions.assertThat(outcome.collected()).isEqualTo(loanCount / 2);
+
+        // ---------------------------------------------------------------- charges de retard
+        //
+        // Le lendemain, la moitie non prelevee est impayee. Le cout mesure est celui du chemin
+        // complet : reconstitution de l'assiette, journee d'accrual, penalite et imputation.
+        LoanLateChargesService lateService = new LoanLateChargesService(database, postingService);
+        int late = loanCount / 2;
+
+        long lateStart = System.currentTimeMillis();
+        LoanLateChargesService.Outcome lateOutcome = lateService.charge(
+            ENTITY, DAY.plusDays(1), ACTOR, UUID.randomUUID());
+        long lateElapsed = System.currentTimeMillis() - lateStart;
+
+        line("");
+        line("=== Charges de retard ===");
+        line("credits impayes : " + late + " sur " + loanCount + " examines");
+        line("duree : " + lateElapsed + " ms, anomalies : " + lateOutcome.anomalies().size());
+
+        double perLateMillis = lateElapsed * 1.0 / late;
+        double lateProjected = perLateMillis * (TARGET_LOANS / 2) / 60_000.0;
+        line(String.format("cout par credit impaye : %.3f ms", perLateMillis));
+        line(String.format("extrapolation %d k impayes : %.1f minutes",
+                           TARGET_LOANS / 2000, lateProjected));
+
+        org.assertj.core.api.Assertions.assertThat(lateOutcome.anomalies()).isEmpty();
+        org.assertj.core.api.Assertions.assertThat(lateOutcome.contractsCharged()).isEqualTo(late);
+    }
+
+    private static void produit(String code, Account creances, Account produits, Account taxe,
+                                Account retard, boolean prelevement) {
+        Map<String, String> parametres = new LinkedHashMap<>();
+        parametres.put(LoanCatalog.P_ACCRUED, creances.id().toString());
+        parametres.put(LoanCatalog.P_INTEREST_INCOME, produits.id().toString());
+        parametres.put(LoanCatalog.P_TAX_ACCOUNT, taxe.id().toString());
+        parametres.put(LoanCatalog.P_DIRECT_DEBIT, String.valueOf(prelevement));
+        parametres.put(LoanCatalog.P_LATE_RATE, "18");
+        parametres.put(LoanCatalog.P_PENALTY_MODE, "FLAT_PER_INSTALMENT");
+        parametres.put(LoanCatalog.P_PENALTY_AMOUNT, "5000");
+        parametres.put(LoanCatalog.P_LATE_INCOME, retard.id().toString());
+        database.inTransaction(c -> {
+            UUID version = ProductCatalog.createDraft(c, new ProductCatalog.Draft(
+                ENTITY, code, "TERM_LOAN", "Credit amortissable", "XOF",
+                DISBURSED.minusDays(1), null, parametres, List.of(), ACTOR));
+            ProductCatalog.activate(c, version, APPROVER);
+            return null;
+        });
     }
 
     private static List<UUID> seedLoans(int count, LoanService loanService) {
@@ -105,8 +146,9 @@ class LoanBenchmark extends BenchmarkBase {
             String suffix = String.format("%07d", index);
             Account pret = customerAccount("L-PRET-" + suffix, NormalBalance.DEBIT);
             Account courant = customerAccount("L-COURANT-" + suffix, NormalBalance.CREDIT);
+            String produit = index % 2 == 0 ? "CRED-BENCH" : "CRED-BENCH-LATE";
             UUID contract = database.inTransaction(c -> LoanStore.createContract(
-                c, new LoanStore.ContractDraft(ENTITY, "REF-" + suffix, "CRED-BENCH",
+                c, new LoanStore.ContractDraft(ENTITY, "REF-" + suffix, produit,
                                                Currencies.XOF, pret.id(), courant.id(),
                                                Money.of("1000000", Currencies.XOF), DISBURSED,
                                                ACTOR)));

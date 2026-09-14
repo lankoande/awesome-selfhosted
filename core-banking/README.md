@@ -13,7 +13,7 @@ core-banking/
 ├── fee-domain          Périodicité, assiette, proratisation, fiscalité des commissions
 ├── fee-service         Perception : échéances, provision, impayés, exonérations
 ├── loan-domain         Échéanciers d'amortissement, imputation d'un règlement — arithmétique pure
-├── loan-service        Contrats : déblocage, exigibilité, prélèvement, rééchelonnement
+├── loan-service        Contrats : déblocage, exigibilité, prélèvement, retard, rééchelonnement
 ├── schema-engine       Traduction événement métier → écritures, validation par tirage
 ├── product-catalog     Product factory datée, schémas comptables, barèmes
 ├── calendar            Jours ouvrés, conventions et conditions de date de valeur
@@ -33,14 +33,13 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 309 tests verts** — 207 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 102 sur PostgreSQL réel.
+**État actuel : 322 tests verts** — 207 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 115 sur PostgreSQL réel.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,809 ms par compte dans le cas le plus
 défavorable, soit **27,0 minutes** extrapolées pour 2 M de comptes contre 90 de fenêtre ;
-exigibilité des crédits à 2,168 ms par contrat, soit 7,2 minutes pour 200 k crédits échéançant le
-même jour.
+exigibilité des crédits à 1,500 ms par contrat et charges de retard à 1,500 ms par impayé.
 
 ## Ce que le P0 garantit, et comment c'est prouvé
 
@@ -110,6 +109,12 @@ même jour.
 | Une créance ne remonte jamais | Déclencheur `guard_loan_receivable` | `creanceNeRemontePas` |
 | L'encours ne diminue qu'au règlement, jamais à l'échéance | Schémas comptables du crédit | `exigibilite` |
 | L'annulation du TFJ rend l'échéance à nouveau exigible | `TfjEngine.cancel` | `annulationRendLEcheanceExigible` |
+| L'intérêt de retard ne porte jamais sur lui-même | Assiette construite sans les créances de retard | `aucuneCapitalisation` |
+| Le cumul de retard s'arrondit, pas la journée | Même procédé que les accruals | `aucuneDerive` |
+| L'assiette de retard est reconstituée jour par jour | Historique des imputations daté | `assietteReconstituee` |
+| Une pénalité est perçue une fois par échéance, pas chaque jour | Index unique partiel | `penaliteUneSeuleFois` |
+| Le montant d'une créance ordinaire ne court jamais | Déclencheur `guard_loan_receivable` | `creanceOrdinaireFigee` |
+| L'annulation du TFJ reprend exactement l'intérêt de retard imputé | `TfjEngine.cancel` | `annulationReprendLInteretDeRetard` |
 
 ## Les choix qui vont au-delà des progiciels établis
 
@@ -280,7 +285,37 @@ la somme des intérêts courus quotidiens que produit le moteur d'accruals. Les 
 racontent la même histoire — sans quoi le produit constaté au fil de l'eau ne correspondrait pas à
 l'intérêt réclamé à l'échéance, et l'écart n'aurait aucune explication comptable.
 
-### 10. Le XOF traité comme une vraie contrainte
+### 10. Un régime de retard qui ne capitalise pas
+
+Deux prélèvements de nature différente, et les tenir séparés n'est pas une subtilité : l'**intérêt
+de retard** court chaque jour sur l'impayé, la **pénalité** se perçoit une fois par échéance. Les
+confondre produit soit une pénalité quotidienne, soit aucun intérêt de retard — et les deux se
+voient sur le relevé du client bien avant d'être comprises.
+
+Trois propriétés qui distinguent ce moteur :
+
+**L'assiette exclut les créances de retard par construction.** Faire porter intérêt aux intérêts
+échus est de l'anatocisme, encadré voire prohibé dans la plupart des droits de la zone. Ce n'est
+pas un paramètre que l'on pourrait inverser par inadvertance : les catégories `LATE_INTEREST` et
+`PENALTIES` ne sont jamais lues dans l'assiette. L'écart est invisible sur un jour et considérable
+sur un contentieux de deux ans.
+
+**L'assiette est reconstituée jour par jour, jamais estimée sur l'état courant.** Un rattrapage de
+quinze jours doit facturer chaque journée sur l'impayé tel qu'il était ce jour-là. Un test le
+chiffre : un règlement du 31 octobre traité le 15 novembre donne 890 XOF d'intérêts de retard sur
+trente et une journées, là où le calcul sur la seule assiette d'aujourd'hui en donnerait 594, et
+celui sur la seule assiette d'origine 1 205.
+
+**Le cumul s'arrondit, la journée non.** Soixante journées à 38,884 XOF font 2 333 au cumul exact ;
+l'arrondi quotidien en ferait 2 340. Sept francs par contrat et par deux mois de retard,
+systématiquement au détriment du client, et l'écart croît linéairement avec la durée du
+contentieux.
+
+Enfin, la **contre-passation d'un TFJ reprend exactement l'intérêt qu'il avait imputé**. Sans elle,
+l'écriture serait annulée et la créance resterait gonflée d'un montant dont plus aucune écriture ne
+rend compte — et la réconciliation ne le verrait pas, puisqu'elle ne porte que sur le journal.
+
+### 11. Le XOF traité comme une vraie contrainte
 
 Échelle nulle native, accumulation en précision étendue, arrondi au seul moment de la
 comptabilisation, écart d'arrondi restitué explicitement. `MoneyTest.daily_rounding_drifts_measurably`
@@ -292,8 +327,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
 - API REST et couche Spring Boot (le ledger reste sans framework, c'est délibéré), qui câblera
   `RoleStartupTask`, `UseCaseExecutor` et le serveur de ressources Keycloak ;
-- crédit : pénalités et intérêts de retard, classification, provisionnement, suspension des
-  intérêts (les échéanciers, l'exigibilité et l'imputation sont faits) ;
+- crédit : classification, provisionnement, suspension des intérêts (les échéanciers,
+  l'exigibilité, l'imputation et le régime de retard sont faits) ;
 - plafonds et limites paramétrés, et le maker-checker généralisé (la table `pending_operation`
   existe, le workflow n'est pas écrit) ;
 - capitalisation des intérêts, dormance, découverts et agios côté produit ;
@@ -328,3 +363,7 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | L'imputation partielle est admise sur un crédit, refusée sur une commission | Une échéance est une dette qui s'amortit ; une commission porte une assiette taxable déjà déclarée, que l'on ne scinde pas |
 | L'encours d'un crédit ne diminue qu'au règlement | L'amortir dès l'exigibilité afficherait un actif inférieur à ce que le client doit, et sous-estimerait l'exposition au moment où elle devient risquée |
 | Exigibilité et prélèvement dans la même étape du TFJ | Entre les deux, un compte à jour apparaîtrait en impayé ; sur un TFJ interrompu, ce faux impayé survivrait à la nuit |
+| Les créances de retard sont exclues de leur propre assiette, structurellement | L'anatocisme est encadré voire prohibé ; un paramètre inversable mettrait la banque en infraction sans décision |
+| Seul l'intérêt de retard voit son montant dû croître | Toute autre créance a un montant fixe dès sa naissance ; le voir bouger révèle une réécriture de l'histoire |
+| Montant dû et solde d'une créance bougent du même pas, dans les deux sens | Sinon un accrual ferait redevenir due une part déjà réglée, ou une reprise effacerait une part encore due |
+| Les produits de retard s'imputent sur des comptes distincts des intérêts sains | Les produits sur créances en souffrance forment une ligne à part des états réglementaires |

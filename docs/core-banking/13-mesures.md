@@ -182,6 +182,18 @@ chaque fois et ne s'agrège donc pas. Mesure dans le cas le plus défavorable �
 Facteur **3,5**. Le gain est plus faible que sur les commissions parce qu'un contrat coûte deux
 écritures au lieu d'une, et que le chemin conserve une lecture d'échéancier par contrat.
 
+Le banc a ensuite été étendu à un portefeuille mixte — la moitié prélevée d'office, l'autre non,
+donc impayée dès le lendemain — afin de mesurer aussi le chemin de retard :
+
+| Étape | Coût unitaire | Portée |
+|---|---|---|
+| Exigibilité et prélèvement | 1,500 ms par contrat | la moitié seulement produit une seconde écriture |
+| Intérêts de retard et pénalités | 1,500 ms par impayé | reconstitution de l'assiette, journée d'accrual, pénalité, imputation |
+
+Le coût par contrat de l'exigibilité descend à 1,500 ms parce que seule la moitié du portefeuille
+est prélevée : les deux chiffres de ce tableau ne se comparent pas à la mesure précédente, qui
+prélevait tout le portefeuille.
+
 Une requête a été supprimée au passage : le service demandait d'abord si le contrat portait des
 créances ouvertes, puis les relisait pour prélever. Tenter le prélèvement sans condition coûte
 moins qu'une requête de plus pour savoir s'il faut le tenter.

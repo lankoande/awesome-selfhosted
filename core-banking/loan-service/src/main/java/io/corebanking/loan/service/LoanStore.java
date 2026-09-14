@@ -412,6 +412,231 @@ public final class LoanStore {
         }
     }
 
+    // ------------------------------------------------------------------ retard
+
+    /** Creance telle qu'elle est lue pour reconstituer l'assiette de retard, jour par jour. */
+    public record OverdueLine(UUID id, UUID scheduleId, int instalmentNumber, DueCategory category,
+                              LocalDate dueDate, Money originalAmount) {}
+
+    /** Reglement impute sur une creance, avec la date qui decide de la journee d'imputation. */
+    public record AllocationHistory(UUID receivableId, LocalDate valueDate, Money amount) {}
+
+    /**
+     * Creances susceptibles de composer l'assiette des interets de retard.
+     *
+     * <p>Les creances de retard elles-memes sont exclues : leur faire porter interet serait de
+     * l'anatocisme, et l'exclusion est structurelle plutot que parametree.
+     */
+    public static List<OverdueLine> overdueLines(Connection c, UUID contractId,
+                                                 CurrencyRef currency) {
+        List<OverdueLine> lines = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, schedule_id, instalment_number, category, due_date, original_amount"
+            + "  FROM loan_receivable"
+            + " WHERE contract_id = ? AND NOT cancelled"
+            + "   AND category IN ('PRINCIPAL','INTEREST','FEES_AND_INSURANCE')"
+            + " ORDER BY due_date, instalment_number, category")) {
+            ps.setObject(1, contractId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    lines.add(new OverdueLine(
+                        rs.getObject(1, UUID.class), rs.getObject(2, UUID.class), rs.getInt(3),
+                        DueCategory.valueOf(rs.getString(4)), rs.getObject(5, LocalDate.class),
+                        Money.of(rs.getBigDecimal(6), currency)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des creances du contrat " + contractId, e);
+        }
+        return lines;
+    }
+
+    /**
+     * Historique des imputations, avec la date de valeur du reglement qui les a produites.
+     *
+     * <p>C'est ce qui permet de reconstituer l'assiette telle qu'elle etait chaque jour, plutot
+     * que de l'estimer sur l'etat courant. Un rattrapage de plusieurs jours calculerait sinon tous
+     * ses interets de retard sur l'assiette d'aujourd'hui, et un reglement intervenu entre-temps
+     * serait ignore.
+     */
+    public static List<AllocationHistory> allocationHistory(Connection c, UUID contractId,
+                                                            CurrencyRef currency) {
+        List<AllocationHistory> history = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT a.receivable_id, p.value_date, a.amount"
+            + "  FROM loan_payment_allocation a JOIN loan_payment p ON p.id = a.payment_id"
+            + " WHERE p.contract_id = ? ORDER BY p.value_date")) {
+            ps.setObject(1, contractId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    history.add(new AllocationHistory(
+                        rs.getObject(1, UUID.class), rs.getObject(2, LocalDate.class),
+                        Money.of(rs.getBigDecimal(3), currency)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des imputations du contrat " + contractId, e);
+        }
+        return history;
+    }
+
+    /** Etat du cumul d'interets de retard d'un contrat. */
+    public record LateState(LocalDate through, Money cumulativePrecise, Money posted) {}
+
+    public static Optional<LateState> lateState(Connection c, UUID contractId,
+                                                CurrencyRef currency) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT MAX(accrual_date),"
+            + "       (SELECT cumulative_precise FROM loan_late_accrual"
+            + "         WHERE contract_id = ? AND status = 'ACTIVE'"
+            + "         ORDER BY accrual_date DESC LIMIT 1),"
+            + "       COALESCE(SUM(posted_delta), 0)"
+            + "  FROM loan_late_accrual WHERE contract_id = ? AND status = 'ACTIVE'")) {
+            ps.setObject(1, contractId);
+            ps.setObject(2, contractId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                LocalDate through = rs.getObject(1, LocalDate.class);
+                if (through == null) {
+                    return Optional.empty();
+                }
+                return Optional.of(new LateState(through,
+                    Money.of(rs.getBigDecimal(2), currency),
+                    Money.of(rs.getBigDecimal(3), currency)));
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture du cumul de retard du contrat " + contractId, e);
+        }
+    }
+
+    /** Journee d'interet de retard, conservee pour l'explicabilite comme un interet couru. */
+    public record LateAccrual(LocalDate date, Money basis, BigDecimal ratePercent,
+                              BigDecimal yearFraction, Money precise, Money cumulative) {}
+
+    public static void insertLateAccruals(Connection c, UUID contractId, List<LateAccrual> days,
+                                          Money postedDelta, UUID entryId, LocalDate bookingDate,
+                                          UUID batchRunId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "INSERT INTO loan_late_accrual(id, contract_id, accrual_date, basis_amount,"
+            + " annual_rate_percent, year_fraction, precise_amount, cumulative_precise,"
+            + " posted_delta, entry_id, booking_date, batch_run_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")) {
+            for (int index = 0; index < days.size(); index++) {
+                LateAccrual day = days.get(index);
+                boolean last = index == days.size() - 1;
+                ps.setObject(1, Ids.newId());
+                ps.setObject(2, contractId);
+                ps.setObject(3, day.date());
+                ps.setBigDecimal(4, day.basis().amount());
+                ps.setBigDecimal(5, day.ratePercent());
+                ps.setBigDecimal(6, day.yearFraction());
+                ps.setBigDecimal(7, day.precise().amount());
+                ps.setBigDecimal(8, day.cumulative().amount());
+                // L'ecriture porte sur la derniere journee du lot : c'est elle qui solde l'ecart
+                // entre le cumul arrondi et ce qui etait deja impute.
+                ps.setBigDecimal(9, last ? postedDelta.amount() : BigDecimal.ZERO);
+                ps.setObject(10, last ? entryId : null);
+                ps.setObject(11, last ? bookingDate : null);
+                ps.setObject(12, batchRunId);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Enregistrement des journees de retard", e);
+        }
+    }
+
+    /** Creance ouverte d'une nature donnee pour une echeance, absente si elle n'existe pas. */
+    public static Optional<UUID> findReceivable(Connection c, UUID contractId, UUID scheduleId,
+                                                int instalmentNumber, DueCategory category) {
+        try (PreparedStatement ps = c.prepareStatement(
+            // IS NOT DISTINCT FROM plutot qu'une egalite : l'interet de retard ne se rattache a
+            // aucune echeance, et son schedule_id est nul. Le transtypage explicite est requis —
+            // sans lui, PostgreSQL ne peut pas inferer le type d'un parametre nul.
+            "SELECT id FROM loan_receivable WHERE contract_id = ? AND category = ?"
+            + " AND NOT cancelled"
+            + " AND schedule_id IS NOT DISTINCT FROM CAST(? AS uuid)"
+            + " AND instalment_number = ?")) {
+            ps.setObject(1, contractId);
+            ps.setString(2, category.name());
+            ps.setObject(3, scheduleId);
+            ps.setInt(4, instalmentNumber);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(rs.getObject(1, UUID.class)) : Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Recherche de la creance " + category, e);
+        }
+    }
+
+    /**
+     * Fait courir la creance d'interet de retard du montant accru.
+     *
+     * <p>Le montant du et le solde progressent du meme pas : le declencheur de la base le verifie,
+     * pour qu'une part deja reglee ne redevienne jamais due a la faveur d'un accrual.
+     */
+    public static void accrueLateInterest(Connection c, UUID receivableId, Money accrued) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE loan_receivable"
+            + "   SET original_amount = original_amount + ?, outstanding = outstanding + ?,"
+            + "       settled_on = NULL"
+            + " WHERE id = ? AND NOT cancelled")) {
+            ps.setBigDecimal(1, accrued.amount());
+            ps.setBigDecimal(2, accrued.amount());
+            ps.setObject(3, receivableId);
+            if (ps.executeUpdate() == 0) {
+                throw new IllegalStateException(
+                    "Creance d'interet de retard " + receivableId + " introuvable ou annulee.");
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Accrual sur la creance " + receivableId, e);
+        }
+    }
+
+    /**
+     * Reprend l'interet de retard impute par un traitement annule, contrat par contrat.
+     *
+     * <p>Seul chemin du code qui diminue une creance d'interet de retard, et il n'est emprunte
+     * qu'apres contre-passation des ecritures correspondantes. Sans lui, l'annulation laisserait
+     * la creance gonflee d'un montant dont plus aucune ecriture ne rend compte — et la
+     * reconciliation ne le verrait pas, puisqu'elle ne porte que sur le journal.
+     *
+     * <p>Une reprise portant sur un interet de retard deja encaisse rendrait le solde negatif et
+     * se heurte a la contrainte de la base. C'est le comportement voulu : annuler un traitement
+     * dont les produits ont ete encaisses demande un remboursement, pas une reecriture.
+     */
+    public static void reverseLateInterest(Connection c, UUID batchRunId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            // La creance qui retombe a zero est annulee et non soldee : rien n'a ete encaisse,
+            // l'accrual n'a simplement plus lieu d'etre. La distinction compte — une creance
+            // soldee et une creance annulee ne se racontent pas de la meme facon.
+            "UPDATE loan_receivable r"
+            + "   SET original_amount = r.original_amount - a.total,"
+            + "       outstanding = r.outstanding - a.total,"
+            + "       cancelled = (r.original_amount - a.total = 0)"
+            + "  FROM (SELECT contract_id, SUM(posted_delta) AS total FROM loan_late_accrual"
+            + "         WHERE batch_run_id = ? AND status = 'ACTIVE' GROUP BY contract_id) a"
+            + " WHERE r.contract_id = a.contract_id AND r.category = 'LATE_INTEREST'"
+            + "   AND NOT r.cancelled AND a.total > 0")) {
+            ps.setObject(1, batchRunId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException(
+                "Reprise des interets de retard du traitement " + batchRunId, e);
+        }
+    }
+
+    /** Neutralise les journees de retard produites par un traitement annule. */
+    public static int cancelLateAccruals(Connection c, UUID batchRunId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE loan_late_accrual SET status = 'REVERSED'"
+            + " WHERE batch_run_id = ? AND status = 'ACTIVE'")) {
+            ps.setObject(1, batchRunId);
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Neutralisation des journees de retard", e);
+        }
+    }
+
     // ------------------------------------------------------------------ reglements
 
     public static UUID recordPayment(Connection c, UUID contractId, LocalDate valueDate,

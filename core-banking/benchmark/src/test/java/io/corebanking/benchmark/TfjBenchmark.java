@@ -60,7 +60,9 @@ class TfjBenchmark extends BenchmarkBase {
         TfjEngine engine = StandardTfj.engine(
             database, postingService, interestService,
             new io.corebanking.fee.service.FeeChargingService(database, postingService),
-            new io.corebanking.loan.service.LoanService(database, postingService), calendar);
+            new io.corebanking.loan.service.LoanService(database, postingService),
+            new io.corebanking.loan.service.LoanLateChargesService(database, postingService),
+            calendar);
 
         long start = System.currentTimeMillis();
         TfjRun run = engine.run(ENTITY, DAY, ACTOR, RunMode.REAL);

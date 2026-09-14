@@ -36,6 +36,7 @@ public final class LoanSchemas {
     public static final String EVENT_DISBURSEMENT = "LOAN_DISBURSEMENT";
     public static final String EVENT_INSTALMENT_DUE = "LOAN_INSTALMENT_DUE";
     public static final String EVENT_REPAYMENT = "LOAN_REPAYMENT";
+    public static final String EVENT_LATE_CHARGES = "LOAN_LATE_CHARGES";
 
     public static final String ROLE_SETTLEMENT = "settlement";
     public static final String ROLE_ACCRUED = "accrued_receivable";
@@ -43,6 +44,8 @@ public final class LoanSchemas {
     public static final String ROLE_INSURANCE_INCOME = "insurance_income";
     public static final String ROLE_FEE_INCOME = "fee_income";
     public static final String ROLE_TAX = "tax_payable";
+    public static final String ROLE_LATE_INTEREST_INCOME = "late_interest_income";
+    public static final String ROLE_PENALTY_INCOME = "penalty_income";
 
     private LoanSchemas() {}
 
@@ -88,11 +91,34 @@ public final class LoanSchemas {
             .build();
     }
 
+    /**
+     * Interets de retard et penalites.
+     *
+     * <p>Les deux produits sont credites sur des comptes distincts de ceux des interets
+     * contractuels. Ce n'est pas une commodite de restitution : les produits sur creances en
+     * souffrance forment une ligne a part des etats reglementaires, et les melanger aux interets
+     * sains rend la declaration impossible a reconstituer.
+     */
+    public static EventTemplate lateCharges(CurrencyRef currency) {
+        int scale = currency.scale();
+        return EventTemplate.of(EVENT_LATE_CHARGES)
+            .derive("li", "round(late_interest, " + scale + ")")
+            .derive("pen", "round(penalty, " + scale + ")")
+            .derive("total", "li + pen")
+            .line(TemplateLine.debit("PARAM:" + ROLE_ACCRUED, "total", "Charges de retard"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_LATE_INTEREST_INCOME, "li",
+                                      "Interets de retard").onlyIf("li > 0"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_PENALTY_INCOME, "pen", "Penalites")
+                      .onlyIf("pen > 0"))
+            .build();
+    }
+
     public static AccountingSchema standard(CurrencyRef currency) {
         return AccountingSchema.of(STANDARD_CODE, 1)
             .on(disbursement(currency))
             .on(instalmentDue(currency))
             .on(repayment(currency))
+            .on(lateCharges(currency))
             .build();
     }
 }

@@ -88,7 +88,7 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | 4 | `VALUE_DATE_REBUILD` | Reconstruction des soldes en date de valeur, détection des antidatages | ✔ |
 | 5 | `INTEREST_ACCRUAL` | Accruals créditeurs et débiteurs, y compris recalculs rétroactifs | ✔ |
 | 6 | `LOAN_SCHEDULE` | Échéances du jour, exigibilité, prélèvement, passage en impayé | ✔ |
-| 7 | `PENALTIES` | Intérêts de retard, pénalités | |
+| 7 | `LOAN_LATE_CHARGES` | Intérêts de retard, pénalités | ✔ |
 | 8 | `FEE_CHARGING` | Commissions périodiques, frais de tenue de compte, taxes associées | ✔ |
 | 9 | `CLASSIFICATION` | Jours de retard, buckets, contagion client | ✔ |
 | 10 | `PROVISIONING` | Dotations et reprises, suspension des intérêts | ✔ |
@@ -105,8 +105,11 @@ Une étape **bloquante** en échec arrête le run. Les autres consignent une ano
 laissent le run se poursuivre, avec restitution à la clôture.
 
 > **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `FEE_CHARGING` →
-> `LOAN_SCHEDULE` → `INTEREST_ACCRUAL` → `BALANCE_SNAPSHOT` → `RECONCILIATION` → `OPEN_NEXT_DAY`.
-> Les étapes absentes s'insèrent sans toucher au moteur.
+> `LOAN_SCHEDULE` → `LOAN_LATE_CHARGES` → `INTEREST_ACCRUAL` → `BALANCE_SNAPSHOT` →
+> `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans toucher au moteur.
+>
+> `LOAN_LATE_CHARGES` suit le prélèvement : un compte provisionné a déjà été débité de son échéance
+> et n'a rien à payer au titre du retard. L'ordre inverse pénaliserait un client qui paie.
 >
 > `FEE_CHARGING` est **bloquante**, contrairement à ce que prévoyait le tableau ci-dessus. Une
 > commission non perçue ne laisse aucune trace comptable : l'arrêté reste équilibré, les contrôles

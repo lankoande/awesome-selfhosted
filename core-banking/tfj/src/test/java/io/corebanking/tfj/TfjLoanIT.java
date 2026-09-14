@@ -70,6 +70,32 @@ class TfjLoanIT extends TfjTestBase {
         assertThat(creancesOuvertes(dossier.contrat())).isEqualTo(2);
     }
 
+    @Test
+    @DisplayName("l'annulation du TFJ reprend l'interet de retard qu'il avait impute")
+    void annulationReprendLInteretDeRetard() {
+        Dossier dossier = dossier("L3", false);
+        LocalDate jour = businessDate();
+
+        // Premier jour : l'echeance devient exigible, rien n'est preleve.
+        assertThat(engine.run(ENTITY, jour, ACTOR, RunMode.REAL).isCompleted()).isTrue();
+        assertThat(interetDeRetard(dossier.contrat()).isZero()).isTrue();
+
+        // Lendemain : l'impaye court.
+        LocalDate lendemain = businessDate();
+        TfjRun second = engine.run(ENTITY, lendemain, ACTOR, RunMode.REAL);
+        assertThat(second.isCompleted()).as(second.summary()).isTrue();
+        Money couru = interetDeRetard(dossier.contrat());
+        assertThat(couru.isPositive()).isTrue();
+
+        engine.cancel(second.id(), ACTOR, lendemain, "erreur de parametrage");
+
+        // La creance revient a zero : l'ecriture est contre-passee et le montant du avec elle.
+        // Sans cette reprise, la creance resterait gonflee d'un montant dont plus aucune ecriture
+        // ne rend compte, et la reconciliation ne le verrait pas — elle ne porte que sur le
+        // journal.
+        assertThat(interetDeRetard(dossier.contrat()).isZero()).isTrue();
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private record Dossier(UUID contrat, Account pret, Account courant, Account creances,
@@ -85,12 +111,15 @@ class TfjLoanIT extends TfjTestBase {
         Account creances = account(code + "-CREANCES", AccountKind.GL, NormalBalance.DEBIT);
         Account produits = account(code + "-PRODUITS", AccountKind.GL, NormalBalance.CREDIT);
         Account taxe = account(code + "-TAXE", AccountKind.GL, NormalBalance.CREDIT);
+        Account retard = account(code + "-RETARD", AccountKind.GL, NormalBalance.CREDIT);
 
         Map<String, String> parametres = new LinkedHashMap<>();
         parametres.put(LoanCatalog.P_ACCRUED, creances.id().toString());
         parametres.put(LoanCatalog.P_INTEREST_INCOME, produits.id().toString());
         parametres.put(LoanCatalog.P_TAX_ACCOUNT, taxe.id().toString());
         parametres.put(LoanCatalog.P_DIRECT_DEBIT, String.valueOf(prelevementAutomatique));
+        parametres.put(LoanCatalog.P_LATE_RATE, "18");
+        parametres.put(LoanCatalog.P_LATE_INCOME, retard.id().toString());
 
         UUID contrat = database.inTransaction(c -> {
             UUID version = ProductCatalog.createDraft(c, new ProductCatalog.Draft(
@@ -111,6 +140,22 @@ class TfjLoanIT extends TfjTestBase {
 
     private static Money soldeDe(Account compte) {
         return database.inTransaction(c -> Balances.current(c, compte.id()));
+    }
+
+    private static Money interetDeRetard(UUID contractId) {
+        return database.inTransaction(c -> {
+            try (var ps = c.prepareStatement(
+                "SELECT COALESCE(SUM(original_amount), 0) FROM loan_receivable"
+                + " WHERE contract_id = ? AND category = 'LATE_INTEREST' AND NOT cancelled")) {
+                ps.setObject(1, contractId);
+                try (var rs = ps.executeQuery()) {
+                    rs.next();
+                    return Money.of(rs.getBigDecimal(1), Currencies.XOF);
+                }
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Lecture de l'interet de retard", e);
+            }
+        });
     }
 
     private static int creancesOuvertes(UUID contractId) {

@@ -259,6 +259,33 @@ public final class TfjEngine {
      * de retard ne demarrerait jamais, et aucun controle comptable ne verrait l'ecart.
      */
     private void neutraliseLoanDues(Connection connection, UUID runId) {
+        // Les interets de retard imputes par le traitement sont repris avant que ses journees ne
+        // soient neutralisees : l'ordre importe, la reprise se calculant sur les journees actives.
+        try (PreparedStatement ps = connection.prepareStatement(
+            // La creance qui retombe a zero est annulee et non soldee : rien n'a ete encaisse,
+            // l'accrual n'a simplement plus lieu d'etre. La distinction compte — une creance
+            // soldee et une creance annulee ne se racontent pas de la meme facon.
+            "UPDATE loan_receivable r"
+            + "   SET original_amount = r.original_amount - a.total,"
+            + "       outstanding = r.outstanding - a.total,"
+            + "       cancelled = (r.original_amount - a.total = 0)"
+            + "  FROM (SELECT contract_id, SUM(posted_delta) AS total FROM loan_late_accrual"
+            + "         WHERE batch_run_id = ? AND status = 'ACTIVE' GROUP BY contract_id) a"
+            + " WHERE r.contract_id = a.contract_id AND r.category = 'LATE_INTEREST'"
+            + "   AND NOT r.cancelled AND a.total > 0")) {
+            ps.setObject(1, runId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Reprise des interets de retard du TFJ", e);
+        }
+        try (PreparedStatement ps = connection.prepareStatement(
+            "UPDATE loan_late_accrual SET status = 'REVERSED'"
+            + " WHERE batch_run_id = ? AND status = 'ACTIVE'")) {
+            ps.setObject(1, runId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Neutralisation des journees de retard du TFJ", e);
+        }
         try (PreparedStatement ps = connection.prepareStatement(
             "UPDATE loan_schedule_line SET made_due_on = NULL, made_due_run_id = NULL"
             + " WHERE made_due_run_id = ?")) {

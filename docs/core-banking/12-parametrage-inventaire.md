@@ -180,6 +180,26 @@ correspondante impayable : les règlements passeraient à côté, elle vieillira
 pénalités puis un déclassement, sans qu'aucune erreur ne soit jamais signalée. C'est la même
 exigence d'exhaustivité que celle de la politique d'habilitation.
 
+### Régime de retard — `product_parameter` ✅
+
+| Paramètre | Valeurs | Effet |
+|---|---|---|
+| `loan.late_interest_rate` | décimal | Taux annuel de l'intérêt de retard |
+| `loan.late_interest_basis` | `OVERDUE_PRINCIPAL`, `TOTAL_OVERDUE` | Assiette, hors créances de retard |
+| `loan.late_day_count` | conventions de décompte | Base de calcul |
+| `loan.penalty_mode` | `NONE`, `FLAT_PER_INSTALMENT`, `PERCENT_OF_OVERDUE` | Mode de la pénalité |
+| `loan.penalty_amount` / `.penalty_rate` | décimal | Forfait ou taux |
+| `loan.penalty_floor` / `.penalty_cap` | décimal | Encadrement de la pénalité |
+| `loan.max_rate` | décimal | Plafond du cumul taux nominal + taux de retard |
+| `loan.late_interest_income` / `.penalty_income` | UUID | Produits sur créances en souffrance |
+
+**L'absence de régime est un choix licite** — tous les produits ne facturent pas le retard — et se
+distingue d'un paramétrage incomplet, qui est refusé.
+
+**`loan.max_rate` n'est pas le contrôle du taux d'usure.** Celui-ci porte sur le TEG et relève de
+l'octroi, qui n'est pas implémenté. C'est un garde-fou contre un paramétrage aberrant, et il est
+nommé comme tel.
+
 ### Référentiel ✅
 
 | Élément | Table | Contenu |
@@ -208,7 +228,6 @@ le code appelant.
 
 | Élément | État |
 |---|---|
-| Pénalités et intérêts de retard (assiette, taux, franchise) | ⬜ |
 | Capitalisation des intérêts (périodicité, base minimum/moyenne) | ⬜ |
 | Conditions de découvert rattachées au produit — agios, échelles (seul `overdraft.limit` existe, employé au contrôle de provision) | 🔶 |
 | Dormance (délai, régime de frais) | ⬜ |

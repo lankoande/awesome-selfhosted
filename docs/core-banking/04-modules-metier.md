@@ -206,10 +206,21 @@ contentieux.
 > l'origine est l'erreur naturelle, et elle réclamerait une seconde fois des échéances déjà rendues
 > exigibles. Le refus est explicite.
 >
-> **Ce qui manque** : pénalités et intérêts de retard, classification, provisionnement, suspension
-> des intérêts. Les catégories de créance correspondantes existent et l'ordre d'imputation les
-> traite déjà ; ce qui manque est le calcul qui les alimente. Le nombre de jours de retard, lui,
-> est disponible — c'est l'entrée de tout ce qui suivra.
+> **Le régime de retard est implémenté** : intérêt de retard couru chaque jour sur l'impayé,
+> pénalité perçue une fois par échéance, franchise, plancher et plafond, et un garde-fou sur le
+> cumul du taux nominal et du taux de retard.
+>
+> Trois propriétés y sont structurelles plutôt que paramétrées :
+>
+> - **aucune capitalisation** — les créances de retard sont exclues de leur propre assiette, parce
+>   que l'anatocisme est encadré voire prohibé dans la plupart des droits de la zone ;
+> - **l'assiette est reconstituée jour par jour** depuis l'historique daté des imputations, jamais
+>   estimée sur l'état courant — un rattrapage doit facturer chaque journée sur l'impayé tel qu'il
+>   était ce jour-là ;
+> - **le cumul s'arrondit, la journée non**, comme pour les intérêts courus et pour la même raison.
+>
+> **Ce qui manque** : classification, provisionnement, suspension des intérêts. Le nombre de jours
+> de retard est disponible — c'est l'entrée de tout ce qui suivra.
 
 ### Imputation d'un règlement
 
@@ -246,6 +257,9 @@ il est donc dans le paramétrage, jamais codé en dur.
 ### Classification et provisionnement
 
 Piloté par le profil réglementaire ([03](03-referentiel-parametrage.md#7-profil-réglementaire-par-pays)) :
+
+> **Implémenté pour le point 1 seulement** : `LoanService.daysPastDue` compte l'âge de la créance
+> la plus ancienne encore ouverte, franchise déduite. Les points 2 à 6 restent à écrire.
 
 1. Calcul du nombre de jours de retard du plus ancien impayé.
 2. Détermination du bucket selon la méthode du profil.

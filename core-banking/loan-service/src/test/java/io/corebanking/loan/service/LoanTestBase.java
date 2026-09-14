@@ -53,6 +53,7 @@ abstract class LoanTestBase {
         applyScript("/db/V3__product.sql");
         applyScript("/db/V5__accounting_schema.sql");
         applyScript("/db/V9__loans.sql");
+        applyScript("/db/V10__loan_late_charges.sql");
         SchemaMigrator.ensurePartitions(database, DEBLOCAGE.minusMonths(2),
                                         DEBLOCAGE.plusMonths(36));
 
