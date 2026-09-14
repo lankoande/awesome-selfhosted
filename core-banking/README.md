@@ -19,8 +19,12 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 182 tests verts** — 133 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
-générés), 49 sur PostgreSQL réel.
+**État actuel : 185 tests verts** — 133 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
+générés), 52 sur PostgreSQL réel.
+
+**Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
+interblocage ; TFJ à 0,128 ms par compte, soit 4,3 minutes extrapolées pour 2 M de comptes contre
+90 de fenêtre.
 
 ## Ce que le P0 garantit, et comment c'est prouvé
 
@@ -57,6 +61,8 @@ générés), 49 sur PostgreSQL réel.
 | Reprise à l'étape fautive, sans rejouer les précédentes | `TfjEngine.resume` | `a_failed_run_resumes_at_the_failing_step` |
 | Annulation = contre-passation intégrale + restauration de la date | `TfjEngine.cancel` | `cancelling_a_run_reverses_its_entries_and_restores_the_date` |
 | TFJ à blanc : même chemin de code, aucune trace | Transaction annulée | `a_dry_run_reports_everything_and_leaves_nothing` |
+| Calcul par lot ≡ calcul compte par compte | `BatchInterestAccrualService` | `batch_and_per_account_agree_exactly` |
+| Un compte sans mouvement mais mal paramétré est signalé | idem | `a_movementless_but_misconfigured_account_is_reported` |
 | Le secret du compte de service ne fuit nulle part | `KeycloakAdminConfig` | `the_service_account_secret_never_leaks` |
 | Tout rôle est porté par un poste, sinon inattribuable | `JobProfile` | `every_role_is_carried_by_a_profile` |
 | Écart de provisionnement Keycloak détecté | `KeycloakProvisioning.drift` | `a_missing_role_is_reported_as_silently_blocking` |

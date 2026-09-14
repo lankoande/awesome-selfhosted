@@ -1,7 +1,7 @@
 package io.corebanking.tfj.steps;
 
-import io.corebanking.interest.service.CatalogTermsResolver;
-import io.corebanking.interest.service.InterestAccrualService;
+import io.corebanking.interest.service.BatchInterestAccrualService;
+import io.corebanking.interest.service.CatalogTermsProvider;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.tfj.StepResult;
@@ -33,12 +33,23 @@ public final class InterestAccrualStep implements TfjStep {
     /** Au-dela, la liste devient illisible ; le compte exact reste dans les compteurs. */
     private static final int MAX_REPORTED = 20;
 
-    private final Database database;
-    private final InterestAccrualService interestService;
+    /**
+     * Taille d'un lot.
+     *
+     * <p>Le calcul ensembliste charge en memoire les mouvements des comptes qu'il traite. Sur un
+     * portefeuille entier, tout charger d'un coup epuiserait la memoire bien avant la fin — le
+     * decoupage n'est pas un reglage de confort, c'est ce qui rend la methode utilisable a
+     * l'echelle reelle. Il ne coute rien : chaque lot conserve le benefice de l'agregation, et
+     * deux millions de comptes produisent quelques centaines d'ecritures au lieu de deux millions.
+     */
+    private static final int CHUNK_SIZE = Integer.getInteger("tfj.accrual.chunk", 5_000);
 
-    public InterestAccrualStep(Database database, InterestAccrualService interestService) {
+    private final Database database;
+    private final BatchInterestAccrualService batchService;
+
+    public InterestAccrualStep(Database database, BatchInterestAccrualService batchService) {
         this.database = database;
-        this.interestService = interestService;
+        this.batchService = batchService;
     }
 
     @Override
@@ -54,28 +65,33 @@ public final class InterestAccrualStep implements TfjStep {
     @Override
     public StepResult execute(TfjContext context) {
         List<UUID> accounts = accountsWithProduct(context);
-        List<String> anomalies = new ArrayList<>();
-        long posted = 0;
-
-        for (UUID accountId : accounts) {
-            try {
-                var outcome = interestService.accrueThrough(
-                    context.legalEntityId(), accountId, context.businessDate(),
-                    new CatalogTermsResolver(database, context.legalEntityId(), accountId),
-                    context.businessDate(), context.actorId(), context.runId());
-                if (outcome.produced()) {
-                    posted++;
-                }
-            } catch (RuntimeException e) {
-                if (anomalies.size() < MAX_REPORTED) {
-                    anomalies.add("Compte " + accountId + " non remunere : " + e.getMessage());
-                }
-            }
+        if (accounts.isEmpty()) {
+            return StepResult.none();
         }
-        if (anomalies.size() == MAX_REPORTED) {
+
+        var provider = CatalogTermsProvider.forAccounts(
+            database, context.legalEntityId(), accounts, context.businessDate());
+
+        List<String> anomalies = new ArrayList<>();
+        long accrued = 0;
+
+        for (int start = 0; start < accounts.size(); start += CHUNK_SIZE) {
+            List<UUID> chunk = accounts.subList(start,
+                                                Math.min(start + CHUNK_SIZE, accounts.size()));
+            var outcome = batchService.accrue(
+                context.legalEntityId(), chunk, context.businessDate(), provider,
+                context.businessDate(), context.actorId(), context.runId(),
+                BatchInterestAccrualService.chunkTag(chunk));
+
+            accrued += outcome.accountsAccrued();
+            outcome.anomalies().stream()
+                .limit(Math.max(0, MAX_REPORTED - anomalies.size()))
+                .forEach(anomalies::add);
+        }
+        if (anomalies.size() >= MAX_REPORTED) {
             anomalies.add("... liste tronquee ; corriger le parametrage et relancer.");
         }
-        return new StepResult(accounts.size(), posted, anomalies);
+        return new StepResult(accounts.size(), accrued, anomalies);
     }
 
     private List<UUID> accountsWithProduct(TfjContext context) {

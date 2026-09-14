@@ -1,7 +1,7 @@
 package io.corebanking.tfj;
 
 import io.corebanking.interest.accrual.AccrualSide;
-import io.corebanking.interest.service.InterestAccrualService;
+import io.corebanking.interest.service.BatchInterestAccrualService;
 import io.corebanking.kernel.id.IdempotencyKey;
 import io.corebanking.kernel.money.Currencies;
 import io.corebanking.kernel.money.Money;
@@ -36,7 +36,7 @@ abstract class TfjTestBase {
     protected static EmbeddedPostgres postgres;
     protected static Database database;
     protected static JdbcPostingService postingService;
-    protected static InterestAccrualService interestService;
+    protected static BatchInterestAccrualService interestService;
     protected static TfjEngine engine;
 
     protected static final UUID ENTITY = UUID.fromString("00000000-0000-0000-0000-0000000000e1");
@@ -66,7 +66,7 @@ abstract class TfjTestBase {
         });
 
         postingService = new JdbcPostingService(database);
-        interestService = new InterestAccrualService(database, postingService);
+        interestService = new BatchInterestAccrualService(database, postingService);
         engine = StandardTfj.engine(database, postingService, interestService);
     }
 

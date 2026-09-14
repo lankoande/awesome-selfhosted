@@ -24,6 +24,7 @@
     <module>security-store</module>
     <module>interest-service</module>
     <module>tfj</module>
+    <module>benchmark</module>
   </modules>
 
   <properties>

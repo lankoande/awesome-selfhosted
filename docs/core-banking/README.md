@@ -61,6 +61,7 @@ code en est la mise en œuvre, et les écarts constatés à l'implémentation y 
 | 10 | [Roadmap de construction](10-roadmap.md) | Phases, lots, dépendances, risques |
 | 11 | [Profil UEMOA / BCEAO](11-profil-uemoa-bceao.md) | Configuration de référence : PCB, XOF, classification, TEG, STAR/SICA/GIM, déclaratifs |
 | 12 | [Inventaire du paramétrage](12-parametrage-inventaire.md) | Ce qui varie, où c'est stocké, ce qui reste à faire |
+| 13 | [Mesures](13-mesures.md) | Débit, latence, durée de TFJ — mesurés, et ce qu'ils ne prouvent pas |
 
 ---
 

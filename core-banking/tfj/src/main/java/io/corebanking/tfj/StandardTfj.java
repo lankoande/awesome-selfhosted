@@ -1,6 +1,6 @@
 package io.corebanking.tfj;
 
-import io.corebanking.interest.service.InterestAccrualService;
+import io.corebanking.interest.service.BatchInterestAccrualService;
 import io.corebanking.ledger.domain.posting.PostingService;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.tfj.steps.BalanceSnapshotStep;
@@ -34,7 +34,8 @@ public final class StandardTfj {
 
     private StandardTfj() {}
 
-    public static List<TfjStep> steps(Database database, InterestAccrualService interestService) {
+    public static List<TfjStep> steps(Database database,
+                                      BatchInterestAccrualService interestService) {
         return List.of(
             new PreChecksStep(database),
             new InterestAccrualStep(database, interestService),
@@ -44,7 +45,7 @@ public final class StandardTfj {
     }
 
     public static TfjEngine engine(Database database, PostingService postingService,
-                                   InterestAccrualService interestService) {
+                                   BatchInterestAccrualService interestService) {
         return new TfjEngine(database, postingService, steps(database, interestService));
     }
 }

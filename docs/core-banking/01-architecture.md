@@ -215,3 +215,8 @@ Cible pour une banque de détail de taille moyenne :
 
 Ces chiffres pilotent les choix de partitionnement et de parallélisation décrits en
 [05](05-batch-arrete.md) et [08](08-modele-donnees.md).
+
+> **Mesuré.** Le débit de comptabilisation et la durée de TFJ ont été confrontés à ces cibles :
+> voir [13 — Mesures](13-mesures.md). Les deux sont tenues sur le banc, après une correction de
+> facteur 34 sur le calcul des intérêts. Les valeurs restent à re-mesurer sur l'infrastructure
+> cible — le banc tourne sans écriture disque synchrone.
