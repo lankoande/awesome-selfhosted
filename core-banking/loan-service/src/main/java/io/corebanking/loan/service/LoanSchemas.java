@@ -37,6 +37,7 @@ public final class LoanSchemas {
     public static final String EVENT_INSTALMENT_DUE = "LOAN_INSTALMENT_DUE";
     public static final String EVENT_REPAYMENT = "LOAN_REPAYMENT";
     public static final String EVENT_LATE_CHARGES = "LOAN_LATE_CHARGES";
+    public static final String EVENT_PREPAYMENT = "LOAN_PREPAYMENT";
     public static final String EVENT_PROVISION_CHARGE = "LOAN_PROVISION_CHARGE";
     public static final String EVENT_PROVISION_RELEASE = "LOAN_PROVISION_RELEASE";
     public static final String EVENT_INTEREST_SUSPENSION = "LOAN_INTEREST_SUSPENSION";
@@ -53,16 +54,34 @@ public final class LoanSchemas {
     public static final String ROLE_PROVISION_ALLOWANCE = "provision_allowance";
     public static final String ROLE_PROVISION_RELEASE = "provision_release";
     public static final String ROLE_RESERVED_INTEREST = "reserved_interest";
+    public static final String ROLE_PREPAYMENT_INDEMNITY = "prepayment_indemnity";
 
     private LoanSchemas() {}
 
+    /**
+     * Deblocage : l'encours nait a l'actif pour le capital entier, mais l'emprunteur ne recoit que
+     * le net des frais retenus.
+     *
+     * <p>C'est cette retenue qui creuse l'ecart entre taux nominal et taux effectif : les frais ne
+     * sont pas rembourses par l'emprunteur, ils lui sont preleves d'entree, et il rembourse
+     * pourtant le capital entier.
+     */
     public static EventTemplate disbursement(CurrencyRef currency) {
-        String amount = "round(principal, " + currency.scale() + ")";
+        int scale = currency.scale();
         return EventTemplate.of(EVENT_DISBURSEMENT)
-            .derive("amount", amount)
-            .line(TemplateLine.debit("CONTRACT", "amount", "Deblocage du credit"))
-            .line(TemplateLine.credit("PARAM:" + ROLE_SETTLEMENT, "amount",
-                                      "Mise a disposition des fonds"))
+            .derive("capital", "round(principal, " + scale + ")")
+            // Les frais sont plafonnes au capital dans le schema lui-meme. Le cas ou ils
+            // l'absorberaient est deja refuse en amont — l'emprunteur ne recevrait rien — mais un
+            // schema comptable ne doit pas pouvoir produire une ecriture desequilibree, meme
+            // appele avec des valeurs qu'aucun chemin du code ne lui donne. Le controle par tirage
+            // du deploiement l'exige, et il a raison : le schema survivra a l'appelant.
+            .derive("frais", "min(round(upfront_fees, " + scale + "), capital)")
+            .derive("net", "capital - frais")
+            .line(TemplateLine.debit("CONTRACT", "capital", "Deblocage du credit"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_SETTLEMENT, "net",
+                                      "Mise a disposition des fonds").onlyIf("net > 0"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_FEE_INCOME, "frais",
+                                      "Frais de dossier").onlyIf("frais > 0"))
             .build();
     }
 
@@ -179,6 +198,29 @@ public final class LoanSchemas {
             .build();
     }
 
+    /**
+     * Remboursement anticipe : le capital sort de l'encours, l'indemnite entre en produits.
+     *
+     * <p>L'indemnite est creditee sur un compte distinct des interets. Ce n'est pas un interet —
+     * elle ne remunere aucune duree — et la confondre avec un produit d'interets fausserait a la
+     * fois la marge d'interet et le taux de rendement du portefeuille.
+     */
+    public static EventTemplate prepayment(CurrencyRef currency) {
+        int scale = currency.scale();
+        return EventTemplate.of(EVENT_PREPAYMENT)
+            .derive("capital", "round(principal, " + scale + ")")
+            .derive("indemnite", "round(indemnity, " + scale + ")")
+            .derive("total", "capital + indemnite")
+            .line(TemplateLine.debit("PARAM:" + ROLE_SETTLEMENT, "total",
+                                     "Remboursement anticipe"))
+            .line(TemplateLine.credit("CONTRACT", "capital", "Capital rembourse par anticipation")
+                      .onlyIf("capital > 0"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_PREPAYMENT_INDEMNITY, "indemnite",
+                                      "Indemnite de remboursement anticipe")
+                      .onlyIf("indemnite > 0"))
+            .build();
+    }
+
     public static AccountingSchema standard(CurrencyRef currency) {
         return AccountingSchema.of(STANDARD_CODE, 1)
             .on(disbursement(currency))
@@ -188,6 +230,7 @@ public final class LoanSchemas {
             .on(provisionCharge(currency))
             .on(provisionRelease(currency))
             .on(interestSuspension(currency))
+            .on(prepayment(currency))
             .build();
     }
 }

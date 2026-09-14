@@ -200,6 +200,19 @@ distingue d'un paramétrage incomplet, qui est refusé.
 l'octroi, qui n'est pas implémenté. C'est un garde-fou contre un paramétrage aberrant, et il est
 nommé comme tel.
 
+### Coût du crédit et remboursement anticipé — `product_parameter` ✅
+
+| Paramètre | Effet |
+|---|---|
+| `loan.teg_method` | `PROPORTIONAL` ou `ACTUARIAL` — la convention fait partie du chiffre |
+| `loan.usury_rate` ⚠ | Plafond d'usure, porté sur le taux **effectif** |
+| `loan.prepayment_indemnity_rate` | Indemnité contractuelle, en % du capital remboursé |
+| `loan.prepayment_cap_percent` ⚠ | Plafond légal en % du capital remboursé |
+| `loan.prepayment_cap_months` ⚠ | Plafond légal en mois d'intérêts |
+| `loan.prepayment_indemnity_account` | Compte de produit, distinct des intérêts |
+
+Les deux plafonds d'indemnité s'appliquent ensemble, et c'est **le plus bas** qui l'emporte.
+
 ### Profil de risque — `risk_profile` et `risk_bucket` ✅
 
 Grille datée, versionnée, sous double validation, résolue à la date de l'arrêté.
@@ -209,6 +222,7 @@ Grille datée, versionnée, sous double validation, résolue à la date de l'arr
 | Classes | rang, code, bornes de retard, taux de provision, caractère sain ou en souffrance |
 | Contagion | `NONE` ou `CUSTOMER` |
 | Seuil de suspension | code de la classe à partir de laquelle les intérêts sont réservés |
+| Période d'observation | `cure_days` : jours sans incident avant retour à meilleure fortune |
 
 Rattachement au produit par `loan.risk_profile` ; comptes d'imputation par
 `loan.provision_expense`, `loan.provision_allowance`, `loan.provision_release` et
@@ -259,7 +273,6 @@ le code appelant.
 | Conditions de découvert rattachées au produit — agios, échelles (seul `overdraft.limit` existe, employé au contrôle de provision) | 🔶 |
 | Dormance (délai, régime de frais) | ⬜ |
 | Éligibilité et fraîcheur des garanties (quotité seule pour l'instant) | 🔶 |
-| Taux d'usure et composantes du TEG | ⬜ |
 | Profil réglementaire régional et surcouche nationale ([11](11-profil-uemoa-bceao.md)) | ⬜ |
 | Ratios prudentiels | ⬜ |
 | Mapping plan comptable interne → réglementaire | ⬜ |

@@ -32,12 +32,24 @@ import java.util.Optional;
  *
  * @param suspendFromBucket code de la classe a partir de laquelle les interets cessent d'etre
  *                          constates en produits ; nul si le profil ne suspend jamais
+ * @param cureDays          periode d'observation avant qu'un credit regularise ne redevienne sain.
+ *                          Sans elle, un debiteur qui regle la veille de l'arrete efface son
+ *                          declassement et la provision qui l'accompagne, puis retombe en impaye
+ *                          le lendemain : le portefeuille parait sain a chaque arrete et ne l'est
+ *                          jamais.
  */
 public record RiskGrid(
     String code,
     List<RiskBucket> buckets,
     Contagion contagion,
-    String suspendFromBucket) {
+    String suspendFromBucket,
+    int cureDays) {
+
+    /** Grille sans periode d'observation : le retour a meilleure fortune est immediat. */
+    public RiskGrid(String code, List<RiskBucket> buckets, Contagion contagion,
+                    String suspendFromBucket) {
+        this(code, buckets, contagion, suspendFromBucket, 0);
+    }
 
     public RiskGrid {
         Objects.requireNonNull(code, "code");
@@ -88,6 +100,7 @@ public record RiskGrid(
                 "la derniere classe " + last.code() + " s'arrete a " + last.toDays()
                 + " jours : au-dela, aucun credit ne serait classe");
 
+        require(cureDays >= 0, code, "periode d'observation negative : " + cureDays);
         if (suspendFromBucket != null) {
             String wanted = suspendFromBucket;
             require(buckets.stream().anyMatch(b -> b.code().equals(wanted)), code,
@@ -127,6 +140,16 @@ public record RiskGrid(
         return byCode(suspendFromBucket)
             .map(threshold -> bucket.ordinal() >= threshold.ordinal())
             .orElse(false);
+    }
+
+    /**
+     * Vrai si un credit redevenu sain doit encore etre observe avant d'etre reclasse.
+     *
+     * @param daysSinceLastArrears jours ecoules depuis le dernier arrete ou le credit portait un
+     *                             impaye
+     */
+    public boolean stillUnderObservation(long daysSinceLastArrears) {
+        return cureDays > 0 && daysSinceLastArrears < cureDays;
     }
 
     private static void require(boolean condition, String code, String detail) {

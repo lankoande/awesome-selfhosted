@@ -15,8 +15,13 @@ import io.corebanking.loan.AllocationOrder;
 import io.corebanking.loan.Allocation;
 import io.corebanking.loan.AmortisationSchedule;
 import io.corebanking.loan.DueCategory;
+import io.corebanking.loan.EffectiveRate;
 import io.corebanking.loan.PaymentAllocator;
+import io.corebanking.loan.Prepayment;
+import io.corebanking.loan.PrepaymentMode;
+import io.corebanking.loan.Prepayments;
 import io.corebanking.loan.Receivable;
+import io.corebanking.loan.Teg;
 import io.corebanking.product.ProductCatalog;
 import io.corebanking.product.ProductVersion;
 import io.corebanking.schema.AccountResolver;
@@ -96,23 +101,59 @@ public final class LoanService {
      */
     public UUID disburse(UUID contractId, AmortisationSchedule schedule, UUID actorId,
                          UUID approverId) {
+        return disburse(contractId, schedule, null, actorId, approverId);
+    }
+
+    /**
+     * Debloque un credit, frais de dossier retenus a la source.
+     *
+     * <p>Le <b>taux effectif global</b> est arrete ici, une fois pour toutes, et confronte au
+     * plafond d'usure du produit. C'est le seul moment ou le controle a un sens : apres le
+     * deblocage, les fonds sont verses et le depassement ne se corrige plus.
+     *
+     * <p>Le controle porte sur le taux effectif et non sur le taux nominal. Un credit affiche a
+     * 12 % depasse un plafond a 15 % des lors qu'on lui prend 2 % de frais de dossier — et c'est
+     * precisement le montage que le controle sur le taux nominal laisse passer.
+     */
+    public UUID disburse(UUID contractId, AmortisationSchedule schedule, Money upfrontFees,
+                         UUID actorId, UUID approverId) {
         return database.inTransaction(c -> {
             LoanContract contract = LoanStore.requireContract(c, contractId);
             requireConsistent(contract, schedule);
+            ProductVersion product = product(c, contract, contract.disbursedOn());
+
+            Money fees = upfrontFees == null ? Money.zero(contract.currency()) : upfrontFees;
+            Teg teg = EffectiveRate.of(schedule, fees, LoanCatalog.tegMethod(product));
+            LoanCatalog.usuryRate(product).ifPresent(ceiling -> {
+                if (teg.exceeds(ceiling)) {
+                    throw new UsuryCeilingExceededException(contract.reference(), teg, ceiling);
+                }
+            });
 
             UUID scheduleId = LoanStore.publishSchedule(
                 c, contractId, schedule, LoanStore.ScheduleReason.INITIAL, contract.disbursedOn(),
                 actorId, approverId);
             LoanStore.activate(c, contractId, approverId);
+            LoanStore.recordDisbursementTerms(c, contractId, schedule.terms(), fees, teg);
 
-            ProductVersion product = product(c, contract, contract.disbursedOn());
             EvaluationContext input = EvaluationContext.builder()
-                .put("principal", contract.principal()).build();
+                .put("principal", contract.principal())
+                .put("upfront_fees", fees)
+                .build();
             post(c, contract, product, LoanSchemas.disbursement(contract.currency()), input,
                  contract.disbursedOn(), contract.disbursedOn(), LoanSchemas.EVENT_DISBURSEMENT,
                  IdempotencyKey.of("LOANDISB|" + contractId), actorId, null);
             return scheduleId;
         });
+    }
+
+    /** Credit refuse au deblocage parce que son cout depasse le plafond legal. */
+    public static class UsuryCeilingExceededException extends RuntimeException {
+        public UsuryCeilingExceededException(String reference, Teg teg, java.math.BigDecimal ceiling) {
+            super("Credit " + reference + " : taux effectif global de " + teg
+                  + ", au-dela du plafond d'usure de " + ceiling + " %. Le deblocage est refuse : "
+                  + "apres versement des fonds, le depassement ne se corrige plus.");
+        }
     }
 
     /**
@@ -127,6 +168,87 @@ public final class LoanService {
                            UUID approverId) {
         return database.inTransaction(c -> LoanStore.publishSchedule(
             c, contractId, schedule, reason, effectiveFrom, actorId, approverId));
+    }
+
+    // ------------------------------------------------------------------ remboursement anticipe
+
+    /**
+     * Rembourse par anticipation tout ou partie du capital restant du.
+     *
+     * <h2>Ce n'est pas un reglement d'echeance</h2>
+     *
+     * <p>Un remboursement anticipe vient en diminution du <b>capital non echu</b> et oblige a
+     * reconstruire l'echeancier des echeances a venir. Le traiter comme un versement ordinaire
+     * l'imputerait sur les creances echues et ne changerait rien au plan : le client paierait
+     * d'avance sans rien economiser.
+     *
+     * <p>Les impayes doivent donc etre soldes <b>avant</b>. Le refus est explicite : laisser
+     * rembourser du capital non echu alors que des echeances restent dues reviendrait a faire
+     * courir des penalites sur un client qui vient de verser plusieurs mois d'avance.
+     *
+     * @param mode choix de l'emprunteur, pas de la banque : reduire la duree economise bien plus
+     *             d'interets que reduire l'echeance
+     */
+    public Prepayment prepay(UUID contractId, Money amount, PrepaymentMode mode, LocalDate on,
+                             IdempotencyKey key, UUID actorId, UUID approverId) {
+        return database.inTransaction(c -> {
+            LoanContract contract = LoanStore.requireContract(c, contractId);
+            ProductVersion product = product(c, contract, on);
+            List<Receivable> open = LoanStore.openReceivables(c, contractId, contract.currency());
+            if (!open.isEmpty()) {
+                throw new ArrearsOutstandingException(contract.reference(), open.size());
+            }
+
+            Money outstanding = Balances.current(c, contract.loanAccountId());
+            if (amount.isGreaterThan(outstanding)) {
+                throw new IllegalArgumentException(
+                    "Remboursement anticipe de " + amount + " sur un capital restant du de "
+                    + outstanding + " : un versement excedentaire solde le credit, il ne le rend "
+                    + "pas crediteur.");
+            }
+            Money remaining = outstanding.minus(amount);
+
+            Money indemnity = Prepayment.indemnity(
+                amount, LoanCatalog.prepaymentIndemnityRate(product),
+                LoanCatalog.prepaymentCapPercent(product),
+                LoanCatalog.prepaymentCapMonths(product), contract.requireTerms()
+                    .annualRatePercent());
+
+            EvaluationContext input = EvaluationContext.builder()
+                .put("principal", amount).put("indemnity", indemnity).build();
+            UUID entryId = post(c, contract, product, LoanSchemas.prepayment(contract.currency()),
+                                input, on, on, LoanSchemas.EVENT_PREPAYMENT, key, actorId, null);
+            LoanStore.recordPayment(c, contractId, on, amount.plus(indemnity), amount,
+                                    "PREPAYMENT", entryId, null, key.value(), actorId);
+
+            AmortisationSchedule rebuilt = null;
+            if (remaining.isPositive()) {
+                LoanStore.Remaining ahead = LoanStore.remainingAfter(c, contractId,
+                                                                     contract.currency(), on)
+                    .orElseThrow(() -> new IllegalStateException(
+                        "Aucune echeance a venir sur le contrat " + contract.reference()
+                        + " alors qu'il reste " + remaining + " a amortir."));
+                rebuilt = Prepayments.rebuild(contract.requireTerms(), remaining, on,
+                                              ahead.nextDueDate(), ahead.count(), mode,
+                                              ahead.annuity()).orElseThrow();
+                LoanStore.publishSchedule(c, contractId, rebuilt,
+                                          LoanStore.ScheduleReason.EARLY_REPAYMENT,
+                                          on.plusDays(1), actorId, approverId);
+            } else {
+                LoanStore.close(c, contractId);
+            }
+            return new Prepayment(on, amount, indemnity, mode, rebuilt);
+        });
+    }
+
+    /** Remboursement anticipe refuse tant que des echeances restent dues. */
+    public static class ArrearsOutstandingException extends RuntimeException {
+        public ArrearsOutstandingException(String reference, int count) {
+            super("Credit " + reference + " : " + count + " creance(s) echue(s) non reglee(s). Un "
+                  + "remboursement anticipe porte sur le capital non echu ; solder les impayes "
+                  + "d'abord, faute de quoi des penalites courraient sur un client qui vient de "
+                  + "verser plusieurs mois d'avance.");
+        }
     }
 
     // ------------------------------------------------------------------ exigibilite
@@ -420,6 +542,8 @@ public final class LoanService {
                 case LoanSchemas.ROLE_INSURANCE_INCOME -> LoanCatalog.insuranceIncome(product);
                 case LoanSchemas.ROLE_FEE_INCOME -> LoanCatalog.feeIncome(product);
                 case LoanSchemas.ROLE_TAX -> LoanCatalog.taxAccount(product);
+                case LoanSchemas.ROLE_PREPAYMENT_INDEMNITY ->
+                    LoanCatalog.prepaymentIndemnity(product);
                 default -> throw new AccountResolver.UnresolvableAccountException(reference,
                     "role inconnu du parametrage du produit " + product.code());
             };

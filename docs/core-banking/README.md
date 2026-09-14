@@ -42,7 +42,7 @@ Aucune n'est à reprendre telle quelle.
 
 Le noyau comptable, les intérêts, les commissions, les crédits, le paramétrage produit, les
 habilitations, le calendrier et le TFJ sont implémentés et testés :
-[`../../core-banking`](../../core-banking) — Java 21, PostgreSQL, **351 tests verts**. Le dossier ci-dessous reste la référence de conception ;
+[`../../core-banking`](../../core-banking) — Java 21, PostgreSQL, **389 tests verts**. Le dossier ci-dessous reste la référence de conception ;
 le code en est la mise en œuvre, et les écarts constatés à l'implémentation y ont été répercutés.
 
 ## Sommaire

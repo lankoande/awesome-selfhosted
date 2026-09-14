@@ -78,6 +78,91 @@ public final class LoanStore {
         }
     }
 
+    /**
+     * Fige au deblocage ce qui ne varie plus : conditions financieres, frais retenus, taux
+     * effectif global.
+     */
+    public static void recordDisbursementTerms(Connection c, UUID contractId, LoanTerms terms,
+                                               Money upfrontFees, io.corebanking.loan.Teg teg) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE loan_contract SET upfront_fees = ?, teg_percent = ?, teg_method = ?,"
+            + " annual_rate_percent = ?, frequency = ?, amortisation_method = ?, day_count = ?,"
+            + " periodic_fee = ?, insurance_basis = ?, insurance_rate_percent = ?,"
+            + " tax_on_interest_percent = ? WHERE id = ?")) {
+            ps.setBigDecimal(1, upfrontFees.amount());
+            ps.setBigDecimal(2, teg.annualRatePercent());
+            ps.setString(3, teg.method().name());
+            ps.setBigDecimal(4, terms.annualRatePercent());
+            ps.setString(5, terms.frequency().name());
+            ps.setString(6, terms.method().name());
+            ps.setString(7, terms.dayCount().name());
+            ps.setBigDecimal(8, terms.periodicFee().amount());
+            ps.setString(9, terms.insuranceBasis().name());
+            ps.setBigDecimal(10, terms.insuranceRatePercent());
+            ps.setBigDecimal(11, terms.taxOnInterestRatePercent());
+            ps.setObject(12, contractId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Enregistrement des conditions du contrat "
+                                           + contractId, e);
+        }
+    }
+
+    public static void close(Connection c, UUID contractId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE loan_contract SET status = 'CLOSED' WHERE id = ? AND status = 'ACTIVE'")) {
+            ps.setObject(1, contractId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Cloture du contrat " + contractId, e);
+        }
+    }
+
+    /** Echeances a venir apres une date : ce que le remboursement anticipe va remplacer. */
+    public record Remaining(int count, LocalDate nextDueDate, Money annuity) {}
+
+    public static Optional<Remaining> remainingAfter(Connection c, UUID contractId,
+                                                     CurrencyRef currency, LocalDate on) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT count(*), MIN(l.due_date),"
+            + "       MIN(l.principal + l.interest) FILTER (WHERE l.due_date = ("
+            + "           SELECT MIN(x.due_date) FROM loan_schedule_line x"
+            + "            WHERE x.schedule_id = l.schedule_id AND x.due_date > ?))"
+            + "  FROM loan_schedule_line l JOIN loan_schedule s ON s.id = l.schedule_id"
+            + " WHERE s.contract_id = ? AND s.superseded_on IS NULL AND l.due_date > ?")) {
+            ps.setObject(1, on);
+            ps.setObject(2, contractId);
+            ps.setObject(3, on);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                int count = rs.getInt(1);
+                if (count == 0) {
+                    return Optional.empty();
+                }
+                return Optional.of(new Remaining(count, rs.getObject(2, LocalDate.class),
+                                                 Money.of(rs.getBigDecimal(3), currency)));
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des echeances a venir du contrat " + contractId,
+                                           e);
+        }
+    }
+
+    /** Date du dernier arrete ou le credit portait un impaye, absente s'il n'en a jamais porte. */
+    public static Optional<LocalDate> lastArrearsDate(Connection c, UUID contractId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT MAX(classified_on) FROM loan_classification"
+            + " WHERE contract_id = ? AND status = 'ACTIVE' AND days_past_due > 0")) {
+            ps.setObject(1, contractId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return Optional.ofNullable(rs.getObject(1, LocalDate.class));
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture du dernier impaye du contrat " + contractId, e);
+        }
+    }
+
     public static LoanContract requireContract(Connection c, UUID contractId) {
         return findContract(c, contractId).orElseThrow(
             () -> new LedgerStoreException("Contrat de credit introuvable : " + contractId));
@@ -85,10 +170,7 @@ public final class LoanStore {
 
     public static Optional<LoanContract> findContract(Connection c, UUID contractId) {
         try (PreparedStatement ps = c.prepareStatement(
-            "SELECT l.id, l.legal_entity_id, l.reference, l.product_code, cur.code, cur.scale,"
-            + " cur.rounding_mode, l.loan_account_id, l.settlement_account_id, l.principal,"
-            + " l.disbursed_on, l.status FROM loan_contract l"
-            + " JOIN currency cur ON cur.code = l.currency WHERE l.id = ?")) {
+            SELECT_CONTRACT + " WHERE l.id = ?")) {
             ps.setObject(1, contractId);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? Optional.of(readContract(rs)) : Optional.empty();
@@ -102,11 +184,8 @@ public final class LoanStore {
     public static List<LoanContract> activeContracts(Connection c, UUID legalEntityId) {
         List<LoanContract> contracts = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(
-            "SELECT l.id, l.legal_entity_id, l.reference, l.product_code, cur.code, cur.scale,"
-            + " cur.rounding_mode, l.loan_account_id, l.settlement_account_id, l.principal,"
-            + " l.disbursed_on, l.status FROM loan_contract l"
-            + " JOIN currency cur ON cur.code = l.currency"
-            + " WHERE l.legal_entity_id = ? AND l.status = 'ACTIVE' ORDER BY l.id")) {
+            SELECT_CONTRACT + " WHERE l.legal_entity_id = ? AND l.status = 'ACTIVE'"
+            + " ORDER BY l.id")) {
             ps.setObject(1, legalEntityId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -119,14 +198,48 @@ public final class LoanStore {
         return contracts;
     }
 
+    private static final String SELECT_CONTRACT =
+        "SELECT l.id, l.legal_entity_id, l.reference, l.product_code, cur.code, cur.scale,"
+        + " cur.rounding_mode, l.loan_account_id, l.settlement_account_id, l.principal,"
+        + " l.disbursed_on, l.status, l.annual_rate_percent, l.frequency, l.amortisation_method,"
+        + " l.day_count, l.periodic_fee, l.insurance_basis, l.insurance_rate_percent,"
+        + " l.tax_on_interest_percent"
+        + "  FROM loan_contract l JOIN currency cur ON cur.code = l.currency";
+
     private static LoanContract readContract(ResultSet rs) throws SQLException {
         CurrencyRef currency = new CurrencyRef(rs.getString(5), rs.getInt(6),
                                                RoundingMode.valueOf(rs.getString(7)));
+        Money principal = Money.of(rs.getBigDecimal(10), currency);
+        LocalDate disbursedOn = rs.getObject(11, LocalDate.class);
+        LoanTerms terms = readTerms(rs, currency, principal, disbursedOn);
         return new LoanContract(
             rs.getObject(1, UUID.class), rs.getObject(2, UUID.class), rs.getString(3),
             rs.getString(4), currency, rs.getObject(8, UUID.class), rs.getObject(9, UUID.class),
-            Money.of(rs.getBigDecimal(10), currency), rs.getObject(11, LocalDate.class),
-            LoanContract.Status.valueOf(rs.getString(12)));
+            principal, disbursedOn, LoanContract.Status.valueOf(rs.getString(12)), terms);
+    }
+
+    /**
+     * Conditions financieres relues.
+     *
+     * <p>Le nombre d'echeances et la premiere echeance ne sont pas conserves sur le contrat : ils
+     * appartiennent a l'echeancier, qui est versionne. Les conditions rendues ici portent donc une
+     * duree d'une echeance et une premiere echeance conventionnelles, que
+     * {@link LoanTerms#forRemaining} remplace des qu'un plan est reconstruit. Y stocker une duree
+     * ferait exister deux verites sur le meme sujet.
+     */
+    private static LoanTerms readTerms(ResultSet rs, CurrencyRef currency, Money principal,
+                                       LocalDate disbursedOn) throws SQLException {
+        String frequency = rs.getString(14);
+        if (frequency == null) {
+            return null;
+        }
+        return new LoanTerms(
+            principal, currency, rs.getBigDecimal(13), Periodicity.valueOf(frequency), 1, 0,
+            disbursedOn, disbursedOn.plusDays(1),
+            AmortisationMethod.valueOf(rs.getString(15)),
+            DayCountConvention.valueOf(rs.getString(16)),
+            Money.of(rs.getBigDecimal(17), currency),
+            InsuranceBasis.valueOf(rs.getString(18)), rs.getBigDecimal(19), rs.getBigDecimal(20));
     }
 
     // ------------------------------------------------------------------ echeanciers
@@ -931,15 +1044,5 @@ public final class LoanStore {
         } catch (SQLException e) {
             throw new LedgerStoreException("Recherche du reglement " + idempotencyKey, e);
         }
-    }
-
-    /** Conditions du credit relues pour regenerer un echeancier — rechelonnement, simulation. */
-    public static LoanTerms terms(LoanContract contract, BigDecimal ratePercent,
-                                  Periodicity frequency, int instalments, int grace,
-                                  LocalDate firstDueDate, AmortisationMethod method,
-                                  DayCountConvention dayCount) {
-        return new LoanTerms(contract.principal(), contract.currency(), ratePercent, frequency,
-                             instalments, grace, contract.disbursedOn(), firstDueDate, method,
-                             dayCount, null, InsuranceBasis.NONE, BigDecimal.ZERO, BigDecimal.ZERO);
     }
 }

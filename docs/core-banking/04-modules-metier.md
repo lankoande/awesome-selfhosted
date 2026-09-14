@@ -143,6 +143,15 @@ Le calcul et la perception sont implémentés ([`fee-domain`](../../core-banking
 jour par jour sur la période, et le taux s'applique **directement** au pic : ce n'est pas un intérêt,
 c'est un pourcentage d'un montant constaté. L'annualiser serait une erreur de nature, pas de réglage.
 
+> **Taux effectif global et taux d'usure — implémentés.** Le TEG est arrêté au déblocage, avec sa
+> convention d'annualisation (proportionnelle ou actuarielle), et confronté au plafond du produit.
+> Le contrôle porte sur le taux **effectif** : un crédit affiché à 12 % franchit un plafond à 15 %
+> dès qu'on lui prend 2 % de frais de dossier, et c'est exactement le montage qu'un contrôle sur le
+> taux nominal laisse passer. Le refus intervient avant tout versement.
+>
+> ⚠ Les plafonds d'usure de la zone ne sont pas codés : ils relèvent de l'instruction en vigueur et
+> se saisissent au paramétrage.
+
 ### Découvert
 
 - **Autorisé** : contrat avec montant, durée, taux, commission de mise en place.
@@ -201,6 +210,19 @@ contentieux.
 > crédit : invisible à la lecture de l'échéancier, réclamé au client des années plus tard. La somme
 > des capitaux amortis est un invariant de construction — un échéancier qui ne le respecte pas ne
 > peut pas être représenté, quelle que soit sa provenance.
+>
+> **Le remboursement anticipé est implémenté**, dans ses deux options : réduire la durée ou
+> réduire l'échéance. Le choix appartient à l'emprunteur — à capital égal remboursé, réduire la
+> durée économise bien plus d'intérêts — et ne proposer que l'un des deux est un défaut
+> fonctionnel, pas une simplification. Un test le chiffre : 28 785 XOF d'intérêts contre 46 096.
+>
+> L'indemnité est soumise aux **deux plafonds légaux** — un pourcentage du capital remboursé et un
+> nombre de mois d'intérêts — et c'est le plus bas qui s'applique. N'en retenir qu'un laisserait
+> passer la moitié des dépassements.
+>
+> Un remboursement anticipé est **refusé tant que des échéances restent dues** : il porte sur le
+> capital non échu, et l'admettre sur un compte en impayé ferait courir des pénalités sur un client
+> qui vient de verser plusieurs mois d'avance.
 >
 > **Une version de remplacement ne porte que sur l'avenir.** Régénérer un plan complet depuis
 > l'origine est l'erreur naturelle, et elle réclamerait une seconde fois des échéances déjà rendues
@@ -271,11 +293,15 @@ Piloté par le profil réglementaire ([03](03-referentiel-parametrage.md#7-profi
 > intérêts déjà constatés au franchissement du seuil, naissance directe en intérêts réservés
 > ensuite, et reprise de chaque composante sur le compte où elle avait été constatée.
 >
-> **Ce qui manque** : le retour à meilleure fortune avec son délai d'observation — un crédit
-> régularisé voit sa provision reprise dès que son retard tombe à zéro, sans période d'observation.
-> C'est une simplification, et elle est favorable à l'emprunteur. Le module de garanties
-> (éligibilité réelle, rang, fraîcheur des expertises, opposabilité) n'existe pas non plus : une
-> quotité d'éligibilité en tient lieu, et le dit.
+> **Le retour à meilleure fortune est implémenté** : `cure_days` sur le profil retient la classe
+> dégradée tant que la période d'observation court. Sans elle, un débiteur qui règle la veille de
+> chaque arrêté efface son déclassement et sa provision, puis retombe en impayé le lendemain — le
+> portefeuille paraît sain à chaque arrêté et ne l'est jamais. La règle ne joue que dans un sens :
+> une dégradation reste immédiate, et l'observation retient la **classe**, pas le montant de la
+> provision, qui suit l'encours.
+>
+> **Ce qui manque** : le module de garanties (éligibilité réelle, rang, fraîcheur des expertises,
+> opposabilité) n'existe pas — une quotité d'éligibilité en tient lieu, et le dit.
 
 1. Calcul du nombre de jours de retard du plus ancien impayé.
 2. Détermination du bucket selon la méthode du profil.

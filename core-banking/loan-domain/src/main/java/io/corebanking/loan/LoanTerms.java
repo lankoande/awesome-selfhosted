@@ -88,6 +88,23 @@ public record LoanTerms(
                     io.corebanking.interest.rate.MathContexts.RATE);
     }
 
+    /**
+     * Memes conditions, appliquees au capital restant du sur une duree reduite.
+     *
+     * <p>Sert au remboursement anticipe et au rechelonnement : le taux, la convention de jours,
+     * l'assurance et les frais restent ceux du contrat — seuls le capital, la duree et le point de
+     * depart changent. Reconduire un taux revise au passage transformerait un remboursement
+     * anticipe en renegociation, ce qui est une autre operation et un autre consentement.
+     *
+     * <p>Le differe ne se reconduit pas : il a ete consomme.
+     */
+    public LoanTerms forRemaining(Money remaining, int instalments, LocalDate from,
+                                  LocalDate nextDueDate) {
+        return new LoanTerms(remaining, currency, annualRatePercent, frequency, instalments, 0,
+                             from, nextDueDate, method, dayCount, periodicFee, insuranceBasis,
+                             insuranceRatePercent, taxOnInterestRatePercent);
+    }
+
     /** Date d'echeance de rang donne, de 1 a {@link #instalmentCount()}. */
     public LocalDate dueDate(int number) {
         require(number >= 1 && number <= instalmentCount,

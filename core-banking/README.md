@@ -33,8 +33,8 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 351 tests verts** — 221 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 130 sur PostgreSQL réel.
+**État actuel : 389 tests verts** — 241 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 148 sur PostgreSQL réel.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,809 ms par compte dans le cas le plus
@@ -126,6 +126,14 @@ classification et provisionnement à 1,286 ms par crédit.
 | Ensuite, les intérêts naissent directement en intérêts réservés | idem | `interetsSuivantsReserves` |
 | Chaque intérêt est repris sur le compte où il a été constaté | `LoanSchemas.interestSuspension` | `classificationEtProvision` |
 | Une grille altérée en base est refusée à la relecture | `RiskProfiles.resolveAt` | `grilleRevalidee` |
+| Le plafond d'usure se contrôle sur le taux effectif, pas sur le nominal | `LoanService.disburse` | `plafondDepasse` |
+| Le TEG est arrêté au déblocage avec sa convention | idem | `tegConserve` |
+| Un déblocage reste équilibré même si les frais dépassent le capital | `LoanSchemas.disbursement` | `fraisPlafonnesDansLeSchema` |
+| L'indemnité de remboursement anticipé est plafondée par les deux limites légales | `Prepayment.indemnity` | `doublePlafond` |
+| Un remboursement anticipé est refusé tant que des échéances restent dues | `LoanService.prepay` | `impayesAvantAnticipation` |
+| Le plan reconstruit conserve le taux et les accessoires du contrat | `LoanTerms.forRemaining` | `conditionsReconduites` |
+| Un crédit régularisé reste déclassé pendant la période d'observation | `RiskGrid.stillUnderObservation` | `periodeDObservation` |
+| L'observation ne joue que dans un sens : une dégradation reste immédiate | idem | `degradationImmediate` |
 
 ## Les choix qui vont au-delà des progiciels établis
 
@@ -359,7 +367,38 @@ Et la **contagion** déclasse tous les encours d'un client au niveau du plus dé
 ne rembourse plus l'un de ses crédits ne présente pas un risque différent sur les autres. L'ignorer
 sous-estime le risque exactement là où il se matérialise.
 
-### 12. Le XOF traité comme une vraie contrainte
+### 12. Le coût réel du crédit, et le plafond qui porte dessus
+
+Le taux nominal ne dit rien du coût d'un crédit. Des frais de dossier prélevés au déblocage
+réduisent la somme reçue sans réduire ce qui est remboursé ; une assurance, une taxe, un différé
+déplacent les flux. Le **taux effectif global** est le seul chiffre comparable d'un crédit à
+l'autre, et c'est lui que la réglementation plafonne.
+
+| Même échéancier, même taux nominal de 12 % | TEG |
+|---|---|
+| Sans frais, convention proportionnelle | 12,03 % |
+| Sans frais, convention actuarielle | 12,71 % |
+| Avec 2 % de frais de dossier, proportionnelle | **15,89 %** |
+| Avec assurance 0,05 %/mois et TAF 18 %, actuarielle | **16,37 %** |
+
+Deux conséquences que les tests fixent. D'abord, **la convention fait partie du chiffre** : sur un
+plafond d'usure à 12,5 %, le même crédit est licite ou ne l'est pas selon qu'on annualise
+proportionnellement ou actuariellement. Elle est donc paramétrée par produit et conservée avec le
+taux.
+
+Ensuite, **le contrôle porte sur le taux effectif**. Un crédit affiché à 12 % franchit un plafond à
+15 % dès qu'on lui prend 2 % de frais — et c'est précisément le montage qu'un contrôle sur le taux
+nominal laisse passer. Le refus intervient au déblocage, avant tout versement : après, le
+dépassement ne se corrige plus.
+
+La résolution est une **dichotomie**, pas un Newton. La fonction est strictement croissante dès que
+l'emprunteur rembourse plus qu'il n'a reçu, donc la dichotomie converge toujours, en un nombre
+d'itérations connu d'avance. Newton converge plus vite mais peut diverger sur un échéancier
+dégénéré, et un moteur de calcul réglementaire ne peut pas se permettre un cas où il ne rend pas de
+réponse. L'intervalle s'élargit tant que la racine n'y est pas : un crédit bonifié, donc à taux
+négatif, est chiffré et non refusé.
+
+### 13. Le XOF traité comme une vraie contrainte
 
 Échelle nulle native, accumulation en précision étendue, arrondi au seul moment de la
 comptabilisation, écart d'arrondi restitué explicitement. `MoneyTest.daily_rounding_drifts_measurably`
@@ -371,8 +410,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
 - API REST et couche Spring Boot (le ledger reste sans framework, c'est délibéré), qui câblera
   `RoleStartupTask`, `UseCaseExecutor` et le serveur de ressources Keycloak ;
-- crédit : retour à meilleure fortune avec délai d'observation, module de garanties (éligibilité,
-  rang, fraîcheur des expertises), TEG et taux d'usure à l'octroi ;
+- crédit : origination (demande, scoring, décision, conditions suspensives), déblocage par
+  tranches, et un vrai module de garanties (éligibilité, rang, fraîcheur des expertises) ;
 - plafonds et limites paramétrés, et le maker-checker généralisé (la table `pending_operation`
   existe, le workflow n'est pas écrit) ;
 - capitalisation des intérêts, dormance, découverts et agios côté produit ;
@@ -415,3 +454,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | La classification vient après les charges de retard, et commande la constatation du lendemain | L'inverse serait circulaire : suspendre les intérêts du jour dépendrait de la classe qu'on est en train d'établir |
 | Dotation et reprise sont deux événements comptables, pas un seul à montant signé | Le sens est porté par la direction, jamais par le signe ; et les deux flux ne se compensent pas au compte de résultat |
 | Une grille relue en base est revalidée | Un correctif manuel sur une ligne de barème s'appliquerait sinon à tout le portefeuille |
+| Le TEG se résout par dichotomie, jamais par Newton | La convergence est garantie et bornée ; un moteur réglementaire ne peut pas avoir de cas où il ne rend pas de réponse |
+| Les deux plafonds légaux d'indemnité s'appliquent, le plus bas l'emporte | N'en retenir qu'un laisserait passer la moitié des dépassements |
+| Un remboursement anticipé ne révise ni le taux ni les accessoires | Les réviser au passage transformerait un droit de l'emprunteur en renégociation, qui demande un autre consentement |
+| La période d'observation retient la classe, pas le montant de la provision | L'encours a réellement baissé ; geler aussi le montant surprovisionnerait |
+| Les conditions financières sont portées par le contrat, la durée par l'échéancier | La durée change à chaque rééchelonnement ; la stocker deux fois ferait exister deux vérités sur le même sujet |

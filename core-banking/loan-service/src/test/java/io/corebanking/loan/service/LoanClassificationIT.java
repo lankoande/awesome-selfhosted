@@ -43,11 +43,15 @@ class LoanClassificationIT extends LoanTestBase {
 
     /** Grille illustrative : les seuils et taux reels relevent de l'instruction en vigueur. */
     private static RiskGrid grille(Contagion contagion, String suspendA) {
+        return grille(contagion, suspendA, 0);
+    }
+
+    private static RiskGrid grille(Contagion contagion, String suspendA, int observation) {
         return new RiskGrid("GRILLE", List.of(
             classe(0, "SAIN", 0, 29, "0", true),
             classe(1, "IMPAYE", 30, 89, "0", true),
             classe(2, "DOUTEUX", 90, 179, "20", false),
-            classe(3, "COMPROMIS", 180, null, "100", false)), contagion, suspendA);
+            classe(3, "COMPROMIS", 180, null, "100", false)), contagion, suspendA, observation);
     }
 
     /** Decor de credit augmente des comptes de provision et d'interets reserves. */
@@ -55,6 +59,11 @@ class LoanClassificationIT extends LoanTestBase {
                           Account produitsRetard) {}
 
     private static Risque decorRisque(String code, Contagion contagion, String suspendA) {
+        return decorRisque(code, contagion, suspendA, 0);
+    }
+
+    private static Risque decorRisque(String code, Contagion contagion, String suspendA,
+                                      int observation) {
         Decor decor = decor(code);
         Account dotations = account(decor.entityId(), code + "-DOT", AccountKind.GL,
                                     NormalBalance.DEBIT);
@@ -67,7 +76,7 @@ class LoanClassificationIT extends LoanTestBase {
         database.inTransaction(c -> {
             UUID profil = RiskProfiles.createDraft(c, new RiskProfiles.Draft(
                 decor.entityId(), "Grille de test", DEBLOCAGE.minusMonths(1), null,
-                grille(contagion, suspendA), ACTOR));
+                grille(contagion, suspendA, observation), ACTOR));
             RiskProfiles.activate(c, profil, APPROVER);
             return null;
         });
@@ -308,6 +317,87 @@ class LoanClassificationIT extends LoanTestBase {
 
         assertThat(bilan.suspended()).isZero();
         assertThat(soldeDe(risque.reserves()).isZero()).isTrue();
+    }
+
+    // ------------------------------------------------------------------ retour a meilleure fortune
+
+    @Test
+    @DisplayName("un credit regularise reste declasse tant que la periode d'observation court")
+    void periodeDObservation() {
+        Risque risque = decorRisque("X15", Contagion.NONE, "DOUTEUX", 90);
+        UUID contrat = credit(risque, "REF-X15", "CRED-X15", Map.of());
+        UUID entite = risque.decor().entityId();
+
+        service().classify(entite, LocalDate.of(2027, 1, 13), ACTOR, UUID.randomUUID());
+        assertThat(classement(contrat)).isEqualTo("DOUTEUX");
+
+        // Le client solde tout le lendemain.
+        loanService.settle(contrat, xof("88849"), LocalDate.of(2027, 1, 14), "MANUAL",
+                           io.corebanking.kernel.id.IdempotencyKey.of("REG-X15"), ACTOR, null);
+        service().classify(entite, LocalDate.of(2027, 1, 14), ACTOR, UUID.randomUUID());
+
+        // Sans periode d'observation, le declassement et la provision disparaitraient le jour
+        // meme — et le debiteur qui regle la veille de chaque arrete presenterait un portefeuille
+        // sain a chaque arrete sans l'etre jamais.
+        assertThat(classement(contrat)).isEqualTo("DOUTEUX");
+        assertThat(raison(contrat)).isEqualTo("CURE");
+
+        // La periode d'observation retient la <b>classe</b>, pas le montant : la provision suit
+        // l'encours, qui a diminue du capital rembourse. 20 % de 921 151 = 184 230. Geler aussi le
+        // montant surprovisionnerait un encours qui a reellement baisse.
+        assertThat(soldeDe(risque.provisions())).isEqualTo(xof("184230"));
+    }
+
+    @Test
+    @DisplayName("la periode ecoulee, le credit redevient sain et la provision est reprise")
+    void sortieDObservation() {
+        Risque risque = decorRisque("X16", Contagion.NONE, "DOUTEUX", 30);
+        UUID contrat = credit(risque, "REF-X16", "CRED-X16", Map.of());
+        UUID entite = risque.decor().entityId();
+
+        service().classify(entite, LocalDate.of(2027, 1, 13), ACTOR, UUID.randomUUID());
+        loanService.settle(contrat, xof("88849"), LocalDate.of(2027, 1, 14), "MANUAL",
+                           io.corebanking.kernel.id.IdempotencyKey.of("REG-X16"), ACTOR, null);
+        service().classify(entite, LocalDate.of(2027, 1, 14), ACTOR, UUID.randomUUID());
+        assertThat(classement(contrat)).isEqualTo("DOUTEUX");
+
+        // Trente jours apres le dernier arrete portant un impaye.
+        service().classify(entite, LocalDate.of(2027, 2, 12), ACTOR, UUID.randomUUID());
+
+        assertThat(classement(contrat)).isEqualTo("SAIN");
+        assertThat(soldeDe(risque.provisions()).isZero()).isTrue();
+    }
+
+    @Test
+    @DisplayName("l'observation ne joue que dans un sens : une degradation reste immediate")
+    void degradationImmediate() {
+        Risque risque = decorRisque("X17", Contagion.NONE, "DOUTEUX", 90);
+        UUID contrat = credit(risque, "REF-X17", "CRED-X17", Map.of());
+        UUID entite = risque.decor().entityId();
+
+        service().classify(entite, LocalDate.of(2026, 11, 20), ACTOR, UUID.randomUUID());
+        assertThat(classement(contrat)).isEqualTo("IMPAYE");
+
+        service().classify(entite, LocalDate.of(2027, 1, 13), ACTOR, UUID.randomUUID());
+
+        // Aucune observation ne retarde un declassement : le risque se constate quand il apparait.
+        assertThat(classement(contrat)).isEqualTo("DOUTEUX");
+        assertThat(raison(contrat)).isEqualTo("AGEING");
+    }
+
+    @Test
+    @DisplayName("sans periode d'observation, le retour a meilleure fortune est immediat")
+    void sansObservation() {
+        Risque risque = decorRisque("X18", Contagion.NONE, "DOUTEUX", 0);
+        UUID contrat = credit(risque, "REF-X18", "CRED-X18", Map.of());
+        UUID entite = risque.decor().entityId();
+
+        service().classify(entite, LocalDate.of(2027, 1, 13), ACTOR, UUID.randomUUID());
+        loanService.settle(contrat, xof("88849"), LocalDate.of(2027, 1, 14), "MANUAL",
+                           io.corebanking.kernel.id.IdempotencyKey.of("REG-X18"), ACTOR, null);
+        service().classify(entite, LocalDate.of(2027, 1, 14), ACTOR, UUID.randomUUID());
+
+        assertThat(classement(contrat)).isEqualTo("SAIN");
     }
 
     // ------------------------------------------------------------------ immuabilite

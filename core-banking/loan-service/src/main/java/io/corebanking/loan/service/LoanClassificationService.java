@@ -19,6 +19,7 @@ import io.corebanking.schema.SchemaEngine;
 import io.corebanking.schema.expr.EvaluationContext;
 import java.sql.Connection;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -146,10 +147,46 @@ public final class LoanClassificationService {
             RiskGrid grid = RiskProfiles.resolveAt(c, contract.legalEntityId(), profile,
                                                    businessDate);
             long daysPastDue = loanService.daysPastDue(contract.id(), businessDate);
+            RiskBucket byAgeing = grid.bucketFor(daysPastDue);
             return java.util.Optional.of(new Assessment(contract, product, grid,
-                                                        grid.bucketFor(daysPastDue), daysPastDue,
-                                                        false));
+                                                        underObservation(c, contract, grid,
+                                                                         byAgeing, daysPastDue,
+                                                                         businessDate),
+                                                        daysPastDue, false));
         });
+    }
+
+    /**
+     * Maintient la classe degradee tant que la periode d'observation n'est pas ecoulee.
+     *
+     * <p>Un credit regularise ne redevient pas sain le jour meme. Sans periode d'observation, un
+     * debiteur qui regle la veille de l'arrete efface son declassement et la provision qui
+     * l'accompagne, puis retombe en impaye le lendemain : le portefeuille parait sain a chaque
+     * arrete et ne l'est jamais.
+     *
+     * <p>La regle ne joue que dans un sens. Une degradation est immediate ; seul le retour a
+     * meilleure fortune s'observe.
+     */
+    private RiskBucket underObservation(Connection c, LoanContract contract, RiskGrid grid,
+                                        RiskBucket byAgeing, long daysPastDue,
+                                        LocalDate businessDate) {
+        if (daysPastDue > 0 || !byAgeing.performing() || grid.cureDays() == 0) {
+            return byAgeing;
+        }
+        LoanStore.ClassificationState previous =
+            LoanStore.lastClassification(c, contract.id(), contract.currency()).orElse(null);
+        if (previous == null || previous.ordinal() <= byAgeing.ordinal()) {
+            return byAgeing;
+        }
+        LocalDate lastArrears = LoanStore.lastArrearsDate(c, contract.id()).orElse(null);
+        if (lastArrears == null) {
+            return byAgeing;
+        }
+        long since = ChronoUnit.DAYS.between(lastArrears, businessDate);
+        if (!grid.stillUnderObservation(since)) {
+            return byAgeing;
+        }
+        return grid.buckets().get(Math.min(previous.ordinal(), grid.buckets().size() - 1));
     }
 
     /**
@@ -261,12 +298,25 @@ public final class LoanClassificationService {
             LoanStore.recordClassification(c, new LoanStore.ClassificationRow(
                 contract.id(), businessDate, assessment.daysPastDue(), assessment.bucket().code(),
                 assessment.bucket().ordinal(), assessment.bucket().performing(),
-                assessment.contaminated() ? "CONTAGION" : "AGEING", exposure,
+                reasonOf(assessment), exposure,
                 provision.retainedCollateral(), provision.base(),
                 assessment.bucket().provisionRatePercent(), provision.amount(), delta, suspended,
                 toReserve.total(), entryId, batchRunId));
             return null;
         });
+    }
+
+    /**
+     * Motif du classement. « CURE » signale une classe maintenue par la periode d'observation
+     * alors que le credit est a jour : c'est ce qui explique, a la lecture de l'historique, une
+     * provision qui perdure sur un credit sans impaye.
+     */
+    private static String reasonOf(Assessment assessment) {
+        if (assessment.contaminated()) {
+            return "CONTAGION";
+        }
+        return assessment.daysPastDue() == 0 && !assessment.bucket().performing() ? "CURE"
+                                                                                  : "AGEING";
     }
 
     private UUID post(LoanContract contract, ProductVersion product, EventTemplate template,

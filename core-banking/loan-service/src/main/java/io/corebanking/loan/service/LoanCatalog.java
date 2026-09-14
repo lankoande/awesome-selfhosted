@@ -7,6 +7,7 @@ import io.corebanking.loan.AllocationOrder;
 import io.corebanking.loan.LateInterestBasis;
 import io.corebanking.loan.LatePolicy;
 import io.corebanking.loan.PenaltyMode;
+import io.corebanking.loan.RateAnnualisation;
 import java.math.BigDecimal;
 import io.corebanking.product.ParameterSet;
 import io.corebanking.product.ProductVersion;
@@ -46,6 +47,12 @@ public final class LoanCatalog {
     public static final String P_PROVISION_ALLOWANCE = "loan.provision_allowance";
     public static final String P_PROVISION_RELEASE = "loan.provision_release";
     public static final String P_RESERVED_INTEREST = "loan.reserved_interest";
+    public static final String P_USURY_RATE       = "loan.usury_rate";
+    public static final String P_TEG_METHOD       = "loan.teg_method";
+    public static final String P_PREPAY_RATE      = "loan.prepayment_indemnity_rate";
+    public static final String P_PREPAY_CAP_PCT   = "loan.prepayment_cap_percent";
+    public static final String P_PREPAY_CAP_MONTHS = "loan.prepayment_cap_months";
+    public static final String P_PREPAY_INDEMNITY_ACCOUNT = "loan.prepayment_indemnity_account";
 
     private LoanCatalog() {}
 
@@ -118,6 +125,57 @@ public final class LoanCatalog {
     public static UUID penaltyIncome(ProductVersion product) {
         return product.parameters().has(P_PENALTY_INCOME)
             ? product.parameters().requireUuid(P_PENALTY_INCOME) : lateInterestIncome(product);
+    }
+
+    /**
+     * Convention d'annualisation du taux effectif.
+     *
+     * <p>Elle est declaree par le produit parce qu'elle est imposee par le regulateur du pays, et
+     * qu'un socle multi-pays ne peut pas en presumer. A defaut, la convention proportionnelle —
+     * celle du taux effectif global historique de la zone.
+     */
+    public static RateAnnualisation tegMethod(ProductVersion product) {
+        return product.parameters().has(P_TEG_METHOD)
+            ? product.parameters().requireEnum(P_TEG_METHOD, RateAnnualisation.class)
+            : RateAnnualisation.PROPORTIONAL;
+    }
+
+    /**
+     * Plafond d'usure applicable, absent si le pays n'en impose pas.
+     *
+     * <p>Le plafond porte sur le <b>taux effectif</b>. Le controler sur le taux nominal laisserait
+     * passer tout credit dont les frais de dossier font l'essentiel du cout.
+     */
+    public static java.util.Optional<BigDecimal> usuryRate(ProductVersion product) {
+        return product.parameters().has(P_USURY_RATE)
+            ? java.util.Optional.of(product.parameters().requireDecimal(P_USURY_RATE))
+            : java.util.Optional.empty();
+    }
+
+    public static BigDecimal prepaymentIndemnityRate(ProductVersion product) {
+        return optionalDecimal(product, P_PREPAY_RATE);
+    }
+
+    /** Plafond legal en pourcentage du capital rembourse, nul si le pays n'en impose pas. */
+    public static BigDecimal prepaymentCapPercent(ProductVersion product) {
+        return optionalDecimal(product, P_PREPAY_CAP_PCT);
+    }
+
+    /** Plafond legal en mois d'interets, nul si le pays n'en impose pas. */
+    public static BigDecimal prepaymentCapMonths(ProductVersion product) {
+        return optionalDecimal(product, P_PREPAY_CAP_MONTHS);
+    }
+
+    /**
+     * Compte de produit de l'indemnite. Exige des lors qu'une indemnite est parametree : ce n'est
+     * pas un interet, et la loger sur le produit d'interets fausserait la marge d'interet.
+     */
+    public static UUID prepaymentIndemnity(ProductVersion product) {
+        return product.parameters().requireUuid(P_PREPAY_INDEMNITY_ACCOUNT);
+    }
+
+    private static BigDecimal optionalDecimal(ProductVersion product, String name) {
+        return product.parameters().has(name) ? product.parameters().requireDecimal(name) : null;
     }
 
     /** Code du profil de risque applique, absent si le produit n'est pas classe. */

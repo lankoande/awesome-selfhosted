@@ -34,8 +34,8 @@ public final class RiskProfiles {
         UUID id = Ids.newId();
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO risk_profile(id, legal_entity_id, code, label, valid_from, valid_to,"
-            + " contagion, suspend_from_bucket, status, created_by)"
-            + " VALUES (?,?,?,?,?,?,?,?,'DRAFT',?)")) {
+            + " contagion, suspend_from_bucket, cure_days, status, created_by)"
+            + " VALUES (?,?,?,?,?,?,?,?,?,'DRAFT',?)")) {
             ps.setObject(1, id);
             ps.setObject(2, draft.legalEntityId());
             ps.setString(3, grid.code());
@@ -44,7 +44,8 @@ public final class RiskProfiles {
             ps.setObject(6, draft.validTo());
             ps.setString(7, grid.contagion().name());
             ps.setString(8, grid.suspendFromBucket());
-            ps.setObject(9, draft.createdBy());
+            ps.setInt(9, grid.cureDays());
+            ps.setObject(10, draft.createdBy());
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new LedgerStoreException("Creation du profil de risque " + grid.code(), e);
@@ -74,8 +75,9 @@ public final class RiskProfiles {
         UUID id;
         Contagion contagion;
         String suspendFrom;
+        int cureDays;
         try (PreparedStatement ps = c.prepareStatement(
-            "SELECT id, contagion, suspend_from_bucket FROM risk_profile"
+            "SELECT id, contagion, suspend_from_bucket, cure_days FROM risk_profile"
             + " WHERE legal_entity_id = ? AND code = ? AND status = 'ACTIVE'"
             + "   AND valid_from <= ? AND (valid_to IS NULL OR valid_to >= ?)")) {
             ps.setObject(1, legalEntityId);
@@ -90,6 +92,7 @@ public final class RiskProfiles {
                 id = rs.getObject(1, UUID.class);
                 contagion = Contagion.valueOf(rs.getString(2));
                 suspendFrom = rs.getString(3);
+                cureDays = rs.getInt(4);
             }
         } catch (SQLException e) {
             throw new LedgerStoreException("Resolution du profil de risque " + code, e);
@@ -113,7 +116,7 @@ public final class RiskProfiles {
         }
         // Revalidee a la relecture : une grille alteree en base par un correctif manuel serait
         // sinon appliquee telle quelle a tout le portefeuille.
-        return new RiskGrid(code, buckets, contagion, suspendFrom);
+        return new RiskGrid(code, buckets, contagion, suspendFrom, cureDays);
     }
 
     private static void insertBuckets(Connection c, UUID profileId, RiskGrid grid) {

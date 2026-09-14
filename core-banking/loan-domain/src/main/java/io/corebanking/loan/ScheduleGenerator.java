@@ -115,6 +115,27 @@ public final class ScheduleGenerator {
     // ------------------------------------------------------------------ annuite
 
     /**
+     * Annuite constante amortissant un capital en un nombre donne de periodes.
+     *
+     * <p>Exposee parce qu'un remboursement anticipe en a besoin : reduire la duree, c'est chercher
+     * le nombre d'echeances au bout duquel l'annuite du contrat suffit encore a amortir le capital
+     * restant.
+     */
+    public static Money annuity(Money principal, BigDecimal periodicRate, int instalments) {
+        if (instalments <= 0) {
+            throw new IllegalArgumentException("Nombre d'echeances nul ou negatif : " + instalments);
+        }
+        if (periodicRate.signum() == 0) {
+            return principal.dividedBy(BigDecimal.valueOf(instalments)).roundToCurrency();
+        }
+        BigDecimal growth = BigDecimal.ONE.add(periodicRate).pow(instalments, MathContexts.RATE);
+        BigDecimal factor = periodicRate.multiply(growth, MathContexts.RATE)
+            .divide(growth.subtract(BigDecimal.ONE), MathContexts.RATE);
+        return principal.times(factor).roundToCurrency();
+    }
+
+
+    /**
      * Annuite constante : {@code A = P x i / (1 - (1+i)^-m)}, arrondie a l'echelle de la devise.
      *
      * <p>Le refus qui compte : si l'annuite ne couvre pas meme les interets de la premiere echeance,
@@ -123,18 +144,8 @@ public final class ScheduleGenerator {
      * normale sur les premieres lignes.
      */
     private static Money constantAnnuity(LoanTerms terms) {
-        int count = terms.amortisingCount();
         BigDecimal rate = terms.periodicRate();
-        Money annuity;
-        if (rate.signum() == 0) {
-            annuity = terms.principal().dividedBy(BigDecimal.valueOf(count)).roundToCurrency();
-        } else {
-            BigDecimal growth = BigDecimal.ONE.add(rate).pow(count, MathContexts.RATE);
-            BigDecimal factor = rate.multiply(growth, MathContexts.RATE)
-                .divide(growth.subtract(BigDecimal.ONE), MathContexts.RATE);
-            annuity = terms.principal().times(factor).roundToCurrency();
-        }
-
+        Money annuity = annuity(terms.principal(), rate, terms.amortisingCount());
         Money firstInterest = terms.principal().times(rate).roundToCurrency();
         if (!annuity.isGreaterThan(firstInterest)) {
             throw new LoanTerms.InvalidLoanTermsException(
