@@ -1,6 +1,7 @@
 package io.corebanking.fee;
 
 import io.corebanking.kernel.money.Money;
+import io.corebanking.kernel.time.SchedulePeriod;
 import java.util.Objects;
 
 /**
@@ -14,7 +15,7 @@ import java.util.Objects;
  * @param chargedDays jours de la periode effectivement factures
  */
 public record FeeAssessment(
-    FeePeriod period,
+    SchedulePeriod period,
     Money basisAmount,
     Money gross,
     Money net,

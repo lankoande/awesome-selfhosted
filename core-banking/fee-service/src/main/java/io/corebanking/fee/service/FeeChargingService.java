@@ -2,13 +2,13 @@ package io.corebanking.fee.service;
 
 import io.corebanking.fee.FeeAssessment;
 import io.corebanking.fee.FeeCalculator;
-import io.corebanking.fee.FeePeriod;
 import io.corebanking.fee.FeeTerms;
 import io.corebanking.fee.InsufficientFundsPolicy;
 import io.corebanking.fee.Proration;
 import io.corebanking.kernel.id.IdempotencyKey;
 import io.corebanking.kernel.money.CurrencyRef;
 import io.corebanking.kernel.money.Money;
+import io.corebanking.kernel.time.SchedulePeriod;
 import io.corebanking.ledger.domain.posting.PostingCommand;
 import io.corebanking.ledger.domain.posting.PostingLine;
 import io.corebanking.ledger.domain.posting.PostingResult;
@@ -17,10 +17,10 @@ import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.product.ProductCatalog;
 import io.corebanking.product.ProductVersion;
+import io.corebanking.product.SchemaCatalog;
 import io.corebanking.schema.AccountResolver;
 import io.corebanking.schema.EventTemplate;
 import io.corebanking.schema.SchemaEngine;
-import io.corebanking.product.SchemaCatalog;
 import io.corebanking.schema.expr.EvaluationContext;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -299,7 +299,7 @@ public final class FeeChargingService {
 
     /** Periode echue en attente de liquidation : l'assiette n'est pas encore constatee. */
     private record Candidate(UUID legalEntityId, UUID accountId, FeeTerms terms, String schemaCode,
-                             FeePeriod period, LocalDate chargeDate, int chargedDays,
+                             SchedulePeriod period, LocalDate chargeDate, int chargedDays,
                              boolean exempt, int generation, CurrencyRef currency) {}
 
     private void collectCandidates(Connection c, UUID legalEntityId, AccountFacts account,
@@ -324,7 +324,7 @@ public final class FeeChargingService {
 
         int emitted = 0;
         while (emitted < MAX_CATCH_UP_PERIODS) {
-            FeePeriod period = terms.period(index);
+            SchedulePeriod period = terms.period(index);
             LocalDate chargeDate = terms.chargeDate(period);
             if (chargeDate.isAfter(businessDate)) {
                 break;
@@ -369,7 +369,7 @@ public final class FeeChargingService {
             ? resolved : resolved.withAnchor(account.openedAt());
     }
 
-    private static int exemptDays(FeePeriod period, List<FeeLedger.Exemption> windows,
+    private static int exemptDays(SchedulePeriod period, List<FeeLedger.Exemption> windows,
                                   AccountFacts account) {
         if (windows == null) {
             return 0;
@@ -416,7 +416,7 @@ public final class FeeChargingService {
         Map<Candidate, Money> bases = new LinkedHashMap<>();
 
         Map<LocalDate, List<Candidate>> closing = new LinkedHashMap<>();
-        Map<FeePeriod, List<Candidate>> peaks = new LinkedHashMap<>();
+        Map<SchedulePeriod, List<Candidate>> peaks = new LinkedHashMap<>();
         for (Candidate candidate : candidates) {
             switch (candidate.terms().basis()) {
                 case FLAT -> { }
@@ -750,7 +750,7 @@ public final class FeeChargingService {
      */
     private Map<UUID, java.math.BigDecimal> deepestDebitOver(Connection c,
                                                              Collection<UUID> accountIds,
-                                                             FeePeriod period) {
+                                                             SchedulePeriod period) {
         Map<UUID, java.math.BigDecimal> deepest = new LinkedHashMap<>();
         if (accountIds.isEmpty()) {
             return deepest;

@@ -8,6 +8,8 @@ import io.corebanking.interest.rate.TieredRate;
 import io.corebanking.interest.rate.TieringMode;
 import io.corebanking.kernel.money.Currencies;
 import io.corebanking.kernel.money.Money;
+import io.corebanking.kernel.time.Periodicity;
+import io.corebanking.kernel.time.SchedulePeriod;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -20,7 +22,7 @@ class FeeCalculatorTest {
     private static final UUID PRODUIT = UUID.fromString("00000000-0000-0000-0000-0000000000f1");
     private static final UUID TAXE = UUID.fromString("00000000-0000-0000-0000-0000000000f2");
     private static final LocalDate ANCRAGE = LocalDate.of(2026, 9, 1);
-    private static final FeePeriod SEPTEMBRE = FeeFrequency.MONTHLY.period(ANCRAGE, 0);
+    private static final SchedulePeriod SEPTEMBRE = Periodicity.MONTHLY.period(ANCRAGE, 0);
 
     private static Money xof(String montant) {
         return Money.of(montant, Currencies.XOF);
@@ -32,7 +34,7 @@ class FeeCalculatorTest {
 
     private static FeeTerms.Builder terms() {
         return new FeeTerms.Builder("TENUE_COMPTE", "Frais de tenue de compte", Currencies.XOF)
-            .frequency(FeeFrequency.MONTHLY).anchor(ANCRAGE).timing(FeeTiming.IN_ARREARS)
+            .frequency(Periodicity.MONTHLY).anchor(ANCRAGE).timing(FeeTiming.IN_ARREARS)
             .incomeAccount(PRODUIT);
     }
 

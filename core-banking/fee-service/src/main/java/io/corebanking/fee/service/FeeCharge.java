@@ -1,7 +1,7 @@
 package io.corebanking.fee.service;
 
-import io.corebanking.fee.FeePeriod;
 import io.corebanking.kernel.money.Money;
+import io.corebanking.kernel.time.SchedulePeriod;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -25,7 +25,7 @@ public record FeeCharge(
     UUID legalEntityId,
     UUID accountId,
     String feeCode,
-    FeePeriod period,
+    SchedulePeriod period,
     LocalDate chargeDate,
     Money basisAmount,
     Money gross,

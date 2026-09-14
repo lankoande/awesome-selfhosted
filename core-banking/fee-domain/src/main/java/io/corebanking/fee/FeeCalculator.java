@@ -1,6 +1,7 @@
 package io.corebanking.fee;
 
 import io.corebanking.kernel.money.Money;
+import io.corebanking.kernel.time.SchedulePeriod;
 import java.math.BigDecimal;
 import java.util.Objects;
 
@@ -32,7 +33,7 @@ public final class FeeCalculator {
 
     private FeeCalculator() {}
 
-    public static FeeAssessment assess(FeeTerms terms, FeePeriod period, Money basisAmount,
+    public static FeeAssessment assess(FeeTerms terms, SchedulePeriod period, Money basisAmount,
                                        int chargedDays) {
         Objects.requireNonNull(terms, "terms");
         Objects.requireNonNull(period, "period");

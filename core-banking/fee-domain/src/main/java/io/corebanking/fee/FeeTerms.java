@@ -3,6 +3,8 @@ package io.corebanking.fee;
 import io.corebanking.interest.rate.RateSchedule;
 import io.corebanking.kernel.money.CurrencyRef;
 import io.corebanking.kernel.money.Money;
+import io.corebanking.kernel.time.Periodicity;
+import io.corebanking.kernel.time.SchedulePeriod;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Objects;
@@ -27,7 +29,7 @@ public record FeeTerms(
     String code,
     String label,
     CurrencyRef currency,
-    FeeFrequency frequency,
+    Periodicity frequency,
     LocalDate anchor,
     FeeTiming timing,
     FeeBasis basis,
@@ -114,11 +116,11 @@ public record FeeTerms(
     }
 
     /** Date de perception de la periode de rang donne. */
-    public LocalDate chargeDate(FeePeriod period) {
+    public LocalDate chargeDate(SchedulePeriod period) {
         return timing.chargeDate(period);
     }
 
-    public FeePeriod period(int index) {
+    public SchedulePeriod period(int index) {
         return frequency.period(anchor, index);
     }
 
@@ -150,7 +152,7 @@ public record FeeTerms(
         private final String code;
         private final String label;
         private final CurrencyRef currency;
-        private FeeFrequency frequency = FeeFrequency.MONTHLY;
+        private Periodicity frequency = Periodicity.MONTHLY;
         private LocalDate anchor;
         private FeeTiming timing = FeeTiming.IN_ARREARS;
         private FeeBasis basis = FeeBasis.FLAT;
@@ -172,7 +174,7 @@ public record FeeTerms(
             this.currency = currency;
         }
 
-        public Builder frequency(FeeFrequency value)  { this.frequency = value; return this; }
+        public Builder frequency(Periodicity value)  { this.frequency = value; return this; }
         public Builder anchor(LocalDate value)        { this.anchor = value; return this; }
         public Builder timing(FeeTiming value)        { this.timing = value; return this; }
         public Builder basis(FeeBasis value)          { this.basis = value; return this; }

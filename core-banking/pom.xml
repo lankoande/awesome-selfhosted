@@ -21,6 +21,7 @@
     <module>schema-engine</module>
     <module>calendar</module>
     <module>fee-domain</module>
+    <module>loan-domain</module>
     <module>product-catalog</module>
     <module>ledger-store</module>
     <module>security-store</module>
@@ -84,6 +85,10 @@
       </dependency>
       <dependency>
         <groupId>io.corebanking</groupId><artifactId>fee-domain</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.corebanking</groupId><artifactId>loan-domain</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

@@ -1,4 +1,4 @@
-package io.corebanking.fee;
+package io.corebanking.kernel.time;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -10,9 +10,9 @@ import java.util.Objects;
  * @param index rang depuis l'ancrage ; il identifie la periode de facon stable, contrairement a
  *              un numero d'ordre de traitement qui dependrait de l'historique des TFJ
  */
-public record FeePeriod(int index, LocalDate start, LocalDate end) {
+public record SchedulePeriod(int index, LocalDate start, LocalDate end) {
 
-    public FeePeriod {
+    public SchedulePeriod {
         Objects.requireNonNull(start, "start");
         Objects.requireNonNull(end, "end");
         if (index < 0) {

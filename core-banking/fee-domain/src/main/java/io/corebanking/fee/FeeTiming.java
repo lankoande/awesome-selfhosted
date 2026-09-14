@@ -1,5 +1,6 @@
 package io.corebanking.fee;
 
+import io.corebanking.kernel.time.SchedulePeriod;
 import java.time.LocalDate;
 
 /** Moment de perception d'une commission dans sa periode. */
@@ -23,7 +24,7 @@ public enum FeeTiming {
      */
     IN_ADVANCE;
 
-    public LocalDate chargeDate(FeePeriod period) {
+    public LocalDate chargeDate(SchedulePeriod period) {
         return this == IN_ARREARS ? period.end() : period.start();
     }
 }

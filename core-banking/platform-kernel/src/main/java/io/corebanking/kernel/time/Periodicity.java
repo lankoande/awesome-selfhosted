@@ -1,4 +1,4 @@
-package io.corebanking.fee;
+package io.corebanking.kernel.time;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -20,7 +20,7 @@ import java.util.Objects;
  * Le mois de fevrier ramene l'echeance au 28, et le mois de mars la rend au 31. Le jour d'echeance
  * du contrat est une propriete du contrat, pas un residu de l'historique des traitements.
  */
-public enum FeeFrequency {
+public enum Periodicity {
 
     DAILY(0),
     MONTHLY(1),
@@ -33,8 +33,20 @@ public enum FeeFrequency {
 
     private final int months;
 
-    FeeFrequency(int months) {
+    Periodicity(int months) {
         this.months = months;
+    }
+
+    /**
+     * Nombre de periodes dans une annee.
+     *
+     * <p>Sert au <b>taux periodique proportionnel</b> : un taux annuel de 12 % donne 1 % par mois.
+     * C'est une convention, pas une equivalence financiere — le taux actuariel equivalent serait
+     * la racine douzieme de 1,12, soit 0,949 %. La convention proportionnelle est celle des
+     * echeanciers a annuite constante ; l'ecart est assume et connu.
+     */
+    public int periodsPerYear() {
+        return this == DAILY ? 365 : 12 / months;
     }
 
     /** Premier jour de la periode de rang donne. Le rang 0 est la periode ouverte par l'ancrage. */
@@ -48,8 +60,8 @@ public enum FeeFrequency {
     }
 
     /** Periode de rang donne, bornes incluses. Les periodes successives sont jointives. */
-    public FeePeriod period(LocalDate anchor, int index) {
-        return new FeePeriod(index, startOfPeriod(anchor, index),
+    public SchedulePeriod period(LocalDate anchor, int index) {
+        return new SchedulePeriod(index, startOfPeriod(anchor, index),
                              startOfPeriod(anchor, index + 1).minusDays(1));
     }
 
@@ -79,7 +91,7 @@ public enum FeeFrequency {
                            && !startOfPeriod(anchor, index + 1).isAfter(date); step++) {
             index++;
         }
-        FeePeriod found = period(anchor, index);
+        SchedulePeriod found = period(anchor, index);
         if (!found.contains(date)) {
             throw new IllegalStateException(
                 "Encadrement de la periode du " + date + " depuis l'ancrage " + anchor

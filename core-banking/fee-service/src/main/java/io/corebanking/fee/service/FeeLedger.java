@@ -1,9 +1,9 @@
 package io.corebanking.fee.service;
 
-import io.corebanking.fee.FeePeriod;
 import io.corebanking.kernel.id.Ids;
 import io.corebanking.kernel.money.CurrencyRef;
 import io.corebanking.kernel.money.Money;
+import io.corebanking.kernel.time.SchedulePeriod;
 import io.corebanking.ledger.store.LedgerStoreException;
 import java.sql.Array;
 import java.sql.Connection;
@@ -249,7 +249,7 @@ public final class FeeLedger {
         }
         return new FeeCharge(
             rs.getObject(1, UUID.class), rs.getObject(2, UUID.class), accountId, rs.getString(4),
-            new FeePeriod(rs.getInt(5), rs.getObject(6, LocalDate.class),
+            new SchedulePeriod(rs.getInt(5), rs.getObject(6, LocalDate.class),
                           rs.getObject(7, LocalDate.class)),
             rs.getObject(8, LocalDate.class),
             Money.of(rs.getBigDecimal(9), currency), Money.of(rs.getBigDecimal(10), currency),

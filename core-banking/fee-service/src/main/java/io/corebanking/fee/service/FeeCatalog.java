@@ -1,7 +1,6 @@
 package io.corebanking.fee.service;
 
 import io.corebanking.fee.FeeBasis;
-import io.corebanking.fee.FeeFrequency;
 import io.corebanking.fee.FeeTerms;
 import io.corebanking.fee.FeeTiming;
 import io.corebanking.fee.InsufficientFundsPolicy;
@@ -11,6 +10,7 @@ import io.corebanking.interest.rate.TieredRate;
 import io.corebanking.interest.rate.TieringMode;
 import io.corebanking.kernel.money.CurrencyRef;
 import io.corebanking.kernel.money.Money;
+import io.corebanking.kernel.time.Periodicity;
 import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.product.ParameterSet;
 import io.corebanking.product.ProductVersion;
@@ -97,8 +97,8 @@ public final class FeeCatalog {
         FeeTerms.Builder builder =
             new FeeTerms.Builder(feeCode, parameters.optionalString(prefix + LABEL, feeCode),
                                  currency)
-                .frequency(enumeration(parameters, prefix + FREQUENCY, FeeFrequency.class,
-                                       FeeFrequency.MONTHLY))
+                .frequency(enumeration(parameters, prefix + FREQUENCY, Periodicity.class,
+                                       Periodicity.MONTHLY))
                 .timing(enumeration(parameters, prefix + TIMING, FeeTiming.class,
                                     FeeTiming.IN_ARREARS))
                 .basis(basis)
