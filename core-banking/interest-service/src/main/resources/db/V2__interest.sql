@@ -28,6 +28,11 @@ CREATE TABLE interest_accrual (
     entry_id           UUID,
     booking_date       DATE,
 
+    -- Traitement qui a produit la ligne. C'est ce qui permet d'annuler un TFJ integralement :
+    -- contre-passer ses ecritures sans neutraliser les journees calculees laisserait le moteur
+    -- croire ces journees deja remunerees, et elles ne le seraient plus jamais.
+    batch_run_id       UUID,
+
     status             TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','REVERSED')),
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -38,3 +43,4 @@ CREATE UNIQUE INDEX uq_accrual_active
     ON interest_accrual(account_id, accrual_date, side) WHERE status = 'ACTIVE';
 
 CREATE INDEX idx_accrual_account ON interest_accrual(account_id, side, accrual_date);
+CREATE INDEX idx_accrual_run     ON interest_accrual(batch_run_id) WHERE batch_run_id IS NOT NULL;

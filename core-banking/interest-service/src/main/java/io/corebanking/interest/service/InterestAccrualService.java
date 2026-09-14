@@ -187,7 +187,7 @@ public final class InterestAccrualService {
         Money cumulativeFinal = cumulative;
         database.inTransaction(c -> {
             recordDays(c, accountId, reference.side(), generation, daily, cumulativeFinal,
-                       delta, entryId, bookingDate);
+                       delta, entryId, bookingDate, batchRunId);
             return null;
         });
 
@@ -328,7 +328,7 @@ public final class InterestAccrualService {
 
     private void recordDays(Connection c, UUID accountId, AccrualSide side, int generation,
                             List<DailyAccrual> daily, Money cumulativeFinal, Money delta,
-                            UUID entryId, LocalDate bookingDate) {
+                            UUID entryId, LocalDate bookingDate, UUID batchRunId) {
         Money running = cumulativeFinal;
         // Recalcul du cumul journee par journee, a rebours, pour l'historiser exactement.
         List<Money> cumulatives = new ArrayList<>(daily.size());
@@ -340,7 +340,8 @@ public final class InterestAccrualService {
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO interest_accrual(id, account_id, accrual_date, side, generation,"
             + " basis_balance, effective_rate, year_fraction, precise_amount, cumulative_precise,"
-            + " posted_delta, entry_id, booking_date) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+            + " posted_delta, entry_id, booking_date, batch_run_id)"
+            + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
             for (int i = 0; i < daily.size(); i++) {
                 DailyAccrual day = daily.get(i);
                 boolean isLast = i == daily.size() - 1;
@@ -357,6 +358,7 @@ public final class InterestAccrualService {
                 ps.setBigDecimal(11, isLast ? delta.amount() : BigDecimal.ZERO);
                 ps.setObject(12, isLast ? entryId : null);
                 ps.setObject(13, isLast ? bookingDate : null);
+                ps.setObject(14, batchRunId);
                 ps.addBatch();
             }
             ps.executeBatch();

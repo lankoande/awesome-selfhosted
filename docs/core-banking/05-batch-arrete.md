@@ -5,6 +5,13 @@ production en crise comptable.
 
 ---
 
+> **État d'implémentation.** Le moteur d'orchestration est construit et testé
+> ([`core-banking/tfj`](../../core-banking/tfj)) : unicité, garde d'ordre des journées, reprise à
+> l'étape fautive, annulation par contre-passation intégrale, TFJ à blanc par transaction annulée.
+> Cinq étapes tournent — contrôles préalables, intérêts courus, arrêté des soldes, réconciliation,
+> bascule de journée. Les étapes restantes de la séquence ci-dessous s'insèrent sans toucher au
+> moteur.
+
 ## 0. Terminologie
 
 Le vocabulaire du marché francophone est retenu comme terminologie de référence du projet.

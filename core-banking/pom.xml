@@ -23,6 +23,7 @@
     <module>ledger-store</module>
     <module>security-store</module>
     <module>interest-service</module>
+    <module>tfj</module>
   </modules>
 
   <properties>

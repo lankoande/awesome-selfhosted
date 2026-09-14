@@ -36,7 +36,7 @@ public final class JdbcAuthorizationAudit implements AuthorizationAudit {
     @Override
     public void record(Caller caller, Operation operation, AccessTarget target,
                        AccessDecision decision) {
-        database.inTransaction(connection -> {
+        database.inNewTransaction(connection -> {
             try (PreparedStatement ps = connection.prepareStatement(
                 "INSERT INTO authorization_audit(subject_id, username, roles, caller_entity_id,"
                 + " caller_branch_id, operation, allowed, reason, target_entity_id,"

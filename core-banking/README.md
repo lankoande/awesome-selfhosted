@@ -19,8 +19,8 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 171 tests verts** — 133 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
-générés), 38 sur PostgreSQL réel.
+**État actuel : 182 tests verts** — 133 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
+générés), 49 sur PostgreSQL réel.
 
 ## Ce que le P0 garantit, et comment c'est prouvé
 
@@ -52,6 +52,11 @@ générés), 38 sur PostgreSQL réel.
 | Catalogue `roles.json` ≡ politique, aucun orphelin | `RoleCatalogue.validateAgainstPolicy` | `constants_and_policy_agree` |
 | Provisionnement idempotent et jamais destructeur | `RoleStartupTask` | `an_orphan_realm_role_is_reported_never_deleted` |
 | Un refus d'authentification n'est jamais rejoué | `KeycloakAdminProvisioner` | `an_auth_failure_is_never_retried` |
+| Un seul TFJ réel par entité et par date | Index unique partiel | `a_failed_run_resumes_at_the_failing_step` |
+| Sauter une journée est impossible | Garde sur la date courante | `skipping_a_day_is_impossible` |
+| Reprise à l'étape fautive, sans rejouer les précédentes | `TfjEngine.resume` | `a_failed_run_resumes_at_the_failing_step` |
+| Annulation = contre-passation intégrale + restauration de la date | `TfjEngine.cancel` | `cancelling_a_run_reverses_its_entries_and_restores_the_date` |
+| TFJ à blanc : même chemin de code, aucune trace | Transaction annulée | `a_dry_run_reports_everything_and_leaves_nothing` |
 | Le secret du compte de service ne fuit nulle part | `KeycloakAdminConfig` | `the_service_account_secret_never_leaks` |
 | Tout rôle est porté par un poste, sinon inattribuable | `JobProfile` | `every_role_is_carried_by_a_profile` |
 | Écart de provisionnement Keycloak détecté | `KeycloakProvisioning.drift` | `a_missing_role_is_reported_as_silently_blocking` |
@@ -148,7 +153,21 @@ possible porte sur la règle, et il empêche le démarrage.
 Keycloak fournit l'identité et le périmètre ; **les plafonds restent dans le code revu**. Un
 attribut mal renseigné dans un annuaire ne doit pas pouvoir élever le plafond d'un guichetier.
 
-### 6. Le XOF traité comme une vraie contrainte
+### 6. Un TFJ à blanc qui emprunte vraiment le même chemin
+
+Le mode simulation n'est pas un second code : le traitement complet s'exécute dans une
+**transaction annulée à la fin**. Mêmes contrôles, mêmes calculs, mêmes écritures, mêmes
+contraintes de base — et rien n'est conservé. Un mode simulation qui court-circuiterait la
+comptabilisation ne testerait pas ce qui casse en production, et ne prouverait donc rien.
+
+Seuls les statuts d'étape sont écrits dans des transactions indépendantes : le rapport doit
+survivre à l'annulation.
+
+Contrepartie à connaître : l'ensemble tient dans une seule transaction, donc un seul jeu de
+verrous. Sur un portefeuille entier, un TFJ à blanc est long et bloquant — il se lance sur un
+échantillon ou hors des heures de service.
+
+### 7. Le XOF traité comme une vraie contrainte
 
 Échelle nulle native, accumulation en précision étendue, arrondi au seul moment de la
 comptabilisation, écart d'arrondi restitué explicitement. `MoneyTest.daily_rounding_drifts_measurably`
