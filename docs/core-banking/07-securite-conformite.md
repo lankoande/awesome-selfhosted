@@ -124,6 +124,76 @@ Trois refus explicites à l'extraction des revendications :
   introduirait une donnée de marché dans une décision d'habilitation, et un plafond qui varie avec
   le change n'est pas un plafond.
 
+### Création des rôles : dérivés, jamais saisis
+
+**Un rôle n'a pas d'existence propre** — ce n'est qu'un nom qui apparaît dans une règle de
+`SecurityConfig`. Le catalogue est donc *calculé* comme l'union des rôles cités par les règles.
+Keycloak en est le **reflet provisionné**, pas la source.
+
+Créer les rôles à la main dans la console inverse la flèche, et l'inversion coûte dans les deux
+sens :
+
+| Écart | Symptôme |
+|---|---|
+| Rôle dans Keycloak, absent de la politique | Il est attribué, apparaît dans les jetons, rassure — et n'ouvre rien. Refus incompréhensible : l'agent « a le rôle » et n'accède pas. |
+| Rôle dans la politique, absent de Keycloak | **Personne ne peut le détenir.** L'opération est inaccessible à tous, sans aucune erreur. Tout est cohérent, les refus sont réguliers, l'opération est morte. |
+
+Le second est le plus perfide. D'où un détecteur d'écart (`KeycloakProvisioning.drift`) à exécuter
+au déploiement.
+
+**Chaîne complète**
+
+```
+SecurityConfig (règles)
+      │  union des rôles cités
+      ▼
+RoleCatalogue          ──── test : ≡ constantes de Roles, aucun orphelin des deux côtés
+      │
+      │  + JobProfile (postes)
+      ▼
+KeycloakProvisioning.partialImport("core-banking")
+      │  fichier d'import partiel, rejoué à chaque livraison
+      ▼
+Keycloak : rôles du client + groupes de postes
+      │
+      ▼
+drift(observé) ──── écart = défaut de déploiement, pas divergence à arbitrer
+```
+
+La description de chaque rôle dans Keycloak est **engendrée** : elle énumère les opérations
+réellement ouvertes. Un auditeur qui lit la console voit `teller → [ACCOUNT_BALANCE_READ,
+CASH_OPERATION, PARTY_READ, TRANSFER]`, pas un commentaire écrit il y a trois ans.
+
+**Les rôles ne s'attribuent pas à des personnes.** Un rôle est un regroupement technique ; ce que
+la banque gère, ce sont des **postes**. Un groupe Keycloak par poste, l'agent est placé dans un
+groupe. L'attribution individuelle dérive : au bout de deux ans plus personne ne sait pourquoi tel
+agent détient tel rôle, et la revue périodique devient un inventaire de cas particuliers. Avec des
+groupes, la revue porte sur huit postes au lieu de huit cents agents.
+
+**Aucun poste n'est décliné par entité ni par agence.** Ces dimensions viennent des revendications
+du jeton. Les faire porter par le rôle produirait `teller_CI`, `teller_SN`,
+`teller_CI_agence_007` — une explosion combinatoire dont personne ne sort.
+
+**Ce que le provisionnement ne contient pas** : aucun utilisateur, aucune affectation. Le pipeline
+crée rôles et groupes ; rattacher un agent à un groupe relève de la sécurité opérationnelle, avec
+double validation et revue périodique. Mélanger les deux ferait passer une décision d'habilitation
+nominative dans un pipeline de livraison, où elle échapperait au contrôle interne.
+
+### Ségrégation : le seul cumul réellement interdit
+
+La liste des cumuls interdits est **courte, et c'est voulu**. Un chef d'agence tient une caisse ;
+interdire ce cumul rendrait la plupart des agences inexploitables. La règle du valideur distinct de
+l'auteur couvre déjà le risque, et mieux : elle agit au niveau de l'**opération** et non de
+l'identité — elle n'empêche pas de travailler, elle empêche de se contrôler soi-même.
+
+Reste un cas qu'aucun contrôle par opération ne peut détecter : **l'auditeur qui opère**. Le
+problème n'est pas qu'il valide sa propre écriture, c'est qu'il contrôle a posteriori un périmètre
+dont il fait partie. Chacune de ses actions, prise isolément, est régulière.
+
+Le cumul `auditor` + rôle opérationnel fait donc **rejeter le jeton en bloc**, pas seulement les
+opérations conflictuelles. Un accès partiel rendrait l'anomalie invisible et durable ; le refus
+total se corrige en retirant l'agent d'un groupe — à condition que quelqu'un s'en aperçoive.
+
 ### Traçabilité des décisions
 
 Tous les refus, sans exception. Et les accès **réussis** aux opérations déclarées sensibles en

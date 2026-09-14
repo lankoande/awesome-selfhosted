@@ -160,6 +160,56 @@ public final class SecurityConfig {
         return Map.copyOf(policy);
     }
 
+    // ==================================================================== segregation des taches
+
+    /**
+     * Cumul de roles interdit sur une meme identite.
+     *
+     * @param reason motif, restitue tel quel au porteur et dans la piste d'audit
+     */
+    public record RoleConflict(String first, String second, String reason) {
+        boolean matches(java.util.Set<String> roles) {
+            return roles.contains(first) && roles.contains(second);
+        }
+    }
+
+    /**
+     * Cumuls interdits.
+     *
+     * <p>La liste est courte, et c'est voulu. Le cumul de deux roles n'est pas en soi un defaut :
+     * un chef d'agence tient une caisse, et la regle du valideur distinct de l'auteur
+     * ({@code dualControl}) empeche deja quiconque de valider sa propre operation. Ce mecanisme-la
+     * est meilleur qu'une interdiction de cumul, parce qu'il agit au niveau de l'operation et non
+     * de l'identite : il n'empeche pas de travailler, il empeche de se controler soi-meme.
+     *
+     * <p>Reste un cas que le controle par operation ne couvre pas : <b>l'auditeur qui opere</b>.
+     * Le probleme n'est pas qu'il valide sa propre ecriture — c'est qu'il verifie a posteriori un
+     * perimetre dont il fait partie. Aucune regle a l'echelle de l'operation ne peut le detecter,
+     * puisque chacune de ses actions, prise isolement, est reguliere.
+     */
+    private static final List<RoleConflict> SEGREGATION = buildSegregation();
+
+    private static List<RoleConflict> buildSegregation() {
+        List<RoleConflict> conflicts = new java.util.ArrayList<>();
+        for (String operational : List.of(TELLER, BRANCH_MANAGER, CUSTOMER_OFFICER, ACCOUNTANT,
+                                          PRODUCT_MANAGER, RISK_OFFICER, OPERATOR)) {
+            conflicts.add(new RoleConflict(AUDITOR, operational,
+                "un auditeur ne peut pas operer sur le perimetre qu'il controle"));
+        }
+        return List.copyOf(conflicts);
+    }
+
+    /** Premier cumul interdit detecte, le cas echeant. */
+    public static java.util.Optional<RoleConflict> segregationConflict(java.util.Set<String> roles) {
+        return SEGREGATION.stream().filter(conflict -> conflict.matches(roles)).findFirst();
+    }
+
+    public static List<RoleConflict> segregationRules() {
+        return SEGREGATION;
+    }
+
+    // ==================================================================== lecture
+
     /**
      * Regle applicable a une operation. Ne renvoie jamais {@code null} : l'exhaustivite est
      * garantie au chargement de la classe.

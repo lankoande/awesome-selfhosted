@@ -116,7 +116,27 @@ public final class KeycloakCallerFactory {
         UUID legalEntityId = requireUuid(claims, CLAIM_ENTITY);
         UUID branchId = optionalUuid(claims, CLAIM_BRANCH);
 
-        return new Caller(subject, username, extractRoles(claims), legalEntityId, branchId);
+        Set<String> roles = extractRoles(claims);
+        SecurityConfig.segregationConflict(roles).ifPresent(conflict -> {
+            throw new SegregationOfDutiesException(username, conflict);
+        });
+        return new Caller(subject, username, roles, legalEntityId, branchId);
+    }
+
+    /**
+     * Cumul de roles interdit detecte a l'etablissement de l'identite.
+     *
+     * <p>Le jeton est refuse en bloc, et non limite aux operations non conflictuelles. Un cumul
+     * interdit est une anomalie de gouvernance des habilitations : la laisser produire un acces
+     * partiel la rend invisible et durable. Elle se corrige en retirant l'agent d'un groupe, ce qui
+     * prend une minute — a condition que quelqu'un s'en apercoive.
+     */
+    public static class SegregationOfDutiesException extends RuntimeException {
+        public SegregationOfDutiesException(String username, SecurityConfig.RoleConflict conflict) {
+            super("Cumul de roles interdit pour " + username + " : « " + conflict.first()
+                  + " » et « " + conflict.second() + " » — " + conflict.reason()
+                  + ". Retirer l'agent de l'un des groupes avant de lui rouvrir l'acces.");
+        }
     }
 
     private Set<String> extractRoles(Map<String, Object> claims) {
