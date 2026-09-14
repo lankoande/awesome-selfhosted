@@ -27,12 +27,11 @@ class KeycloakCallerFactoryTest {
     }
 
     @Test
-    @DisplayName("les roles de royaume et ceux du client configure sont retenus")
-    void realm_and_configured_client_roles_are_kept() {
+    @DisplayName("seuls les roles du client backend portent les habilitations")
+    void only_backend_client_roles_are_kept() {
         Caller caller = factory.from(claims(Map.of(
-            "realm_access", Map.of("roles", List.of(Roles.TELLER, "offline_access")),
             "resource_access", Map.of(
-                "core-banking", Map.of("roles", List.of(Roles.CUSTOMER_OFFICER))))));
+                "core-banking", Map.of("roles", List.of(Roles.TELLER, Roles.CUSTOMER_OFFICER))))));
 
         assertThat(caller.roles()).containsExactlyInAnyOrder(Roles.TELLER, Roles.CUSTOMER_OFFICER);
         assertThat(caller.legalEntityId()).isEqualTo(UUID.fromString(ENTITE));
@@ -41,11 +40,43 @@ class KeycloakCallerFactoryTest {
     }
 
     @Test
+    @DisplayName("un role de royaume est ignore, meme s'il porte le nom d'un role metier")
+    void a_realm_role_is_ignored_even_when_it_looks_legitimate() {
+        Caller caller = factory.from(claims(Map.of(
+            "realm_access", Map.of("roles", List.of(Roles.TELLER, Roles.BRANCH_MANAGER)),
+            "resource_access", Map.of(
+                "core-banking", Map.of("roles", List.of(Roles.CUSTOMER_OFFICER))))));
+
+        // Un role de royaume est visible de toutes les applications du royaume. L'honorer ici
+        // laisserait une habilitation definie hors du perimetre bancaire ouvrir un droit bancaire.
+        assertThat(caller.roles()).containsExactly(Roles.CUSTOMER_OFFICER);
+    }
+
+    @Test
+    @DisplayName("un role de royaume declare transverse est accepte, et lui seul")
+    void a_realm_role_declared_cross_application_is_accepted() {
+        var avecAuditeur = new KeycloakCallerFactory("core-banking", java.util.Set.of(Roles.AUDITOR));
+
+        Caller caller = avecAuditeur.from(claims(Map.of(
+            "realm_access", Map.of("roles", List.of(Roles.AUDITOR, Roles.BRANCH_MANAGER)))));
+
+        assertThat(caller.roles()).containsExactly(Roles.AUDITOR);
+    }
+
+    @Test
+    @DisplayName("un client backend non renseigne est refuse : aucune habilitation ne serait lisible")
+    void a_missing_client_id_is_refused() {
+        assertThatThrownBy(() -> new KeycloakCallerFactory(null))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("client backend obligatoire");
+    }
+
+    @Test
     @DisplayName("les roles detenus sur un autre client ne franchissent pas la frontiere")
     void roles_from_other_clients_are_ignored() {
         Caller caller = factory.from(claims(Map.of(
-            "realm_access", Map.of("roles", List.of(Roles.TELLER)),
             "resource_access", Map.of(
+                "core-banking", Map.of("roles", List.of(Roles.TELLER)),
                 "un-autre-applicatif", Map.of("roles", List.of(Roles.BRANCH_MANAGER))))));
 
         // Une habilitation accordee sur une autre application n'ouvre aucun droit ici.
@@ -53,9 +84,13 @@ class KeycloakCallerFactoryTest {
     }
 
     @Test
-    @DisplayName("les roles techniques de Keycloak sont ecartes")
+    @DisplayName("les roles techniques de Keycloak sont ecartes, y compris s'ils sont declares transverses")
     void technical_roles_are_dropped() {
-        Caller caller = factory.from(claims(Map.of(
+        var permissif = new KeycloakCallerFactory("core-banking",
+            java.util.Set.of("offline_access", "uma_authorization", "default-roles-bank",
+                             Roles.AUDITOR));
+
+        Caller caller = permissif.from(claims(Map.of(
             "realm_access", Map.of("roles",
                 List.of("offline_access", "uma_authorization", "default-roles-bank", Roles.AUDITOR)))));
 
@@ -86,7 +121,8 @@ class KeycloakCallerFactoryTest {
     @DisplayName("un profil siege, sans agence, reste valide")
     void a_head_office_profile_has_no_branch() {
         Map<String, Object> sansAgence = new java.util.HashMap<>(claims(Map.of(
-            "realm_access", Map.of("roles", List.of(Roles.ACCOUNTANT)))));
+            "resource_access", Map.of(
+                "core-banking", Map.of("roles", List.of(Roles.ACCOUNTANT))))));
         sansAgence.remove("branch");
 
         Caller caller = factory.from(sansAgence);

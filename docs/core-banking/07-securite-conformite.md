@@ -81,10 +81,32 @@ faire.**
 | Porté par le jeton | Porté par `SecurityConfig` |
 |---|---|
 | `sub`, `preferred_username` | Rôles autorisés par opération |
-| `realm_access.roles` | Périmètre (agence / entité / groupe) |
+| `resource_access.<client-backend>.roles` | Périmètre (agence / entité / groupe) |
 | `legal_entity`, `branch` | **Plafonds de montant** |
 | | Exigence de double validation |
 | | Traçage des consultations |
+
+### Rôles de client, pas rôles de royaume
+
+Les habilitations sont portées par les **rôles du client backend**
+(`resource_access.<client>.roles`). Les rôles de royaume (`realm_access.roles`) sont **ignorés**,
+sauf ceux explicitement déclarés transverses — une liste courte et revue.
+
+| Raison | Ce qu'un rôle de royaume casse |
+|---|---|
+| Cloisonnement | Il est visible de toutes les applications du royaume. Un `teller` défini au royaume arrive dans le jeton de l'intranet ; il suffit qu'une autre application l'honore pour qu'une habilitation bancaire fuite hors périmètre. |
+| Espace de noms | Les rôles de royaume partagent un espace plat : un `admin` créé pour un autre applicatif entre en collision avec celui du core banking. |
+| Gouvernance | Les rôles du client suivent le cycle de vie de l'application — ajouter une opération et son rôle reste confiné à un client, revu avec le code. |
+| Audience | Un jeton porte les `resource_access` des clients de son audience. Un rôle de royaume arrive dans un jeton émis pour n'importe quel client. |
+
+**Conséquences sur la configuration Keycloak**, souvent oubliées. Pour que
+`resource_access.<backend>.roles` figure dans un jeton émis à un client frontal :
+
+1. un **mapper d'audience** sur le client frontal, ajoutant le backend à `aud` ;
+2. les rôles du client backend **assignés à l'utilisateur**, directement ou par groupe ;
+3. **Full scope allowed désactivé** sur le client frontal, avec un scope dédié portant les rôles du
+   backend — sinon le jeton embarque tous les rôles du porteur sur tous les clients, ce qui grossit
+   le jeton et expose la cartographie des habilitations.
 
 Cette séparation n'est pas cosmétique. Porter les plafonds dans le jeton confierait une décision
 d'habilitation à la configuration d'un annuaire : un attribut mal renseigné dans Keycloak élèverait
