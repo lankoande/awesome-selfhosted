@@ -19,7 +19,7 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 159 tests verts** — 121 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
+**État actuel : 160 tests verts** — 122 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
 générés), 38 sur PostgreSQL réel.
 
 ## Ce que le P0 garantit, et comment c'est prouvé
