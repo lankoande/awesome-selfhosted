@@ -35,6 +35,20 @@ public final class Json {
         return object;
     }
 
+    /** Tableau JSON a la racine : forme que renvoient les listes de l'API d'administration. */
+    public static List<Object> parseArray(String source) {
+        Parser parser = new Parser(source);
+        Object value = parser.parseValue();
+        parser.skipWhitespace();
+        parser.expectEnd();
+        if (!(value instanceof List)) {
+            throw new JsonException("Tableau JSON attendu a la racine du document");
+        }
+        @SuppressWarnings("unchecked")
+        List<Object> array = (List<Object>) value;
+        return array;
+    }
+
     public static class JsonException extends RuntimeException {
         public JsonException(String message) {
             super(message);

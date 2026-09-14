@@ -205,6 +205,27 @@ cents agents.
 jeton. Les faire porter par le rôle produirait `teller_CI`, `teller_SN`,
 `teller_CI_agence_007`.
 
+### L'adaptateur d'administration
+
+`KeycloakAdminProvisioner` parle à l'Admin API avec le client HTTP du JDK — aucune dépendance dans
+le chemin d'établissement des habilitations. Une couture `HttpExchange` sépare le transport des
+décisions, de sorte que celles-ci se testent sans serveur : elles n'ont rien de réseau.
+
+| Décision | Raison |
+|---|---|
+| Jeton mis en cache, renouvelé 30 s avant terme | Sans cache, provisionner 8 rôles coûterait ~10 authentifications par démarrage, sur chaque instance |
+| Identifiant interne du client résolu une fois | Les routes de rôles emploient l'UUID interne, jamais le `clientId` lisible |
+| Reprise sur 5xx et 429 uniquement | Dans un orchestrateur, l'application démarre souvent avant que le fournisseur d'identité ne réponde |
+| **401/403 jamais rejoué** | Rejouer ne corrigera pas un secret erroné, et la répétition peut verrouiller le compte de service — une erreur de configuration deviendrait une indisponibilité |
+| **409 à la création = succès** | Deux instances qui démarrent ensemble tentent la même création ; le conflit est le résultat recherché |
+| HTTPS imposé à la construction | Le secret du compte de service et les habilitations transitent par ce canal |
+| Secret fourni par `Supplier`, masqué dans `toString()` | Il vient d'un coffre et peut tourner sans redémarrage ; un secret dans une trace d'erreur finit indexé dans un outil de supervision |
+| Le corps des requêtes n'est jamais journalisé | Celui de la demande de jeton contient le secret |
+
+**Un échec de provisionnement fait échouer le démarrage.** Une application qui sert alors que ses
+rôles n'existent pas refuse toutes les opérations tout en paraissant saine — une instance verte et
+inutilisable est pire qu'une instance qui ne démarre pas avec un motif.
+
 **Le provisionnement ne contient ni utilisateur ni affectation.** Rattacher un agent à un groupe
 relève de la sécurité opérationnelle, avec double validation et revue périodique. Le faire passer
 par un pipeline de livraison sortirait une décision d'habilitation nominative du champ du contrôle

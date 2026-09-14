@@ -94,12 +94,18 @@ public final class KeycloakProvisioning {
      * politique a chaque provisionnement : un auditeur qui ouvre la console y lit la realite
      * courante, pas un texte fige.
      */
-    static String describe(RoleDefinition role) {
+    public static String describe(RoleDefinition role) {
         return role.description();
     }
 
-    /** Attributs du catalogue, enrichis des operations ouvertes et de la categorie. */
-    static String attributesJson(RoleDefinition role) {
+    /**
+     * Attributs du catalogue, enrichis des operations ouvertes et de la categorie.
+     *
+     * <p>Publique parce que l'adaptateur d'administration s'en sert aussi : deux serialisations
+     * distinctes finiraient par diverger, et le royaume ne porterait plus les memes attributs selon
+     * qu'il a ete provisionne par import ou au demarrage.
+     */
+    public static String attributesJson(RoleDefinition role) {
         Set<Operation> operations = RoleCatalogue.operationsOf(role.code());
         StringBuilder sb = new StringBuilder("{ ");
         sb.append(quote("category")).append(": [").append(quote(role.category())).append("], ");

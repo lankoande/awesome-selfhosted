@@ -19,7 +19,7 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 160 tests verts** — 122 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
+**État actuel : 171 tests verts** — 133 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
 générés), 38 sur PostgreSQL réel.
 
 ## Ce que le P0 garantit, et comment c'est prouvé
@@ -51,6 +51,8 @@ générés), 38 sur PostgreSQL réel.
 | Consultations tracées, refus tracés | `JdbcAuthorizationAudit` | `a_successful_read_is_traced` |
 | Catalogue `roles.json` ≡ politique, aucun orphelin | `RoleCatalogue.validateAgainstPolicy` | `constants_and_policy_agree` |
 | Provisionnement idempotent et jamais destructeur | `RoleStartupTask` | `an_orphan_realm_role_is_reported_never_deleted` |
+| Un refus d'authentification n'est jamais rejoué | `KeycloakAdminProvisioner` | `an_auth_failure_is_never_retried` |
+| Le secret du compte de service ne fuit nulle part | `KeycloakAdminConfig` | `the_service_account_secret_never_leaks` |
 | Tout rôle est porté par un poste, sinon inattribuable | `JobProfile` | `every_role_is_carried_by_a_profile` |
 | Écart de provisionnement Keycloak détecté | `KeycloakProvisioning.drift` | `a_missing_role_is_reported_as_silently_blocking` |
 | Un auditeur qui opère voit son jeton refusé | Ségrégation des tâches | `an_auditor_holding_an_operational_role_is_refused` |
@@ -156,7 +158,8 @@ mesure la dérive évitée : **25 XOF par an et par compte**, soit 12,5 M XOF su
 
 P0 livre le noyau comptable. Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
-- API REST et couche Spring Boot (le ledger reste sans framework, c'est délibéré) ;
+- API REST et couche Spring Boot (le ledger reste sans framework, c'est délibéré), qui câblera
+  `RoleStartupTask` au démarrage ;
 - moteur de TFJ, mode « à blanc », reprise et annulation ;
 - snapshots quotidiens et archivage des partitions ;
 - contrôle du cours appliqué contre la table de référence — le ledger valide la cohérence des

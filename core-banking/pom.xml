@@ -15,6 +15,7 @@
   <modules>
     <module>platform-kernel</module>
     <module>security-core</module>
+    <module>security-keycloak</module>
     <module>ledger-domain</module>
     <module>interest-domain</module>
     <module>schema-engine</module>
