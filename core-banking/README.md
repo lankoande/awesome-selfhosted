@@ -19,8 +19,8 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 101 tests verts** — 68 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
-générés), 33 sur PostgreSQL réel.
+**État actuel : 132 tests verts** — 94 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
+générés), 38 sur PostgreSQL réel.
 
 ## Ce que le P0 garantit, et comment c'est prouvé
 
@@ -49,6 +49,9 @@ générés), 33 sur PostgreSQL réel.
 | Refus avant tout effet de bord | `UseCaseExecutor`, point unique | `a_denial_happens_before_any_side_effect` |
 | Jeton sans entité juridique rejeté | `KeycloakCallerFactory` | `a_token_without_legal_entity_is_rejected` |
 | Consultations tracées, refus tracés | `JdbcAuthorizationAudit` | `a_successful_read_is_traced` |
+| Schéma déséquilibré par les arrondis refusé au stockage | `SchemaValidator`, tirage déterministe | `an_unbalanced_schema_cannot_even_be_stored` |
+| Le moteur n'arrondit jamais à la place de l'auteur | `SchemaEngine` | `a_non_bookable_amount_is_refused_not_silently_rounded` |
+| Fonction inconnue rejetée au chargement, pas au TFJ | Analyse de l'expression | `the_function_set_is_deliberately_small` |
 
 ## Les trois choix qui vont au-delà des progiciels établis
 
@@ -95,7 +98,31 @@ premières semaines d'exploitation — extourne les écritures devenues fausses,
 de soldes corrigée, et conserve la génération précédente pour l'audit. Chaque journée reste
 explicable : assiette, taux effectif, fraction d'année.
 
-### 4. Une politique d'habilitation qui ne peut pas être incomplète
+### 4. Des schémas comptables validés avant d'entrer en base
+
+Un schéma traduit un événement métier en écritures : `MAINTENANCE_FEE` → débit total, crédit
+commission, crédit TVA. C'est du paramétrage, pas du code — ajouter une commission ou une taxe ne
+demande plus de livraison.
+
+Le langage d'expression est **volontairement minuscule** : quatre opérations, comparaisons,
+`round/abs/min/max`. Ni variable affectable, ni boucle, ni appel externe. Un moteur de règles
+expressif devient un langage de programmation sans tests ni débogueur, dans lequel la logique de
+commissions d'une banque est écrite par des gens qui n'ont jamais vu de compilateur — c'est le
+principal facteur d'ingouvernabilité des core banking anciens.
+
+**Validation par tirage, à l'enregistrement.** Le schéma est évalué sur 300 jeux de valeurs
+déterministes, et l'équilibre est vérifié **après arrondi à l'échelle de la devise**. C'est ce
+dernier point qui compte : un schéma qui débite `total` et crédite `net` puis `tva`, chacun arrondi
+séparément, est exact en arithmétique réelle et **faux en XOF**. Il est refusé au déploiement avec
+son contre-exemple, au lieu de produire en production un écart de quelques unités dont l'origine est
+introuvable.
+
+Les **dérivations** rendent cela possible : le schéma déclare `total = round(base + base*taux, 0)`,
+`tva = round(base*taux, 0)`, `net = total - tva`. Seules les grandeurs libres sont tirées, les autres
+calculées — sans quoi des valeurs indépendantes violeraient l'identité et tout schéma, même correct,
+semblerait faux.
+
+### 5. Une politique d'habilitation qui ne peut pas être incomplète
 
 Toutes les règles dans une seule classe, **zéro annotation** — un test échoue si l'une réapparaît.
 
@@ -114,7 +141,7 @@ possible porte sur la règle, et il empêche le démarrage.
 Keycloak fournit l'identité et le périmètre ; **les plafonds restent dans le code revu**. Un
 attribut mal renseigné dans un annuaire ne doit pas pouvoir élever le plafond d'un guichetier.
 
-### 5. Le XOF traité comme une vraie contrainte
+### 6. Le XOF traité comme une vraie contrainte
 
 Échelle nulle native, accumulation en précision étendue, arrondi au seul moment de la
 comptabilisation, écart d'arrondi restitué explicitement. `MoneyTest.daily_rounding_drifts_measurably`
@@ -125,7 +152,6 @@ mesure la dérive évitée : **25 XOF par an et par compte**, soit 12,5 M XOF su
 P0 livre le noyau comptable. Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
 - API REST et couche Spring Boot (le ledger reste sans framework, c'est délibéré) ;
-- schémas comptables paramétrés (événement → écritures) ;
 - moteur de TFJ, mode « à blanc », reprise et annulation ;
 - snapshots quotidiens et archivage des partitions ;
 - contrôle du cours appliqué contre la table de référence — le ledger valide la cohérence des
@@ -143,3 +169,5 @@ P0 livre le noyau comptable. Restent, dans l'ordre du [plan](../docs/core-bankin
 | Compte à contrôle de disponible ⇒ une seule stripe | Vérifier un disponible exigerait de verrouiller toutes les stripes, ce qui annulerait la répartition |
 | La génération de recalcul entre dans la clé d'idempotence | Sans elle, une réémission après extourne porte la clé de l'écriture d'origine, passe pour un rejeu et n'impute rien |
 | La série de soldes est reconstruite à chaque calcul, jamais mise en cache | Une opération antidatée modifie les journées passées ; un cache servirait l'ancienne série |
+| Le moteur de schémas refuse un montant non comptabilisable au lieu de l'arrondir | Décider qui supporte l'écart d'arrondi est une décision de gestion, elle appartient à l'auteur du schéma |
+| Équilibre vérifié après arrondi, pas en arithmétique réelle | Le déséquilibre coûteux vient de l'arrondi, pas d'une ligne oubliée |

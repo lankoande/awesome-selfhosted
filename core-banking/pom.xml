@@ -17,6 +17,7 @@
     <module>security-core</module>
     <module>ledger-domain</module>
     <module>interest-domain</module>
+    <module>schema-engine</module>
     <module>product-catalog</module>
     <module>ledger-store</module>
     <module>security-store</module>
@@ -61,6 +62,10 @@
       </dependency>
       <dependency>
         <groupId>io.corebanking</groupId><artifactId>interest-domain</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.corebanking</groupId><artifactId>schema-engine</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>

@@ -12,6 +12,7 @@
   <dependencies>
     <dependency><groupId>io.corebanking</groupId><artifactId>platform-kernel</artifactId></dependency>
     <dependency><groupId>io.corebanking</groupId><artifactId>interest-domain</artifactId></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>schema-engine</artifactId></dependency>
     <dependency>
       <groupId>io.corebanking</groupId><artifactId>ledger-store</artifactId>
       <version>${project.version}</version>

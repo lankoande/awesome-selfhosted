@@ -45,6 +45,27 @@ ensuite.
 
 ## 2. Ce qui est paramétré aujourd'hui
 
+### Schémas comptables — `accounting_schema` ✅
+
+Traduction `événement métier → jeu d'écritures`, versionnée, datée, soumise à double validation.
+
+| Table | Contenu |
+|---|---|
+| `accounting_schema` | Version datée, devise, statut, approbation à quatre yeux |
+| `accounting_schema_derivation` | Variables calculées, dans l'ordre d'évaluation |
+| `accounting_schema_line` | Compte (par rôle), sens, expression de montant, condition |
+
+Les comptes sont désignés **par leur rôle** — `CONTRACT`, `GL:70611`, `RESOLVE:cash`,
+`PARAM:fee_income` — jamais par identifiant technique. Le même schéma fonctionne donc dans deux
+filiales aux plans comptables différents.
+
+**Un schéma déséquilibré ne peut pas être enregistré** : la validation par tirage s'exécute avant
+l'insertion. Elle vérifie l'équilibre *après arrondi à l'échelle de la devise*, ce qui attrape le
+défaut réellement coûteux — trois composantes arrondies séparément qui ne se recomposent plus.
+
+Ce que cela débloque directement : **commissions et taxes deviennent des lignes de schéma**. Une TVA
+qui change de taux est une nouvelle version datée, pas une livraison.
+
 ### Intérêts — `product_parameter` ✅
 
 | Paramètre | Valeurs | Effet |
@@ -87,9 +108,7 @@ le code appelant.
 
 | Élément | État | Conséquence de l'absence |
 |---|---|---|
-| **Schémas comptables** (événement → écritures) | ⬜ | Chaque produit impose du code ; c'est le principal frein à l'ajout d'un produit |
-| **Commissions et frais** (montant, périodicité, déclencheur) | ⬜ | Barème figé, non simulable avant activation |
-| **Fiscalité** (TOB/TAF/TVA, retenues, exonérations) | ⬜ | Une loi de finances impose une livraison logicielle |
+| **Commissions et frais** (périodicité, déclencheur) | 🔶 | Le calcul et l'imputation sont paramétrés ; le déclenchement périodique reste à faire |
 | **Plafonds et limites** (par produit, canal, client, période) | ⬜ | Contrôles absents ou codés en dur |
 | **Calendrier et jours fériés** par entité | ⬜ | Dates de valeur et échéances fausses les jours non ouvrés |
 | **Conventions de date de valeur** par type d'opération | ⬜ | Agios faux — point 11 de la checklist UEMOA, le plus coûteux |

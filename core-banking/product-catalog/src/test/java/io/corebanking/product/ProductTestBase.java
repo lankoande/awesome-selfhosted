@@ -38,6 +38,7 @@ abstract class ProductTestBase {
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 8);
         SchemaMigrator.migrate(database);
         applyScript("/db/V3__product.sql");
+        applyScript("/db/V5__accounting_schema.sql");
 
         database.inTransaction(c -> {
             Entities.insertCurrency(c, Currencies.XOF, "Franc CFA BCEAO");
@@ -71,7 +72,19 @@ abstract class ProductTestBase {
     }
 
     protected static Account gl(String code) {
+        return gl(code, NormalBalance.CREDIT);
+    }
+
+    protected static Account gl(String code, NormalBalance normalBalance) {
         Account account = new Account(UUID.randomUUID(), ENTITY, code, AccountKind.GL,
+                                      normalBalance, Currencies.XOF, true, false, 1,
+                                      AccountStatus.ACTIVE);
+        database.inTransaction(c -> { Accounts.create(c, account); return null; });
+        return account;
+    }
+
+    protected static Account customer(String code) {
+        Account account = new Account(UUID.randomUUID(), ENTITY, code, AccountKind.CUSTOMER,
                                       NormalBalance.CREDIT, Currencies.XOF, true, false, 1,
                                       AccountStatus.ACTIVE);
         database.inTransaction(c -> { Accounts.create(c, account); return null; });
