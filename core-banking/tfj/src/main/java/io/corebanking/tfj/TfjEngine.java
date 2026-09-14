@@ -287,6 +287,14 @@ public final class TfjEngine {
             throw new LedgerStoreException("Neutralisation des journees de retard du TFJ", e);
         }
         try (PreparedStatement ps = connection.prepareStatement(
+            "UPDATE loan_classification SET status = 'REVERSED'"
+            + " WHERE batch_run_id = ? AND status = 'ACTIVE'")) {
+            ps.setObject(1, runId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Neutralisation des classifications du TFJ", e);
+        }
+        try (PreparedStatement ps = connection.prepareStatement(
             "UPDATE loan_schedule_line SET made_due_on = NULL, made_due_run_id = NULL"
             + " WHERE made_due_run_id = ?")) {
             ps.setObject(1, runId);

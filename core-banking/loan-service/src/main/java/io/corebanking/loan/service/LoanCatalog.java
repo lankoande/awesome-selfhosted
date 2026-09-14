@@ -41,6 +41,11 @@ public final class LoanCatalog {
     public static final String P_MAX_RATE         = "loan.max_rate";
     public static final String P_LATE_INCOME      = "loan.late_interest_income";
     public static final String P_PENALTY_INCOME   = "loan.penalty_income";
+    public static final String P_RISK_PROFILE     = "loan.risk_profile";
+    public static final String P_PROVISION_EXPENSE = "loan.provision_expense";
+    public static final String P_PROVISION_ALLOWANCE = "loan.provision_allowance";
+    public static final String P_PROVISION_RELEASE = "loan.provision_release";
+    public static final String P_RESERVED_INTEREST = "loan.reserved_interest";
 
     private LoanCatalog() {}
 
@@ -113,6 +118,31 @@ public final class LoanCatalog {
     public static UUID penaltyIncome(ProductVersion product) {
         return product.parameters().has(P_PENALTY_INCOME)
             ? product.parameters().requireUuid(P_PENALTY_INCOME) : lateInterestIncome(product);
+    }
+
+    /** Code du profil de risque applique, absent si le produit n'est pas classe. */
+    public static java.util.Optional<String> riskProfile(ProductVersion product) {
+        return product.parameters().has(P_RISK_PROFILE)
+            ? java.util.Optional.of(product.parameters().requireString(P_RISK_PROFILE))
+            : java.util.Optional.empty();
+    }
+
+    public static UUID provisionExpense(ProductVersion product) {
+        return product.parameters().requireUuid(P_PROVISION_EXPENSE);
+    }
+
+    public static UUID provisionAllowance(ProductVersion product) {
+        return product.parameters().requireUuid(P_PROVISION_ALLOWANCE);
+    }
+
+    /** Compte de reprise sur provisions, celui de la dotation a defaut de ventilation dediee. */
+    public static UUID provisionRelease(ProductVersion product) {
+        return product.parameters().has(P_PROVISION_RELEASE)
+            ? product.parameters().requireUuid(P_PROVISION_RELEASE) : provisionExpense(product);
+    }
+
+    public static UUID reservedInterest(ProductVersion product) {
+        return product.parameters().requireUuid(P_RESERVED_INTEREST);
     }
 
     private static Money money(ParameterSet parameters, String name, CurrencyRef currency) {

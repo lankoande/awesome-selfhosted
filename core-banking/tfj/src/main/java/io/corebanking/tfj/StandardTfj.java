@@ -2,6 +2,7 @@ package io.corebanking.tfj;
 
 import io.corebanking.calendar.BusinessCalendar;
 import io.corebanking.fee.service.FeeChargingService;
+import io.corebanking.loan.service.LoanClassificationService;
 import io.corebanking.loan.service.LoanLateChargesService;
 import io.corebanking.loan.service.LoanService;
 import io.corebanking.interest.service.BatchInterestAccrualService;
@@ -10,6 +11,7 @@ import io.corebanking.ledger.store.Database;
 import io.corebanking.tfj.steps.BalanceSnapshotStep;
 import io.corebanking.tfj.steps.FeeChargingStep;
 import io.corebanking.tfj.steps.InterestAccrualStep;
+import io.corebanking.tfj.steps.LoanClassificationStep;
 import io.corebanking.tfj.steps.LoanLateChargesStep;
 import io.corebanking.tfj.steps.LoanScheduleStep;
 import io.corebanking.tfj.steps.OpenNextDayStep;
@@ -29,6 +31,10 @@ import java.util.List;
  *       jour : elle entre donc dans le solde sur lequel les interets de ce jour se calculent.
  *       L'ordre inverse remunererait un solde que le client n'a plus, et l'ecart se reporterait
  *       sur toute la serie des jours suivants.</li>
+ *   <li><b>La classification en dernier des traitements de credit.</b> Elle classe sur l'etat des
+ *       impayes tel qu'il ressort de la journee, et sa decision commande la constatation des
+ *       interets du lendemain. L'inverse serait circulaire : suspendre les interets du jour
+ *       dependrait de la classe qu'on est en train d'etablir.</li>
  *   <li><b>Les charges de retard apres le prelevement.</b> Un compte provisionne a deja ete
  *       debite de son echeance et n'a rien a payer au titre du retard. L'ordre inverse
  *       penaliserait un client qui paie.</li>
@@ -44,8 +50,8 @@ import java.util.List;
  * </ul>
  *
  * <p>La sequence reste courte. Les etapes que le dossier prevoit et qui manquent encore —
- * classification, provisionnement, revalorisation de change, dormance, expiration des blocages,
- * revue KYC — s'inserent ici sans toucher au moteur.
+ * revalorisation de change, dormance, expiration des blocages, revue KYC — s'inserent ici sans
+ * toucher au moteur.
  */
 public final class StandardTfj {
 
@@ -55,12 +61,14 @@ public final class StandardTfj {
                                       BatchInterestAccrualService interestService,
                                       FeeChargingService feeService, LoanService loanService,
                                       LoanLateChargesService lateService,
+                                      LoanClassificationService classificationService,
                                       BusinessCalendar calendar) {
         return List.of(
             new PreChecksStep(database),
             new FeeChargingStep(database, feeService),
             new LoanScheduleStep(loanService),
             new LoanLateChargesStep(lateService),
+            new LoanClassificationStep(classificationService),
             new InterestAccrualStep(database, interestService),
             new BalanceSnapshotStep(database),
             new ReconciliationStep(database),
@@ -71,9 +79,10 @@ public final class StandardTfj {
                                    BatchInterestAccrualService interestService,
                                    FeeChargingService feeService, LoanService loanService,
                                    LoanLateChargesService lateService,
+                                   LoanClassificationService classificationService,
                                    BusinessCalendar calendar) {
         return new TfjEngine(database, postingService,
                              steps(database, interestService, feeService, loanService, lateService,
-                                   calendar));
+                                   classificationService, calendar));
     }
 }

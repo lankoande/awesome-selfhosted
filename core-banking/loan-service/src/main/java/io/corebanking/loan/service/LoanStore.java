@@ -21,7 +21,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -634,6 +637,244 @@ public final class LoanStore {
             return ps.executeUpdate();
         } catch (SQLException e) {
             throw new LedgerStoreException("Neutralisation des journees de retard", e);
+        }
+    }
+
+    // ------------------------------------------------------------------ risque
+
+    public static void assignCustomer(Connection c, UUID contractId, UUID customerId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE loan_contract SET customer_id = ? WHERE id = ?")) {
+            ps.setObject(1, customerId);
+            ps.setObject(2, contractId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Rattachement du contrat " + contractId, e);
+        }
+    }
+
+    /** Titulaires des contrats, pour la contagion. Absent lorsque le contrat n'est pas rattache. */
+    public static Map<UUID, UUID> customersOf(Connection c, Collection<UUID> contractIds) {
+        Map<UUID, UUID> customers = new LinkedHashMap<>();
+        if (contractIds.isEmpty()) {
+            return customers;
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, customer_id FROM loan_contract"
+            + " WHERE id = ANY (?) AND customer_id IS NOT NULL")) {
+            ps.setArray(1, c.createArrayOf("uuid", contractIds.toArray()));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    customers.put(rs.getObject(1, UUID.class), rs.getObject(2, UUID.class));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des titulaires des credits", e);
+        }
+        return customers;
+    }
+
+    /**
+     * Encours porte par la banque sur un credit.
+     *
+     * <p>Capital restant du — le solde du compte de pret — augmente des creances accessoires
+     * encore ouvertes. Le capital echu n'y est pas compte deux fois : il figure toujours au compte
+     * de pret, dont il ne sort qu'au reglement.
+     */
+    public static Money exposureOf(Connection c, LoanContract contract) {
+        Money principal = io.corebanking.ledger.store.Balances.current(c,
+                                                                       contract.loanAccountId());
+        Money accessories = Money.zero(contract.currency());
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT COALESCE(SUM(outstanding), 0) FROM loan_receivable"
+            + " WHERE contract_id = ? AND NOT cancelled AND category <> 'PRINCIPAL'")) {
+            ps.setObject(1, contract.id());
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                accessories = Money.of(rs.getBigDecimal(1), contract.currency());
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Calcul de l'encours du contrat " + contract.id(), e);
+        }
+        return principal.plus(accessories);
+    }
+
+    /** Garanties en vigueur a une date, deja ponderees de leur quotite d'eligibilite. */
+    public static Money eligibleCollateral(Connection c, UUID contractId, CurrencyRef currency,
+                                           LocalDate date) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT COALESCE(SUM(value * eligible_rate_percent / 100), 0) FROM loan_collateral"
+            + " WHERE contract_id = ? AND valid_from <= ?"
+            + "   AND (valid_to IS NULL OR valid_to >= ?)")) {
+            ps.setObject(1, contractId);
+            ps.setObject(2, date);
+            ps.setObject(3, date);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return Money.of(rs.getBigDecimal(1).setScale(5, RoundingMode.HALF_EVEN), currency);
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des garanties du contrat " + contractId, e);
+        }
+    }
+
+    public static UUID addCollateral(Connection c, UUID contractId, String label, String kind,
+                                     Money value, BigDecimal eligibleRatePercent,
+                                     LocalDate validFrom, LocalDate validTo, UUID createdBy) {
+        UUID id = Ids.newId();
+        try (PreparedStatement ps = c.prepareStatement(
+            "INSERT INTO loan_collateral(id, contract_id, label, kind, value,"
+            + " eligible_rate_percent, valid_from, valid_to, created_by)"
+            + " VALUES (?,?,?,?,?,?,?,?,?)")) {
+            ps.setObject(1, id);
+            ps.setObject(2, contractId);
+            ps.setString(3, label);
+            ps.setString(4, kind);
+            ps.setBigDecimal(5, value.amount());
+            ps.setBigDecimal(6, eligibleRatePercent);
+            ps.setObject(7, validFrom);
+            ps.setObject(8, validTo);
+            ps.setObject(9, createdBy);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Enregistrement de la garantie du contrat " + contractId,
+                                           e);
+        }
+        return id;
+    }
+
+    /** Derniere classification active d'un credit. */
+    public record ClassificationState(LocalDate on, String bucketCode, int ordinal,
+                                      boolean suspended, Money provisioned) {}
+
+    public static Optional<ClassificationState> lastClassification(Connection c, UUID contractId,
+                                                                   CurrencyRef currency) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT classified_on, bucket_code, bucket_ordinal, suspended, provision_amount"
+            + "  FROM loan_classification WHERE contract_id = ? AND status = 'ACTIVE'"
+            + " ORDER BY classified_on DESC LIMIT 1")) {
+            ps.setObject(1, contractId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(new ClassificationState(
+                    rs.getObject(1, LocalDate.class), rs.getString(2), rs.getInt(3),
+                    rs.getBoolean(4), Money.of(rs.getBigDecimal(5), currency)));
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture de la classification du contrat " + contractId,
+                                           e);
+        }
+    }
+
+    /** Vrai si le credit est sous suspension d'interets a la date consideree. */
+    public static boolean isSuspended(Connection c, UUID contractId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT suspended FROM loan_classification WHERE contract_id = ? AND status = 'ACTIVE'"
+            + " ORDER BY classified_on DESC LIMIT 1")) {
+            ps.setObject(1, contractId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getBoolean(1);
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture de la suspension du contrat " + contractId, e);
+        }
+    }
+
+    /**
+     * Interets constates en produits et encore impayes : l'assiette de la suspension.
+     *
+     * <p>Les deux composantes sont rendues separement parce qu'elles ont ete constatees sur deux
+     * comptes de produits differents, et que la reprise doit viser le compte d'origine de chacune.
+     */
+    public record RecognisedInterest(Money contractual, Money late) {
+
+        public Money total() {
+            return contractual.plus(late);
+        }
+
+        public boolean isPositive() {
+            return total().isPositive();
+        }
+    }
+
+    public static RecognisedInterest unpaidRecognisedInterest(Connection c, UUID contractId,
+                                                              CurrencyRef currency) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT category, COALESCE(SUM(outstanding), 0) FROM loan_receivable"
+            + " WHERE contract_id = ? AND NOT cancelled"
+            + "   AND category IN ('INTEREST','LATE_INTEREST') GROUP BY category")) {
+            ps.setObject(1, contractId);
+            Money contractual = Money.zero(currency);
+            Money late = Money.zero(currency);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Money amount = Money.of(rs.getBigDecimal(2), currency);
+                    if (DueCategory.valueOf(rs.getString(1)) == DueCategory.LATE_INTEREST) {
+                        late = amount;
+                    } else {
+                        contractual = amount;
+                    }
+                }
+            }
+            return new RecognisedInterest(contractual, late);
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des interets impayes du contrat " + contractId,
+                                           e);
+        }
+    }
+
+    /** Classification arretee pour un credit a une date. */
+    public record ClassificationRow(
+        UUID contractId, LocalDate on, long daysPastDue, String bucketCode, int ordinal,
+        boolean performing, String reason, Money exposure, Money collateral, Money base,
+        BigDecimal ratePercent, Money provision, Money postedDelta, boolean suspended,
+        Money suspendedInterest, UUID entryId, UUID batchRunId) {}
+
+    public static UUID recordClassification(Connection c, ClassificationRow row) {
+        UUID id = Ids.newId();
+        try (PreparedStatement ps = c.prepareStatement(
+            "INSERT INTO loan_classification(id, contract_id, classified_on, days_past_due,"
+            + " bucket_code, bucket_ordinal, performing, reason, exposure, collateral,"
+            + " provision_base, provision_rate_percent, provision_amount, posted_delta, suspended,"
+            + " suspended_interest, entry_id, batch_run_id)"
+            + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+            ps.setObject(1, id);
+            ps.setObject(2, row.contractId());
+            ps.setObject(3, row.on());
+            ps.setLong(4, row.daysPastDue());
+            ps.setString(5, row.bucketCode());
+            ps.setInt(6, row.ordinal());
+            ps.setBoolean(7, row.performing());
+            ps.setString(8, row.reason());
+            ps.setBigDecimal(9, row.exposure().amount());
+            ps.setBigDecimal(10, row.collateral().amount());
+            ps.setBigDecimal(11, row.base().amount());
+            ps.setBigDecimal(12, row.ratePercent());
+            ps.setBigDecimal(13, row.provision().amount());
+            ps.setBigDecimal(14, row.postedDelta().amount());
+            ps.setBoolean(15, row.suspended());
+            ps.setBigDecimal(16, row.suspendedInterest().amount());
+            ps.setObject(17, row.entryId());
+            ps.setObject(18, row.batchRunId());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException(
+                "Enregistrement de la classification du contrat " + row.contractId(), e);
+        }
+        return id;
+    }
+
+    /** Neutralise les classifications produites par un traitement annule. */
+    public static int cancelClassifications(Connection c, UUID batchRunId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE loan_classification SET status = 'REVERSED'"
+            + " WHERE batch_run_id = ? AND status = 'ACTIVE'")) {
+            ps.setObject(1, batchRunId);
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Neutralisation des classifications", e);
         }
     }
 

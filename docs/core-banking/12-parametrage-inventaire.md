@@ -200,6 +200,33 @@ distingue d'un paramétrage incomplet, qui est refusé.
 l'octroi, qui n'est pas implémenté. C'est un garde-fou contre un paramétrage aberrant, et il est
 nommé comme tel.
 
+### Profil de risque — `risk_profile` et `risk_bucket` ✅
+
+Grille datée, versionnée, sous double validation, résolue à la date de l'arrêté.
+
+| Élément | Contenu |
+|---|---|
+| Classes | rang, code, bornes de retard, taux de provision, caractère sain ou en souffrance |
+| Contagion | `NONE` ou `CUSTOMER` |
+| Seuil de suspension | code de la classe à partir de laquelle les intérêts sont réservés |
+
+Rattachement au produit par `loan.risk_profile` ; comptes d'imputation par
+`loan.provision_expense`, `loan.provision_allowance`, `loan.provision_release` et
+`loan.reserved_interest`.
+
+**Les valeurs numériques d'une grille UEMOA ne sont pas codées ici.** Les seuils de déclassement et
+les taux de provisionnement relèvent de l'instruction en vigueur et doivent être saisis au
+paramétrage ⚠ — les grilles qui figurent dans les tests sont illustratives et nommées comme telles.
+
+**La grille est revalidée à chaque relecture**, et pas seulement à l'enregistrement : un correctif
+manuel sur une ligne de barème s'appliquerait sinon à tout le portefeuille au prochain arrêté.
+
+### Garanties — `loan_collateral` 🔶
+
+Valeur et quotité d'éligibilité, datées. L'éligibilité réelle — nature de la sûreté, rang,
+fraîcheur de l'expertise, opposabilité — relève d'un module de garanties qui n'est pas écrit. La
+quotité en tient lieu.
+
 ### Référentiel ✅
 
 | Élément | Table | Contenu |
@@ -231,8 +258,7 @@ le code appelant.
 | Capitalisation des intérêts (périodicité, base minimum/moyenne) | ⬜ |
 | Conditions de découvert rattachées au produit — agios, échelles (seul `overdraft.limit` existe, employé au contrôle de provision) | 🔶 |
 | Dormance (délai, régime de frais) | ⬜ |
-| Classification des créances et provisionnement (buckets, taux, contagion) | ⬜ |
-| Éligibilité et fraîcheur des garanties | ⬜ |
+| Éligibilité et fraîcheur des garanties (quotité seule pour l'instant) | 🔶 |
 | Taux d'usure et composantes du TEG | ⬜ |
 | Profil réglementaire régional et surcouche nationale ([11](11-profil-uemoa-bceao.md)) | ⬜ |
 | Ratios prudentiels | ⬜ |

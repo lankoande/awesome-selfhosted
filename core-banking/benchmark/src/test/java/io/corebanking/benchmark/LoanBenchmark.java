@@ -10,9 +10,14 @@ import io.corebanking.ledger.store.Accounts;
 import io.corebanking.loan.LoanTerms;
 import io.corebanking.loan.ScheduleGenerator;
 import io.corebanking.loan.service.LoanCatalog;
+import io.corebanking.loan.Contagion;
+import io.corebanking.loan.RiskBucket;
+import io.corebanking.loan.RiskGrid;
+import io.corebanking.loan.service.LoanClassificationService;
 import io.corebanking.loan.service.LoanLateChargesService;
 import io.corebanking.loan.service.LoanService;
 import io.corebanking.loan.service.LoanStore;
+import io.corebanking.loan.service.RiskProfiles;
 import io.corebanking.product.ProductCatalog;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -51,6 +56,21 @@ class LoanBenchmark extends BenchmarkBase {
         Account taxe = gl("GL-TAXE-L", NormalBalance.CREDIT, 64);
 
         Account retard = gl("GL-RETARD-L", NormalBalance.CREDIT, 64);
+        dotations = gl("GL-DOTATIONS-L", NormalBalance.DEBIT, 64);
+        provisions = gl("GL-PROVISIONS-L", NormalBalance.CREDIT, 64);
+        reserves = gl("GL-RESERVES-L", NormalBalance.CREDIT, 64);
+        database.inTransaction(c -> {
+            UUID profil = RiskProfiles.createDraft(c, new RiskProfiles.Draft(
+                ENTITY, "Grille du banc", DISBURSED.minusDays(2), null,
+                new RiskGrid("GRILLE-BENCH", List.of(
+                    new RiskBucket(0, "SAIN", "Sain", 0, 0, java.math.BigDecimal.ZERO, true),
+                    new RiskBucket(1, "DOUTEUX", "Douteux", 1, null,
+                                   new java.math.BigDecimal("50"), false)),
+                    Contagion.CUSTOMER, "DOUTEUX"),
+                ACTOR));
+            RiskProfiles.activate(c, profil, APPROVER);
+            return null;
+        });
         // Deux produits : l'un preleve d'office, l'autre non. La seconde moitie du portefeuille se
         // retrouve donc impayee des le lendemain, ce qui permet de mesurer le chemin d'accrual sur
         // le meme jeu de contrats.
@@ -114,7 +134,39 @@ class LoanBenchmark extends BenchmarkBase {
 
         org.assertj.core.api.Assertions.assertThat(lateOutcome.anomalies()).isEmpty();
         org.assertj.core.api.Assertions.assertThat(lateOutcome.contractsCharged()).isEqualTo(late);
+
+        // ---------------------------------------------------------------- classification
+        //
+        // Tout le portefeuille est classe a chaque arrete, y compris les credits sains : c'est la
+        // classification qui etablit qu'ils le sont. Le cout mesure est donc celui du portefeuille
+        // entier, et non celui des seuls impayes.
+        LoanClassificationService classificationService = new LoanClassificationService(
+            database, postingService, loanService);
+
+        long classStart = System.currentTimeMillis();
+        LoanClassificationService.Outcome classOutcome = classificationService.classify(
+            ENTITY, DAY.plusDays(1), ACTOR, UUID.randomUUID());
+        long classElapsed = System.currentTimeMillis() - classStart;
+
+        line("");
+        line("=== Classification et provisionnement ===");
+        line("credits classes : " + classOutcome.contractsExamined()
+             + ", declasses : " + classOutcome.downgraded()
+             + ", suspendus : " + classOutcome.suspended()
+             + ", anomalies : " + classOutcome.anomalies().size());
+        line("duree : " + classElapsed + " ms");
+
+        double perClassMillis = classElapsed * 1.0 / loanCount;
+        line(String.format("cout par credit        : %.3f ms", perClassMillis));
+        line(String.format("extrapolation %d k     : %.1f minutes", TARGET_LOANS / 1000,
+                           perClassMillis * TARGET_LOANS / 60_000.0));
+
+        org.assertj.core.api.Assertions.assertThat(classOutcome.anomalies()).isEmpty();
     }
+
+    private static Account dotations;
+    private static Account provisions;
+    private static Account reserves;
 
     private static void produit(String code, Account creances, Account produits, Account taxe,
                                 Account retard, boolean prelevement) {
@@ -127,6 +179,10 @@ class LoanBenchmark extends BenchmarkBase {
         parametres.put(LoanCatalog.P_PENALTY_MODE, "FLAT_PER_INSTALMENT");
         parametres.put(LoanCatalog.P_PENALTY_AMOUNT, "5000");
         parametres.put(LoanCatalog.P_LATE_INCOME, retard.id().toString());
+        parametres.put(LoanCatalog.P_RISK_PROFILE, "GRILLE-BENCH");
+        parametres.put(LoanCatalog.P_PROVISION_EXPENSE, dotations.id().toString());
+        parametres.put(LoanCatalog.P_PROVISION_ALLOWANCE, provisions.id().toString());
+        parametres.put(LoanCatalog.P_RESERVED_INTEREST, reserves.id().toString());
         database.inTransaction(c -> {
             UUID version = ProductCatalog.createDraft(c, new ProductCatalog.Draft(
                 ENTITY, code, "TERM_LOAN", "Credit amortissable", "XOF",

@@ -62,6 +62,9 @@ class TfjBenchmark extends BenchmarkBase {
             new io.corebanking.fee.service.FeeChargingService(database, postingService),
             new io.corebanking.loan.service.LoanService(database, postingService),
             new io.corebanking.loan.service.LoanLateChargesService(database, postingService),
+            new io.corebanking.loan.service.LoanClassificationService(
+                database, postingService,
+                new io.corebanking.loan.service.LoanService(database, postingService)),
             calendar);
 
         long start = System.currentTimeMillis();

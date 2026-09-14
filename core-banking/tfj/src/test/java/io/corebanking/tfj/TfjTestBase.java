@@ -42,6 +42,7 @@ abstract class TfjTestBase {
     protected static io.corebanking.fee.service.FeeChargingService feeService;
     protected static io.corebanking.loan.service.LoanService loanService;
     protected static io.corebanking.loan.service.LoanLateChargesService lateService;
+    protected static io.corebanking.loan.service.LoanClassificationService classificationService;
     protected static BusinessCalendar calendar;
     protected static TfjEngine engine;
 
@@ -65,6 +66,7 @@ abstract class TfjTestBase {
         applyScript("/db/V8__fees.sql");
         applyScript("/db/V9__loans.sql");
         applyScript("/db/V10__loan_late_charges.sql");
+        applyScript("/db/V11__loan_risk.sql");
         SchemaMigrator.ensurePartitions(database, J1.minusMonths(1), J1.plusMonths(2));
 
         database.inTransaction(c -> {
@@ -91,8 +93,10 @@ abstract class TfjTestBase {
         loanService = new io.corebanking.loan.service.LoanService(database, postingService);
         lateService = new io.corebanking.loan.service.LoanLateChargesService(database,
                                                                             postingService);
+        classificationService = new io.corebanking.loan.service.LoanClassificationService(
+            database, postingService, loanService);
         engine = StandardTfj.engine(database, postingService, interestService, feeService,
-                                    loanService, lateService, calendar);
+                                    loanService, lateService, classificationService, calendar);
     }
 
     @AfterAll

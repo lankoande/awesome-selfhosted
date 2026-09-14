@@ -258,8 +258,24 @@ il est donc dans le paramétrage, jamais codé en dur.
 
 Piloté par le profil réglementaire ([03](03-referentiel-parametrage.md#7-profil-réglementaire-par-pays)) :
 
-> **Implémenté pour le point 1 seulement** : `LoanService.daysPastDue` compte l'âge de la créance
-> la plus ancienne encore ouverte, franchise déduite. Les points 2 à 6 restent à écrire.
+> **Implémenté** ([`LoanClassificationService`](../../core-banking/loan-service)), les six points.
+> La grille est un profil réglementaire daté, versionné et soumis à double validation ; ses seuils
+> et ses taux sont du paramétrage, jamais du code.
+>
+> Quatre défauts de grille sont refusés au chargement — un trou entre deux classes, un
+> chevauchement, un taux de provision qui décroît avec la dégradation, une classe saine après une
+> classe douteuse. Tous seraient silencieux à l'exécution, et le premier n'échouerait que sur le
+> crédit qui tombe dans le trou, un soir d'arrêté.
+>
+> Le point 6 — **la suspension des intérêts** — est traité en trois temps : sortie du résultat des
+> intérêts déjà constatés au franchissement du seuil, naissance directe en intérêts réservés
+> ensuite, et reprise de chaque composante sur le compte où elle avait été constatée.
+>
+> **Ce qui manque** : le retour à meilleure fortune avec son délai d'observation — un crédit
+> régularisé voit sa provision reprise dès que son retard tombe à zéro, sans période d'observation.
+> C'est une simplification, et elle est favorable à l'emprunteur. Le module de garanties
+> (éligibilité réelle, rang, fraîcheur des expertises, opposabilité) n'existe pas non plus : une
+> quotité d'éligibilité en tient lieu, et le dit.
 
 1. Calcul du nombre de jours de retard du plus ancien impayé.
 2. Détermination du bucket selon la méthode du profil.

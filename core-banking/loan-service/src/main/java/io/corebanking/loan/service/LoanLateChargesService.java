@@ -139,7 +139,7 @@ public final class LoanLateChargesService {
             UUID entryId = null;
             if (penalty.isPositive() || accrued.delta().isPositive()) {
                 entryId = post(contract, product, penalty, accrued.delta(), businessDate, actorId,
-                               batchRunId);
+                               batchRunId, LoanStore.isSuspended(c, contract.id()));
                 tally.charged(accrued.delta(), penalty);
             }
             if (!accrued.days().isEmpty()) {
@@ -315,14 +315,15 @@ public final class LoanLateChargesService {
     // ------------------------------------------------------------------ imputation
 
     private UUID post(LoanContract contract, ProductVersion product, Money penalty,
-                      Money lateInterest, LocalDate businessDate, UUID actorId, UUID batchRunId) {
+                      Money lateInterest, LocalDate businessDate, UUID actorId, UUID batchRunId,
+                      boolean suspended) {
         EvaluationContext input = EvaluationContext.builder()
             .put("late_interest", lateInterest)
             .put("penalty", penalty)
             .build();
         List<PostingLine> lines = SchemaEngine.linesFor(
-            LoanSchemas.lateCharges(contract.currency()), input, resolver(contract, product),
-            contract.currency(), businessDate);
+            LoanSchemas.lateCharges(contract.currency()), input,
+            resolver(contract, product, suspended), contract.currency(), businessDate);
 
         return postingService.post(PostingCommand.batch(
             IdempotencyKey.forBatch(String.valueOf(batchRunId), "LOAN_LATE", contract.id(),
@@ -331,13 +332,20 @@ public final class LoanLateChargesService {
             batchRunId, lines)).entryId();
     }
 
-    private AccountResolver resolver(LoanContract contract, ProductVersion product) {
+    /**
+     * @param suspended vrai lorsque le credit est classe au-dela du seuil : l'interet de retard
+     *                  nait alors en interets reserves. La penalite, elle, reste en produits — ce
+     *                  n'est pas un interet, et la suspension ne la concerne pas.
+     */
+    private AccountResolver resolver(LoanContract contract, ProductVersion product,
+                                     boolean suspended) {
         return reference -> switch (reference.kind()) {
             case CONTRACT -> contract.loanAccountId();
             case PARAMETER -> switch (reference.value()) {
                 case LoanSchemas.ROLE_ACCRUED -> LoanCatalog.accruedReceivable(product);
-                case LoanSchemas.ROLE_LATE_INTEREST_INCOME ->
-                    LoanCatalog.lateInterestIncome(product);
+                case LoanSchemas.ROLE_LATE_INTEREST_INCOME -> suspended
+                    ? LoanCatalog.reservedInterest(product)
+                    : LoanCatalog.lateInterestIncome(product);
                 case LoanSchemas.ROLE_PENALTY_INCOME -> LoanCatalog.penaltyIncome(product);
                 default -> throw new AccountResolver.UnresolvableAccountException(reference,
                     "role inconnu du parametrage du produit " + product.code());

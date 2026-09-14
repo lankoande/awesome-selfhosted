@@ -37,6 +37,9 @@ public final class LoanSchemas {
     public static final String EVENT_INSTALMENT_DUE = "LOAN_INSTALMENT_DUE";
     public static final String EVENT_REPAYMENT = "LOAN_REPAYMENT";
     public static final String EVENT_LATE_CHARGES = "LOAN_LATE_CHARGES";
+    public static final String EVENT_PROVISION_CHARGE = "LOAN_PROVISION_CHARGE";
+    public static final String EVENT_PROVISION_RELEASE = "LOAN_PROVISION_RELEASE";
+    public static final String EVENT_INTEREST_SUSPENSION = "LOAN_INTEREST_SUSPENSION";
 
     public static final String ROLE_SETTLEMENT = "settlement";
     public static final String ROLE_ACCRUED = "accrued_receivable";
@@ -46,6 +49,10 @@ public final class LoanSchemas {
     public static final String ROLE_TAX = "tax_payable";
     public static final String ROLE_LATE_INTEREST_INCOME = "late_interest_income";
     public static final String ROLE_PENALTY_INCOME = "penalty_income";
+    public static final String ROLE_PROVISION_EXPENSE = "provision_expense";
+    public static final String ROLE_PROVISION_ALLOWANCE = "provision_allowance";
+    public static final String ROLE_PROVISION_RELEASE = "provision_release";
+    public static final String ROLE_RESERVED_INTEREST = "reserved_interest";
 
     private LoanSchemas() {}
 
@@ -113,12 +120,74 @@ public final class LoanSchemas {
             .build();
     }
 
+    /**
+     * Dotation aux provisions : une charge, et une depreciation de l'actif.
+     *
+     * <p>Dotation et reprise sont deux evenements distincts plutot qu'un seul a montant signe. Le
+     * moteur de schemas refuse les montants negatifs — le sens est porte par la direction, jamais
+     * par le signe — et la separation rend surtout les deux flux lisibles dans le compte de
+     * resultat, ou ils ne se compensent pas.
+     */
+    public static EventTemplate provisionCharge(CurrencyRef currency) {
+        String amount = "round(amount, " + currency.scale() + ")";
+        return EventTemplate.of(EVENT_PROVISION_CHARGE)
+            .derive("booked", amount)
+            .line(TemplateLine.debit("PARAM:" + ROLE_PROVISION_EXPENSE, "booked",
+                                     "Dotation aux provisions"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_PROVISION_ALLOWANCE, "booked",
+                                      "Provision pour depreciation"))
+            .build();
+    }
+
+    public static EventTemplate provisionRelease(CurrencyRef currency) {
+        String amount = "round(amount, " + currency.scale() + ")";
+        return EventTemplate.of(EVENT_PROVISION_RELEASE)
+            .derive("booked", amount)
+            .line(TemplateLine.debit("PARAM:" + ROLE_PROVISION_ALLOWANCE, "booked",
+                                     "Reprise de provision"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_PROVISION_RELEASE, "booked",
+                                      "Reprise sur provisions"))
+            .build();
+    }
+
+    /**
+     * Suspension des interets : sortie du resultat des interets deja constates et non percus.
+     *
+     * <p>L'ecriture que les developpements maison omettent le plus souvent. Sans elle, la banque
+     * continue de porter en produits des interets qu'elle ne percevra pas : le produit net
+     * bancaire est surevalue, et la non-conformite est directe. Les interets ne disparaissent pas
+     * pour autant — ils sont enregistres en <b>interets reserves</b>, hors resultat, et
+     * reviendront au compte de produits s'ils sont un jour encaisses.
+     *
+     * <p>Chaque composante est reprise <b>sur le compte ou elle a ete constatee</b> : les interets
+     * contractuels sur le produit d'interets, les interets de retard sur le produit sur creances
+     * en souffrance. Les reprendre en bloc sur un seul compte creuserait un solde negatif sur
+     * l'autre, et rendrait les deux lignes de l'etat reglementaire fausses en sens contraire.
+     */
+    public static EventTemplate interestSuspension(CurrencyRef currency) {
+        int scale = currency.scale();
+        return EventTemplate.of(EVENT_INTEREST_SUSPENSION)
+            .derive("i", "round(interest, " + scale + ")")
+            .derive("l", "round(late_interest, " + scale + ")")
+            .derive("total", "i + l")
+            .line(TemplateLine.debit("PARAM:" + ROLE_INTEREST_INCOME, "i",
+                                     "Interets contractuels sortis du resultat").onlyIf("i > 0"))
+            .line(TemplateLine.debit("PARAM:" + ROLE_LATE_INTEREST_INCOME, "l",
+                                     "Interets de retard sortis du resultat").onlyIf("l > 0"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_RESERVED_INTEREST, "total",
+                                      "Interets reserves"))
+            .build();
+    }
+
     public static AccountingSchema standard(CurrencyRef currency) {
         return AccountingSchema.of(STANDARD_CODE, 1)
             .on(disbursement(currency))
             .on(instalmentDue(currency))
             .on(repayment(currency))
             .on(lateCharges(currency))
+            .on(provisionCharge(currency))
+            .on(provisionRelease(currency))
+            .on(interestSuspension(currency))
             .build();
     }
 }

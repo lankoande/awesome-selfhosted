@@ -96,6 +96,53 @@ class TfjLoanIT extends TfjTestBase {
         assertThat(interetDeRetard(dossier.contrat()).isZero()).isTrue();
     }
 
+    @Test
+    @DisplayName("le TFJ classe le credit impaye, dote la provision et suspend les interets")
+    void classificationEtProvision() {
+        // Grille resserree : le seuil de declassement tombe des le premier jour de retard, ce qui
+        // rend le cycle observable sur deux journees de TFJ.
+        Account dotations = account("L4-DOT", AccountKind.GL, NormalBalance.DEBIT);
+        Account provisions = account("L4-PROV", AccountKind.GL, NormalBalance.CREDIT);
+        Account reserves = account("L4-RESERVES", AccountKind.GL, NormalBalance.CREDIT);
+        profilDeRisque();
+
+        Dossier dossier = dossier("L4", false, Map.of(
+            LoanCatalog.P_RISK_PROFILE, "GRILLE-TFJ",
+            LoanCatalog.P_PROVISION_EXPENSE, dotations.id().toString(),
+            LoanCatalog.P_PROVISION_ALLOWANCE, provisions.id().toString(),
+            LoanCatalog.P_RESERVED_INTEREST, reserves.id().toString()));
+
+        // Premiere journee : l'echeance devient exigible, rien n'est preleve, le credit est encore
+        // a jour au sens de la grille.
+        assertThat(engine.run(ENTITY, businessDate(), ACTOR, RunMode.REAL).isCompleted()).isTrue();
+        assertThat(soldeDe(provisions).isZero()).isTrue();
+
+        // Lendemain : un jour de retard suffit a declasser.
+        TfjRun second = engine.run(ENTITY, businessDate(), ACTOR, RunMode.REAL);
+        assertThat(second.isCompleted()).as(second.summary()).isTrue();
+
+        // Encours : 1 000 000 de capital, 10 000 d'interets echus et 39 d'interet de retard couru
+        // le jour meme — l'etape de retard precede la classification, et son accrual entre donc
+        // dans l'encours de la journee. 50 % de 1 010 039 = 505 019,5 -> 505 020.
+        assertThat(soldeDe(provisions)).isEqualTo(xof("505020"));
+        assertThat(soldeDe(dotations)).isEqualTo(xof("505020"));
+        // Les interets deja constates sortent du resultat vers les interets reserves — chacun
+        // repris sur le compte ou il avait ete constate.
+        assertThat(soldeDe(reserves)).isEqualTo(xof("10039"));
+        assertThat(soldeDe(dossier.produits()).isZero()).isTrue();
+
+        engine.cancel(second.id(), ACTOR, businessDate(), "erreur de grille");
+
+        // La contre-passation ramene la provision et les interets reserves a zero, et le
+        // declassement passe en REVERSED : seule subsiste la classification saine de la veille, que
+        // le traitement annule n'avait pas produite. Le TFJ suivant reclassera sans empiler une
+        // seconde dotation sur la meme journee.
+        assertThat(soldeDe(provisions).isZero()).isTrue();
+        assertThat(soldeDe(reserves).isZero()).isTrue();
+        assertThat(classificationsActives(dossier.contrat())).isEqualTo(1);
+        assertThat(derniereClasse(dossier.contrat())).isEqualTo("SAIN");
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private record Dossier(UUID contrat, Account pret, Account courant, Account creances,
@@ -103,6 +150,11 @@ class TfjLoanIT extends TfjTestBase {
 
     /** Credit de 1 000 000 XOF a 12 % sur douze mois, premiere echeance a la journee traitee. */
     private static Dossier dossier(String code, boolean prelevementAutomatique) {
+        return dossier(code, prelevementAutomatique, Map.of());
+    }
+
+    private static Dossier dossier(String code, boolean prelevementAutomatique,
+                                   Map<String, String> surcharges) {
         LocalDate jour = businessDate();
         LocalDate deblocage = jour.minusDays(5);
 
@@ -120,6 +172,7 @@ class TfjLoanIT extends TfjTestBase {
         parametres.put(LoanCatalog.P_DIRECT_DEBIT, String.valueOf(prelevementAutomatique));
         parametres.put(LoanCatalog.P_LATE_RATE, "18");
         parametres.put(LoanCatalog.P_LATE_INCOME, retard.id().toString());
+        parametres.putAll(surcharges);
 
         UUID contrat = database.inTransaction(c -> {
             UUID version = ProductCatalog.createDraft(c, new ProductCatalog.Draft(
@@ -140,6 +193,69 @@ class TfjLoanIT extends TfjTestBase {
 
     private static Money soldeDe(Account compte) {
         return database.inTransaction(c -> Balances.current(c, compte.id()));
+    }
+
+    /** Grille resserree, creee une seule fois pour l'entite partagee par les cas. */
+    private static void profilDeRisque() {
+        database.inTransaction(c -> {
+            try (var ps = c.prepareStatement(
+                "SELECT count(*) FROM risk_profile WHERE legal_entity_id = ? AND code = ?")) {
+                ps.setObject(1, ENTITY);
+                ps.setString(2, "GRILLE-TFJ");
+                try (var rs = ps.executeQuery()) {
+                    rs.next();
+                    if (rs.getInt(1) > 0) {
+                        return null;
+                    }
+                }
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Recherche du profil", e);
+            }
+            UUID profil = io.corebanking.loan.service.RiskProfiles.createDraft(
+                c, new io.corebanking.loan.service.RiskProfiles.Draft(
+                    ENTITY, "Grille resserree", J1.minusMonths(1), null,
+                    new io.corebanking.loan.RiskGrid("GRILLE-TFJ", List.of(
+                        new io.corebanking.loan.RiskBucket(0, "SAIN", "Sain", 0, 0,
+                                                           java.math.BigDecimal.ZERO, true),
+                        new io.corebanking.loan.RiskBucket(1, "DOUTEUX", "Douteux", 1, null,
+                                                           new java.math.BigDecimal("50"), false)),
+                        io.corebanking.loan.Contagion.NONE, "DOUTEUX"),
+                    ACTOR));
+            io.corebanking.loan.service.RiskProfiles.activate(c, profil, APPROVER);
+            return null;
+        });
+    }
+
+    private static String derniereClasse(UUID contractId) {
+        return database.inTransaction(c -> {
+            try (var ps = c.prepareStatement(
+                "SELECT bucket_code FROM loan_classification"
+                + " WHERE contract_id = ? AND status = 'ACTIVE'"
+                + " ORDER BY classified_on DESC LIMIT 1")) {
+                ps.setObject(1, contractId);
+                try (var rs = ps.executeQuery()) {
+                    return rs.next() ? rs.getString(1) : null;
+                }
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Lecture de la classe", e);
+            }
+        });
+    }
+
+    private static int classificationsActives(UUID contractId) {
+        return database.inTransaction(c -> {
+            try (var ps = c.prepareStatement(
+                "SELECT count(*) FROM loan_classification"
+                + " WHERE contract_id = ? AND status = 'ACTIVE'")) {
+                ps.setObject(1, contractId);
+                try (var rs = ps.executeQuery()) {
+                    rs.next();
+                    return rs.getInt(1);
+                }
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Comptage des classifications", e);
+            }
+        });
     }
 
     private static Money interetDeRetard(UUID contractId) {

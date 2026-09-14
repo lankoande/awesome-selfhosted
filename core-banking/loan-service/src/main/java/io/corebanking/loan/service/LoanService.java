@@ -217,6 +217,11 @@ public final class LoanService {
                               line.insurance().plus(line.fee()), batchRunId);
 
                 if (line.charges().isPositive()) {
+                    // La classification de la veille commande la constatation du jour : l'etape
+                    // de classification tourne apres celle-ci, et lire « la derniere » donne donc
+                    // celle de la journee precedente. C'est voulu — classer avant d'avoir constate
+                    // les impayes du jour serait circulaire.
+                    boolean suspended = LoanStore.isSuspended(c, contract.id());
                     EvaluationContext input = EvaluationContext.builder()
                         .put("interest", line.interest())
                         .put("insurance", line.insurance())
@@ -227,7 +232,7 @@ public final class LoanService {
                          input, businessDate, line.dueDate(), LoanSchemas.EVENT_INSTALMENT_DUE,
                          IdempotencyKey.forBatch(String.valueOf(batchRunId), "LOAN_DUE",
                                                  line.scheduleId(), line.number()),
-                         actorId, batchRunId);
+                         actorId, batchRunId, suspended);
                 }
                 return null;
             });
@@ -377,8 +382,17 @@ public final class LoanService {
                       EventTemplate template, EvaluationContext input, LocalDate bookingDate,
                       LocalDate valueDate, String transactionType, IdempotencyKey key, UUID actorId,
                       UUID batchRunId) {
+        return post(c, contract, product, template, input, bookingDate, valueDate, transactionType,
+                    key, actorId, batchRunId, false);
+    }
+
+    private UUID post(Connection c, LoanContract contract, ProductVersion product,
+                      EventTemplate template, EvaluationContext input, LocalDate bookingDate,
+                      LocalDate valueDate, String transactionType, IdempotencyKey key, UUID actorId,
+                      UUID batchRunId, boolean suspended) {
         List<PostingLine> lines = SchemaEngine.linesFor(
-            template, input, resolver(contract, product), contract.currency(), valueDate);
+            template, input, resolver(contract, product, suspended), contract.currency(),
+            valueDate);
         PostingCommand command = batchRunId == null
             ? PostingCommand.online(key, contract.legalEntityId(), bookingDate, transactionType,
                                     actorId, lines)
@@ -388,13 +402,21 @@ public final class LoanService {
         return result.entryId();
     }
 
-    private AccountResolver resolver(LoanContract contract, ProductVersion product) {
+    /**
+     * @param suspended vrai lorsque le credit est classe au-dela du seuil de suspension : les
+     *                  interets naissent alors directement en interets reserves, hors resultat.
+     *                  L'assurance et les frais, eux, restent en produits — la suspension est une
+     *                  regle sur les interets, pas sur les accessoires.
+     */
+    private AccountResolver resolver(LoanContract contract, ProductVersion product,
+                                     boolean suspended) {
         return reference -> switch (reference.kind()) {
             case CONTRACT -> contract.loanAccountId();
             case PARAMETER -> switch (reference.value()) {
                 case LoanSchemas.ROLE_SETTLEMENT -> contract.settlementAccountId();
                 case LoanSchemas.ROLE_ACCRUED -> LoanCatalog.accruedReceivable(product);
-                case LoanSchemas.ROLE_INTEREST_INCOME -> LoanCatalog.interestIncome(product);
+                case LoanSchemas.ROLE_INTEREST_INCOME -> suspended
+                    ? LoanCatalog.reservedInterest(product) : LoanCatalog.interestIncome(product);
                 case LoanSchemas.ROLE_INSURANCE_INCOME -> LoanCatalog.insuranceIncome(product);
                 case LoanSchemas.ROLE_FEE_INCOME -> LoanCatalog.feeIncome(product);
                 case LoanSchemas.ROLE_TAX -> LoanCatalog.taxAccount(product);

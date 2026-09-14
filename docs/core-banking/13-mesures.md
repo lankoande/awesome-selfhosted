@@ -187,8 +187,18 @@ donc impayée dès le lendemain — afin de mesurer aussi le chemin de retard :
 
 | Étape | Coût unitaire | Portée |
 |---|---|---|
-| Exigibilité et prélèvement | 1,500 ms par contrat | la moitié seulement produit une seconde écriture |
+| Exigibilité et prélèvement | 1,630 ms par contrat | la moitié seulement produit une seconde écriture |
 | Intérêts de retard et pénalités | 1,500 ms par impayé | reconstitution de l'assiette, journée d'accrual, pénalité, imputation |
+| Classification et provisionnement | 1,286 ms par crédit | tout le portefeuille, y compris les crédits sains |
+
+La classification porte sur **tout** le portefeuille et non sur les seuls impayés : c'est elle qui
+établit qu'un crédit est sain. Séquentielle, elle coûtait 3,502 ms par crédit ; le classement reste
+global — la contagion regarde tout le portefeuille d'un client — mais le provisionnement de chaque
+crédit est indépendant et se parallélise. Facteur mesuré : **2,7**.
+
+Un compteur a été corrigé au passage : le premier arrêté d'un portefeuille signalait un
+déclassement général, parce qu'un crédit classé sain pour la première fois était compté comme
+dégradé.
 
 Le coût par contrat de l'exigibilité descend à 1,500 ms parce que seule la moitié du portefeuille
 est prélevée : les deux chiffres de ce tableau ne se comparent pas à la mesure précédente, qui

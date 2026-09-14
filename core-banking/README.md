@@ -13,7 +13,7 @@ core-banking/
 ├── fee-domain          Périodicité, assiette, proratisation, fiscalité des commissions
 ├── fee-service         Perception : échéances, provision, impayés, exonérations
 ├── loan-domain         Échéanciers d'amortissement, imputation d'un règlement — arithmétique pure
-├── loan-service        Contrats : déblocage, exigibilité, prélèvement, retard, rééchelonnement
+├── loan-service        Contrats : déblocage, exigibilité, prélèvement, retard, classification
 ├── schema-engine       Traduction événement métier → écritures, validation par tirage
 ├── product-catalog     Product factory datée, schémas comptables, barèmes
 ├── calendar            Jours ouvrés, conventions et conditions de date de valeur
@@ -33,13 +33,14 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 322 tests verts** — 207 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 115 sur PostgreSQL réel.
+**État actuel : 351 tests verts** — 221 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 130 sur PostgreSQL réel.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,809 ms par compte dans le cas le plus
 défavorable, soit **27,0 minutes** extrapolées pour 2 M de comptes contre 90 de fenêtre ;
-exigibilité des crédits à 1,500 ms par contrat et charges de retard à 1,500 ms par impayé.
+exigibilité des crédits à 1,630 ms par contrat, charges de retard à 1,500 ms par impayé,
+classification et provisionnement à 1,286 ms par crédit.
 
 ## Ce que le P0 garantit, et comment c'est prouvé
 
@@ -115,6 +116,16 @@ exigibilité des crédits à 1,500 ms par contrat et charges de retard à 1,500 
 | Une pénalité est perçue une fois par échéance, pas chaque jour | Index unique partiel | `penaliteUneSeuleFois` |
 | Le montant d'une créance ordinaire ne court jamais | Déclencheur `guard_loan_receivable` | `creanceOrdinaireFigee` |
 | L'annulation du TFJ reprend exactement l'intérêt de retard imputé | `TfjEngine.cancel` | `annulationReprendLInteretDeRetard` |
+| Une grille de déclassement trouée est refusée au chargement | `RiskGrid` | `trouDansLaGrille` |
+| Un taux de provision ne décroît jamais avec la dégradation | `RiskGrid` | `tauxDecroissant` |
+| La frontière sain / en souffrance ne s'inverse pas | `RiskGrid` | `frontiereInversee` |
+| Une garantie ne couvre pas au-delà de ce qu'elle garantit | `Provisioning` | `garantieSurevaluee` |
+| La provision ne dote que sa variation, jamais son montant entier | `LoanClassificationService` | `dotationDifferentielle` |
+| La contagion déclasse tous les encours du client | idem | `contagionClient` |
+| Au franchissement du seuil, les intérêts constatés sortent du résultat | idem | `suspensionDesInterets` |
+| Ensuite, les intérêts naissent directement en intérêts réservés | idem | `interetsSuivantsReserves` |
+| Chaque intérêt est repris sur le compte où il a été constaté | `LoanSchemas.interestSuspension` | `classificationEtProvision` |
+| Une grille altérée en base est refusée à la relecture | `RiskProfiles.resolveAt` | `grilleRevalidee` |
 
 ## Les choix qui vont au-delà des progiciels établis
 
@@ -315,7 +326,40 @@ Enfin, la **contre-passation d'un TFJ reprend exactement l'intérêt qu'il avait
 l'écriture serait annulée et la créance resterait gonflée d'un montant dont plus aucune écriture ne
 rend compte — et la réconciliation ne le verrait pas, puisqu'elle ne porte que sur le journal.
 
-### 11. Le XOF traité comme une vraie contrainte
+### 11. La suspension des intérêts, que presque personne n'implémente
+
+Le dossier de conception le signale comme « régulièrement omise dans les développements maison », et
+c'est exact : au-delà d'un certain niveau de dégradation, les intérêts doivent **cesser d'être
+constatés en produits**. Les omettre laisse la banque porter en résultat des intérêts qu'elle ne
+percevra pas — le produit net bancaire est surévalué, et la non-conformité est directe.
+
+Ici la suspension fait trois choses, et les trois comptent :
+
+1. **Au franchissement du seuil**, les intérêts déjà constatés et encore impayés sortent du compte
+   de résultat vers un compte d'**intérêts réservés**, hors P&L.
+2. **Ensuite**, les intérêts constatés y naissent directement — l'échéance suivante ne repasse
+   jamais par le compte de produits.
+3. **Chaque composante est reprise sur le compte où elle avait été constatée** : les intérêts
+   contractuels sur le produit d'intérêts, les intérêts de retard sur le produit sur créances en
+   souffrance. Les reprendre en bloc sur un seul compte creuserait un solde négatif sur l'autre —
+   défaut trouvé par un test d'intégration, pas à la relecture.
+
+La grille de déclassement est le paramétrage le plus lourd de conséquences du socle : elle décide
+du niveau de provision de tout un portefeuille, donc du résultat publié. Quatre défauts y sont
+possibles, tous silencieux, et tous refusés au chargement :
+
+| Défaut | Ce qu'il produirait |
+|---|---|
+| Un trou entre deux classes | Un crédit à 91 jours ne serait classé nulle part, et le traitement échouerait sur ce crédit-là seulement, un soir d'arrêté |
+| Un chevauchement | Le classement dépendrait de l'ordre de lecture, et l'arrêté ne serait pas reproductible |
+| Un taux qui décroît avec la dégradation | Se lit comme une inversion de deux lignes dans un tableur, et n'a aucun sens prudentiel |
+| Une classe saine après une classe douteuse | La frontière commande la suspension des intérêts et la déclaration à la centrale des risques ; elle ne peut pas alterner |
+
+Et la **contagion** déclasse tous les encours d'un client au niveau du plus dégradé : un client qui
+ne rembourse plus l'un de ses crédits ne présente pas un risque différent sur les autres. L'ignorer
+sous-estime le risque exactement là où il se matérialise.
+
+### 12. Le XOF traité comme une vraie contrainte
 
 Échelle nulle native, accumulation en précision étendue, arrondi au seul moment de la
 comptabilisation, écart d'arrondi restitué explicitement. `MoneyTest.daily_rounding_drifts_measurably`
@@ -327,8 +371,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
 - API REST et couche Spring Boot (le ledger reste sans framework, c'est délibéré), qui câblera
   `RoleStartupTask`, `UseCaseExecutor` et le serveur de ressources Keycloak ;
-- crédit : classification, provisionnement, suspension des intérêts (les échéanciers,
-  l'exigibilité, l'imputation et le régime de retard sont faits) ;
+- crédit : retour à meilleure fortune avec délai d'observation, module de garanties (éligibilité,
+  rang, fraîcheur des expertises), TEG et taux d'usure à l'octroi ;
 - plafonds et limites paramétrés, et le maker-checker généralisé (la table `pending_operation`
   existe, le workflow n'est pas écrit) ;
 - capitalisation des intérêts, dormance, découverts et agios côté produit ;
@@ -367,3 +411,7 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Seul l'intérêt de retard voit son montant dû croître | Toute autre créance a un montant fixe dès sa naissance ; le voir bouger révèle une réécriture de l'histoire |
 | Montant dû et solde d'une créance bougent du même pas, dans les deux sens | Sinon un accrual ferait redevenir due une part déjà réglée, ou une reprise effacerait une part encore due |
 | Les produits de retard s'imputent sur des comptes distincts des intérêts sains | Les produits sur créances en souffrance forment une ligne à part des états réglementaires |
+| La contagion se propage sur le rang de dégradation, pas sur le code de classe | Deux crédits d'un même client peuvent relever de profils différents ; les codes varient d'un pays à l'autre, le rang non |
+| La classification vient après les charges de retard, et commande la constatation du lendemain | L'inverse serait circulaire : suspendre les intérêts du jour dépendrait de la classe qu'on est en train d'établir |
+| Dotation et reprise sont deux événements comptables, pas un seul à montant signé | Le sens est porté par la direction, jamais par le signe ; et les deux flux ne se compensent pas au compte de résultat |
+| Une grille relue en base est revalidée | Un correctif manuel sur une ligne de barème s'appliquerait sinon à tout le portefeuille |

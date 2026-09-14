@@ -90,8 +90,8 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | 6 | `LOAN_SCHEDULE` | Échéances du jour, exigibilité, prélèvement, passage en impayé | ✔ |
 | 7 | `LOAN_LATE_CHARGES` | Intérêts de retard, pénalités | ✔ |
 | 8 | `FEE_CHARGING` | Commissions périodiques, frais de tenue de compte, taxes associées | ✔ |
-| 9 | `CLASSIFICATION` | Jours de retard, buckets, contagion client | ✔ |
-| 10 | `PROVISIONING` | Dotations et reprises, suspension des intérêts | ✔ |
+| 9 | `LOAN_CLASSIFICATION` | Jours de retard, buckets, contagion, provision, suspension | ✔ |
+| 10 | *(fusionné dans `LOAN_CLASSIFICATION`)* | Dotations et reprises, suspension des intérêts | ✔ |
 | 11 | `FX_REVALUATION` | Revalorisation des positions de change | ✔ |
 | 12 | `DORMANCY` | Détection de dormance, régime de frais associé | |
 | 13 | `HOLD_EXPIRY` | Expiration des blocages arrivés à terme | |
@@ -105,8 +105,17 @@ Une étape **bloquante** en échec arrête le run. Les autres consignent une ano
 laissent le run se poursuivre, avec restitution à la clôture.
 
 > **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `FEE_CHARGING` →
-> `LOAN_SCHEDULE` → `LOAN_LATE_CHARGES` → `INTEREST_ACCRUAL` → `BALANCE_SNAPSHOT` →
-> `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans toucher au moteur.
+> `LOAN_SCHEDULE` → `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` → `INTEREST_ACCRUAL` →
+> `BALANCE_SNAPSHOT` → `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans
+> toucher au moteur.
+>
+> Classification et provisionnement sont **une seule étape** et non deux : la provision se calcule
+> à partir de la classe, et les séparer laisserait entre elles un instant où le portefeuille est
+> classé mais non provisionné — état qu'un TFJ interrompu rendrait durable.
+>
+> `LOAN_CLASSIFICATION` vient après les charges de retard, et sa décision commande la constatation
+> des intérêts du **lendemain**. L'inverse serait circulaire : suspendre les intérêts du jour
+> dépendrait de la classe qu'on est en train d'établir.
 >
 > `LOAN_LATE_CHARGES` suit le prélèvement : un compte provisionné a déjà été débité de son échéance
 > et n'a rien à payer au titre du retard. L'ordre inverse pénaliserait un client qui paie.
