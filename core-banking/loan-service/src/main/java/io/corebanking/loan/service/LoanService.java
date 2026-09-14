@@ -1,0 +1,421 @@
+package io.corebanking.loan.service;
+
+import io.corebanking.kernel.concurrent.Parallel;
+import io.corebanking.kernel.id.IdempotencyKey;
+import io.corebanking.kernel.money.CurrencyRef;
+import io.corebanking.kernel.money.Money;
+import io.corebanking.ledger.domain.posting.PostingCommand;
+import io.corebanking.ledger.domain.posting.PostingLine;
+import io.corebanking.ledger.domain.posting.PostingResult;
+import io.corebanking.ledger.domain.posting.PostingService;
+import io.corebanking.ledger.store.Balances;
+import io.corebanking.ledger.store.Database;
+import io.corebanking.ledger.store.LedgerStoreException;
+import io.corebanking.loan.AllocationOrder;
+import io.corebanking.loan.Allocation;
+import io.corebanking.loan.AmortisationSchedule;
+import io.corebanking.loan.DueCategory;
+import io.corebanking.loan.PaymentAllocator;
+import io.corebanking.loan.Receivable;
+import io.corebanking.product.ProductCatalog;
+import io.corebanking.product.ProductVersion;
+import io.corebanking.schema.AccountResolver;
+import io.corebanking.schema.EventTemplate;
+import io.corebanking.schema.SchemaEngine;
+import io.corebanking.schema.expr.EvaluationContext;
+import java.sql.Connection;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Vie d'un credit : deblocage, exigibilite des echeances, recouvrement.
+ *
+ * <h2>Ce que le service garantit</h2>
+ *
+ * <ul>
+ *   <li><b>Une echeance n'est rendue exigible qu'une fois.</b> Le drapeau porte par la ligne
+ *       d'echeancier et la cle d'idempotence derivee du traitement se couvrent mutuellement : la
+ *       reprise d'un TFJ ne reclame rien deux fois, et l'annulation d'un TFJ rend les echeances a
+ *       nouveau exigibles au lieu de les perdre.</li>
+ *   <li><b>L'imputation suit l'ordre du produit</b>, la creance la plus ancienne d'abord, et la
+ *       ventilation est conservee ligne a ligne. C'est la seule piece a produire lorsqu'un client
+ *       conteste l'imputation de son versement — le contentieux le plus frequent en credit.</li>
+ *   <li><b>L'encours ne diminue qu'au reglement.</b> Rendre une echeance exigible ne cree aucun
+ *       flux sur le capital : il est deja a l'actif depuis le deblocage.</li>
+ * </ul>
+ *
+ * <h2>Ce que le service ne fait pas encore</h2>
+ *
+ * <p>Ni penalites de retard, ni interets de retard, ni classification, ni provisionnement. Les
+ * categories de creance correspondantes existent et l'ordre d'imputation les traite deja ; ce qui
+ * manque est le calcul qui les alimente. Le nombre de jours de retard, lui, est disponible
+ * ({@link #daysPastDue}) : c'est l'entree de tout ce qui suivra.
+ *
+ * <p>Le prelevement automatique s'appuie sur le solde du compte de reglement, sans tenir compte
+ * d'un decouvert autorise. Un compte a zero mais autorise a decouvert n'est donc pas preleve. La
+ * levee de cette limite appartient au module des plafonds et limites, pas a celui du credit.
+ */
+public final class LoanService {
+
+    /**
+     * Nombre de credits traites de front.
+     *
+     * <p>L'exigibilite produit deux ecritures par contrat — la constatation des charges puis le
+     * prelevement — sur un compte client different a chaque fois. Comme les commissions, elle ne
+     * s'agrege pas, et c'est le nombre de contrats qui dimensionne la duree. Les contrats etant
+     * independants les uns des autres, ils se traitent en parallele ; le verrouillage ordonne du
+     * ledger rend l'absence d'interblocage structurelle, y compris sur les comptes generaux de
+     * produit partages par tous les credits.
+     */
+    private static final int PARALLELISM = Parallel.defaultDegree("loan.parallelism");
+
+    private final Database database;
+    private final PostingService postingService;
+    private final int parallelism;
+
+    public LoanService(Database database, PostingService postingService) {
+        this(database, postingService, PARALLELISM);
+    }
+
+    public LoanService(Database database, PostingService postingService, int parallelism) {
+        this.database = database;
+        this.postingService = postingService;
+        this.parallelism = Math.max(1, parallelism);
+    }
+
+    // ------------------------------------------------------------------ deblocage
+
+    /**
+     * Debloque un credit : publie l'echeancier initial et met les fonds a disposition.
+     *
+     * <p>L'echeancier est publie <b>avant</b> l'imputation. Un deblocage suivi d'un echec de
+     * generation laisserait des fonds verses sans plan de remboursement.
+     */
+    public UUID disburse(UUID contractId, AmortisationSchedule schedule, UUID actorId,
+                         UUID approverId) {
+        return database.inTransaction(c -> {
+            LoanContract contract = LoanStore.requireContract(c, contractId);
+            requireConsistent(contract, schedule);
+
+            UUID scheduleId = LoanStore.publishSchedule(
+                c, contractId, schedule, LoanStore.ScheduleReason.INITIAL, contract.disbursedOn(),
+                actorId, approverId);
+            LoanStore.activate(c, contractId, approverId);
+
+            ProductVersion product = product(c, contract, contract.disbursedOn());
+            EvaluationContext input = EvaluationContext.builder()
+                .put("principal", contract.principal()).build();
+            post(c, contract, product, LoanSchemas.disbursement(contract.currency()), input,
+                 contract.disbursedOn(), contract.disbursedOn(), LoanSchemas.EVENT_DISBURSEMENT,
+                 IdempotencyKey.of("LOANDISB|" + contractId), actorId, null);
+            return scheduleId;
+        });
+    }
+
+    /**
+     * Publie une nouvelle version d'echeancier. L'ancienne est close, jamais effacee.
+     *
+     * <p>Le rechelonnement ne produit aucune ecriture : il change ce que le client devra, pas ce
+     * qu'il doit deja. Les echeances deja rendues exigibles restent dues — les reprendre dans le
+     * nouveau plan reviendrait a effacer des impayes constates.
+     */
+    public UUID reschedule(UUID contractId, AmortisationSchedule schedule,
+                           LoanStore.ScheduleReason reason, LocalDate effectiveFrom, UUID actorId,
+                           UUID approverId) {
+        return database.inTransaction(c -> LoanStore.publishSchedule(
+            c, contractId, schedule, reason, effectiveFrom, actorId, approverId));
+    }
+
+    // ------------------------------------------------------------------ exigibilite
+
+    /** Compte rendu d'une passe d'exigibilite. */
+    public record DueOutcome(
+        long contractsExamined, long instalmentsMadeDue, long collected, Money collectedAmount,
+        List<String> anomalies) {
+
+        public DueOutcome {
+            anomalies = List.copyOf(anomalies == null ? List.of() : anomalies);
+        }
+    }
+
+    /**
+     * Rend exigibles les echeances echues a la date traitee et tente le prelevement.
+     *
+     * <p>Les echeances d'un TFJ de rattrapage sont traitees dans l'ordre de leurs dates : une
+     * echeance de septembre passee en octobre reste une creance de septembre, et c'est elle qui
+     * compte les jours de retard.
+     */
+    public DueOutcome makeDue(UUID legalEntityId, LocalDate businessDate, UUID actorId,
+                              UUID batchRunId) {
+        List<LoanContract> contracts = database.inTransaction(
+            c -> LoanStore.activeContracts(c, legalEntityId));
+
+        Tally tally = new Tally();
+        List<Runnable> tasks = new ArrayList<>(contracts.size());
+        for (LoanContract contract : contracts) {
+            tasks.add(() -> {
+                try {
+                    tally.madeDue(makeDueFor(contract, businessDate, actorId, batchRunId));
+                    // Le prelevement suit sans condition : un contrat sans echeance nouvelle peut
+                    // porter un impaye ancien, et le lire coute moins qu'une requete de plus pour
+                    // savoir s'il faut le lire.
+                    tally.collected(collect(contract, businessDate, actorId, batchRunId));
+                } catch (RuntimeException e) {
+                    tally.anomaly("credit " + contract.reference() + " : " + e.getMessage());
+                }
+            });
+        }
+        Parallel.runAll(tasks, parallelism);
+        return tally.toOutcome(contracts.size());
+    }
+
+    /** Compteurs d'une passe, alimentes depuis plusieurs fils. */
+    private static final class Tally {
+        private final List<String> anomalies = new ArrayList<>();
+        private long madeDue;
+        private long collected;
+        private Money amount;
+
+        synchronized void madeDue(long count) {
+            madeDue += count;
+        }
+
+        synchronized void collected(Money taken) {
+            if (taken != null && taken.isPositive()) {
+                collected++;
+                amount = amount == null ? taken : amount.plus(taken);
+            }
+        }
+
+        synchronized void anomaly(String detail) {
+            anomalies.add(detail);
+        }
+
+        synchronized DueOutcome toOutcome(long examined) {
+            return new DueOutcome(examined, madeDue, collected, amount, anomalies);
+        }
+    }
+
+    private long makeDueFor(LoanContract contract, LocalDate businessDate, UUID actorId,
+                            UUID batchRunId) {
+        List<LoanStore.DueLine> lines = database.inTransaction(
+            c -> LoanStore.instalmentsDueOn(c, contract.id(), contract.currency(), businessDate));
+
+        for (LoanStore.DueLine line : lines) {
+            database.inTransaction(c -> {
+                ProductVersion product = product(c, contract, line.dueDate());
+                LoanStore.markDue(c, line.scheduleId(), line.number(), businessDate, batchRunId);
+
+                addReceivable(c, contract, line, DueCategory.PRINCIPAL, line.principal(),
+                              batchRunId);
+                addReceivable(c, contract, line, DueCategory.INTEREST,
+                              line.interest().plus(line.tax()), batchRunId);
+                addReceivable(c, contract, line, DueCategory.FEES_AND_INSURANCE,
+                              line.insurance().plus(line.fee()), batchRunId);
+
+                if (line.charges().isPositive()) {
+                    EvaluationContext input = EvaluationContext.builder()
+                        .put("interest", line.interest())
+                        .put("insurance", line.insurance())
+                        .put("fee", line.fee())
+                        .put("tax", line.tax())
+                        .build();
+                    post(c, contract, product, LoanSchemas.instalmentDue(contract.currency()),
+                         input, businessDate, line.dueDate(), LoanSchemas.EVENT_INSTALMENT_DUE,
+                         IdempotencyKey.forBatch(String.valueOf(batchRunId), "LOAN_DUE",
+                                                 line.scheduleId(), line.number()),
+                         actorId, batchRunId);
+                }
+                return null;
+            });
+        }
+        return lines.size();
+    }
+
+    private void addReceivable(Connection c, LoanContract contract, LoanStore.DueLine line,
+                               DueCategory category, Money amount, UUID batchRunId) {
+        if (amount.isPositive()) {
+            LoanStore.addReceivable(c, contract.id(), line.scheduleId(), line.number(), category,
+                                    line.dueDate(), amount, batchRunId);
+        }
+    }
+
+    // ------------------------------------------------------------------ recouvrement
+
+    /** Resultat d'un reglement. */
+    public record Settlement(UUID paymentId, Money paid, Money allocated, Money unallocated,
+                             List<Allocation> allocations) {}
+
+    /**
+     * Impute un reglement sur les creances du contrat.
+     *
+     * <p>Le montant est impute dans l'ordre du produit, la creance la plus ancienne d'abord, et
+     * <b>partiellement si necessaire</b> : une echeance de credit est une dette qui s'amortit.
+     * L'excedent, lui, n'est pas consomme en silence — il est restitue a l'appelant, a qui il
+     * revient de decider s'il constitue un remboursement anticipe ou un avoir.
+     */
+    public Settlement settle(UUID contractId, Money amount, LocalDate valueDate, String source,
+                             IdempotencyKey key, UUID actorId, UUID batchRunId) {
+        return database.inTransaction(c -> {
+            LoanContract contract = LoanStore.requireContract(c, contractId);
+            ProductVersion product = product(c, contract, valueDate);
+            List<Receivable> receivables = LoanStore.openReceivables(c, contractId,
+                                                                     contract.currency());
+            AllocationOrder order = LoanCatalog.allocationOrder(product);
+            PaymentAllocator.Result result = PaymentAllocator.allocate(amount, receivables, order);
+
+            Money principal = sumOf(result, DueCategory.PRINCIPAL, contract.currency())
+                .plus(sumOf(result, DueCategory.FUTURE_PRINCIPAL, contract.currency()));
+            Money charges = result.allocated().minus(principal);
+
+            UUID entryId = null;
+            if (result.allocated().isPositive()) {
+                EvaluationContext input = EvaluationContext.builder()
+                    .put("principal", principal).put("charges", charges).build();
+                entryId = post(c, contract, product, LoanSchemas.repayment(contract.currency()),
+                               input, valueDate, valueDate, LoanSchemas.EVENT_REPAYMENT, key,
+                               actorId, batchRunId);
+            }
+
+            UUID paymentId = LoanStore.recordPayment(c, contractId, valueDate, amount,
+                                                     result.allocated(), source, entryId,
+                                                     batchRunId, key.value(), actorId);
+            for (Allocation allocation : result.allocations()) {
+                LoanStore.reduceReceivable(c, allocation.receivable().id(), allocation.amount(),
+                                           valueDate);
+                LoanStore.recordAllocation(c, paymentId, allocation.receivable().id(),
+                                           allocation.amount());
+            }
+            return new Settlement(paymentId, amount, result.allocated(), result.unallocated(),
+                                  result.allocations());
+        });
+    }
+
+    /**
+     * Preleve d'office sur le compte de reglement, a hauteur du disponible.
+     *
+     * <p>Le prelevement partiel est admis : prendre ce qui est la reduit la dette et arrete le
+     * vieillissement de la part payee. Renoncer parce que le compte ne couvre pas tout laisserait
+     * courir les jours de retard sur un montant que le client a en partie provisionne.
+     */
+    private Money collect(LoanContract contract, LocalDate businessDate, UUID actorId,
+                          UUID batchRunId) {
+        return database.inTransaction(c -> {
+            ProductVersion product = product(c, contract, businessDate);
+            if (!LoanCatalog.directDebit(product)) {
+                return null;
+            }
+            List<Receivable> receivables = LoanStore.openReceivables(c, contract.id(),
+                                                                     contract.currency());
+            if (receivables.isEmpty()) {
+                return null;
+            }
+            Money owed = Money.zero(contract.currency());
+            for (Receivable receivable : receivables) {
+                owed = owed.plus(receivable.outstanding());
+            }
+            Money available = Balances.current(c, contract.settlementAccountId());
+            Money take = available.isLessThan(owed) ? available : owed;
+            if (!take.isPositive()) {
+                return null;
+            }
+
+            IdempotencyKey key = IdempotencyKey.forBatch(String.valueOf(batchRunId), "LOAN_DD",
+                                                         contract.id(), businessDate);
+            if (LoanStore.paymentExists(c, key.value())) {
+                return null;                                     // reprise : deja preleve
+            }
+            return settle(contract.id(), take, businessDate, "DIRECT_DEBIT", key, actorId,
+                          batchRunId).allocated();
+        });
+    }
+
+    // ------------------------------------------------------------------ retard
+
+    /**
+     * Nombre de jours de retard du credit : l'age de son impaye le plus ancien, delai de grace
+     * deduit.
+     *
+     * <p>C'est <b>le</b> chiffre du credit. Il determine le declassement, le provisionnement, la
+     * suspension des interets et la declaration a la centrale des risques. Il se compte sur la
+     * creance la plus ancienne encore ouverte, et non sur la derniere echeance impayee : un client
+     * qui paie ses echeances recentes en laissant courir une ancienne reste en retard de l'age de
+     * l'ancienne.
+     */
+    public long daysPastDue(UUID contractId, LocalDate at) {
+        return database.inTransaction(c -> {
+            LoanContract contract = LoanStore.requireContract(c, contractId);
+            ProductVersion product = product(c, contract, at);
+            return LoanStore.oldestUnpaid(c, contractId)
+                .map(oldest -> Math.max(0,
+                    ChronoUnit.DAYS.between(oldest, at) - LoanCatalog.graceDays(product)))
+                .orElse(0L);
+        });
+    }
+
+    // ------------------------------------------------------------------ interne
+
+    private static Money sumOf(PaymentAllocator.Result result, DueCategory category,
+                               CurrencyRef currency) {
+        Money total = Money.zero(currency);
+        for (Allocation allocation : result.allocations()) {
+            if (allocation.receivable().category() == category) {
+                total = total.plus(allocation.amount());
+            }
+        }
+        return total;
+    }
+
+    private ProductVersion product(Connection c, LoanContract contract, LocalDate date) {
+        return ProductCatalog.resolveAt(c, contract.legalEntityId(), contract.productCode(), date);
+    }
+
+    private UUID post(Connection c, LoanContract contract, ProductVersion product,
+                      EventTemplate template, EvaluationContext input, LocalDate bookingDate,
+                      LocalDate valueDate, String transactionType, IdempotencyKey key, UUID actorId,
+                      UUID batchRunId) {
+        List<PostingLine> lines = SchemaEngine.linesFor(
+            template, input, resolver(contract, product), contract.currency(), valueDate);
+        PostingCommand command = batchRunId == null
+            ? PostingCommand.online(key, contract.legalEntityId(), bookingDate, transactionType,
+                                    actorId, lines)
+            : PostingCommand.batch(key, contract.legalEntityId(), bookingDate, transactionType,
+                                   actorId, batchRunId, lines);
+        PostingResult result = postingService.post(command);
+        return result.entryId();
+    }
+
+    private AccountResolver resolver(LoanContract contract, ProductVersion product) {
+        return reference -> switch (reference.kind()) {
+            case CONTRACT -> contract.loanAccountId();
+            case PARAMETER -> switch (reference.value()) {
+                case LoanSchemas.ROLE_SETTLEMENT -> contract.settlementAccountId();
+                case LoanSchemas.ROLE_ACCRUED -> LoanCatalog.accruedReceivable(product);
+                case LoanSchemas.ROLE_INTEREST_INCOME -> LoanCatalog.interestIncome(product);
+                case LoanSchemas.ROLE_INSURANCE_INCOME -> LoanCatalog.insuranceIncome(product);
+                case LoanSchemas.ROLE_FEE_INCOME -> LoanCatalog.feeIncome(product);
+                case LoanSchemas.ROLE_TAX -> LoanCatalog.taxAccount(product);
+                default -> throw new AccountResolver.UnresolvableAccountException(reference,
+                    "role inconnu du parametrage du produit " + product.code());
+            };
+            default -> throw new AccountResolver.UnresolvableAccountException(reference,
+                "seuls le compte de pret et les comptes parametres sont resolvables ici");
+        };
+    }
+
+    private static void requireConsistent(LoanContract contract, AmortisationSchedule schedule) {
+        if (!schedule.terms().principal().equals(contract.principal())) {
+            throw new LedgerStoreException(
+                "L'echeancier porte sur " + schedule.terms().principal() + " alors que le contrat "
+                + contract.reference() + " porte sur " + contract.principal() + ".");
+        }
+        if (!schedule.terms().disbursedOn().equals(contract.disbursedOn())) {
+            throw new LedgerStoreException(
+                "L'echeancier part du " + schedule.terms().disbursedOn() + " alors que le contrat "
+                + contract.reference() + " est debloque le " + contract.disbursedOn() + ".");
+        }
+    }
+}

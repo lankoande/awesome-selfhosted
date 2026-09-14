@@ -6,31 +6,20 @@
   <parent>
     <groupId>io.corebanking</groupId><artifactId>core-banking</artifactId><version>0.1.0-SNAPSHOT</version>
   </parent>
-  <artifactId>tfj</artifactId>
-  <name>tfj</name>
-  <description>Moteur de traitement de fin de journee : orchestration, reprise, annulation, TFJ a blanc.</description>
+  <artifactId>loan-service</artifactId>
+  <name>loan-service</name>
+  <description>Contrats de credit : deblocage, echeanciers versionnes, exigibilite, recouvrement.</description>
   <dependencies>
     <dependency><groupId>io.corebanking</groupId><artifactId>platform-kernel</artifactId></dependency>
     <dependency><groupId>io.corebanking</groupId><artifactId>ledger-domain</artifactId></dependency>
     <dependency><groupId>io.corebanking</groupId><artifactId>interest-domain</artifactId></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>loan-domain</artifactId></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>schema-engine</artifactId></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>product-catalog</artifactId></dependency>
     <dependency>
       <groupId>io.corebanking</groupId><artifactId>ledger-store</artifactId>
       <version>${project.version}</version>
     </dependency>
-    <dependency>
-      <groupId>io.corebanking</groupId><artifactId>interest-service</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.corebanking</groupId><artifactId>fee-service</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.corebanking</groupId><artifactId>loan-service</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency><groupId>io.corebanking</groupId><artifactId>product-catalog</artifactId></dependency>
-    <dependency><groupId>io.corebanking</groupId><artifactId>calendar</artifactId></dependency>
     <dependency>
       <groupId>org.slf4j</groupId><artifactId>slf4j-simple</artifactId>
       <version>${slf4j.version}</version><scope>test</scope>

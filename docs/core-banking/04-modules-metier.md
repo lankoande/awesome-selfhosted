@@ -190,6 +190,27 @@ une révision de taux produit une nouvelle version. L'ancienne est conservée. L
 contractuel initial reste consultable — exigence de traçabilité et de preuve en cas de
 contentieux.
 
+> **Implémenté** ([`loan-domain`](../../core-banking/loan-domain),
+> [`loan-service`](../../core-banking/loan-service)) : annuités constantes, amortissement constant,
+> in fine, différé d'amortissement ; assurance emprunteur sur capital initial ou restant dû ; frais
+> par échéance et taxe sur intérêts. Exigibilité, prélèvement automatique et rééchelonnement sont
+> pilotés par l'étape `LOAN_SCHEDULE` du TFJ.
+>
+> **La dernière échéance solde le capital restant dû**, quel qu'il soit. En devise sans
+> subdivision, une annuité arrondie soixante fois laisse sinon un solde résiduel après la fin du
+> crédit : invisible à la lecture de l'échéancier, réclamé au client des années plus tard. La somme
+> des capitaux amortis est un invariant de construction — un échéancier qui ne le respecte pas ne
+> peut pas être représenté, quelle que soit sa provenance.
+>
+> **Une version de remplacement ne porte que sur l'avenir.** Régénérer un plan complet depuis
+> l'origine est l'erreur naturelle, et elle réclamerait une seconde fois des échéances déjà rendues
+> exigibles. Le refus est explicite.
+>
+> **Ce qui manque** : pénalités et intérêts de retard, classification, provisionnement, suspension
+> des intérêts. Les catégories de créance correspondantes existent et l'ordre d'imputation les
+> traite déjà ; ce qui manque est le calcul qui les alimente. Le nombre de jours de retard, lui,
+> est disponible — c'est l'entrée de tout ce qui suivra.
+
 ### Imputation d'un règlement
 
 Ordre paramétrable par produit, valeur par défaut :
@@ -206,6 +227,21 @@ Ordre paramétrable par produit, valeur par défaut :
 
 L'ordre a un impact financier direct et est parfois imposé par la réglementation locale :
 il est donc dans le paramétrage, jamais codé en dur.
+
+> **Implémenté.** L'ordre est **exigé exhaustif** : une catégorie omise rendrait la créance
+> correspondante impayable — les règlements passeraient à côté, elle vieillirait, déclencherait des
+> pénalités puis un déclassement, sans qu'aucune erreur ne soit jamais signalée. Au sein d'une
+> catégorie, la créance la plus ancienne d'abord : c'est elle qui compte les jours de retard.
+>
+> **L'imputation partielle est admise**, contrairement à celle d'une commission. La différence
+> n'est pas un détail de mise en œuvre : une échéance de crédit est une dette qui s'amortit, la
+> couper ne scinde aucune assiette taxable déjà déclarée.
+>
+> **Conséquence à connaître de l'ordre standard** : il est *par nature avant l'âge*. Un client qui
+> verse le montant exact d'une mensualité alors que deux sont exigibles solde les intérêts des
+> deux échéances avant d'entamer le capital de la première — il ne solde donc aucune échéance et
+> reste en retard de l'âge de la plus ancienne. C'est voulu, mais cela doit être explicable au
+> guichet.
 
 ### Classification et provisionnement
 

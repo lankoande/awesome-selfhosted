@@ -198,6 +198,7 @@ public final class TfjEngine {
         database.inTransaction(connection -> {
             neutraliseAccruals(connection, runId);
             neutraliseFees(connection, runId);
+            neutraliseLoanDues(connection, runId);
             setBusinessDate(connection, run.legalEntityId(), run.businessDate());
             markCancelled(connection, runId, actorId, reason);
             return null;
@@ -246,6 +247,33 @@ public final class TfjEngine {
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new LedgerStoreException("Neutralisation des commissions du TFJ", e);
+        }
+    }
+
+    /**
+     * Rend a nouveau exigibles les echeances de credit reclamees par le traitement annule, et
+     * neutralise les creances qu'il a produites.
+     *
+     * <p>Sans cela, les ecritures seraient contre-passees et les echeances resteraient marquees
+     * comme reclamees : le client n'aurait plus rien a payer pour ce mois-la, le compteur de jours
+     * de retard ne demarrerait jamais, et aucun controle comptable ne verrait l'ecart.
+     */
+    private void neutraliseLoanDues(Connection connection, UUID runId) {
+        try (PreparedStatement ps = connection.prepareStatement(
+            "UPDATE loan_schedule_line SET made_due_on = NULL, made_due_run_id = NULL"
+            + " WHERE made_due_run_id = ?")) {
+            ps.setObject(1, runId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Reouverture des echeances de credit du TFJ", e);
+        }
+        try (PreparedStatement ps = connection.prepareStatement(
+            "UPDATE loan_receivable SET cancelled = TRUE, outstanding = 0"
+            + " WHERE batch_run_id = ? AND NOT cancelled")) {
+            ps.setObject(1, runId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Annulation des creances de credit du TFJ", e);
         }
     }
 

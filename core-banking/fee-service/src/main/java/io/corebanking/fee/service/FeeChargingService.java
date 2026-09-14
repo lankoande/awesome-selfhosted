@@ -7,6 +7,7 @@ import io.corebanking.fee.InsufficientFundsPolicy;
 import io.corebanking.fee.Proration;
 import io.corebanking.kernel.id.IdempotencyKey;
 import io.corebanking.kernel.money.CurrencyRef;
+import io.corebanking.kernel.concurrent.Parallel;
 import io.corebanking.kernel.money.Money;
 import io.corebanking.kernel.time.SchedulePeriod;
 import io.corebanking.ledger.domain.posting.PostingCommand;
@@ -34,10 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 /**
  * Perception des commissions echues.
@@ -100,8 +97,7 @@ public final class FeeChargingService {
      * l'absence d'interblocage, y compris sur les comptes generaux partages par toutes les
      * commissions.
      */
-    private static final int PARALLELISM = Math.max(1, Integer.getInteger(
-        "fee.parallelism", Math.min(8, Runtime.getRuntime().availableProcessors())));
+    private static final int PARALLELISM = Parallel.defaultDegree("fee.parallelism");
 
     private final Database database;
     private final PostingService postingService;
@@ -177,7 +173,7 @@ public final class FeeChargingService {
                 }
             });
         }
-        runAll(tasks);
+        Parallel.runAll(tasks, parallelism);
         return tally.toOutcome(accountIds.size(), plan.anyCurrency());
     }
 
@@ -198,35 +194,6 @@ public final class FeeChargingService {
                 .due().add(due);
         }
         return work;
-    }
-
-    private void runAll(List<Runnable> tasks) {
-        if (parallelism == 1 || tasks.size() <= 1) {
-            tasks.forEach(Runnable::run);
-            return;
-        }
-        ExecutorService pool = Executors.newFixedThreadPool(Math.min(parallelism, tasks.size()));
-        try {
-            List<Future<?>> futures = new ArrayList<>(tasks.size());
-            tasks.forEach(task -> futures.add(pool.submit(task)));
-            for (Future<?> future : futures) {
-                try {
-                    future.get();
-                } catch (ExecutionException e) {
-                    // La cause remonte telle quelle : le TFJ doit voir l'erreur d'origine, pas une
-                    // exception d'ordonnancement qui masquerait le compte fautif.
-                    if (e.getCause() instanceof RuntimeException runtime) {
-                        throw runtime;
-                    }
-                    throw new IllegalStateException("Perception des commissions", e.getCause());
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new IllegalStateException("Perception des commissions interrompue", e);
-                }
-            }
-        } finally {
-            pool.shutdownNow();
-        }
     }
 
     // ------------------------------------------------------------------ recensement

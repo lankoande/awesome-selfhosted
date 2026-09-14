@@ -83,6 +83,7 @@ abstract class BenchmarkBase {
         applyScript("/db/V5__accounting_schema.sql");
         applyScript("/db/V7__calendar.sql");
         applyScript("/db/V8__fees.sql");
+        applyScript("/db/V9__loans.sql");
         SchemaMigrator.ensurePartitions(database, DAY.minusMonths(1), DAY.plusMonths(2));
 
         database.inTransaction(c -> {

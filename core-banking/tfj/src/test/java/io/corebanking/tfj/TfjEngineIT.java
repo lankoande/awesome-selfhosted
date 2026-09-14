@@ -38,7 +38,7 @@ class TfjEngineIT extends TfjTestBase {
 
         assertThat(run.isCompleted()).as(run.summary()).isTrue();
         assertThat(run.steps()).extracting(TfjRun.StepExecution::name)
-            .containsExactly("PRE_CHECKS", "FEE_CHARGING", "INTEREST_ACCRUAL",
+            .containsExactly("PRE_CHECKS", "FEE_CHARGING", "LOAN_SCHEDULE", "INTEREST_ACCRUAL",
                              "BALANCE_SNAPSHOT", "RECONCILIATION", "OPEN_NEXT_DAY");
         assertThat(run.steps()).allMatch(
             step -> step.status() == TfjRun.StepExecution.Status.COMPLETED);

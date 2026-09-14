@@ -12,6 +12,8 @@ core-banking/
 ├── interest-service    Intérêts courus, recalcul rétroactif, calcul par lot
 ├── fee-domain          Périodicité, assiette, proratisation, fiscalité des commissions
 ├── fee-service         Perception : échéances, provision, impayés, exonérations
+├── loan-domain         Échéanciers d'amortissement, imputation d'un règlement — arithmétique pure
+├── loan-service        Contrats : déblocage, exigibilité, prélèvement, rééchelonnement
 ├── schema-engine       Traduction événement métier → écritures, validation par tirage
 ├── product-catalog     Product factory datée, schémas comptables, barèmes
 ├── calendar            Jours ouvrés, conventions et conditions de date de valeur
@@ -31,12 +33,14 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 254 tests verts** — 174 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
-générés), 80 sur PostgreSQL réel.
+**État actuel : 309 tests verts** — 207 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 102 sur PostgreSQL réel.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
-interblocage ; TFJ complet — commissions **et** intérêts — à 0,905 ms par compte dans le cas le plus
-défavorable, soit **30,2 minutes** extrapolées pour 2 M de comptes contre 90 de fenêtre.
+interblocage ; TFJ complet — commissions **et** intérêts — à 0,809 ms par compte dans le cas le plus
+défavorable, soit **27,0 minutes** extrapolées pour 2 M de comptes contre 90 de fenêtre ;
+exigibilité des crédits à 2,168 ms par contrat, soit 7,2 minutes pour 200 k crédits échéançant le
+même jour.
 
 ## Ce que le P0 garantit, et comment c'est prouvé
 
@@ -96,6 +100,16 @@ défavorable, soit **30,2 minutes** extrapolées pour 2 M de comptes contre 90 d
 | Une exonération n'est ni accordée ni validée par la même personne | `CHECK (approved_by <> granted_by)` | `exoneration_sans_separation_des_taches` |
 | Le plus fort découvert est constaté en date de valeur | Série reconstituée sur la période | `plus_fort_decouvert` |
 | La commission précède les intérêts, qui portent sur le solde diminué | Ordre des étapes du TFJ | `commission_avant_interets` |
+| La somme des capitaux amortis égale exactement le capital emprunté | Invariant de `AmortisationSchedule` | `sommeDesCapitaux`, 600 cas générés |
+| Une annuité qui n'amortit pas est refusée, pas produite | `ScheduleGenerator` | `annuiteQuiNAmortitPas` |
+| L'intérêt d'une échéance = somme des intérêts courus quotidiens | Convention de décompte partagée | `coherenceAvecLeMoteurDAccruals` |
+| Une échéance au 31 ne dérive pas après février | `Periodicity` | `echeancesEnFinDeMois` |
+| Un ordre d'imputation incomplet est refusé | `AllocationOrder` | `ordreIncomplet` |
+| Jamais deux échéanciers en vigueur à la même date | `EXCLUDE USING gist` | `deuxEcheanciersEnVigueur` |
+| Un plan de remplacement ne reprend pas d'échéances déjà exigibles | `LoanStore` | `rechelonnementRetroactif` |
+| Une créance ne remonte jamais | Déclencheur `guard_loan_receivable` | `creanceNeRemontePas` |
+| L'encours ne diminue qu'au règlement, jamais à l'échéance | Schémas comptables du crédit | `exigibilite` |
+| L'annulation du TFJ rend l'échéance à nouveau exigible | `TfjEngine.cancel` | `annulationRendLEcheanceExigible` |
 
 ## Les choix qui vont au-delà des progiciels établis
 
@@ -239,7 +253,34 @@ jour par jour sur la période. Un test le chiffre : un compte qui plonge à 4 00
 du 10 au 19 et finit le mois largement créditeur est commissionné sur le pic, pas sur le solde de
 clôture — qui ne facturerait rien.
 
-### 9. Le XOF traité comme une vraie contrainte
+### 9. Un échéancier qui ferme exactement
+
+En XOF, une annuité de 88 848,7 s'impute à 88 849. Répétée soixante fois, l'unité d'écart se
+cumule : la somme des capitaux amortis ne redonne pas le capital emprunté, et il reste au client un
+solde résiduel de quelques francs **après sa dernière échéance**. Le défaut est invisible à la
+lecture de l'échéancier et se manifeste des années plus tard, par une relance pour un montant que
+personne ne sait expliquer.
+
+La règle retenue est la seule qui ferme : **la dernière échéance solde le capital restant dû**. Son
+total diffère alors de quelques unités des précédentes — c'est visible, c'est explicable, et c'est
+un invariant de construction : un échéancier qui ne le respecte pas ne peut pas être représenté,
+qu'il vienne du générateur, d'une reprise de données ou d'un rééchelonnement saisi à la main.
+
+Deux refus qui comptent, tous deux découverts en écrivant les tests :
+
+| Cas refusé | Ce qui se passerait sinon |
+|---|---|
+| Une annuité qui ne couvre pas les intérêts de la première échéance | Le capital ne diminuerait jamais ; l'échéancier paraît normal sur les premières lignes et la dernière réclame tout. Le cas est réel en micro-crédit : 100 XOF sur trente ans à 12 % donnent une annuité de 1,0286, qui s'impute à 1 — exactement les intérêts du mois |
+| Un plan de remplacement qui reprend des échéances déjà exigibles | Régénérer un plan complet depuis l'origine est l'erreur naturelle. Les échéances déjà réclamées y figurent et seraient facturées une seconde fois |
+
+Et chaque méthode porte **sa** convention de taux, ce qui n'est pas un réglage : à annuités
+constantes le taux est périodique proportionnel, sans quoi l'échéance ne serait pas constante ;
+ailleurs il suit les jours réellement écoulés, et l'intérêt d'une période égale alors *exactement*
+la somme des intérêts courus quotidiens que produit le moteur d'accruals. Les deux chiffres
+racontent la même histoire — sans quoi le produit constaté au fil de l'eau ne correspondrait pas à
+l'intérêt réclamé à l'échéance, et l'écart n'aurait aucune explication comptable.
+
+### 10. Le XOF traité comme une vraie contrainte
 
 Échelle nulle native, accumulation en précision étendue, arrondi au seul moment de la
 comptabilisation, écart d'arrondi restitué explicitement. `MoneyTest.daily_rounding_drifts_measurably`
@@ -251,7 +292,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
 - API REST et couche Spring Boot (le ledger reste sans framework, c'est délibéré), qui câblera
   `RoleStartupTask`, `UseCaseExecutor` et le serveur de ressources Keycloak ;
-- crédit : échéanciers, exigibilité, pénalités de retard, classification et provisionnement ;
+- crédit : pénalités et intérêts de retard, classification, provisionnement, suspension des
+  intérêts (les échéanciers, l'exigibilité et l'imputation sont faits) ;
 - plafonds et limites paramétrés, et le maker-checker généralisé (la table `pending_operation`
   existe, le workflow n'est pas écrit) ;
 - capitalisation des intérêts, dormance, découverts et agios côté produit ;
@@ -281,3 +323,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Les perceptions se parallélisent par compte | Une commission débite un compte client différent à chaque fois : elle ne s'agrège pas comme les intérêts, et c'est elle qui dimensionne la fenêtre |
 | Une écriture par client, pas un bordereau global | Une commission se conteste et se contre-passe client par client ; la contre-passation porte sur l'écriture entière |
 | La date d'ouverture d'un compte est la date comptable, pas l'horloge | Une reprise de portefeuille ouvre des comptes antérieurs à la migration, et cette date décide de la proratisation |
+| La dernière échéance d'un crédit solde le capital restant dû | C'est la seule règle qui ferme exactement en devise sans subdivision ; l'écart est rendu visible au lieu de survivre à la fin du crédit |
+| Chaque méthode d'amortissement porte sa convention de taux | Une annuité assise sur des mois de 28 à 31 jours ne serait pas constante ; l'appeler « annuité constante » serait un abus de langage |
+| L'imputation partielle est admise sur un crédit, refusée sur une commission | Une échéance est une dette qui s'amortit ; une commission porte une assiette taxable déjà déclarée, que l'on ne scinde pas |
+| L'encours d'un crédit ne diminue qu'au règlement | L'amortir dès l'exigibilité afficherait un actif inférieur à ce que le client doit, et sous-estimerait l'exposition au moment où elle devient risquée |
+| Exigibilité et prélèvement dans la même étape du TFJ | Entre les deux, un compte à jour apparaîtrait en impayé ; sur un TFJ interrompu, ce faux impayé survivrait à la nuit |

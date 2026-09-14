@@ -28,6 +28,10 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>io.corebanking</groupId><artifactId>loan-service</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
       <groupId>io.corebanking</groupId><artifactId>tfj</artifactId>
       <version>${project.version}</version>
     </dependency>

@@ -87,7 +87,7 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | 3 | `FX_RATES` | Chargement et contrôle des cours de clôture | ✔ |
 | 4 | `VALUE_DATE_REBUILD` | Reconstruction des soldes en date de valeur, détection des antidatages | ✔ |
 | 5 | `INTEREST_ACCRUAL` | Accruals créditeurs et débiteurs, y compris recalculs rétroactifs | ✔ |
-| 6 | `LOAN_SCHEDULE` | Échéances du jour, exigibilité, passage en impayé | ✔ |
+| 6 | `LOAN_SCHEDULE` | Échéances du jour, exigibilité, prélèvement, passage en impayé | ✔ |
 | 7 | `PENALTIES` | Intérêts de retard, pénalités | |
 | 8 | `FEE_CHARGING` | Commissions périodiques, frais de tenue de compte, taxes associées | ✔ |
 | 9 | `CLASSIFICATION` | Jours de retard, buckets, contagion client | ✔ |
@@ -105,8 +105,8 @@ Une étape **bloquante** en échec arrête le run. Les autres consignent une ano
 laissent le run se poursuivre, avec restitution à la clôture.
 
 > **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `FEE_CHARGING` →
-> `INTEREST_ACCRUAL` → `BALANCE_SNAPSHOT` → `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes
-> s'insèrent sans toucher au moteur.
+> `LOAN_SCHEDULE` → `INTEREST_ACCRUAL` → `BALANCE_SNAPSHOT` → `RECONCILIATION` → `OPEN_NEXT_DAY`.
+> Les étapes absentes s'insèrent sans toucher au moteur.
 >
 > `FEE_CHARGING` est **bloquante**, contrairement à ce que prévoyait le tableau ci-dessus. Une
 > commission non perçue ne laisse aucune trace comptable : l'arrêté reste équilibré, les contrôles
@@ -116,11 +116,17 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > par liquidation. La signaler arrêterait le TFJ de la banque entière parce qu'un client est à
 > découvert.
 >
-> `FEE_CHARGING` précède `INTEREST_ACCRUAL` : une commission s'impute en date de valeur du jour et
+> `LOAN_SCHEDULE` fait deux choses dans la même étape : rendre l'échéance exigible, puis la
+> prélever quand le produit le prévoit. Les séparer ferait apparaître en impayé, entre les deux,
+> un compte parfaitement à jour — et sur un TFJ interrompu, ce faux impayé survivrait à la nuit et
+> déclencherait des relances.
+>
+> `FEE_CHARGING` et `LOAN_SCHEDULE` précèdent `INTEREST_ACCRUAL` : une commission s'impute en date de valeur du jour et
 > entre donc dans le solde sur lequel les intérêts de ce jour se calculent. `TfjFeeIT` chiffre
 > l'écart — sur 10 M XOF et 118 000 de commission, l'ordre inverse rémunérerait 1 644 XOF au lieu de
 > 1 624, et l'écart se reporterait sur toute la série des jours suivants puisque le cumul des
-> intérêts courus est reconduit de jour en jour.
+> intérêts courus est reconduit de jour en jour. Le prélèvement d'une échéance de crédit produit
+> exactement le même effet sur le solde du compte de règlement.
 
 ### Ordre non négociable
 

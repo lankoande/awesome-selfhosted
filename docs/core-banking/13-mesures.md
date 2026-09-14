@@ -167,7 +167,36 @@ sans écriture ferait disparaître une commission facturée.
 
 ---
 
-## 5. Ce que l'optimisation a coûté, et ce qui l'a rattrapé
+## 5. Crédits — la même forme, le même remède
+
+L'étape `LOAN_SCHEDULE` produit **deux écritures par contrat** : la constatation des charges de
+l'échéance, puis le prélèvement. Comme les commissions, elle débite un compte client différent à
+chaque fois et ne s'agrège donc pas. Mesure dans le cas le plus défavorable — tous les crédits
+échéancent le même jour, tous sont prélevés :
+
+| | Coût par crédit | Extrapolation 200 k | |
+|---|---|---|---|
+| Séquentiel | 7,556 ms | 25,2 min | ✅ mais sans marge |
+| Parallèle (8 fils) | **2,168 ms** | **7,2 min** | ✅ |
+
+Facteur **3,5**. Le gain est plus faible que sur les commissions parce qu'un contrat coûte deux
+écritures au lieu d'une, et que le chemin conserve une lecture d'échéancier par contrat.
+
+Une requête a été supprimée au passage : le service demandait d'abord si le contrat portait des
+créances ouvertes, puis les relisait pour prélever. Tenter le prélèvement sans condition coûte
+moins qu'une requête de plus pour savoir s'il faut le tenter.
+
+Le TFJ complet, commissions et crédits inclus, redescend à **0,809 ms par compte**, soit
+**27,0 minutes** extrapolées pour 2 M de comptes.
+
+> À lire correctement : les deux extrapolations portent sur des volumétries différentes — 2 M de
+> comptes, 200 k de crédits — et ne s'additionnent pas telles quelles. Un portefeuille réel les
+> cumule : **27 minutes de TFJ plus 7 minutes d'exigibilité** dans l'hypothèse où tout le
+> portefeuille de crédits échéance le même jour, ce qui est le pire cas et non le cas courant.
+
+---
+
+## 6. Ce que l'optimisation a coûté, et ce qui l'a rattrapé
 
 Le calcul par lot doit donner **exactement** le même montant que le calcul compte par compte. Un
 traitement trente fois plus rapide mais qui arrondit différemment ne serait pas une optimisation :
@@ -185,7 +214,7 @@ n'arrivent pas seulement dans le code de correction.
 
 ---
 
-## 6. Ce que ces mesures ne prouvent pas
+## 7. Ce que ces mesures ne prouvent pas
 
 À traiter avant toute mise en service, et non couvert ici :
 

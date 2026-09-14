@@ -160,6 +160,26 @@ Une période entièrement exonérée est **enregistrée avec son montant** et le
 c'est ce qui rend le coût des gestes commerciaux mesurable. Une exonération partielle ne réduit la
 commission que si celle-ci est proratisable ; sinon elle reste due en entier.
 
+### Crédits — `product_parameter` ✅
+
+Ce que le **produit** fixe ; le montant, la durée, le taux et la méthode d'amortissement varient
+d'un dossier à l'autre et appartiennent au contrat.
+
+| Paramètre | Valeurs | Effet |
+|---|---|---|
+| `loan.allocation_order` | liste de catégories | Ordre d'imputation d'un règlement, exigé exhaustif |
+| `loan.direct_debit` | `true`, `false` | Prélèvement d'office à l'exigibilité |
+| `loan.grace_days` | entier | Délai de grâce avant comptage des jours de retard |
+| `loan.accrued_receivable` | UUID | Créances rattachées, débitées à l'exigibilité |
+| `loan.interest_income` | UUID | Produit d'intérêts |
+| `loan.insurance_income` / `.fee_income` | UUID | Ventilation fine, celle des intérêts à défaut |
+| `loan.tax_account` | UUID | Taxe collectée sur intérêts |
+
+**L'ordre d'imputation est refusé s'il est incomplet.** Une catégorie omise rendrait la créance
+correspondante impayable : les règlements passeraient à côté, elle vieillirait, déclencherait des
+pénalités puis un déclassement, sans qu'aucune erreur ne soit jamais signalée. C'est la même
+exigence d'exhaustivité que celle de la politique d'habilitation.
+
 ### Référentiel ✅
 
 | Élément | Table | Contenu |
@@ -188,6 +208,7 @@ le code appelant.
 
 | Élément | État |
 |---|---|
+| Pénalités et intérêts de retard (assiette, taux, franchise) | ⬜ |
 | Capitalisation des intérêts (périodicité, base minimum/moyenne) | ⬜ |
 | Conditions de découvert rattachées au produit — agios, échelles (seul `overdraft.limit` existe, employé au contrôle de provision) | 🔶 |
 | Dormance (délai, régime de frais) | ⬜ |
