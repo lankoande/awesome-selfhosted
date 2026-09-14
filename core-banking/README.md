@@ -7,7 +7,19 @@ Java 21, PostgreSQL 14+, aucune dépendance de framework dans le ledger.
 core-banking/
 ├── platform-kernel     Money, devises, identifiants, idempotence — zéro dépendance externe
 ├── ledger-domain       Comptes, écritures, invariants, contre-passation — Java pur, testable sans base
-└── ledger-store        Schéma PostgreSQL, comptabilisation, soldes bitemporels, réconciliation
+├── ledger-store        Schéma PostgreSQL, comptabilisation, soldes bitemporels, réconciliation
+├── interest-domain     Conventions de jours, barèmes, accruals — arithmétique pure
+├── interest-service    Intérêts courus, recalcul rétroactif, calcul par lot
+├── fee-domain          Périodicité, assiette, proratisation, fiscalité des commissions
+├── fee-service         Perception : échéances, provision, impayés, exonérations
+├── schema-engine       Traduction événement métier → écritures, validation par tirage
+├── product-catalog     Product factory datée, schémas comptables, barèmes
+├── calendar            Jours ouvrés, conventions et conditions de date de valeur
+├── security-core       Politique d'habilitation centralisée, catalogue de rôles
+├── security-keycloak   Adaptateur vers l'API d'administration Keycloak
+├── security-store      Journal d'habilitation
+├── tfj                 Traitement de fin de journée : orchestration, reprise, annulation, à blanc
+└── benchmark           Mesures de débit et de durée, extrapolées à la volumétrie cible
 ```
 
 ## Lancer les tests
@@ -19,12 +31,12 @@ mvn test
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement.
 
-**État actuel : 201 tests verts** — 146 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
-générés), 55 sur PostgreSQL réel.
+**État actuel : 254 tests verts** — 174 sur les domaines purs (dont 9 propriétés, ≈ 3 400 cas
+générés), 80 sur PostgreSQL réel.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
-interblocage ; TFJ à 0,128 ms par compte, soit 4,3 minutes extrapolées pour 2 M de comptes contre
-90 de fenêtre.
+interblocage ; TFJ complet — commissions **et** intérêts — à 0,905 ms par compte dans le cas le plus
+défavorable, soit **30,2 minutes** extrapolées pour 2 M de comptes contre 90 de fenêtre.
 
 ## Ce que le P0 garantit, et comment c'est prouvé
 
@@ -73,8 +85,19 @@ interblocage ; TFJ à 0,128 ms par compte, soit 4,3 minutes extrapolées pour 2 
 | Schéma déséquilibré par les arrondis refusé au stockage | `SchemaValidator`, tirage déterministe | `an_unbalanced_schema_cannot_even_be_stored` |
 | Le moteur n'arrondit jamais à la place de l'auteur | `SchemaEngine` | `a_non_bookable_amount_is_refused_not_silently_rounded` |
 | Fonction inconnue rejetée au chargement, pas au TFJ | Analyse de l'expression | `the_function_set_is_deliberately_small` |
+| Une échéance au 31 ne dérive pas après février | Périodes calculées depuis l'ancrage | `pas_de_derive_de_fin_de_mois` |
+| Une période n'est jamais facturée deux fois | `EXCLUDE USING gist` sur la plage de période | `chevauchement_refuse` |
+| Une reprise sous un nouveau run ne refacture pas | Clé d'idempotence dérivée du contenu | `reprise` |
+| Une annulation rend la période exigible et la refacturation aboutit | Génération dans la clé | `annulation_rend_la_periode_exigible` |
+| La taxe est assise sur le montant réellement porté au compte de produit | `FeeCalculator` | `taxe_assise_sur_le_net_arrondi` |
+| Une commission non perçue laisse une trace chiffrée | `fee_charge` renseigné quel que soit le dénouement | `provision_insuffisante_rejet`, `exoneration` |
+| La dette la plus ancienne est soldée avant la commission du jour | Ordre de traitement | `impaye_avant_commission_du_jour` |
+| Une liquidation est figée, seul son dénouement évolue | Déclencheur `guard_fee_charge` | `liquidation_immuable` |
+| Une exonération n'est ni accordée ni validée par la même personne | `CHECK (approved_by <> granted_by)` | `exoneration_sans_separation_des_taches` |
+| Le plus fort découvert est constaté en date de valeur | Série reconstituée sur la période | `plus_fort_decouvert` |
+| La commission précède les intérêts, qui portent sur le solde diminué | Ordre des étapes du TFJ | `commission_avant_interets` |
 
-## Les trois choix qui vont au-delà des progiciels établis
+## Les choix qui vont au-delà des progiciels établis
 
 ### 1. Ledger bitemporel
 
@@ -189,7 +212,34 @@ sur 10 M XOF à 6 %, deux jours de valeur valent **3 288 XOF par opération**.
 L'absence de règle est un refus, jamais un repli sur la date comptable : ce repli serait la forme la
 plus discrète de l'erreur, puisqu'il produit un résultat plausible.
 
-### 8. Le XOF traité comme une vraie contrainte
+### 8. Des commissions dont le non-perçu est chiffré
+
+Une commission qui n'est pas prélevée ne laisse, dans un core banking ordinaire, **aucune trace** :
+le journal reste équilibré, la réconciliation passe, et la banque ignore ce que lui coûtent ses
+gestes commerciaux et ses comptes non provisionnés. Ici chaque période échue produit une ligne de
+registre **avec son montant**, quel que soit le dénouement — perçue, exonérée, reportée, abandonnée,
+non due. Le manque à gagner devient une somme SQL.
+
+Trois décisions gouvernent la perception :
+
+| Question | Réponse retenue | Pourquoi |
+|---|---|---|
+| La provision ne couvre pas | `REJECT`, `FORCE` ou `DEFER`, au paramétrage | Aucune n'est bonne partout : abandonner perd du produit, forcer crée un découvert que la banque a elle-même provoqué, reporter demande un suivi |
+| Encaisser à moitié ? | Jamais | La taxe suit la commission ; couper une assiette taxable déclarée rend la déclaration irréconciliable |
+| Impayé ou commission du jour d'abord ? | L'impayé | L'ordre inverse ferait vieillir les créances les plus anciennes jusqu'à leur abandon tout en encaissant les plus récentes |
+
+Et la fiscalité est traitée à l'unité près : la taxe est assise sur le **net arrondi**, c'est-à-dire
+sur le montant réellement porté au compte de produit. Arrondir le total toutes taxes comprises puis
+déduire la taxe par différence donne un franc de plus au client et une base déclarée qui ne
+correspond à aucun montant comptabilisé. `taxe_assise_sur_le_net_arrondi` fixe le cas : 1 525 XOF à
+18 % donnent 274 et non 275.
+
+La **commission du plus fort découvert** est constatée sur la série des soldes **en date de valeur**,
+jour par jour sur la période. Un test le chiffre : un compte qui plonge à 4 000 000 XOF de découvert
+du 10 au 19 et finit le mois largement créditeur est commissionné sur le pic, pas sur le solde de
+clôture — qui ne facturerait rien.
+
+### 9. Le XOF traité comme une vraie contrainte
 
 Échelle nulle native, accumulation en précision étendue, arrondi au seul moment de la
 comptabilisation, écart d'arrondi restitué explicitement. `MoneyTest.daily_rounding_drifts_measurably`
@@ -197,12 +247,15 @@ mesure la dérive évitée : **25 XOF par an et par compte**, soit 12,5 M XOF su
 
 ## Ce qui n'est pas encore fait
 
-P0 livre le noyau comptable. Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
+Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
 - API REST et couche Spring Boot (le ledger reste sans framework, c'est délibéré), qui câblera
-  `RoleStartupTask` au démarrage ;
-- moteur de TFJ, mode « à blanc », reprise et annulation ;
-- snapshots quotidiens et archivage des partitions ;
+  `RoleStartupTask`, `UseCaseExecutor` et le serveur de ressources Keycloak ;
+- crédit : échéanciers, exigibilité, pénalités de retard, classification et provisionnement ;
+- plafonds et limites paramétrés, et le maker-checker généralisé (la table `pending_operation`
+  existe, le workflow n'est pas écrit) ;
+- capitalisation des intérêts, dormance, découverts et agios côté produit ;
+- archivage des partitions ;
 - contrôle du cours appliqué contre la table de référence — le ledger valide la cohérence des
   contre-valeurs, pas la justesse d'un cours uniforme.
 
@@ -220,3 +273,11 @@ P0 livre le noyau comptable. Restent, dans l'ordre du [plan](../docs/core-bankin
 | La série de soldes est reconstruite à chaque calcul, jamais mise en cache | Une opération antidatée modifie les journées passées ; un cache servirait l'ancienne série |
 | Le moteur de schémas refuse un montant non comptabilisable au lieu de l'arrondir | Décider qui supporte l'écart d'arrondi est une décision de gestion, elle appartient à l'auteur du schéma |
 | Équilibre vérifié après arrondi, pas en arithmétique réelle | Le déséquilibre coûteux vient de l'arrondi, pas d'une ligne oubliée |
+| Les périodes de commission se calculent depuis l'ancrage, jamais de proche en proche | Une échéance au 31 ramenée au 28 en février resterait au 28 ensuite : le contrat changerait de jour d'échéance sans décision |
+| La clé d'idempotence d'une commission est dérivée du contenu, pas du run | Une reprise sous un nouvel identifiant refacturerait la période ; la contrainte d'exclusion protège le registre, la clé protège le journal |
+| Le rang de refacturation entre dans cette clé | Après annulation, l'écriture d'origine subsiste contre-passée ; réutiliser sa clé ferait passer la refacturation pour un rejeu |
+| Une commission n'est jamais encaissée partiellement | La taxe suit la commission qu'elle frappe ; un encaissement partiel scinderait une assiette taxable déclarée |
+| Le montant d'un impayé est figé à la liquidation | Le refixer à l'encaissement transformerait une créance en révision tarifaire rétroactive |
+| Les perceptions se parallélisent par compte | Une commission débite un compte client différent à chaque fois : elle ne s'agrège pas comme les intérêts, et c'est elle qui dimensionne la fenêtre |
+| Une écriture par client, pas un bordereau global | Une commission se conteste et se contre-passe client par client ; la contre-passation porte sur l'écriture entière |
+| La date d'ouverture d'un compte est la date comptable, pas l'horloge | Une reprise de portefeuille ouvre des comptes antérieurs à la migration, et cette date décide de la proratisation |

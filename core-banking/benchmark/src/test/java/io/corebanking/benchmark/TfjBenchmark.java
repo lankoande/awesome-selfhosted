@@ -34,15 +34,32 @@ class TfjBenchmark extends BenchmarkBase {
         Account caisse = gl("GL-CAISSE", NormalBalance.DEBIT, 64);
         Account charges = gl("GL-CHARGES-INT", NormalBalance.DEBIT, 64);
         Account courus = gl("GL-COURUS", NormalBalance.CREDIT, 64);
+        Account produitFrais = gl("GL-COMMISSIONS", NormalBalance.CREDIT, 64);
+        Account taxeFrais = gl("GL-TOB", NormalBalance.CREDIT, 64);
         List<Account> clients = seedCustomers(accountCount, caisse, "10000000");
-        attachProduct(clients, charges, courus);
+
+        // Cas defavorable assume : tous les comptes sont exigibles le meme jour. Une commission
+        // debite un compte client different a chaque fois — elle ne s'agrege pas comme les
+        // interets — et c'est donc elle qui dimensionne la fenetre de traitement.
+        attachProduct(clients, charges, courus, java.util.Map.of(
+            "fee.codes", "TENUE",
+            "fee.TENUE.frequency", "MONTHLY",
+            "fee.TENUE.anchor", DAY.toString(),
+            "fee.TENUE.timing", "IN_ADVANCE",
+            "fee.TENUE.basis", "FLAT",
+            "fee.TENUE.amount", "2000",
+            "fee.TENUE.tax_rate", "18",
+            "fee.TENUE.income_account", produitFrais.id().toString(),
+            "fee.TENUE.tax_account", taxeFrais.id().toString()));
         analyze();
 
         line("");
         line("=== Traitement de fin de journee ===");
-        line("comptes remuneres : " + accountCount);
+        line("comptes remuneres et commissionnes : " + accountCount);
 
-        TfjEngine engine = StandardTfj.engine(database, postingService, interestService, calendar);
+        TfjEngine engine = StandardTfj.engine(
+            database, postingService, interestService,
+            new io.corebanking.fee.service.FeeChargingService(database, postingService), calendar);
 
         long start = System.currentTimeMillis();
         TfjRun run = engine.run(ENTITY, DAY, ACTOR, RunMode.REAL);

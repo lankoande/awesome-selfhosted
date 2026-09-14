@@ -30,6 +30,18 @@ public final class Accounts {
      * chaud, redeviendrait un point de contention.
      */
     public static void create(Connection c, Account account) {
+        create(c, account, businessDateOf(c, account.legalEntityId()));
+    }
+
+    /**
+     * Cree un compte ouvert a une date donnee.
+     *
+     * <p>La date d'ouverture est une donnee de gestion, pas un horodatage : une reprise de
+     * portefeuille ouvre des comptes anterieurs a la migration, et une saisie d'agence enregistre
+     * parfois l'ouverture de la veille. Elle decide de la proratisation des commissions et du
+     * premier jour de calcul des interets ; la prendre a l'horloge fausserait les deux.
+     */
+    public static void create(Connection c, Account account, LocalDate openedAt) {
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO account(id, legal_entity_id, code, account_kind, normal_balance, currency,"
             + " gl_account_id, contract_id, postable, control_available, stripe_count, status,"
@@ -46,7 +58,7 @@ public final class Accounts {
             ps.setBoolean(10, account.controlAvailable());
             ps.setInt(11, account.stripeCount());
             ps.setString(12, account.status().name());
-            ps.setObject(13, LocalDate.now());
+            ps.setObject(13, openedAt);
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new LedgerStoreException("Creation du compte " + account.code(), e);
@@ -62,6 +74,22 @@ public final class Accounts {
             ps.executeBatch();
         } catch (SQLException e) {
             throw new LedgerStoreException("Amorcage des soldes du compte " + account.code(), e);
+        }
+    }
+
+    /** Date comptable courante de l'entite : c'est elle qui date l'ouverture, pas l'horloge. */
+    private static LocalDate businessDateOf(Connection c, java.util.UUID legalEntityId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT current_business_date FROM legal_entity WHERE id = ?")) {
+            ps.setObject(1, legalEntityId);
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new LedgerStoreException("Entite inconnue : " + legalEntityId);
+                }
+                return rs.getObject(1, LocalDate.class);
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture de la date comptable de l'entite", e);
         }
     }
 

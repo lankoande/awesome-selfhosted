@@ -20,10 +20,12 @@
     <module>interest-domain</module>
     <module>schema-engine</module>
     <module>calendar</module>
+    <module>fee-domain</module>
     <module>product-catalog</module>
     <module>ledger-store</module>
     <module>security-store</module>
     <module>interest-service</module>
+    <module>fee-service</module>
     <module>tfj</module>
     <module>benchmark</module>
   </modules>
@@ -78,6 +80,10 @@
       </dependency>
       <dependency>
         <groupId>io.corebanking</groupId><artifactId>product-catalog</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.corebanking</groupId><artifactId>fee-domain</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

@@ -21,6 +21,10 @@
       <groupId>io.corebanking</groupId><artifactId>interest-service</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>io.corebanking</groupId><artifactId>fee-service</artifactId>
+      <version>${project.version}</version>
+    </dependency>
     <dependency><groupId>io.corebanking</groupId><artifactId>product-catalog</artifactId></dependency>
     <dependency><groupId>io.corebanking</groupId><artifactId>calendar</artifactId></dependency>
     <dependency>

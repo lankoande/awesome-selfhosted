@@ -358,6 +358,49 @@ La contrainte `EXCLUDE` garantit qu'il n'existe **jamais** deux versions d'un pr
 valides à la même date. Sans elle, un arrêté rejoué peut sélectionner l'une ou l'autre selon
 l'ordre de lecture, et produire des montants non reproductibles.
 
+### Registre des commissions
+
+```sql
+CREATE TABLE fee_charge (
+    id               UUID PRIMARY KEY,
+    account_id       UUID NOT NULL REFERENCES account(id),
+    fee_code         TEXT NOT NULL,
+    period_start     DATE NOT NULL,
+    period_end       DATE NOT NULL,
+    charge_date      DATE NOT NULL,
+    net_amount       NUMERIC(23,5) NOT NULL,
+    tax_amount       NUMERIC(23,5) NOT NULL,
+    total_amount     NUMERIC(23,5) NOT NULL,
+    outcome          TEXT NOT NULL,     -- COLLECTED, FORCED, WAIVED, DEFERRED,
+                                        -- REJECTED, WRITTEN_OFF, NOT_DUE, CANCELLED
+    entry_id         UUID,
+    generation       INTEGER NOT NULL DEFAULT 0,
+    ...
+    CONSTRAINT ck_fee_total CHECK (total_amount = net_amount + tax_amount),
+    CONSTRAINT ex_fee_no_overlap EXCLUDE USING gist (
+        account_id WITH =, fee_code WITH =,
+        daterange(period_start, period_end + 1, '[)') WITH &&
+    ) WHERE (outcome <> 'CANCELLED')
+);
+```
+
+Trois points portés par le schéma, et non par l'applicatif.
+
+**L'exclusion sur la plage, plutôt qu'une clé unique sur la fin de période.** L'invariant réel n'est
+pas « une échéance facturée une fois » mais « **aucun jour facturé deux fois** ». Un changement
+d'ancrage décale les bornes : deux liquidations pourraient se chevaucher sans coïncider, et une clé
+unique les laisserait passer.
+
+**La ligne existe même quand rien n'est perçu.** Exonération, provision insuffisante, prorata nul :
+le montant est conservé avec son motif. Une commission non perçue qui ne laisse aucune trace est un
+manque à gagner inconnaissable — les comptes restent équilibrés et les contrôles passent.
+
+**Le montant est figé, le dénouement évolue.** Un déclencheur refuse toute modification des colonnes
+de liquidation et toute réouverture d'un dénouement acquis ; seul l'état `CANCELLED`, produit par
+l'annulation du traitement, peut neutraliser une ligne. Le rang `generation` compte ces annulations
+et entre dans la clé d'idempotence de la refacturation : l'écriture d'origine subsiste au journal,
+contre-passée, et réutiliser sa clé ferait passer la refacturation pour un rejeu.
+
 ---
 
 ## 6. Batch et outbox

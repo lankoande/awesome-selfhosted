@@ -124,7 +124,50 @@ l'écriture serait silencieusement omise comme un rejeu.
 
 ---
 
-## 4. Ce que l'optimisation a coûté, et ce qui l'a rattrapé
+## 4. Commissions — le coût que les intérêts n'avaient pas
+
+L'ajout de l'étape `FEE_CHARGING` a fait repasser le TFJ au-dessus de la cible. La mesure, dans le
+cas le plus défavorable — **tous les comptes exigibles le même jour**, ce qui est la situation réelle
+d'une banque qui facture la tenue de compte à date fixe :
+
+| | Coût par compte | Extrapolation 2 M | |
+|---|---|---|---|
+| Perception séquentielle | 3,268 ms | 108,9 min | ❌ manquée d'un facteur 1,2 |
+| Perception parallèle (8 fils) | **0,905 ms** | **30,2 min** | ✅ |
+
+**Pourquoi les commissions coûtent ce que les intérêts ne coûtent plus.** L'accrual d'intérêts
+s'agrège : deux millions de comptes produisent quelques centaines d'écritures, parce que débit et
+crédit visent des comptes généraux communs. Une commission débite un **compte client différent à
+chaque fois** : elle ne s'agrège pas. Le coût est donc d'une écriture par compte, soit exactement le
+coût unitaire du ledger — 3 ms en séquentiel, ce que le banc de comptabilisation avait déjà mesuré.
+
+**Une écriture par client, et non un bordereau global.** Regrouper deux millions de débits clients
+et deux crédits généraux dans une seule écriture serait parfaitement équilibré et beaucoup plus
+rapide. C'est refusé : une commission se conteste et se contre-passe **client par client**, et la
+contre-passation porte sur l'écriture entière. Le gain de performance se paierait en impossibilité
+opérationnelle.
+
+**La parallélisation est donc la seule voie, et elle était disponible.** Les imputations sont
+indépendantes d'un compte à l'autre ; le verrouillage ordonné du ledger — déjà mesuré à zéro
+interblocage sous contention — les autorise à s'exécuter de front, y compris sur les comptes
+généraux de produit et de taxe partagés par toutes les commissions. Le découpage se fait **par
+compte** et non par commission : impayés et commissions du jour puisent dans le même disponible et
+doivent rester séquentiels entre eux.
+
+Facteur mesuré : **4,2** sur l'étape (6 111 → 1 468 ms sur 2 000 comptes). Le degré de parallélisme
+ne doit pas dépasser la taille du pool de connexions du ledger ; au-delà, les tâches attendent une
+connexion au lieu de travailler.
+
+**Une hypothèse écartée par la mesure.** Réunir l'imputation et l'enregistrement au registre dans une
+seule transaction, au lieu de deux, devait économiser une acquisition de connexion et une validation
+par commission. Gain réel : **0,1 %** (6 116 → 6 111 ms). Le coût n'était pas dans les transactions,
+il était dans l'écriture elle-même. Le regroupement a été conservé, mais pour une autre raison : une
+écriture sans ligne de registre serait refacturée au traitement suivant, et une ligne de registre
+sans écriture ferait disparaître une commission facturée.
+
+---
+
+## 5. Ce que l'optimisation a coûté, et ce qui l'a rattrapé
 
 Le calcul par lot doit donner **exactement** le même montant que le calcul compte par compte. Un
 traitement trente fois plus rapide mais qui arrondit différemment ne serait pas une optimisation :
@@ -142,7 +185,7 @@ n'arrivent pas seulement dans le code de correction.
 
 ---
 
-## 5. Ce que ces mesures ne prouvent pas
+## 6. Ce que ces mesures ne prouvent pas
 
 À traiter avant toute mise en service, et non couvert ici :
 
@@ -154,6 +197,7 @@ n'arrivent pas seulement dans le code de correction.
 | Volumétrie réelle du journal | 10 ans d'historique partitionné, pas quelques milliers de lignes |
 | Reprise sous charge | Un TFJ repris à mi-parcours sur un portefeuille complet |
 | Plusieurs entités simultanées | Le cloisonnement est fonctionnel, sa tenue en charge n'est pas mesurée |
+| Perception parallèle sur un pool de production | Mesurée sur 8 connexions ; le point de saturation réel n'est pas connu |
 
 Les cibles du chapitre 01 restent donc des **cibles à re-mesurer sur l'infrastructure cible**. Ce
 qui est acquis, c'est le coût unitaire — et il est désormais compatible avec elles.

@@ -3,13 +3,9 @@ package io.corebanking.tfj.steps;
 import io.corebanking.interest.service.BatchInterestAccrualService;
 import io.corebanking.interest.service.CatalogTermsProvider;
 import io.corebanking.ledger.store.Database;
-import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.tfj.StepResult;
 import io.corebanking.tfj.TfjContext;
 import io.corebanking.tfj.TfjStep;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -64,7 +60,7 @@ public final class InterestAccrualStep implements TfjStep {
 
     @Override
     public StepResult execute(TfjContext context) {
-        List<UUID> accounts = accountsWithProduct(context);
+        List<UUID> accounts = Portfolio.accountsWithProduct(database, context);
         if (accounts.isEmpty()) {
             return StepResult.none();
         }
@@ -92,29 +88,5 @@ public final class InterestAccrualStep implements TfjStep {
             anomalies.add("... liste tronquee ; corriger le parametrage et relancer.");
         }
         return new StepResult(accounts.size(), accrued, anomalies);
-    }
-
-    private List<UUID> accountsWithProduct(TfjContext context) {
-        return database.inTransaction(c -> {
-            List<UUID> accounts = new ArrayList<>();
-            try (PreparedStatement ps = c.prepareStatement(
-                "SELECT DISTINCT a.id FROM account a"
-                + " JOIN account_product ap ON ap.account_id = a.id"
-                + " WHERE a.legal_entity_id = ? AND a.status IN ('ACTIVE','DORMANT')"
-                + "   AND ap.valid_from <= ? AND (ap.valid_to IS NULL OR ap.valid_to >= ?)"
-                + " ORDER BY a.id")) {
-                ps.setObject(1, context.legalEntityId());
-                ps.setObject(2, context.businessDate());
-                ps.setObject(3, context.businessDate());
-                try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        accounts.add(rs.getObject(1, UUID.class));
-                    }
-                }
-            } catch (SQLException e) {
-                throw new LedgerStoreException("Recensement des comptes remuneres", e);
-            }
-            return accounts;
-        });
     }
 }

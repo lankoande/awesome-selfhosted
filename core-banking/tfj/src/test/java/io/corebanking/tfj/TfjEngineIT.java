@@ -38,8 +38,8 @@ class TfjEngineIT extends TfjTestBase {
 
         assertThat(run.isCompleted()).as(run.summary()).isTrue();
         assertThat(run.steps()).extracting(TfjRun.StepExecution::name)
-            .containsExactly("PRE_CHECKS", "INTEREST_ACCRUAL", "BALANCE_SNAPSHOT",
-                             "RECONCILIATION", "OPEN_NEXT_DAY");
+            .containsExactly("PRE_CHECKS", "FEE_CHARGING", "INTEREST_ACCRUAL",
+                             "BALANCE_SNAPSHOT", "RECONCILIATION", "OPEN_NEXT_DAY");
         assertThat(run.steps()).allMatch(
             step -> step.status() == TfjRun.StepExecution.Status.COMPLETED);
 
@@ -103,13 +103,18 @@ class TfjEngineIT extends TfjTestBase {
         assertThat(blanc.isCompleted()).as(blanc.summary()).isTrue();
         assertThat(blanc.steps()).allMatch(
             step -> step.status() == TfjRun.StepExecution.Status.COMPLETED);
-        assertThat(blanc.steps().get(1).written()).isPositive();    // des accruals ont ete imputes
+        assertThat(step(blanc, "INTEREST_ACCRUAL").written()).isPositive();
 
         // ... et pourtant rien n'a ete conserve : ni ecriture, ni bascule de journee.
         database.inTransaction(c ->
             assertThat(Balances.current(c, courus.id())).isEqualTo(avant));
         assertThat(businessDate()).isEqualTo(jour);
         assertThat(countEntries(blanc.id())).isZero();
+    }
+
+    private static TfjRun.StepExecution step(TfjRun run, String name) {
+        return run.steps().stream().filter(step -> step.name().equals(name)).findFirst()
+            .orElseThrow(() -> new AssertionError("Etape " + name + " absente du rapport"));
     }
 
     @Test
@@ -139,7 +144,8 @@ class TfjEngineIT extends TfjTestBase {
 
         assertThat(run.status()).isEqualTo(TfjRun.Status.FAILED);
         var etape = run.failedStep().orElseThrow();
-        assertThat(etape.name()).isEqualTo("INTEREST_ACCRUAL");
+        // La premiere etape qui resout le parametrage du compte est celle qui bute dessus.
+        assertThat(etape.name()).isEqualTo("FEE_CHARGING");
         assertThat(etape.anomalies().toString()).contains(orphelin.id().toString());
 
         // La journee n'a pas bascule : une etape bloquante en echec arrete la chaine.

@@ -116,6 +116,50 @@ changement de barème, et chaque journée est rémunérée au taux en vigueur ce
 l'écriture produite est unique et ne saurait viser deux couples de comptes. Le refus est explicite —
 une imputation sur le mauvais compte de résultat ne se détecte qu'à l'arrêté.
 
+### Commissions et frais — `product_parameter` ✅
+
+Un produit déclare ses commissions dans `fee.codes`, séparées par des virgules, et décrit chacune
+par des paramètres préfixés de son code.
+
+| Paramètre | Valeurs | Effet |
+|---|---|---|
+| `fee.<code>.frequency` | `DAILY`, `MONTHLY`, `QUARTERLY`, `SEMIANNUAL`, `ANNUAL` | Périodicité |
+| `fee.<code>.anchor` | date, *absent* | Origine des périodes ; absent, c'est la date d'ouverture du compte |
+| `fee.<code>.timing` | `IN_ARREARS`, `IN_ADVANCE` | Terme échu ou terme à échoir |
+| `fee.<code>.basis` | `FLAT`, `RATE_ON_CLOSING_BALANCE`, `RATE_ON_HIGHEST_DEBIT_BALANCE`, `TIERED_ON_CLOSING_BALANCE` | Assiette |
+| `fee.<code>.amount` / `.rate` | décimal | Forfait, ou taux appliqué à l'assiette |
+| `fee.<code>.floor` / `.cap` | décimal | Perception minimale et maximale, exigées imputables |
+| `fee.<code>.proration` | `NONE`, `ACTUAL_DAYS` | Traitement d'une période incomplètement servie |
+| `fee.<code>.tax_rate` | décimal | TOB, TAF, TVA — assise sur le net arrondi |
+| `fee.<code>.income_account` / `.tax_account` | UUID | Comptes de produit et de taxe collectée |
+| `fee.<code>.on_insufficient_funds` | `REJECT`, `FORCE`, `DEFER` | Conduite à tenir sans provision |
+| `fee.<code>.arrear_max_age_days` | entier | Terme au-delà duquel une créance reportée est abandonnée |
+| `fee.<code>.schema` | code | Schéma comptable, celui du standard à défaut |
+| `overdraft.limit` | décimal | Découvert autorisé, ajouté au disponible lors du contrôle |
+
+Barème par tranches dans `product_rate_tier`, discriminé par `purpose = 'FEE:<code>'` : un même
+produit porte ainsi un barème d'intérêts et un barème de commission sans devoir être scindé.
+
+**Deux ancrages sont légitimes**, et l'absence du paramètre en désigne un. Une date fixe du produit
+facture tous les comptes aux mêmes échéances — commode pour rapprocher les états de gestion. La date
+d'ouverture du compte lisse la charge du traitement sur le mois. Aucune n'est un défaut caché : ce
+sont deux décisions de gestion.
+
+**Les périodes se calculent depuis l'ancrage, jamais de proche en proche.** Une échéance au 31
+janvier ramenée au 28 février reviendrait au 28 mars si l'on déduisait chaque échéance de la
+précédente : le contrat aurait changé de jour d'échéance à cause d'une année non bissextile, sans
+qu'aucune décision ne l'ait voulu (`pas_de_derive_de_fin_de_mois`).
+
+### Exonérations — `account_fee_exemption` ✅
+
+Fenêtre datée par compte et par commission, avec motif. Renoncer à une commission, c'est renoncer à
+un produit : l'opération relève du même régime de double validation qu'un paramétrage tarifaire, et
+la contrainte est portée par la base (`CHECK (approved_by <> granted_by)`).
+
+Une période entièrement exonérée est **enregistrée avec son montant** et le dénouement `WAIVED` :
+c'est ce qui rend le coût des gestes commerciaux mesurable. Une exonération partielle ne réduit la
+commission que si celle-ci est proratisable ; sinon elle reste due en entier.
+
 ### Référentiel ✅
 
 | Élément | Table | Contenu |
@@ -137,9 +181,7 @@ le code appelant.
 
 | Élément | État | Conséquence de l'absence |
 |---|---|---|
-| **Commissions et frais** (périodicité, déclencheur) | 🔶 | Le calcul et l'imputation sont paramétrés ; le déclenchement périodique reste à faire |
 | **Plafonds et limites** (par produit, canal, client, période) | ⬜ | Contrôles absents ou codés en dur |
-
 | **Circuits de double validation** (seuils par rôle et montant) | ⬜ | Maker-checker non généralisé hors paramétrage produit |
 
 ### Nécessaire à la couverture fonctionnelle visée
@@ -147,7 +189,7 @@ le code appelant.
 | Élément | État |
 |---|---|
 | Capitalisation des intérêts (périodicité, base minimum/moyenne) | ⬜ |
-| Conditions de découvert rattachées au produit | 🔶 |
+| Conditions de découvert rattachées au produit — agios, échelles (seul `overdraft.limit` existe, employé au contrôle de provision) | 🔶 |
 | Dormance (délai, régime de frais) | ⬜ |
 | Classification des créances et provisionnement (buckets, taux, contagion) | ⬜ |
 | Éligibilité et fraîcheur des garanties | ⬜ |

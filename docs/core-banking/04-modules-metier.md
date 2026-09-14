@@ -120,6 +120,29 @@ tous les accruals postérieurs. Le moteur contre-passe les accruals invalidés e
 Un moteur incapable de cela produit des agios faux dès la première opération antidatée —
 cas qui survient dans les premières semaines d'exploitation.
 
+### Commissions et frais périodiques
+
+Le calcul et la perception sont implémentés ([`fee-domain`](../../core-banking/fee-domain),
+[`fee-service`](../../core-banking/fee-service)), déclenchés par l'étape `FEE_CHARGING` du TFJ.
+
+| Dimension | Couvert |
+|---|---|
+| Périodicité | Quotidienne, mensuelle, trimestrielle, semestrielle, annuelle ; terme échu ou à échoir |
+| Assiette | Forfait, taux sur solde de clôture, taux sur plus fort découvert, barème par tranches |
+| Bornes | Perception minimale et maximale, exigées imputables dans la devise |
+| Proratisation | Aux jours réellement servis — ouverture, clôture, entrée et sortie d'exonération |
+| Fiscalité | Taux paramétré (TOB, TAF, TVA), assis sur le net arrondi, compte de taxe distinct |
+| Provision insuffisante | Abandon, forçage, ou report avec vieillissement et abandon au terme |
+| Exonérations | Fenêtre datée par compte et par commission, sous double validation |
+
+> **Ce qui reste à faire ici** : la restitution du prorata lors d'une clôture en cours de période
+> facturée d'avance. La commission a été perçue ; son remboursement partiel est une opération
+> distincte, qui relève du module de clôture de compte et non de la perception.
+
+**La commission du plus fort découvert** se constate sur la série des soldes **en date de valeur**,
+jour par jour sur la période, et le taux s'applique **directement** au pic : ce n'est pas un intérêt,
+c'est un pourcentage d'un montant constaté. L'annualiser serait une erreur de nature, pas de réglage.
+
 ### Découvert
 
 - **Autorisé** : contrat avec montant, durée, taux, commission de mise en place.

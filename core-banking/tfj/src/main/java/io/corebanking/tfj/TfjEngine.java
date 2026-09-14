@@ -197,6 +197,7 @@ public final class TfjEngine {
 
         database.inTransaction(connection -> {
             neutraliseAccruals(connection, runId);
+            neutraliseFees(connection, runId);
             setBusinessDate(connection, run.legalEntityId(), run.businessDate());
             markCancelled(connection, runId, actorId, reason);
             return null;
@@ -228,6 +229,24 @@ public final class TfjEngine {
             }
             return entries;
         });
+    }
+
+    /**
+     * Rend exigibles les periodes de commission facturees par le traitement annule.
+     *
+     * <p>Sans cela, l'annulation contre-passerait les ecritures tout en laissant les periodes
+     * marquees comme facturees : les commissions de la journee seraient perdues definitivement, et
+     * l'ecart n'apparaitrait dans aucun controle — le journal, lui, serait equilibre.
+     */
+    private void neutraliseFees(Connection connection, UUID runId) {
+        try (PreparedStatement ps = connection.prepareStatement(
+            "UPDATE fee_charge SET outcome = 'CANCELLED'"
+            + " WHERE batch_run_id = ? AND outcome <> 'CANCELLED'")) {
+            ps.setObject(1, runId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Neutralisation des commissions du TFJ", e);
+        }
     }
 
     private void neutraliseAccruals(Connection connection, UUID runId) {

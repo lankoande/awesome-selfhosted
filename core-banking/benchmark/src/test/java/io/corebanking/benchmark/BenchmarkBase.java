@@ -80,7 +80,9 @@ abstract class BenchmarkBase {
         applyScript("/db/V3__product.sql");
         applyScript("/db/V2__interest.sql");
         applyScript("/db/V6__tfj.sql");
+        applyScript("/db/V5__accounting_schema.sql");
         applyScript("/db/V7__calendar.sql");
+        applyScript("/db/V8__fees.sql");
         SchemaMigrator.ensurePartitions(database, DAY.minusMonths(1), DAY.plusMonths(2));
 
         database.inTransaction(c -> {
@@ -158,15 +160,30 @@ abstract class BenchmarkBase {
 
     /** Rattache tous les comptes a un produit remunere. */
     protected static void attachProduct(List<Account> accounts, Account charges, Account accrued) {
+        attachProduct(accounts, charges, accrued, Map.of());
+    }
+
+    /**
+     * Rattache le portefeuille a un produit remunere, eventuellement porteur de commissions.
+     *
+     * <p>Les surcharges servent a mesurer le cas defavorable : une commission ancree sur une date
+     * fixe du produit rend tous les comptes exigibles le meme jour. C'est la situation reelle
+     * d'une banque qui facture la tenue de compte le premier du mois, et la seule qui dimensionne
+     * la fenetre de traitement.
+     */
+    protected static void attachProduct(List<Account> accounts, Account charges, Account accrued,
+                                        Map<String, String> surcharges) {
+        java.util.Map<String, String> parameters = new java.util.LinkedHashMap<>(
+            Map.of(ProductCatalog.P_RATE, "6",
+                   ProductCatalog.P_DAY_COUNT, "ACT_365",
+                   ProductCatalog.P_SIDE, AccrualSide.CREDITOR.name(),
+                   ProductCatalog.P_DEBIT_ACCOUNT, charges.id().toString(),
+                   ProductCatalog.P_CREDIT_ACCOUNT, accrued.id().toString()));
+        parameters.putAll(surcharges);
         database.inTransaction(c -> {
             UUID version = ProductCatalog.createDraft(c, new ProductCatalog.Draft(
                 ENTITY, "EP-BENCH", "SAVINGS_ACCOUNT", "Epargne", "XOF", DAY.minusMonths(1), null,
-                Map.of(ProductCatalog.P_RATE, "6",
-                       ProductCatalog.P_DAY_COUNT, "ACT_365",
-                       ProductCatalog.P_SIDE, AccrualSide.CREDITOR.name(),
-                       ProductCatalog.P_DEBIT_ACCOUNT, charges.id().toString(),
-                       ProductCatalog.P_CREDIT_ACCOUNT, accrued.id().toString()),
-                List.of(), ACTOR));
+                parameters, List.of(), ACTOR));
             ProductCatalog.activate(c, version, APPROVER);
             for (Account account : accounts) {
                 ProductCatalog.assignProduct(c, account.id(), "EP-BENCH", DAY.minusMonths(1), null);

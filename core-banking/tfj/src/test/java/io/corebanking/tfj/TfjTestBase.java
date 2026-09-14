@@ -39,6 +39,7 @@ abstract class TfjTestBase {
     protected static Database database;
     protected static JdbcPostingService postingService;
     protected static BatchInterestAccrualService interestService;
+    protected static io.corebanking.fee.service.FeeChargingService feeService;
     protected static BusinessCalendar calendar;
     protected static TfjEngine engine;
 
@@ -57,7 +58,9 @@ abstract class TfjTestBase {
         applyScript("/db/V3__product.sql");
         applyScript("/db/V2__interest.sql");
         applyScript("/db/V6__tfj.sql");
+        applyScript("/db/V5__accounting_schema.sql");
         applyScript("/db/V7__calendar.sql");
+        applyScript("/db/V8__fees.sql");
         SchemaMigrator.ensurePartitions(database, J1.minusMonths(1), J1.plusMonths(2));
 
         database.inTransaction(c -> {
@@ -80,7 +83,9 @@ abstract class TfjTestBase {
 
         postingService = new JdbcPostingService(database);
         interestService = new BatchInterestAccrualService(database, postingService);
-        engine = StandardTfj.engine(database, postingService, interestService, calendar);
+        feeService = new io.corebanking.fee.service.FeeChargingService(database, postingService);
+        engine = StandardTfj.engine(database, postingService, interestService, feeService,
+                                    calendar);
     }
 
     @AfterAll

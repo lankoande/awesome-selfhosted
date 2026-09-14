@@ -209,8 +209,8 @@ public final class ProductCatalog {
         new TieredRate(tiers, TieringMode.PROGRESSIVE);
 
         try (PreparedStatement ps = c.prepareStatement(
-            "INSERT INTO product_rate_tier(product_version_id, tier_order, from_amount, to_amount,"
-            + " annual_rate_percent) VALUES (?,?,?,?,?)")) {
+            "INSERT INTO product_rate_tier(product_version_id, purpose, tier_order, from_amount,"
+            + " to_amount, annual_rate_percent) VALUES (?,'INTEREST',?,?,?,?)")) {
             for (int i = 0; i < tiers.size(); i++) {
                 Tier tier = tiers.get(i);
                 ps.setObject(1, versionId);
@@ -245,8 +245,10 @@ public final class ProductCatalog {
     private static RateSchedule loadTiers(Connection c, UUID versionId, ParameterSet parameters) {
         List<Tier> tiers = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(
+            // Un produit peut porter plusieurs baremes — interets, commissions. Celui-ci est
+            // celui des interets ; les autres sont lus par le module qui les emploie.
             "SELECT from_amount, to_amount, annual_rate_percent FROM product_rate_tier"
-            + " WHERE product_version_id = ? ORDER BY tier_order")) {
+            + " WHERE product_version_id = ? AND purpose = 'INTEREST' ORDER BY tier_order")) {
             ps.setObject(1, versionId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {

@@ -64,14 +64,21 @@ CREATE TABLE product_parameter (
 
 -- -------------------------------------------------------------------------------------
 --  Bareme par tranches. Contiguite verifiee au chargement, pas a l'execution.
+--
+--  Un meme produit porte plusieurs baremes : celui des interets, et un par commission
+--  calculee par tranches. Le discriminant les separe. Sans lui, une banque voulant un
+--  bareme d'interets et un bareme de commission sur le meme produit serait contrainte de
+--  scinder son produit en deux, et le rattachement des comptes suivrait le decoupage
+--  technique au lieu du decoupage commercial.
 -- -------------------------------------------------------------------------------------
 CREATE TABLE product_rate_tier (
     product_version_id  UUID NOT NULL REFERENCES product_version(id) ON DELETE CASCADE,
+    purpose             TEXT NOT NULL DEFAULT 'INTEREST',
     tier_order          SMALLINT NOT NULL,
     from_amount         NUMERIC(23,5) NOT NULL CHECK (from_amount >= 0),
     to_amount           NUMERIC(23,5),
     annual_rate_percent NUMERIC(12,6) NOT NULL,
-    PRIMARY KEY (product_version_id, tier_order),
+    PRIMARY KEY (product_version_id, purpose, tier_order),
     CONSTRAINT ck_tier_bounds CHECK (to_amount IS NULL OR to_amount > from_amount)
 );
 
