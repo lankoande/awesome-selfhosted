@@ -134,9 +134,9 @@ nommé dans le [README du socle](../../core-banking/README.md).
 
 ## 6. Plan d'action ordonné
 
-**A — Avant tout déploiement, même pilote** (2 à 3 semaines)
-1, 2, 3, 4, 5, 12, 11 — tous S sauf le cycle de période (M). À la fin de A, une base se monte, tourne
-douze mois de TFJ sans intervention, et refuse un paramétrage qui cite un compte inexistant.
+**A — Avant tout déploiement, même pilote** — ✅ **livrée**
+1, 2, 3, 4, 5, 12, 11. Une base se monte par `SchemaMigrator`, le TFJ franchit une fin d'année sans
+intervention, et un paramétrage qui cite un compte inexistant ne s'active pas. Détail au §7.
 
 **B — Exactitude comptable** (4 à 6 semaines)
 6, 7, 8, 13, 20, 25, 26. À la fin de B, le résultat mensuel est juste, le client reçoit ses
@@ -154,7 +154,25 @@ client → opérations → blocages.
 
 ---
 
-## 7. Ce que cet audit ne couvre pas
+## 7. Suivi
+
+| # | Constat | État | Preuve |
+|---|---|---|---|
+| 1 | Aucun chemin de migration | ✅ `SchemaMigrator` : déclarations par module, ordre, somme de contrôle, continuité par défaut, une transaction sous verrou ; toutes les bases de test passent par lui | `SchemaMigratorIT` |
+| 2 | Partitions jamais créées | ✅ `OPEN_NEXT_DAY` garantit N+1 à N+3 mois, `PRE_CHECKS` le mois traité ; `ledger_ensure_partitions` idempotente sous verrou (V16) | `the_year_end_run_prepares_january_on_its_own`, `partitionsAreIdempotent` |
+| 3 | Périodes jamais ouvertes | ✅ La bascule ouvre le mois civil suivant s'il n'est pas couvert ; une période close est nommée, jamais rouverte. Clôture (TFM) : phase B | `TfjPeriodIT` |
+| 4 | Annulation sous une journée suivante | ✅ `cancel` refuse tant qu'un run réel non annulé existe à une date postérieure | `cancelling_a_day_behind_a_later_run_is_refused` |
+| 5 | Crédit soldé jamais clos | ✅ Étape `LOAN_CLOSURE` après la classification ; encours résiduel signalé comme écart de sous-livre ; clôture annulable avec l'arrêté (V17) | `clotureALaDerniereEcheance`, `encoursResiduelNomme`, `clotureParLArreteEtReouverture` |
+| 11 | Politique en retard sur le périmètre | ✅ 15 opérations ajoutées, 2 rôles de crédit, 2 postes ; inventaire des points d'entrée tenu par test — le rattachement mécanique viendra avec les cas d'usage | `OperationCoverageTest` |
+| 12 | Comptes du paramétrage non vérifiés | ✅ Existence, nature GL, entité, devise, imputabilité à l'activation ; devise et existence du produit au rattachement ; comptes clients de l'entité au contrat | `ProductCatalogIT`, `contratSurCompteImpropre` |
+
+Trois fixtures de test ont dû changer, et c'est le contrôle qui l'a exigé : des comptes de
+paramétrage tirés au hasard, des rattachements à des produits inexistants — des situations que le
+socle refuse maintenant à la saisie.
+
+---
+
+## 8. Ce que cet audit ne couvre pas
 
 Il ne dit rien de l'infrastructure (haute disponibilité de PostgreSQL, sauvegardes, PRA), de
 l'exploitation (ordonnanceur, supervision, astreinte), ni de la conformité juridique des

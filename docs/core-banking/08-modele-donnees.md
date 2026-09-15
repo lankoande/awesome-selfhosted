@@ -466,6 +466,33 @@ définitif arrêté sur un capital dont les écritures viennent d'être contre-p
 
 ---
 
+## 5 ter. Versions du schéma
+
+```sql
+CREATE TABLE schema_version (
+    version     INTEGER PRIMARY KEY,
+    description TEXT NOT NULL,
+    checksum    TEXT NOT NULL,          -- SHA-256 du script, fins de ligne normalisées
+    applied_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    duration_ms INTEGER NOT NULL
+);
+```
+
+Créée par le runner lui-même, avant tout script : c'est la seule table qui précède `V1`. Chaque
+module déclare ses scripts dans `db/migrations.list` ; le runner réunit les déclarations du
+classpath, applique en ordre croissant ce qui manque, et refuse un script modifié après
+application, un script disparu du classpath, ou un script découvert sous une version déjà dépassée.
+La montée de version entière tient dans une transaction sous verrou consultatif.
+
+Pas de déclencheur d'immuabilité ici, contrairement aux journaux : réparer cette table est un acte
+volontaire et rare — reprendre une base existante — qui doit rester possible.
+
+Sur `loan_contract`, deux colonnes portent la clôture : `closed_on` et `closed_run_id`, le
+traitement qui l'a prononcée. Une clôture n'est pas plus définitive que l'arrêté qui l'a
+prononcée : l'annulation du traitement rend le contrat actif.
+
+---
+
 ## 6. Batch et outbox
 
 ```sql

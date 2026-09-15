@@ -235,7 +235,7 @@ public final class LoanService {
                                           LoanStore.ScheduleReason.EARLY_REPAYMENT,
                                           on.plusDays(1), actorId, approverId);
             } else {
-                LoanStore.close(c, contractId);
+                LoanStore.close(c, contractId, on, null);
             }
             return new Prepayment(on, amount, indemnity, mode, rebuilt);
         });
@@ -458,6 +458,62 @@ public final class LoanService {
             return settle(contract.id(), take, businessDate, "DIRECT_DEBIT", key, actorId,
                           batchRunId).allocated();
         });
+    }
+
+    // ------------------------------------------------------------------ cloture
+
+    /** Compte rendu d'une passe de cloture. */
+    public record ClosureOutcome(long examined, long closed, List<String> anomalies) {
+        public ClosureOutcome {
+            anomalies = List.copyOf(anomalies == null ? List.of() : anomalies);
+        }
+    }
+
+    /**
+     * Clot les credits qui n'ont plus rien a reclamer.
+     *
+     * <h2>Pourquoi a l'arrete, et apres la classification</h2>
+     *
+     * <p>Un credit integralement rembourse restait actif : rien ne le cloturait, et chaque arrete
+     * le reexaminait a vie. Le clore au moment du dernier reglement aurait ete plus simple, et
+     * faux : la provision d'un credit douteux se reprend a la classification, sur un encours
+     * devenu nul — un contrat clos avant elle sortirait du portefeuille classe avec sa provision
+     * intacte, et elle ne serait jamais reprise. La cloture est donc un acte de l'arrete, prononce
+     * une fois la classification passee.
+     *
+     * <h2>L'encours residuel est une anomalie, pas un cas a arrondir</h2>
+     *
+     * <p>Un capital restant du alors que toutes les echeances sont reclamees et reglees ne se
+     * cloture pas : c'est un ecart entre le compte de pret et le sous-livre des echeances, et
+     * l'arrete doit le nommer plutot que le faire disparaitre.
+     */
+    public ClosureOutcome closeSettled(UUID legalEntityId, LocalDate businessDate,
+                                       UUID batchRunId) {
+        List<LoanContract> candidates = database.inTransaction(
+            c -> LoanStore.settledCandidates(c, legalEntityId));
+        List<String> anomalies = new ArrayList<>();
+        long closed = 0;
+        for (LoanContract contract : candidates) {
+            try {
+                boolean done = database.inTransaction(c -> {
+                    Money outstanding = Balances.current(c, contract.loanAccountId());
+                    if (!outstanding.isZero()) {
+                        anomalies.add("credit " + contract.reference() + " : encours residuel de "
+                                      + outstanding + " sans echeance a venir ni creance ouverte "
+                                      + "— ecart entre le compte de pret et le sous-livre");
+                        return false;
+                    }
+                    LoanStore.close(c, contract.id(), businessDate, batchRunId);
+                    return true;
+                });
+                if (done) {
+                    closed++;
+                }
+            } catch (RuntimeException e) {
+                anomalies.add("credit " + contract.reference() + " : " + e.getMessage());
+            }
+        }
+        return new ClosureOutcome(candidates.size(), closed, anomalies);
     }
 
     // ------------------------------------------------------------------ retard

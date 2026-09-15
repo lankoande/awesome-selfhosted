@@ -3,6 +3,8 @@ package io.corebanking.security;
 import static io.corebanking.security.Roles.ACCOUNTANT;
 import static io.corebanking.security.Roles.AUDITOR;
 import static io.corebanking.security.Roles.BRANCH_MANAGER;
+import static io.corebanking.security.Roles.CREDIT_MANAGER;
+import static io.corebanking.security.Roles.CREDIT_OFFICER;
 import static io.corebanking.security.Roles.CUSTOMER_OFFICER;
 import static io.corebanking.security.Roles.OPERATOR;
 import static io.corebanking.security.Roles.PRODUCT_MANAGER;
@@ -121,6 +123,12 @@ public final class SecurityConfig {
             AccessRule.allow(BRANCH_MANAGER, RISK_OFFICER)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
+        // Une ecriture d'ordre divers n'a ni client ni operation pour la justifier : elle ne
+        // passe que par le comptable, et jamais seul.
+        policy.put(Operation.JOURNAL_ENTRY_MANUAL,
+            AccessRule.allow(ACCOUNTANT)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
         // ------------------------------------------------------------------ referentiel
         policy.put(Operation.ACCOUNT_OPEN,
             AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER)
@@ -129,6 +137,52 @@ public final class SecurityConfig {
         policy.put(Operation.ACCOUNT_CLOSE,
             AccessRule.allow(BRANCH_MANAGER)
                 .within(Scope.OWN_BRANCH).requiringSecondPerson().build());
+
+        // Changer le produit d'un compte change ce que le client paie et ce qu'il gagne.
+        policy.put(Operation.ACCOUNT_PRODUCT_ASSIGN,
+            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_BRANCH).requiringSecondPerson().build());
+
+        // ------------------------------------------------------------------ credit
+        policy.put(Operation.LOAN_READ,
+            AccessRule.allow(CUSTOMER_OFFICER, CREDIT_OFFICER, CREDIT_MANAGER, BRANCH_MANAGER,
+                             RISK_OFFICER, ACCOUNTANT, AUDITOR)
+                .within(Scope.OWN_ENTITY).tracedOnRead().build());
+
+        policy.put(Operation.LOAN_CONTRACT_CREATE,
+            AccessRule.allow(CREDIT_OFFICER, BRANCH_MANAGER).within(Scope.OWN_BRANCH).build());
+
+        // L'argent sort ici. Double validation sans exception, et un plafond par role : au-dela,
+        // la decision releve d'un comite, que l'origination portera.
+        policy.put(Operation.LOAN_DISBURSE,
+            AccessRule.allow(CREDIT_MANAGER, BRANCH_MANAGER)
+                .within(Scope.OWN_ENTITY)
+                .upTo(Map.of(BRANCH_MANAGER, Money.of("50000000", XOF),
+                             CREDIT_MANAGER, Money.of("500000000", XOF)))
+                .requiringSecondPerson().build());
+
+        // Rechelonner, c'est modifier ce que le client doit : meme regime qu'un parametrage.
+        policy.put(Operation.LOAN_RESCHEDULE,
+            AccessRule.allow(CREDIT_MANAGER, BRANCH_MANAGER)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        // Un droit de l'emprunteur : l'agent l'enregistre, il ne le decide pas.
+        policy.put(Operation.LOAN_PREPAY,
+            AccessRule.allow(CREDIT_OFFICER, CUSTOMER_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_BRANCH).build());
+
+        policy.put(Operation.LOAN_REPAYMENT,
+            AccessRule.allow(TELLER, CREDIT_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_BRANCH)
+                .upTo(Map.of(TELLER,         Money.of("2000000", XOF),
+                             CREDIT_OFFICER, Money.of("25000000", XOF),
+                             BRANCH_MANAGER, Money.of("25000000", XOF)))
+                .build());
+
+        // Une mainlevee decouvre la banque ; une prise de surete surevaluee reduit la provision.
+        policy.put(Operation.COLLATERAL_MANAGE,
+            AccessRule.allow(CREDIT_OFFICER, CREDIT_MANAGER, BRANCH_MANAGER)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
         // ------------------------------------------------------------------ parametrage
         // Un parametrage produit des montants sur des comptes clients : meme regime qu'une operation.
@@ -139,6 +193,32 @@ public final class SecurityConfig {
             AccessRule.allow(PRODUCT_MANAGER, RISK_OFFICER)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
+        // Une grille de risque decide du niveau de provision de tout le portefeuille : elle est
+        // redigee par le risque et validee par une seconde main, comptable ou risque.
+        policy.put(Operation.RISK_PARAMETER_DRAFT,
+            AccessRule.allow(RISK_OFFICER).within(Scope.OWN_ENTITY).build());
+
+        policy.put(Operation.RISK_PARAMETER_ACTIVATE,
+            AccessRule.allow(RISK_OFFICER, ACCOUNTANT)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        policy.put(Operation.ACCOUNTING_SCHEMA_DRAFT,
+            AccessRule.allow(ACCOUNTANT).within(Scope.OWN_ENTITY).build());
+
+        policy.put(Operation.ACCOUNTING_SCHEMA_ACTIVATE,
+            AccessRule.allow(ACCOUNTANT)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        // Un jour ferie deplace des dates de valeur et des echeances : ce n'est pas anodin.
+        policy.put(Operation.CALENDAR_MANAGE,
+            AccessRule.allow(OPERATOR, PRODUCT_MANAGER)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        // Une exoneration est un produit abandonne : elle se decide a deux.
+        policy.put(Operation.FEE_EXEMPTION_GRANT,
+            AccessRule.allow(BRANCH_MANAGER, PRODUCT_MANAGER)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
         // ------------------------------------------------------------------ exploitation
         policy.put(Operation.TFJ_RUN,
             AccessRule.allow(OPERATOR).within(Scope.OWN_ENTITY).build());
@@ -146,6 +226,10 @@ public final class SecurityConfig {
         // Annuler un TFJ contre-passe des millions d'ecritures : double validation, sans exception.
         policy.put(Operation.TFJ_CANCEL,
             AccessRule.allow(OPERATOR, ACCOUNTANT)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        policy.put(Operation.PERIOD_CLOSE,
+            AccessRule.allow(ACCOUNTANT)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
         policy.put(Operation.PERIOD_REOPEN,

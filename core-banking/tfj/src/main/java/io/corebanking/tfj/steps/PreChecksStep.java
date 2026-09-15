@@ -2,6 +2,7 @@ package io.corebanking.tfj.steps;
 
 import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.Entities;
+import io.corebanking.ledger.store.SchemaMigrator;
 import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.tfj.StepResult;
 import io.corebanking.tfj.TfjContext;
@@ -11,6 +12,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Controles prealables.
@@ -41,10 +43,26 @@ public final class PreChecksStep implements TfjStep {
     public StepResult execute(TfjContext context) {
         List<String> anomalies = new ArrayList<>();
 
-        if (!database.inTransaction(c ->
-                Entities.isPeriodOpen(c, context.legalEntityId(), context.businessDate()))) {
-            anomalies.add("Aucune periode comptable ouverte au " + context.businessDate()
-                          + " : aucune ecriture d'arrete ne pourrait etre imputee.");
+        // La partition du mois traite est garantie, pas seulement controlee : sa creation est
+        // idempotente et ne prejuge de rien. Le premier arrete d'une base neuve, ou d'une entite
+        // dont la date a ete reprise, ne doit pas echouer sur un objet que le systeme sait creer.
+        database.inTransaction(c -> {
+            SchemaMigrator.ensurePartitions(c, context.businessDate(),
+                                            context.businessDate().plusMonths(1));
+            return null;
+        });
+
+        Optional<String> period = database.inTransaction(c ->
+            Entities.periodStatus(c, context.legalEntityId(), context.businessDate()));
+        if (period.isEmpty()) {
+            anomalies.add("Aucune periode comptable ne couvre le " + context.businessDate()
+                          + " : aucune ecriture d'arrete ne pourrait etre imputee. La bascule de "
+                          + "journee l'ouvre normalement ; une date comptable reprise a la main "
+                          + "l'exige aussi.");
+        } else if (!"OPEN".equals(period.get()) && !"REOPENED".equals(period.get())) {
+            anomalies.add("La periode comptable couvrant le " + context.businessDate()
+                          + " est " + period.get() + " : la rouvrir est une decision comptable, "
+                          + "pas un effet de bord de l'arrete.");
         }
 
         long suspens = database.inTransaction(c -> unbalancedSuspenseAccounts(c, context));

@@ -322,6 +322,13 @@ brouillon a le droit d'être incomplet — c'est ce qui en fait un brouillon.
 à son auteur la certitude d'avoir paramétré une pénalité qui ne s'appliquerait jamais. C'est le seul
 moyen de distinguer une valeur inutile d'une valeur mal nommée.
 
+**Les comptes cités sont vérifiés en base.** Un paramètre déclaré sous `accounts` doit désigner un
+compte qui existe, appartient à l'entité du produit, est tenu dans sa devise, est un compte général
+imputable et actif. Chacun de ces défauts était refusé par le ledger à la première écriture, de
+nuit, sur une étape bloquante ; il l'est maintenant à l'activation, devant celui qui paramètre. Les
+mêmes contrôles jouent au rattachement d'un compte à un produit — devise et existence du produit —
+et à la création d'un contrat de crédit — comptes clients de l'entité, dans la devise du crédit.
+
 **Les familles déclarées** sont `CURRENT_ACCOUNT`, `SAVINGS_ACCOUNT` et `TERM_LOAN` — celles que le
 code sait traiter. En ajouter une est une modification du fichier **et** du code qui lira ses
 paramètres : le test d'accord de chaque module échoue tant que les deux ne coïncident pas, dans les

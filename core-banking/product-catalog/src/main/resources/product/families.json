@@ -3,7 +3,11 @@
     "Familles de produit : ce que chaque type de produit doit porter pour etre exploitable.",
     "Fichier versionne avec le code et revu comme lui. Une famille ne s'ajoute pas depuis une",
     "console d'administration : elle decrit ce que le code sait lire, et le code est ici.",
-    "Verifie au chargement des classes, applique a l'activation d'une version de produit."
+    "Verifie au chargement des classes, applique a l'activation d'une version de produit.",
+    "Les parametres listes sous « accounts » designent des comptes generaux : a l'activation, le",
+    "compte doit exister, appartenir a l'entite du produit, etre libelle dans sa devise, etre un",
+    "compte general imputable et actif. Une ecriture qui citerait un compte impropre serait refusee",
+    "par le ledger, de nuit, sur une etape bloquante : le controle est deplace au deploiement."
   ],
 
   "blocks": {
@@ -21,6 +25,7 @@
         "interest.credit_account"
       ],
       "optional": ["interest.tiering_mode"],
+      "accounts": ["interest.debit_account", "interest.credit_account"],
       "requireOneOf": [
         {
           "of": ["interest.rate", "tier:INTEREST"],
@@ -38,6 +43,7 @@
         {
           "listParameter": "fee.codes",
           "required": ["fee.{code}.income_account"],
+          "accounts": ["fee.{code}.income_account", "fee.{code}.tax_account"],
           "optional": [
             "fee.{code}.label",
             "fee.{code}.frequency",
@@ -121,6 +127,20 @@
         "loan.provision_release",
         "loan.prepayment_cap_percent",
         "loan.prepayment_cap_months"
+      ],
+      "accounts": [
+        "loan.accrued_receivable",
+        "loan.interest_income",
+        "loan.tax_account",
+        "loan.insurance_income",
+        "loan.fee_income",
+        "loan.late_interest_income",
+        "loan.penalty_income",
+        "loan.provision_expense",
+        "loan.provision_allowance",
+        "loan.provision_release",
+        "loan.reserved_interest",
+        "loan.prepayment_indemnity_account"
       ],
       "conditions": [
         {

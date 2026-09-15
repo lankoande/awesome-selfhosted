@@ -22,10 +22,7 @@ import io.corebanking.ledger.store.SchemaMigrator;
 import io.corebanking.product.ProductCatalog;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -58,20 +55,7 @@ abstract class TfjTestBase {
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 8);
 
-        SchemaMigrator.migrate(database);
-        applyScript("/db/V3__product.sql");
-        applyScript("/db/V2__interest.sql");
-        applyScript("/db/V6__tfj.sql");
-        applyScript("/db/V5__accounting_schema.sql");
-        applyScript("/db/V7__calendar.sql");
-        applyScript("/db/V8__fees.sql");
-        applyScript("/db/V9__loans.sql");
-        applyScript("/db/V10__loan_late_charges.sql");
-        applyScript("/db/V11__loan_risk.sql");
-        applyScript("/db/V12__loan_teg.sql");
-        applyScript("/db/V13__loan_prepayment.sql");
-        applyScript("/db/V14__collateral.sql");
-        applyScript("/db/V15__tranches.sql");
+        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
         SchemaMigrator.ensurePartitions(database, J1.minusMonths(1), J1.plusMonths(2));
 
         database.inTransaction(c -> {
@@ -111,23 +95,6 @@ abstract class TfjTestBase {
     static void stop() throws IOException {
         if (database != null) database.close();
         if (postgres != null) postgres.close();
-    }
-
-    private static void applyScript(String resource) {
-        String sql;
-        try (InputStream in = TfjTestBase.class.getResourceAsStream(resource)) {
-            sql = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new LedgerStoreException("Lecture de " + resource, e);
-        }
-        database.inTransaction(c -> {
-            try (Statement st = c.createStatement()) {
-                st.execute(sql);
-                return null;
-            } catch (SQLException e) {
-                throw new LedgerStoreException("Application de " + resource, e);
-            }
-        });
     }
 
     protected static Account account(String code, AccountKind kind, NormalBalance normalBalance) {

@@ -9,6 +9,8 @@ public final class Roles {
     public static final String TELLER           = "teller";
     public static final String BRANCH_MANAGER   = "branch_manager";
     public static final String CUSTOMER_OFFICER = "customer_officer";
+    public static final String CREDIT_OFFICER   = "credit_officer";
+    public static final String CREDIT_MANAGER   = "credit_manager";
     public static final String ACCOUNTANT       = "accountant";
     public static final String PRODUCT_MANAGER  = "product_manager";
     public static final String RISK_OFFICER     = "risk_officer";

@@ -18,8 +18,6 @@ import io.corebanking.security.Operation;
 import io.corebanking.security.Roles;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
@@ -45,8 +43,7 @@ class AuthorizationAuditIT {
         postgres = EmbeddedPostgres.builder().start();
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 4);
-        SchemaMigrator.migrate(database);
-        applyScript("/db/V4__security.sql");
+        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
         database.inTransaction(c -> {
             Entities.insertCurrency(c, Currencies.XOF, "Franc CFA BCEAO");
             Entities.insertLegalEntity(c, ENTITE, "BANK-CI", "Banque", "CI", Currencies.XOF,
@@ -61,23 +58,6 @@ class AuthorizationAuditIT {
     static void stop() throws IOException {
         if (database != null) database.close();
         if (postgres != null) postgres.close();
-    }
-
-    private static void applyScript(String resource) {
-        String sql;
-        try (InputStream in = AuthorizationAuditIT.class.getResourceAsStream(resource)) {
-            sql = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new LedgerStoreException("Lecture de " + resource, e);
-        }
-        database.inTransaction(c -> {
-            try (Statement st = c.createStatement()) {
-                st.execute(sql);
-                return null;
-            } catch (SQLException e) {
-                throw new LedgerStoreException("Application de " + resource, e);
-            }
-        });
     }
 
     private Caller caller(String subject, String... roles) {

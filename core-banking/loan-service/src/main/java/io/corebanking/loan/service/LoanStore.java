@@ -5,6 +5,10 @@ import io.corebanking.kernel.id.Ids;
 import io.corebanking.kernel.money.CurrencyRef;
 import io.corebanking.kernel.money.Money;
 import io.corebanking.kernel.time.Periodicity;
+import io.corebanking.ledger.domain.account.Account;
+import io.corebanking.ledger.domain.account.AccountKind;
+import io.corebanking.ledger.store.Accounts;
+import io.corebanking.product.ProductCatalog;
 import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.loan.AmortisationMethod;
 import io.corebanking.loan.AmortisationSchedule;
@@ -40,7 +44,20 @@ public final class LoanStore {
         UUID loanAccountId, UUID settlementAccountId, Money principal, LocalDate disbursedOn,
         UUID createdBy) {}
 
+    /**
+     * Cree un contrat, apres controle de ses comptes et de son produit.
+     *
+     * <p>Les deux comptes doivent etre des comptes clients de l'entite du contrat, tenus dans sa
+     * devise ; le produit doit exister pour cette entite, dans cette devise. Chacun de ces defauts
+     * etait decouvert au deblocage ou au premier arrete, par un refus du ledger ou une anomalie
+     * bloquante — jamais devant celui qui saisit le contrat.
+     */
     public static UUID createContract(Connection c, ContractDraft draft) {
+        requireCustomerAccount(c, draft, draft.loanAccountId(), "compte de pret");
+        requireCustomerAccount(c, draft, draft.settlementAccountId(), "compte de reglement");
+        ProductCatalog.requireProductCurrency(c, draft.legalEntityId(), draft.productCode(),
+                                              draft.currency().code(),
+                                              "le contrat " + draft.reference());
         UUID id = Ids.newId();
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO loan_contract(id, legal_entity_id, reference, product_code, currency,"
@@ -61,6 +78,32 @@ public final class LoanStore {
             throw new LedgerStoreException("Creation du contrat " + draft.reference(), e);
         }
         return id;
+    }
+
+    private static void requireCustomerAccount(Connection c, ContractDraft draft, UUID accountId,
+                                               String role) {
+        Account account = Accounts.loadAll(c, List.of(accountId)).get(accountId);
+        if (account == null) {
+            throw new IllegalArgumentException(
+                "Contrat " + draft.reference() + " : " + role + " " + accountId + " inconnu.");
+        }
+        if (!account.legalEntityId().equals(draft.legalEntityId())) {
+            throw new IllegalArgumentException(
+                "Contrat " + draft.reference() + " : le " + role + " " + account.code()
+                + " appartient a une autre entite juridique.");
+        }
+        if (!account.currency().equals(draft.currency())) {
+            throw new IllegalArgumentException(
+                "Contrat " + draft.reference() + " : le " + role + " " + account.code()
+                + " est tenu en " + account.currency() + " alors que le credit est en "
+                + draft.currency() + ".");
+        }
+        if (account.kind() != AccountKind.CUSTOMER) {
+            throw new IllegalArgumentException(
+                "Contrat " + draft.reference() + " : le " + role + " " + account.code()
+                + " est de nature " + account.kind() + " ; un credit se porte sur des comptes "
+                + "clients, l'encours doit rester lisible independamment des comptes generaux.");
+        }
     }
 
     public static void activate(Connection c, UUID contractId, UUID approverId) {
@@ -137,14 +180,63 @@ public final class LoanStore {
         }
     }
 
-    public static void close(Connection c, UUID contractId) {
+    /**
+     * Clot un contrat.
+     *
+     * @param batchRunId traitement qui prononce la cloture, nul pour une cloture en ligne. Son
+     *                   annulation rend le contrat actif : une cloture n'est pas plus definitive
+     *                   que l'arrete qui l'a prononcee.
+     */
+    public static void close(Connection c, UUID contractId, LocalDate on, UUID batchRunId) {
         try (PreparedStatement ps = c.prepareStatement(
-            "UPDATE loan_contract SET status = 'CLOSED' WHERE id = ? AND status = 'ACTIVE'")) {
-            ps.setObject(1, contractId);
-            ps.executeUpdate();
+            "UPDATE loan_contract SET status = 'CLOSED', closed_on = ?, closed_run_id = ?"
+            + " WHERE id = ? AND status = 'ACTIVE'")) {
+            ps.setObject(1, on);
+            ps.setObject(2, batchRunId);
+            ps.setObject(3, contractId);
+            if (ps.executeUpdate() == 0) {
+                throw new IllegalStateException(
+                    "Contrat " + contractId + " introuvable ou deja sorti de l'etat ACTIVE.");
+            }
         } catch (SQLException e) {
             throw new LedgerStoreException("Cloture du contrat " + contractId, e);
         }
+    }
+
+    /**
+     * Contrats actifs qui n'ont plus rien a reclamer : aucune echeance a venir sur l'echeancier en
+     * vigueur, aucune creance ouverte, aucune mobilisation en cours.
+     *
+     * <p>L'encours n'est pas verifie ici mais par l'appelant, contrat par contrat : un capital
+     * restant alors que tout est reclame et regle n'est pas un contrat a clore, c'est un ecart
+     * entre le compte de pret et le sous-livre, et il doit etre nomme.
+     */
+    public static List<LoanContract> settledCandidates(Connection c, UUID legalEntityId) {
+        List<LoanContract> contracts = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            SELECT_CONTRACT
+            + " WHERE l.legal_entity_id = ? AND l.status = 'ACTIVE'"
+            + "   AND NOT EXISTS (SELECT 1 FROM loan_mobilisation m"
+            + "                    WHERE m.contract_id = l.id AND m.closed_on IS NULL)"
+            + "   AND EXISTS (SELECT 1 FROM loan_schedule s WHERE s.contract_id = l.id)"
+            + "   AND NOT EXISTS (SELECT 1 FROM loan_schedule_line sl"
+            + "                     JOIN loan_schedule s ON s.id = sl.schedule_id"
+            + "                    WHERE s.contract_id = l.id AND s.superseded_on IS NULL"
+            + "                      AND sl.made_due_on IS NULL)"
+            + "   AND NOT EXISTS (SELECT 1 FROM loan_receivable r"
+            + "                    WHERE r.contract_id = l.id AND NOT r.cancelled"
+            + "                      AND r.outstanding > 0)"
+            + " ORDER BY l.id")) {
+            ps.setObject(1, legalEntityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    contracts.add(readContract(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Recensement des credits soldes", e);
+        }
+        return contracts;
     }
 
     /** Echeances a venir apres une date : ce que le remboursement anticipe va remplacer. */

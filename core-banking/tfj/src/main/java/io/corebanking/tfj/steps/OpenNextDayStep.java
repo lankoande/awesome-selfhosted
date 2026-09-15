@@ -2,6 +2,8 @@ package io.corebanking.tfj.steps;
 
 import io.corebanking.calendar.BusinessCalendar;
 import io.corebanking.ledger.store.Database;
+import io.corebanking.ledger.store.Entities;
+import io.corebanking.ledger.store.SchemaMigrator;
 import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.tfj.StepResult;
 import io.corebanking.tfj.TfjContext;
@@ -26,6 +28,13 @@ import java.time.LocalDate;
  * <p>Faire l'inverse — arreter chaque jour calendaire — est egalement pratique dans la profession.
  * Le choix se parametrera par entite ; en attendant, la bascule sur jour ouvre est le comportement
  * retenu, et il est explicite plutot que subi.
+ *
+ * <h2>Ce que la bascule garantit a la journee suivante</h2>
+ *
+ * <p>Les partitions du journal pour les trois mois a venir, et une periode comptable couvrant la
+ * journee ouverte. Les deux sont idempotentes ; les deux manquaient en exploitation, ou seuls les
+ * tests les creaient. Une periode deja close n'est pas rouverte : c'est une decision comptable, et
+ * le controle prealable du traitement suivant la refusera en la nommant.
  */
 public final class OpenNextDayStep implements TfjStep {
 
@@ -47,10 +56,25 @@ public final class OpenNextDayStep implements TfjStep {
         return true;
     }
 
+    /**
+     * Nombre de mois de partitions garantis au-dela de la journee suivante.
+     *
+     * <p>Trois mois laissent le temps de remarquer un traitement de fin de journee qui n'aurait
+     * plus tourne, avant que la premiere ecriture d'un mois sans partition n'arrete la banque.
+     */
+    private static final int PARTITION_HORIZON_MONTHS = 3;
+
     @Override
     public StepResult execute(TfjContext context) {
         LocalDate next = calendar.nextBusinessDay(context.businessDate());
-        database.inTransaction(c -> {
+        boolean periodOpened = database.inTransaction(c -> {
+            // Ce que la journee suivante exigera pour sa premiere ecriture est garanti ici, avant
+            // la bascule, et dans la meme transaction qu'elle : une partition du journal pour ses
+            // mois a venir, et une periode comptable qui la couvre. Jusqu'ici, ni l'une ni l'autre
+            // n'etaient creees hors des tests, et la premiere ecriture du mois suivant arretait la
+            // banque.
+            SchemaMigrator.ensurePartitions(c, next, next.plusMonths(PARTITION_HORIZON_MONTHS));
+            boolean opened = Entities.ensurePeriodCovering(c, context.legalEntityId(), next);
             try (PreparedStatement ps = c.prepareStatement(
                 "UPDATE legal_entity SET current_business_date = ?"
                 + " WHERE id = ? AND current_business_date = ?")) {
@@ -63,8 +87,8 @@ public final class OpenNextDayStep implements TfjStep {
             } catch (SQLException e) {
                 throw new LedgerStoreException("Bascule de journee", e);
             }
-            return null;
+            return opened;
         });
-        return StepResult.of(1, 1);
+        return StepResult.of(1, periodOpened ? 2 : 1);
     }
 }

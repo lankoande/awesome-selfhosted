@@ -1,0 +1,11 @@
+# Scripts de schema livres par ce module, appliques dans l'ordre des versions par
+# SchemaMigrator. Un script present ici mais absent de cette liste n'est jamais applique :
+# les tests du module le refusent.
+V9__loans.sql
+V10__loan_late_charges.sql
+V11__loan_risk.sql
+V12__loan_teg.sql
+V13__loan_prepayment.sql
+V14__collateral.sql
+V15__tranches.sql
+V17__loan_closure.sql

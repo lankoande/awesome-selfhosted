@@ -52,7 +52,8 @@ class RoleCatalogueTest {
         assertThat(parCategorie).containsKeys("RESEAU", "SIEGE", "PARAMETRAGE", "EXPLOITATION",
                                               "CONTROLE");
         assertThat(parCategorie.get("RESEAU")).extracting(RoleDefinition::code)
-            .containsExactlyInAnyOrder(Roles.TELLER, Roles.BRANCH_MANAGER, Roles.CUSTOMER_OFFICER);
+            .containsExactlyInAnyOrder(Roles.TELLER, Roles.BRANCH_MANAGER, Roles.CUSTOMER_OFFICER,
+                                       Roles.CREDIT_OFFICER);
     }
 
     @Test
@@ -81,8 +82,9 @@ class RoleCatalogueTest {
     void the_declaration_order_is_preserved() {
         assertThat(RoleCatalogue.definitions().keySet())
             .containsExactly(Roles.TELLER, Roles.BRANCH_MANAGER, Roles.CUSTOMER_OFFICER,
-                             Roles.ACCOUNTANT, Roles.PRODUCT_MANAGER, Roles.RISK_OFFICER,
-                             Roles.OPERATOR, Roles.AUDITOR);
+                             Roles.CREDIT_OFFICER, Roles.ACCOUNTANT, Roles.CREDIT_MANAGER,
+                             Roles.PRODUCT_MANAGER, Roles.RISK_OFFICER, Roles.OPERATOR,
+                             Roles.AUDITOR);
 
         // Deux generations successives donnent un fichier identique : le diff d'une livraison ne
         // montre que ce qui a reellement change.

@@ -72,6 +72,15 @@ class ProductFamiliesFileTest {
     }
 
     @Test
+    @DisplayName("un compte declare qui n'est pas un parametre de la famille est refuse")
+    void compteNonDeclare() {
+        // La declaration ne controlerait rien, et celui qui la lit croirait le contraire.
+        refuse("""
+            { "families": [ { "code": "F", "label": "F", "required": ["a"], "accounts": ["b"] } ] }
+            """, "declare comme compte sans etre un parametre");
+    }
+
+    @Test
     @DisplayName("une alternative a un seul terme est refusee")
     void alternativeADeuxTermes() {
         refuse("""

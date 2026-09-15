@@ -13,6 +13,7 @@ import io.corebanking.tfj.steps.BalanceSnapshotStep;
 import io.corebanking.tfj.steps.FeeChargingStep;
 import io.corebanking.tfj.steps.InterestAccrualStep;
 import io.corebanking.tfj.steps.LoanClassificationStep;
+import io.corebanking.tfj.steps.LoanClosureStep;
 import io.corebanking.tfj.steps.LoanLateChargesStep;
 import io.corebanking.tfj.steps.LoanMobilisationStep;
 import io.corebanking.tfj.steps.LoanScheduleStep;
@@ -37,6 +38,9 @@ import java.util.List;
  *       impayes tel qu'il ressort de la journee, et sa decision commande la constatation des
  *       interets du lendemain. L'inverse serait circulaire : suspendre les interets du jour
  *       dependrait de la classe qu'on est en train d'etablir.</li>
+ *   <li><b>La cloture des credits apres la classification.</b> C'est la classification qui
+ *       reprend la provision d'un encours devenu nul ; un credit clos avant elle emporterait sa
+ *       provision hors du portefeuille classe, et elle ne serait jamais reprise.</li>
  *   <li><b>Les charges de retard apres le prelevement.</b> Un compte provisionne a deja ete
  *       debite de son echeance et n'a rien a payer au titre du retard. L'ordre inverse
  *       penaliserait un client qui paie.</li>
@@ -73,6 +77,7 @@ public final class StandardTfj {
             new LoanScheduleStep(loanService),
             new LoanLateChargesStep(lateService),
             new LoanClassificationStep(classificationService),
+            new LoanClosureStep(loanService),
             new InterestAccrualStep(database, interestService),
             new BalanceSnapshotStep(database),
             new ReconciliationStep(database),

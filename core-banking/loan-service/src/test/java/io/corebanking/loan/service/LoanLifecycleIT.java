@@ -12,6 +12,7 @@ import io.corebanking.loan.ScheduleGenerator;
 import io.corebanking.ledger.store.LedgerStoreException;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +41,39 @@ class LoanLifecycleIT extends LoanTestBase {
 
         assertThat(solde(decor.pret())).isEqualTo(xof("1000000"));
         assertThat(solde(decor.courant())).isEqualTo(xof("1000000"));
+    }
+
+    @Test
+    @DisplayName("un contrat ne se porte ni sur un compte d'une autre entite, ni sur un compte general")
+    void contratSurCompteImpropre() {
+        Decor decor = decor("D0");
+        Decor ailleurs = decor("D0B");
+        product(decor, "CRED-D0", Map.of());
+
+        // Le deblocage aurait ete refuse par le ledger — compte d'une autre entite — apres que
+        // le contrat, sa reference et son plan ont ete saisis. Le refus intervient a la saisie.
+        assertThatThrownBy(() -> database.inTransaction(c -> LoanStore.createContract(
+            c, new LoanStore.ContractDraft(decor.entityId(), "REF-D0", "CRED-D0", Currencies.XOF,
+                                           decor.pret().id(), ailleurs.courant().id(), xof("1000000"),
+                                           DEBLOCAGE, ACTOR))))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("compte de reglement")
+            .hasMessageContaining("appartient a une autre entite juridique");
+
+        assertThatThrownBy(() -> database.inTransaction(c -> LoanStore.createContract(
+            c, new LoanStore.ContractDraft(decor.entityId(), "REF-D0", "CRED-D0", Currencies.XOF,
+                                           decor.creances().id(), decor.courant().id(),
+                                           xof("1000000"), DEBLOCAGE, ACTOR))))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("compte de pret")
+            .hasMessageContaining("de nature GL");
+
+        assertThatThrownBy(() -> database.inTransaction(c -> LoanStore.createContract(
+            c, new LoanStore.ContractDraft(decor.entityId(), "REF-D0", "CRED-ABSENT",
+                                           Currencies.XOF, decor.pret().id(), decor.courant().id(),
+                                           xof("1000000"), DEBLOCAGE, ACTOR))))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Aucun produit CRED-ABSENT");
     }
 
     @Test
@@ -142,6 +176,95 @@ class LoanLifecycleIT extends LoanTestBase {
         // L'encours ne diminue qu'ici, du capital effectivement rembourse.
         assertThat(solde(decor.pret())).isEqualTo(xof("921151"));
         assertThat(solde(decor.creances()).isZero()).isTrue();
+    }
+
+    @Test
+    @DisplayName("la derniere echeance reglee, le credit est clos a l'arrete — pas avant")
+    void clotureALaDerniereEcheance() {
+        Decor decor = decor("R1C");
+        product(decor, "CRED-R1C", Map.of(LoanCatalog.P_DIRECT_DEBIT, "true"));
+        UUID contrat = contract(decor, "REF-R1C", "CRED-R1C", "1000000");
+        loanService.disburse(contrat, echeancier("1000000"), ACTOR, APPROVER);
+        // Douze annuites de 88 849, soit 1 066 188 : le deblocage en a apporte 1 000 000.
+        alimenter(decor, "70000", DEBLOCAGE, "alim-R1C");
+
+        // Onze echeances reclamees et prelevees : il en reste une, le credit reste actif.
+        LocalDate onzieme = PREMIERE_ECHEANCE.plusMonths(10);
+        loanService.makeDue(decor.entityId(), onzieme, ACTOR, UUID.randomUUID());
+        LoanService.ClosureOutcome tropTot = loanService.closeSettled(decor.entityId(), onzieme,
+                                                                      UUID.randomUUID());
+        assertThat(tropTot.examined()).isZero();
+        assertThat(statut(contrat)).isEqualTo("ACTIVE");
+
+        // Douzieme echeance : plus rien a reclamer, encours nul, le credit est clos et date.
+        LocalDate derniere = PREMIERE_ECHEANCE.plusMonths(11);
+        loanService.makeDue(decor.entityId(), derniere, ACTOR, UUID.randomUUID());
+        assertThat(solde(decor.pret()).isZero()).isTrue();
+        LoanService.ClosureOutcome outcome = loanService.closeSettled(decor.entityId(), derniere,
+                                                                      UUID.randomUUID());
+        assertThat(outcome.anomalies()).isEmpty();
+        assertThat(outcome.closed()).isEqualTo(1);
+        assertThat(statut(contrat)).isEqualTo("CLOSED");
+        assertThat(clotureLe(contrat)).isEqualTo(derniere);
+
+        // Clos, il sort du portefeuille examine par les arretes suivants.
+        assertThat(loanService.makeDue(decor.entityId(), derniere.plusMonths(1), ACTOR,
+                                       UUID.randomUUID()).contractsExamined()).isZero();
+    }
+
+    @Test
+    @DisplayName("un encours residuel sans echeance ni creance n'est pas clos : il est nomme")
+    void encoursResiduelNomme() {
+        Decor decor = decor("R1D");
+        product(decor, "CRED-R1D", Map.of(LoanCatalog.P_DIRECT_DEBIT, "true"));
+        UUID contrat = contract(decor, "REF-R1D", "CRED-R1D", "1000000");
+        loanService.disburse(contrat, echeancier("1000000"), ACTOR, APPROVER);
+        alimenter(decor, "70000", DEBLOCAGE, "alim-R1D");
+        LocalDate derniere = PREMIERE_ECHEANCE.plusMonths(11);
+        loanService.makeDue(decor.entityId(), derniere, ACTOR, UUID.randomUUID());
+
+        // Un franc porte au compte de pret hors de tout echeancier : un ecart entre le compte et
+        // le sous-livre, tel qu'une reprise de portefeuille ou une ecriture manuelle en produit.
+        postingService.post(io.corebanking.ledger.domain.posting.PostingCommand.online(
+            io.corebanking.kernel.id.IdempotencyKey.of("ecart-R1D"), decor.entityId(), derniere,
+            "MANUAL", ACTOR,
+            List.of(io.corebanking.ledger.domain.posting.PostingLine.debit(
+                        decor.pret().id(), xof("1"), derniere, null),
+                    io.corebanking.ledger.domain.posting.PostingLine.credit(
+                        decor.caisse().id(), xof("1"), derniere, null))));
+
+        LoanService.ClosureOutcome outcome = loanService.closeSettled(decor.entityId(), derniere,
+                                                                      UUID.randomUUID());
+        // Le faire disparaitre en cloturant quand meme masquerait precisement ce que le
+        // rapprochement du grand livre ne voit pas : le grand livre, lui, est equilibre.
+        assertThat(outcome.closed()).isZero();
+        assertThat(outcome.anomalies()).singleElement().asString()
+            .contains("REF-R1D").contains("encours residuel de 1")
+            .contains("ecart entre le compte de pret et le sous-livre");
+        assertThat(statut(contrat)).isEqualTo("ACTIVE");
+    }
+
+    private static String statut(UUID contractId) {
+        return lireContrat(contractId, "status");
+    }
+
+    private static LocalDate clotureLe(UUID contractId) {
+        return LocalDate.parse(lireContrat(contractId, "closed_on"));
+    }
+
+    private static String lireContrat(UUID contractId, String colonne) {
+        return database.inTransaction(c -> {
+            try (var ps = c.prepareStatement(
+                "SELECT " + colonne + "::text FROM loan_contract WHERE id = ?")) {
+                ps.setObject(1, contractId);
+                try (var rs = ps.executeQuery()) {
+                    rs.next();
+                    return rs.getString(1);
+                }
+            } catch (java.sql.SQLException e) {
+                throw new io.corebanking.ledger.store.LedgerStoreException("Lecture du contrat", e);
+            }
+        });
     }
 
     @Test

@@ -5,6 +5,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -36,6 +37,9 @@ import java.util.Set;
  *                     parametre.
  * @param groups       blocs repetes, indexes par une liste declaree ailleurs — les commissions,
  *                     dont le nombre varie d'un produit a l'autre
+ * @param accounts     parametres qui designent un compte general. Leur valeur n'est pas un texte
+ *                     libre : le compte doit exister et convenir, ce que seule la base peut dire —
+ *                     d'ou le {@link AccountChecker} fourni par l'appelant
  */
 public record ProductFamily(
     String code,
@@ -44,7 +48,8 @@ public record ProductFamily(
     Set<String> optional,
     List<OneOf> requireOneOf,
     List<Condition> conditions,
-    List<Group> groups) {
+    List<Group> groups,
+    Set<String> accounts) {
 
     /** Prefixe designant un bareme par tranches plutot qu'un parametre. */
     public static final String TIER = "tier:";
@@ -59,6 +64,23 @@ public record ProductFamily(
         requireOneOf = List.copyOf(requireOneOf == null ? List.of() : requireOneOf);
         conditions = List.copyOf(conditions == null ? List.of() : conditions);
         groups = List.copyOf(groups == null ? List.of() : groups);
+        accounts = Set.copyOf(accounts == null ? Set.of() : accounts);
+    }
+
+    /**
+     * Ce que la base sait d'un compte cite par le parametrage, et que la famille ne sait pas.
+     *
+     * <p>La famille declare qu'un parametre est un compte ; seule la base peut dire s'il existe,
+     * a qui il appartient et dans quelle devise il est tenu. Le controle est injecte plutot que
+     * code ici pour que la validation reste pure et testable sans base.
+     */
+    @FunctionalInterface
+    public interface AccountChecker {
+        /** Description du defaut du compte, vide s'il convient. */
+        Optional<String> problemWith(String parameter, String accountId);
+
+        /** Aucun controle : les tests de la famille elle-meme. */
+        AccountChecker NONE = (parameter, accountId) -> Optional.empty();
     }
 
     /**
@@ -126,13 +148,14 @@ public record ProductFamily(
      * @param listParameter parametre portant la liste des elements, separes par des virgules
      */
     public record Group(String listParameter, Set<String> required, Set<String> optional,
-                        List<Condition> conditions) {
+                        List<Condition> conditions, Set<String> accounts) {
 
         public Group {
             Objects.requireNonNull(listParameter, "listParameter");
             required = Set.copyOf(required == null ? Set.of() : required);
             optional = Set.copyOf(optional == null ? Set.of() : optional);
             conditions = List.copyOf(conditions == null ? List.of() : conditions);
+            accounts = Set.copyOf(accounts == null ? Set.of() : accounts);
         }
 
         List<String> elementsIn(Map<String, String> parameters) {
@@ -164,7 +187,13 @@ public record ProductFamily(
      */
     public void validate(String productCode, Map<String, String> parameters,
                          Set<String> tierPurposes) {
+        validate(productCode, parameters, tierPurposes, AccountChecker.NONE);
+    }
+
+    public void validate(String productCode, Map<String, String> parameters,
+                         Set<String> tierPurposes, AccountChecker accounts) {
         List<String> problems = new ArrayList<>();
+        Set<String> accountParameters = new LinkedHashSet<>(this.accounts);
         Set<String> known = new LinkedHashSet<>(required);
         known.addAll(optional);
 
@@ -194,6 +223,7 @@ public record ProductFamily(
                     }
                 }
                 known.addAll(substituteAll(group.optional(), element));
+                accountParameters.addAll(substituteAll(group.accounts(), element));
                 List<Condition> resolved = group.conditions().stream()
                     .map(condition -> condition.substitute(element)).toList();
                 checkConditions(resolved, parameters, tierPurposes, known, problems);
@@ -203,6 +233,12 @@ public record ProductFamily(
         for (String name : parameters.keySet()) {
             if (!known.contains(name)) {
                 problems.add("parametre inconnu de la famille " + code + " : " + name);
+            }
+        }
+        for (String name : accountParameters) {
+            String value = parameters.get(name);
+            if (value != null) {
+                accounts.problemWith(name, value).ifPresent(problems::add);
             }
         }
         if (!problems.isEmpty()) {

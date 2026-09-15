@@ -31,10 +31,12 @@ mvn test
 ```
 
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
-requise. Les binaires sont téléchargés au premier lancement.
+requise. Les binaires sont téléchargés au premier lancement. Chaque base de test est montée par
+`SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
+build, pas seulement le jour du déploiement.
 
-**État actuel : 465 tests verts** — 291 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 174 sur PostgreSQL réel.
+**État actuel : 487 tests verts** — 297 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 190 sur PostgreSQL réel.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -72,6 +74,18 @@ classification et provisionnement à 1,168 ms par crédit, mobilisation et inté
 | Une commission déclarée sans compte de produit ne se déploie pas | Bloc répété du descripteur | `commissionSansCompte` |
 | Un fichier de familles incohérent fait échouer le chargement | `ProductFamilies.parse` | `conditionSansDeclencheur`, `marqueurMalPlace` |
 | Tout paramètre lu par le code est déclaré par une famille, et réciproquement | Test d'accord par module | `parametresDeCreditDeclares`, `aucunParametreMort` |
+| Un compte cité par le paramétrage existe, est général, de l'entité et de la devise du produit | `ProductCatalog.validate` | `an_unknown_account_is_refused_at_activation`, `a_foreign_or_customer_account_is_refused` |
+| Un compte ne se rattache pas à un produit absent ou d'une autre devise | `ProductCatalog.assignProduct` | `assignment_checks_currency_and_existence` |
+| Un contrat ne se porte que sur des comptes clients de son entité, dans sa devise | `LoanStore.createContract` | `contratSurCompteImpropre` |
+| Les scripts s'appliquent en ordre, avec somme de contrôle ; un script modifié ou disparu est refusé | `SchemaMigrator` | `modifiedScriptIsRefused`, `vanishedModuleIsRefused`, `outOfOrderScriptIsRefused` |
+| Un déploiement refuse un classpath à trous | `SchemaMigrator.Gaps.REFUSED` | `gaps` |
+| La bascule de journée garantit les partitions à trois mois et la période comptable suivante | `OpenNextDayStep` | `the_year_end_run_prepares_january_on_its_own` |
+| Une période close n'est pas rouverte par la bascule : le contrôle préalable la nomme | `PreChecksStep` | `a_closed_period_is_named_not_reopened` |
+| Une journée ne s'annule pas sous une journée suivante arrêtée | `TfjEngine.cancel` | `cancelling_a_day_behind_a_later_run_is_refused` |
+| Un crédit sans échéance à venir ni créance ouverte est clos à l'arrêté, après la classification | `LoanService.closeSettled` | `clotureALaDerniereEcheance`, `clotureParLArreteEtReouverture` |
+| Un encours résiduel sur un crédit soldé est nommé, jamais effacé | idem | `encoursResiduelNomme` |
+| Toute opération du catalogue est réclamée par un point d'entrée, ou est une consultation | `OperationCoverageTest` | `every_operation_is_claimed` |
+| Une règle plafonnée plafonne chacun de ses rôles | idem | `every_ceilinged_rule_covers_all_its_roles` |
 | Toute opération protégée porte une règle | Bloc statique de `SecurityConfig` | `the_policy_is_exhaustive` |
 | Aucune annotation d'habilitation dans le code | Scan du code de production | `no_authorization_annotation_anywhere` |
 | Refus avant tout effet de bord | `UseCaseExecutor`, point unique | `a_denial_happens_before_any_side_effect` |
@@ -557,14 +571,17 @@ mesure la dérive évitée : **25 XOF par an et par compte**, soit 12,5 M XOF su
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
 - API REST et couche Spring Boot (le ledger reste sans framework, c'est délibéré), qui câblera
-  `RoleStartupTask`, `UseCaseExecutor` et le serveur de ressources Keycloak ;
+  `RoleStartupTask`, `UseCaseExecutor` et le serveur de ressources Keycloak — et rendra mécanique
+  le rattachement point d'entrée → opération que `OperationCoverageTest` tient à la main ;
 - crédit : origination (demande, scoring, décision, conditions suspensives) — le déblocage par
   tranches, lui, est fait ; la commission d'engagement sur la fraction non tirée se paramètre comme
   une commission ordinaire et n'a pas encore de barème dédié ;
 - plafonds et limites paramétrés, et le maker-checker généralisé (la table `pending_operation`
   existe, le workflow n'est pas écrit) ;
 - capitalisation des intérêts, dormance, découverts et agios côté produit ;
-- archivage des partitions ;
+- archivage des partitions (leur création, elle, est garantie par le TFJ) ;
+- clôture mensuelle (TFM) : la période suivante s'ouvre seule, sa clôture reste une opération
+  comptable sans traitement ;
 - contrôle du cours appliqué contre la table de référence — le ledger valide la cohérence des
   contre-valeurs, pas la justesse d'un cours uniforme.
 
@@ -617,6 +634,14 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Un paramètre non déclaré par la famille est refusé, pas ignoré | C'est le seul moyen de distinguer une valeur inutile d'une valeur mal nommée |
 | Une condition de paramétrage porte aussi sur la valeur par défaut | Un paramètre absent est un paramètre qu'on a oublié : n'examiner que les valeurs saisies laisserait passer le cas le plus fréquent |
 | Un produit non rémunéré se paramètre à taux nul, explicitement | L'accrual visite tout compte rattaché à un produit ; le laisser sauter les produits sans taux ferait payer zéro intérêt à un livret mal paramétré, en silence |
+| Chaque module déclare ses scripts de schéma dans `db/migrations.list` | L'énumération d'un répertoire n'est pas portable d'un jar à l'autre ; une déclaration se relit, et un script oublié échoue dans les tests du module qui l'a écrit |
+| La montée de version refuse un classpath à trous, sauf demande explicite | Un module absent du déploiement se voit au démarrage, pas au premier appel qui le demande ; les tests d'un module, qui ne voient que ses dépendances, s'en dispensent en le disant |
+| Toute la montée de version tient dans une transaction | PostgreSQL rend le DDL transactionnel : un échec à mi-chemin ne laisse rien, et deux instances démarrées ensemble se sérialisent sur un verrou consultatif |
+| La bascule de journée garantit partitions et période, mais ne rouvre pas une période close | Créer ce que le système sait créer ; rouvrir est une décision comptable |
+| Les journées s'annulent de la plus récente à la plus ancienne | Restaurer la date à N sous un N+1 arrêté laisserait N+1 tenue pour faite sur un état que ses écritures ne décrivent plus |
+| Un crédit soldé est clos à l'arrêté, après la classification, jamais au dernier règlement | La classification reprend la provision d'un encours devenu nul ; un contrat clos avant elle emporterait sa provision hors du portefeuille |
+| Un encours résiduel sur un crédit soldé bloque l'arrêté | C'est un écart entre le compte de prêt et le sous-livre — celui que le rapprochement du grand livre ne voit pas |
+| La création d'une entité ou d'une devise n'est pas une opération du catalogue | Ce sont des actes de déploiement, pas d'exploitation ; une opération à périmètre « toute entité » n'aurait pas de règle sensée |
 | Aucun échéancier n'est publié pendant la mobilisation | Le capital à amortir n'est pas connu ; en publier un réclamerait l'amortissement d'un capital non versé |
 | La mobilisation se clôt à sa date limite, même si tout est tiré | C'est le contrat qui fixe le début de l'amortissement, pas le rythme du chantier |
 | Le montant mobilisé n'est pas stocké, il se lit sur les tranches débloquées | Le dénormaliser ferait exister deux vérités sur le capital, et rien ne garantirait que celle qui commande l'échéancier soit la bonne |

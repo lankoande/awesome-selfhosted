@@ -11,10 +11,6 @@ import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.ledger.store.SchemaMigrator;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.Set;
@@ -39,8 +35,7 @@ class CalendarIT {
         postgres = EmbeddedPostgres.builder().start();
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 4);
-        SchemaMigrator.migrate(database);
-        applyScript("/db/V7__calendar.sql");
+        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
         database.inTransaction(c -> {
             Entities.insertCurrency(c, Currencies.XOF, "Franc CFA BCEAO");
             Entities.insertLegalEntity(c, ENTITY, "BANK-CI", "Banque", "CI", Currencies.XOF, DEBUT);
@@ -52,23 +47,6 @@ class CalendarIT {
     static void stop() throws IOException {
         if (database != null) database.close();
         if (postgres != null) postgres.close();
-    }
-
-    private static void applyScript(String resource) {
-        String sql;
-        try (InputStream in = CalendarIT.class.getResourceAsStream(resource)) {
-            sql = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new LedgerStoreException("Lecture de " + resource, e);
-        }
-        database.inTransaction(c -> {
-            try (Statement st = c.createStatement()) {
-                st.execute(sql);
-                return null;
-            } catch (SQLException e) {
-                throw new LedgerStoreException("Application de " + resource, e);
-            }
-        });
     }
 
     private ValueDateRule rule(String type, String channel, Direction sens, int decalage,

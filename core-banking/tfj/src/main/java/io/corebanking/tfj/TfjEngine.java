@@ -188,6 +188,17 @@ public final class TfjEngine {
         if (reason == null || reason.isBlank()) {
             throw new TfjRefusedException("Motif d'annulation obligatoire.");
         }
+        // Une journee ne s'annule pas sous une journee suivante deja arretee. Restaurer la date a
+        // N alors que N+1 a tourne laisserait N+1 tenue pour faite sur un etat que ses ecritures
+        // ne decrivent plus ; rejouer N puis relancer N+1 rendrait l'ancien rapport sans rien
+        // recalculer. Les annulations se font de la plus recente a la plus ancienne.
+        laterRealRun(run.legalEntityId(), run.businessDate()).ifPresent(later -> {
+            throw new TfjRefusedException(
+                "Le TFJ du " + later + " a ete execute apres celui du " + run.businessDate()
+                + ". Les journees s'annulent de la plus recente a la plus ancienne : annuler "
+                + "celle-ci d'abord laisserait la suivante arretee sur un etat que ses ecritures "
+                + "ne decrivent plus.");
+        });
 
         for (PostedEntry entry : entriesOf(runId)) {
             postingService.reverse(entry.id(), entry.bookingDate(), reversalBookingDate,
@@ -200,6 +211,7 @@ public final class TfjEngine {
             neutraliseFees(connection, runId);
             neutraliseLoanDues(connection, runId);
             neutraliseMobilisation(connection, runId);
+            neutraliseLoanClosures(connection, runId);
             setBusinessDate(connection, run.legalEntityId(), run.businessDate());
             markCancelled(connection, runId, actorId, reason);
             return null;
@@ -368,16 +380,19 @@ public final class TfjEngine {
         } catch (SQLException e) {
             throw new LedgerStoreException("Reouverture des mobilisations closes par le TFJ", e);
         }
-        // Le contrat clos faute de tirage redevient actif : la date limite qui l'a fait tomber
-        // appartient a une journee qui n'a plus eu lieu.
+    }
+
+    /**
+     * Rend actifs les credits clos par le traitement annule — soldes, ou jamais tires.
+     *
+     * <p>Une cloture n'est pas plus definitive que l'arrete qui l'a prononcee : le contrat porte
+     * le traitement qui l'a clos, et c'est lui qui le rouvre.
+     */
+    private void neutraliseLoanClosures(Connection connection, UUID runId) {
         try (PreparedStatement ps = connection.prepareStatement(
-            "UPDATE loan_contract l SET status = 'ACTIVE'"
-            + "  FROM loan_mobilisation m"
-            + " WHERE m.contract_id = l.id AND m.closed_run_id IS NULL AND m.closed_on IS NULL"
-            + "   AND l.status = 'CLOSED'"
-            + "   AND EXISTS (SELECT 1 FROM loan_tranche t"
-            + "                WHERE t.contract_id = l.id AND t.cancelled_run_id IS NULL"
-            + "                  AND t.status = 'PLANNED')")) {
+            "UPDATE loan_contract SET status = 'ACTIVE', closed_on = NULL, closed_run_id = NULL"
+            + " WHERE closed_run_id = ?")) {
+            ps.setObject(1, runId);
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new LedgerStoreException("Reouverture des credits clos par le TFJ", e);
@@ -554,6 +569,26 @@ public final class TfjEngine {
                 }
             } catch (SQLException e) {
                 throw new LedgerStoreException("Recherche du TFJ de la journee", e);
+            }
+        });
+    }
+
+    /** Journee reelle, non annulee, arretee apres la date donnee — la plus proche. */
+    private Optional<LocalDate> laterRealRun(UUID legalEntityId, LocalDate businessDate) {
+        return database.inTransaction(connection -> {
+            try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT MIN(business_date) FROM batch_run"
+                + " WHERE legal_entity_id = ? AND business_date > ? AND run_type = ?"
+                + "   AND mode = 'REAL' AND status <> 'CANCELLED'")) {
+                ps.setObject(1, legalEntityId);
+                ps.setObject(2, businessDate);
+                ps.setString(3, RUN_TYPE);
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    return Optional.ofNullable(rs.getObject(1, LocalDate.class));
+                }
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Recherche des journees posterieures", e);
             }
         });
     }

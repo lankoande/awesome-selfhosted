@@ -470,7 +470,7 @@ public final class LoanMobilisationService {
             // mieux que de publier un echeancier sur un capital nul, qui ferait vivre un contrat
             // vide dans tous les etats de portefeuille.
             Tranches.close(c, contract.id(), on, batchRunId);
-            LoanStore.close(c, contract.id());
+            LoanStore.close(c, contract.id(), on, batchRunId);
             return;
         }
         if (!on.plusDays(1).isBefore(mobilisation.firstDueDate())) {

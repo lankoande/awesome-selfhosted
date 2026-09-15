@@ -36,7 +36,7 @@ abstract class LedgerTestBase {
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 16);
 
-        SchemaMigrator.migrate(database);
+        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
         SchemaMigrator.ensurePartitions(database,
             BUSINESS_DATE.minusMonths(6), BUSINESS_DATE.plusMonths(6));
 

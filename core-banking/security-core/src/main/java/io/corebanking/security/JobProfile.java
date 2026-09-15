@@ -29,6 +29,8 @@ public enum JobProfile {
     CHEF_AGENCE("Chef d'agence", Set.of(Roles.TELLER, Roles.BRANCH_MANAGER)),
 
     CHARGE_CLIENTELE("Charge de clientele", Set.of(Roles.CUSTOMER_OFFICER)),
+    CHARGE_CREDIT("Charge de credit", Set.of(Roles.CREDIT_OFFICER)),
+    RESPONSABLE_ENGAGEMENTS("Responsable des engagements", Set.of(Roles.CREDIT_MANAGER)),
 
     COMPTABLE("Comptable", Set.of(Roles.ACCOUNTANT)),
 

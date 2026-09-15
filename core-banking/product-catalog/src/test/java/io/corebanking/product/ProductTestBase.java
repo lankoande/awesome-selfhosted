@@ -12,10 +12,6 @@ import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.ledger.store.SchemaMigrator;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
@@ -36,9 +32,7 @@ abstract class ProductTestBase {
         postgres = EmbeddedPostgres.builder().start();
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 8);
-        SchemaMigrator.migrate(database);
-        applyScript("/db/V3__product.sql");
-        applyScript("/db/V5__accounting_schema.sql");
+        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
 
         database.inTransaction(c -> {
             Entities.insertCurrency(c, Currencies.XOF, "Franc CFA BCEAO");
@@ -52,23 +46,6 @@ abstract class ProductTestBase {
     static void stop() throws IOException {
         if (database != null) database.close();
         if (postgres != null) postgres.close();
-    }
-
-    protected static void applyScript(String resource) {
-        String sql;
-        try (InputStream in = ProductTestBase.class.getResourceAsStream(resource)) {
-            sql = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new LedgerStoreException("Lecture de " + resource, e);
-        }
-        database.inTransaction(c -> {
-            try (Statement st = c.createStatement()) {
-                st.execute(sql);
-                return null;
-            } catch (SQLException e) {
-                throw new LedgerStoreException("Application de " + resource, e);
-            }
-        });
     }
 
     protected static Account gl(String code) {

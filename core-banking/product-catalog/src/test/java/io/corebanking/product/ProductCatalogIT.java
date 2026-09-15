@@ -6,6 +6,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.corebanking.interest.rate.Tier;
 import io.corebanking.interest.rate.TieringMode;
 import io.corebanking.kernel.money.Currencies;
+import io.corebanking.ledger.store.Entities;
+import io.corebanking.ledger.store.Accounts;
+import io.corebanking.ledger.domain.account.NormalBalance;
+import io.corebanking.ledger.domain.account.AccountStatus;
+import io.corebanking.ledger.domain.account.AccountKind;
+import io.corebanking.ledger.domain.account.Account;
 import io.corebanking.kernel.money.Money;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -21,13 +27,22 @@ class ProductCatalogIT extends ProductTestBase {
 
     private ProductCatalog.Draft draft(String code, LocalDate from, LocalDate to, String rate) {
         return new ProductCatalog.Draft(ENTITY, code, "SAVINGS_ACCOUNT", "Epargne", "XOF",
-            from, to,
-            Map.of(ProductCatalog.P_RATE, rate,
-                   ProductCatalog.P_DAY_COUNT, "ACT_365",
-                   ProductCatalog.P_SIDE, "CREDITOR",
-                   ProductCatalog.P_DEBIT_ACCOUNT, UUID.randomUUID().toString(),
-                   ProductCatalog.P_CREDIT_ACCOUNT, UUID.randomUUID().toString()),
-            List.of(), REDACTEUR);
+            from, to, interestParameters(rate), List.of(), REDACTEUR);
+    }
+
+    /** Parametres d'interets complets, sur des comptes generaux qui existent. */
+    private static Map<String, String> interestParameters(String rate) {
+        Map<String, String> parameters = new java.util.LinkedHashMap<>();
+        if (rate != null) {
+            parameters.put(ProductCatalog.P_RATE, rate);
+        }
+        parameters.put(ProductCatalog.P_DAY_COUNT, "ACT_365");
+        parameters.put(ProductCatalog.P_SIDE, "CREDITOR");
+        parameters.put(ProductCatalog.P_DEBIT_ACCOUNT,
+                       gl("GL-CHARGES-" + UUID.randomUUID(), NormalBalance.DEBIT).id().toString());
+        parameters.put(ProductCatalog.P_CREDIT_ACCOUNT,
+                       gl("GL-COURUS-" + UUID.randomUUID()).id().toString());
+        return parameters;
     }
 
     private UUID publish(ProductCatalog.Draft draft) {
@@ -100,11 +115,7 @@ class ProductCatalogIT extends ProductTestBase {
     void tiered_schedule_round_trips() {
         var avecTranches = new ProductCatalog.Draft(ENTITY, "EP-TIERS", "SAVINGS_ACCOUNT",
             "Epargne par tranches", "XOF", D, null,
-            Map.of(ProductCatalog.P_DAY_COUNT, "ACT_365",
-                   ProductCatalog.P_SIDE, "CREDITOR",
-                   ProductCatalog.P_TIERING_MODE, TieringMode.PROGRESSIVE.name(),
-                   ProductCatalog.P_DEBIT_ACCOUNT, UUID.randomUUID().toString(),
-                   ProductCatalog.P_CREDIT_ACCOUNT, UUID.randomUUID().toString()),
+            withTiering(interestParameters(null)),
             List.of(Tier.of("0", "5000000", "2"), Tier.of("5000000", null, "3")), REDACTEUR);
         publish(avecTranches);
 
@@ -124,9 +135,7 @@ class ProductCatalogIT extends ProductTestBase {
     void gapped_tiers_are_refused_at_deployment() {
         var lacunaire = new ProductCatalog.Draft(ENTITY, "EP-LACUNE", "SAVINGS_ACCOUNT", "Epargne",
             "XOF", D, null,
-            Map.of(ProductCatalog.P_DAY_COUNT, "ACT_365", ProductCatalog.P_SIDE, "CREDITOR",
-                   ProductCatalog.P_DEBIT_ACCOUNT, UUID.randomUUID().toString(),
-                   ProductCatalog.P_CREDIT_ACCOUNT, UUID.randomUUID().toString()),
+            interestParameters(null),
             List.of(Tier.of("0", "1000000", "2"), Tier.of("2000000", null, "3")), REDACTEUR);
 
         assertThatThrownBy(() -> publish(lacunaire))
@@ -163,6 +172,93 @@ class ProductCatalogIT extends ProductTestBase {
         assertThatThrownBy(() -> database.inTransaction(c ->
             ProductCatalog.resolveAt(c, ENTITY, "EP-INCOMPLET", D)))
             .isInstanceOf(ProductNotFoundException.class);
+    }
+
+    private static Map<String, String> withTiering(Map<String, String> parameters) {
+        parameters.put(ProductCatalog.P_TIERING_MODE, TieringMode.PROGRESSIVE.name());
+        return parameters;
+    }
+
+    @Test
+    @DisplayName("un compte inconnu cite par le parametrage est refuse a l'activation, nomme")
+    void an_unknown_account_is_refused_at_activation() {
+        Map<String, String> parameters = interestParameters("3");
+        parameters.put(ProductCatalog.P_CREDIT_ACCOUNT, UUID.randomUUID().toString());
+        var fantome = new ProductCatalog.Draft(ENTITY, "EP-FANTOME", "SAVINGS_ACCOUNT", "Epargne",
+                                               "XOF", D, null, parameters, List.of(), REDACTEUR);
+
+        // La premiere ecriture d'interets aurait ete refusee par le ledger — de nuit, sur une
+        // etape bloquante. Le refus intervient maintenant devant celui qui parametre.
+        assertThatThrownBy(() -> publish(fantome))
+            .isInstanceOf(ProductFamily.IncompleteProductException.class)
+            .hasMessageContaining("interest.credit_account")
+            .hasMessageContaining("inconnu");
+    }
+
+    @Test
+    @DisplayName("un compte d'une autre entite, ou un compte client, ne recoit pas les produits")
+    void a_foreign_or_customer_account_is_refused() {
+        UUID filiale = UUID.randomUUID();
+        Account ailleurs = database.inTransaction(c -> {
+            Entities.insertLegalEntity(c, filiale, "BANK-SN", "Filiale", "SN", Currencies.XOF,
+                                       BUSINESS_DATE);
+            Account account = new Account(UUID.randomUUID(), filiale, "GL-SN-COURUS",
+                                          AccountKind.GL, NormalBalance.CREDIT, Currencies.XOF,
+                                          true, false, 1, AccountStatus.ACTIVE);
+            Accounts.create(c, account, BUSINESS_DATE);
+            return account;
+        });
+        Map<String, String> parameters = interestParameters("3");
+        parameters.put(ProductCatalog.P_CREDIT_ACCOUNT, ailleurs.id().toString());
+        assertThatThrownBy(() -> publish(new ProductCatalog.Draft(ENTITY, "EP-SN", "SAVINGS_ACCOUNT",
+            "Epargne", "XOF", D, null, parameters, List.of(), REDACTEUR)))
+            .isInstanceOf(ProductFamily.IncompleteProductException.class)
+            .hasMessageContaining("appartient a une autre entite juridique");
+
+        // Un compte client comme compte de produit : les interets de tous les livrets iraient a
+        // un seul client. Un compte general est attendu.
+        Account client = database.inTransaction(c -> {
+            Account account = new Account(UUID.randomUUID(), ENTITY, "CLI-PRODUITS",
+                                          AccountKind.CUSTOMER, NormalBalance.CREDIT,
+                                          Currencies.XOF, true, false, 1, AccountStatus.ACTIVE);
+            Accounts.create(c, account, BUSINESS_DATE);
+            return account;
+        });
+        Map<String, String> surClient = interestParameters("3");
+        surClient.put(ProductCatalog.P_CREDIT_ACCOUNT, client.id().toString());
+        assertThatThrownBy(() -> publish(new ProductCatalog.Draft(ENTITY, "EP-CLI", "SAVINGS_ACCOUNT",
+            "Epargne", "XOF", D, null, surClient, List.of(), REDACTEUR)))
+            .isInstanceOf(ProductFamily.IncompleteProductException.class)
+            .hasMessageContaining("de nature CUSTOMER, un compte general est attendu");
+    }
+
+    @Test
+    @DisplayName("un compte ne se rattache pas a un produit d'une autre devise, ni a un produit absent")
+    void assignment_checks_currency_and_existence() {
+        publish(draft("EP-XOF", D, null, "3"));
+        Account enEuros = database.inTransaction(c -> {
+            Entities.insertCurrency(c, Currencies.EUR, "Euro");
+            Account account = new Account(UUID.randomUUID(), ENTITY, "CLI-EUR",
+                                          AccountKind.CUSTOMER, NormalBalance.CREDIT,
+                                          Currencies.EUR, true, false, 1, AccountStatus.ACTIVE);
+            Accounts.create(c, account, BUSINESS_DATE);
+            return account;
+        });
+
+        // Le compte serait remunere au bareme de l'un sur les soldes de l'autre, et rien dans
+        // l'ecriture ne le dirait.
+        assertThatThrownBy(() -> database.inTransaction(c -> {
+            ProductCatalog.assignProduct(c, enEuros.id(), "EP-XOF", D, null);
+            return null;
+        })).isInstanceOf(IllegalArgumentException.class)
+           .hasMessageContaining("est en XOF alors que le compte CLI-EUR est en EUR");
+
+        Account livret = gl("CLI-LIVRET");
+        assertThatThrownBy(() -> database.inTransaction(c -> {
+            ProductCatalog.assignProduct(c, livret.id(), "EP-INEXISTANT", D, null);
+            return null;
+        })).isInstanceOf(IllegalArgumentException.class)
+           .hasMessageContaining("Aucun produit EP-INEXISTANT");
     }
 
     @Test

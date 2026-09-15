@@ -63,7 +63,10 @@ public final class ProductFamilies {
      * designe un parametre que le code lit et que l'activation refusera.
      */
     public static Set<String> declaredParameters(String type) {
-        ProductFamily family = require(type);
+        return declaredParameters(require(type));
+    }
+
+    static Set<String> declaredParameters(ProductFamily family) {
         Set<String> names = new TreeSet<>(family.required());
         names.addAll(family.optional());
         for (ProductFamily.OneOf alternative : family.requireOneOf()) {
@@ -139,7 +142,7 @@ public final class ProductFamilies {
     private record Block(Set<String> required, Set<String> optional,
                          List<ProductFamily.OneOf> requireOneOf,
                          List<ProductFamily.Condition> conditions,
-                         List<ProductFamily.Group> groups) {}
+                         List<ProductFamily.Group> groups, Set<String> accounts) {}
 
     private static Map<String, Block> blocks(Object raw) {
         Map<String, Block> blocks = new LinkedHashMap<>();
@@ -153,7 +156,8 @@ public final class ProductFamilies {
                 names(body.get("optional"), entry.getKey()),
                 oneOfs(body.get("requireOneOf"), entry.getKey()),
                 conditions(body.get("conditions"), entry.getKey(), false),
-                groups(body.get("groups"), entry.getKey())));
+                groups(body.get("groups"), entry.getKey()),
+                names(body.get("accounts"), entry.getKey())));
         }
         return blocks;
     }
@@ -166,6 +170,7 @@ public final class ProductFamilies {
         List<ProductFamily.Condition> conditions =
             new ArrayList<>(conditions(raw.get("conditions"), code, false));
         List<ProductFamily.Group> groups = new ArrayList<>(groups(raw.get("groups"), code));
+        Set<String> accounts = new LinkedHashSet<>(names(raw.get("accounts"), code));
 
         for (String included : names(raw.get("includes"), code)) {
             Block block = blocks.get(included);
@@ -178,6 +183,7 @@ public final class ProductFamilies {
             oneOfs.addAll(block.requireOneOf());
             conditions.addAll(block.conditions());
             groups.addAll(block.groups());
+            accounts.addAll(block.accounts());
         }
 
         required.forEach(name -> requireNoPlaceholder(name, "Famille " + code));
@@ -191,8 +197,20 @@ public final class ProductFamilies {
             throw new CatalogueException(
                 "Famille " + code + " : " + both + " a la fois obligatoire et facultatif.");
         }
-        return new ProductFamily(code, text(raw, "label"), required, optional, oneOfs, conditions,
-                                 groups);
+        ProductFamily family = new ProductFamily(code, text(raw, "label"), required, optional,
+                                                 oneOfs, conditions, groups, accounts);
+        // Un compte declare doit etre un parametre de la famille : sinon la declaration ne
+        // controle rien, et celui qui la lit croit le contraire.
+        Set<String> declared = declaredParameters(family);
+        for (String account : accounts) {
+            requireNoPlaceholder(account, "Famille " + code);
+            if (!declared.contains(account)) {
+                throw new CatalogueException(
+                    "Famille " + code + " : « " + account + " » est declare comme compte sans "
+                    + "etre un parametre de la famille.");
+            }
+        }
+        return family;
     }
 
     private static List<ProductFamily.Group> groups(Object raw, String context) {
@@ -211,13 +229,22 @@ public final class ProductFamilies {
             }
             List<ProductFamily.Condition> conditions =
                 conditions(body.get("conditions"), context, true);
+            Set<String> accounts = names(body.get("accounts"), context);
             for (String name : required) {
                 requirePlaceholder(name, context);
             }
             for (String name : optional) {
                 requirePlaceholder(name, context);
             }
-            groups.add(new ProductFamily.Group(list, required, optional, conditions));
+            for (String name : accounts) {
+                requirePlaceholder(name, context);
+                if (!required.contains(name) && !optional.contains(name)) {
+                    throw new CatalogueException(
+                        context + " : « " + name + " » est declare comme compte sans etre un "
+                        + "parametre du bloc repete.");
+                }
+            }
+            groups.add(new ProductFamily.Group(list, required, optional, conditions, accounts));
         }
         return groups;
     }

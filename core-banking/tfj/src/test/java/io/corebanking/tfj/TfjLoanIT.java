@@ -49,6 +49,43 @@ class TfjLoanIT extends TfjTestBase {
     }
 
     @Test
+    @DisplayName("le credit solde est clos par l'arrete, et l'annulation de l'arrete le rouvre")
+    void clotureParLArreteEtReouverture() {
+        // Une seule echeance : 1 010 000. Le deblocage en a apporte 1 000 000, le reste est verse.
+        Dossier dossier = dossier("L5", true, Map.of(), 1);
+        Account caisse = account("L5-CAISSE", AccountKind.GL, NormalBalance.DEBIT);
+        LocalDate jour = businessDate();
+        deposit(dossier.courant(), caisse, "20000", jour, "dep-L5");
+
+        TfjRun run = engine.run(ENTITY, jour, ACTOR, RunMode.REAL);
+        assertThat(run.isCompleted()).as(run.summary()).isTrue();
+        assertThat(run.steps()).extracting(TfjRun.StepExecution::name).contains("LOAN_CLOSURE");
+
+        // Reclamee, prelevee, encours nul : le credit sort du portefeuille le soir meme.
+        assertThat(soldeDe(dossier.pret()).isZero()).isTrue();
+        assertThat(statut(dossier.contrat())).isEqualTo("CLOSED");
+
+        // Une cloture n'est pas plus definitive que l'arrete qui l'a prononcee.
+        engine.cancel(run.id(), ACTOR, jour, "erreur de parametrage");
+        assertThat(statut(dossier.contrat())).isEqualTo("ACTIVE");
+        assertThat(creancesOuvertes(dossier.contrat())).isZero();
+    }
+
+    private static String statut(UUID contractId) {
+        return database.inTransaction(c -> {
+            try (var ps = c.prepareStatement("SELECT status FROM loan_contract WHERE id = ?")) {
+                ps.setObject(1, contractId);
+                try (var rs = ps.executeQuery()) {
+                    rs.next();
+                    return rs.getString(1);
+                }
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Lecture du statut", e);
+            }
+        });
+    }
+
+    @Test
     @DisplayName("l'annulation du TFJ rend l'echeance a nouveau exigible")
     void annulationRendLEcheanceExigible() {
         Dossier dossier = dossier("L2", false);
@@ -155,6 +192,11 @@ class TfjLoanIT extends TfjTestBase {
 
     private static Dossier dossier(String code, boolean prelevementAutomatique,
                                    Map<String, String> surcharges) {
+        return dossier(code, prelevementAutomatique, surcharges, 12);
+    }
+
+    private static Dossier dossier(String code, boolean prelevementAutomatique,
+                                   Map<String, String> surcharges, int echeances) {
         LocalDate jour = businessDate();
         LocalDate deblocage = jour.minusDays(5);
 
@@ -185,7 +227,7 @@ class TfjLoanIT extends TfjTestBase {
         });
 
         loanService.disburse(contrat, ScheduleGenerator.generate(
-            LoanTerms.of(xof("1000000")).ratePercent("12").instalments(12)
+            LoanTerms.of(xof("1000000")).ratePercent("12").instalments(echeances)
                 .disbursedOn(deblocage).firstDueDate(jour).build()), ACTOR, APPROVER);
 
         return new Dossier(contrat, pret, courant, creances, produits);

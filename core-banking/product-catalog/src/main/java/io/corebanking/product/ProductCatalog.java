@@ -5,6 +5,9 @@ import io.corebanking.interest.rate.Tier;
 import io.corebanking.interest.rate.TieredRate;
 import io.corebanking.interest.rate.TieringMode;
 import io.corebanking.kernel.id.Ids;
+import io.corebanking.ledger.domain.account.Account;
+import io.corebanking.ledger.domain.account.AccountKind;
+import io.corebanking.ledger.store.Accounts;
 import io.corebanking.ledger.store.LedgerStoreException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -16,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -128,8 +132,21 @@ public final class ProductCatalog {
     }
 
     /** Rattache un compte a un produit a compter d'une date. */
+    /**
+     * Rattache un compte a un produit.
+     *
+     * <p>Le compte doit exister, et le produit exister pour son entite et dans sa devise. Un
+     * compte en XOF rattache a un produit en EUR serait remunere au bareme de l'un sur les soldes
+     * de l'autre, et rien dans l'ecriture ne le dirait.
+     */
     public static void assignProduct(Connection c, UUID accountId, String productCode,
                                      LocalDate from, LocalDate to) {
+        Account account = Accounts.loadAll(c, List.of(accountId)).get(accountId);
+        if (account == null) {
+            throw new IllegalArgumentException("Compte " + accountId + " inconnu.");
+        }
+        requireProductCurrency(c, account.legalEntityId(), productCode, account.currency().code(),
+                               "le compte " + account.code());
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO account_product(account_id, product_code, valid_from, valid_to)"
             + " VALUES (?,?,?,?)")) {
@@ -250,25 +267,107 @@ public final class ProductCatalog {
     }
 
     /**
+     * Exige qu'un produit existe pour l'entite, et dans la devise attendue.
+     *
+     * <p>Toutes les versions d'un code sont regardees, pas seulement celle en vigueur : un produit
+     * ne change pas de devise au fil de ses versions, et si l'une d'elles differe, c'est le
+     * parametrage qui est incoherent, pas le rattachement.
+     */
+    public static void requireProductCurrency(Connection c, UUID legalEntityId, String productCode,
+                                              String currency, String subject) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT DISTINCT currency FROM product_version"
+            + " WHERE legal_entity_id = ? AND code = ?")) {
+            ps.setObject(1, legalEntityId);
+            ps.setString(2, productCode);
+            try (ResultSet rs = ps.executeQuery()) {
+                boolean found = false;
+                while (rs.next()) {
+                    found = true;
+                    if (!currency.equals(rs.getString(1))) {
+                        throw new IllegalArgumentException(
+                            "Le produit " + productCode + " est en " + rs.getString(1)
+                            + " alors que " + subject + " est en " + currency + " : il serait "
+                            + "applique au bareme de l'un sur les montants de l'autre.");
+                    }
+                }
+                if (!found) {
+                    throw new IllegalArgumentException(
+                        "Aucun produit " + productCode + " pour l'entite " + legalEntityId
+                        + " : " + subject + " serait rattache a un produit qui n'existe pas, et "
+                        + "chaque arrete le signalerait sans pouvoir le corriger.");
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Controle du produit " + productCode, e);
+        }
+    }
+
+    /**
      * Confronte une version a la famille de son type.
      *
      * @throws ProductFamily.IncompleteProductException avec la liste complete de ce qui manque
      */
     private static void validate(Connection c, UUID versionId) {
         try (PreparedStatement ps = c.prepareStatement(
-            "SELECT code, product_type FROM product_version WHERE id = ?")) {
+            "SELECT code, product_type, legal_entity_id, currency FROM product_version"
+            + " WHERE id = ?")) {
             ps.setObject(1, versionId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
                     return;                       // absente : l'activation echouera d'elle-meme
                 }
+                UUID entity = rs.getObject(3, UUID.class);
+                String currency = rs.getString(4);
                 ProductFamilies.require(rs.getString(2))
                     .validate(rs.getString(1), loadParameters(c, versionId),
-                              loadTierPurposes(c, versionId));
+                              loadTierPurposes(c, versionId),
+                              (name, value) -> accountProblem(c, name, value, entity, currency));
             }
         } catch (SQLException e) {
             throw new LedgerStoreException("Controle du parametrage de la version " + versionId, e);
         }
+    }
+
+    /**
+     * Ce qui rend un compte impropre a recevoir les ecritures d'un produit.
+     *
+     * <p>Chacun de ces defauts etait refuse par le ledger a la premiere ecriture, de nuit, sur une
+     * etape bloquante ; il l'est maintenant devant celui qui parametre.
+     */
+    private static Optional<String> accountProblem(Connection c, String parameter, String value,
+                                                   UUID entity, String currency) {
+        UUID id;
+        try {
+            id = UUID.fromString(value);
+        } catch (IllegalArgumentException e) {
+            return Optional.of(parameter + " : « " + value + " » n'est pas un identifiant de compte");
+        }
+        Account account = Accounts.loadAll(c, List.of(id)).get(id);
+        if (account == null) {
+            return Optional.of(parameter + " : compte " + value + " inconnu");
+        }
+        if (!account.legalEntityId().equals(entity)) {
+            return Optional.of(parameter + " : le compte " + account.code()
+                               + " appartient a une autre entite juridique");
+        }
+        if (!account.currency().code().equals(currency)) {
+            return Optional.of(parameter + " : le compte " + account.code() + " est tenu en "
+                               + account.currency() + " alors que le produit est en " + currency);
+        }
+        if (account.kind() != AccountKind.GL) {
+            return Optional.of(parameter + " : le compte " + account.code() + " est de nature "
+                               + account.kind() + ", un compte general est attendu");
+        }
+        if (!account.postable()) {
+            return Optional.of(parameter + " : le compte " + account.code()
+                               + " n'est pas imputable");
+        }
+        if (!account.status().acceptsPosting()) {
+            return Optional.of(parameter + " : le compte " + account.code() + " est au statut "
+                               + account.status());
+        }
+        return Optional.empty();
     }
 
     /** Discriminants des baremes portes par la version : « INTEREST », « FEE:TENUE »... */

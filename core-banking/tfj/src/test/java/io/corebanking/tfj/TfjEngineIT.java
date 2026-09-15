@@ -24,6 +24,36 @@ class TfjEngineIT extends TfjTestBase {
         return account("GL-" + UUID.randomUUID(), AccountKind.GL, sens);
     }
 
+    /**
+     * Rattache le compte a un produit dont la seule version est echue : le rattachement est
+     * legitime — le produit existe, dans la bonne devise —, mais il ne se resout pas a la journee
+     * traitee. C'est le seul chemin qui reste vers un compte sans parametrage : rattacher un compte
+     * a un produit qui n'existe pas est refuse a la saisie.
+     */
+    private void bindToExpiredProduct(Account account, String productCode,
+                                      java.time.LocalDate jour) {
+        Account charges = gl(NormalBalance.DEBIT);
+        Account courus = gl(NormalBalance.CREDIT);
+        database.inTransaction(c -> {
+            UUID version = io.corebanking.product.ProductCatalog.createDraft(
+                c, new io.corebanking.product.ProductCatalog.Draft(
+                    ENTITY, productCode, "SAVINGS_ACCOUNT", "Epargne echue", "XOF",
+                    J1.minusMonths(3), J1.minusMonths(2),
+                    java.util.Map.of(io.corebanking.product.ProductCatalog.P_RATE, "6",
+                                     io.corebanking.product.ProductCatalog.P_DAY_COUNT, "ACT_365",
+                                     io.corebanking.product.ProductCatalog.P_SIDE, "CREDITOR",
+                                     io.corebanking.product.ProductCatalog.P_DEBIT_ACCOUNT,
+                                     charges.id().toString(),
+                                     io.corebanking.product.ProductCatalog.P_CREDIT_ACCOUNT,
+                                     courus.id().toString()),
+                    java.util.List.of(), ACTOR));
+            io.corebanking.product.ProductCatalog.activate(c, version, APPROVER);
+            io.corebanking.product.ProductCatalog.assignProduct(c, account.id(), productCode,
+                                                                 jour.minusDays(1), null);
+            return null;
+        });
+    }
+
     @Test
     @DisplayName("un TFJ complet remunere, arrete les soldes, controle, puis bascule la journee")
     void a_complete_run_accrues_snapshots_checks_then_rolls_the_day() {
@@ -39,8 +69,9 @@ class TfjEngineIT extends TfjTestBase {
         assertThat(run.isCompleted()).as(run.summary()).isTrue();
         assertThat(run.steps()).extracting(TfjRun.StepExecution::name)
             .containsExactly("PRE_CHECKS", "FEE_CHARGING", "LOAN_MOBILISATION", "LOAN_SCHEDULE",
-                             "LOAN_LATE_CHARGES", "LOAN_CLASSIFICATION", "INTEREST_ACCRUAL",
-                             "BALANCE_SNAPSHOT", "RECONCILIATION", "OPEN_NEXT_DAY");
+                             "LOAN_LATE_CHARGES", "LOAN_CLASSIFICATION", "LOAN_CLOSURE",
+                             "INTEREST_ACCRUAL", "BALANCE_SNAPSHOT", "RECONCILIATION",
+                             "OPEN_NEXT_DAY");
         assertThat(run.steps()).allMatch(
             step -> step.status() == TfjRun.StepExecution.Status.COMPLETED);
 
@@ -52,7 +83,7 @@ class TfjEngineIT extends TfjTestBase {
         });
 
         // La journee a bascule : c'est la derniere etape, et elle seule y est autorisee.
-        assertThat(businessDate()).isEqualTo(jour.plusDays(1));
+        assertThat(businessDate()).isEqualTo(calendar.nextBusinessDay(jour));
     }
 
     @Test
@@ -127,7 +158,7 @@ class TfjEngineIT extends TfjTestBase {
         TfjRun reel = engine.run(ENTITY, jour, ACTOR, RunMode.REAL);
 
         assertThat(reel.isCompleted()).isTrue();
-        assertThat(businessDate()).isEqualTo(jour.plusDays(1));
+        assertThat(businessDate()).isEqualTo(calendar.nextBusinessDay(jour));
     }
 
     @Test
@@ -135,11 +166,7 @@ class TfjEngineIT extends TfjTestBase {
     void an_account_without_resolvable_product_stops_the_run() {
         Account orphelin = account("CLI-703", AccountKind.CUSTOMER, NormalBalance.CREDIT);
         var jour = businessDate();
-        database.inTransaction(c -> {
-            io.corebanking.product.ProductCatalog.assignProduct(
-                c, orphelin.id(), "PRODUIT-INEXISTANT", jour.minusDays(1), null);
-            return null;
-        });
+        bindToExpiredProduct(orphelin, "PRODUIT-ECHU-703", jour);
 
         TfjRun run = engine.run(ENTITY, jour, ACTOR, RunMode.REAL);
 
@@ -158,11 +185,7 @@ class TfjEngineIT extends TfjTestBase {
     void a_failed_run_resumes_at_the_failing_step() {
         Account orphelin = account("CLI-704", AccountKind.CUSTOMER, NormalBalance.CREDIT);
         var jour = businessDate();
-        database.inTransaction(c -> {
-            io.corebanking.product.ProductCatalog.assignProduct(
-                c, orphelin.id(), "PRODUIT-ABSENT", jour.minusDays(1), null);
-            return null;
-        });
+        bindToExpiredProduct(orphelin, "PRODUIT-ECHU-704", jour);
 
         TfjRun echoue = engine.run(ENTITY, jour, ACTOR, RunMode.REAL);
         assertThat(echoue.status()).isEqualTo(TfjRun.Status.FAILED);
@@ -187,7 +210,7 @@ class TfjEngineIT extends TfjTestBase {
         TfjRun repris = engine.resume(echoue.id(), ACTOR);
 
         assertThat(repris.isCompleted()).as(repris.summary()).isTrue();
-        assertThat(businessDate()).isEqualTo(jour.plusDays(1));
+        assertThat(businessDate()).isEqualTo(calendar.nextBusinessDay(jour));
     }
 
     @Test
@@ -242,6 +265,29 @@ class TfjEngineIT extends TfjTestBase {
             assertThat(Reconciliation.allBlockingChecks(c, ENTITY)).isEmpty();
             return null;
         });
+    }
+
+    @Test
+    @DisplayName("une journee ne s'annule pas tant qu'une journee suivante est arretee")
+    void cancelling_a_day_behind_a_later_run_is_refused() {
+        var jour = businessDate();
+        TfjRun premier = engine.run(ENTITY, jour, ACTOR, RunMode.REAL);
+        var lendemain = businessDate();
+        TfjRun second = engine.run(ENTITY, lendemain, ACTOR, RunMode.REAL);
+        assertThat(second.isCompleted()).as(second.summary()).isTrue();
+
+        // Restaurer la date a J alors que J+1 a tourne laisserait J+1 tenue pour faite sur un etat
+        // que ses ecritures ne decrivent plus, et la date comptable bloquee sur J+1.
+        assertThatThrownBy(() -> engine.cancel(premier.id(), ACTOR, lendemain, "erreur"))
+            .isInstanceOf(TfjEngine.TfjRefusedException.class)
+            .hasMessageContaining(lendemain.toString())
+            .hasMessageContaining("de la plus recente a la plus ancienne");
+        assertThat(businessDate()).isAfter(lendemain);   // rien n'a bouge
+
+        // Dans l'ordre, les deux annulations passent et la date revient a J.
+        engine.cancel(second.id(), ACTOR, lendemain, "erreur");
+        engine.cancel(premier.id(), ACTOR, lendemain, "erreur");
+        assertThat(businessDate()).isEqualTo(jour);
     }
 
     @Test

@@ -92,6 +92,7 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | 7 | `LOAN_LATE_CHARGES` | Intérêts de retard, pénalités | ✔ |
 | 8 | `FEE_CHARGING` | Commissions périodiques, frais de tenue de compte, taxes associées | ✔ |
 | 9 | `LOAN_CLASSIFICATION` | Jours de retard, buckets, contagion, provision, suspension | ✔ |
+| 9b | `LOAN_CLOSURE` | Clôture des crédits sans échéance à venir ni créance ouverte ; encours résiduel signalé | ✔ |
 | 10 | *(fusionné dans `LOAN_CLASSIFICATION`)* | Dotations et reprises, suspension des intérêts | ✔ |
 | 11 | `FX_REVALUATION` | Revalorisation des positions de change | ✔ |
 | 12 | `DORMANCY` | Détection de dormance, régime de frais associé | |
@@ -107,8 +108,20 @@ laissent le run se poursuivre, avec restitution à la clôture.
 
 > **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `FEE_CHARGING` →
 > `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` →
-> `INTEREST_ACCRUAL` → `BALANCE_SNAPSHOT` → `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes
-> s'insèrent sans toucher au moteur.
+> `LOAN_CLOSURE` → `INTEREST_ACCRUAL` → `BALANCE_SNAPSHOT` → `RECONCILIATION` → `OPEN_NEXT_DAY`.
+> Les étapes absentes s'insèrent sans toucher au moteur.
+>
+> `PRE_CHECKS` garantit la partition du journal pour le mois traité — sa création est idempotente
+> et ne préjuge de rien — et refuse une journée qu'aucune période ne couvre, ou dont la période est
+> close, en le disant. `OPEN_NEXT_DAY` garantit à la journée suivante ce que sa première écriture
+> exigera : les partitions des trois mois à venir et une période comptable qui la couvre. Une
+> période close n'est pas rouverte par la bascule : c'est une décision comptable.
+>
+> `LOAN_CLOSURE` vient après la classification, et pour cette raison : c'est elle qui reprend la
+> provision d'un encours devenu nul. Un crédit clos avant elle emporterait sa provision hors du
+> portefeuille classé. Un encours résiduel sur un crédit dont tout est réclamé et réglé n'est pas
+> clos : c'est un écart entre le compte de prêt et le sous-livre, et l'étape — bloquante — le
+> nomme.
 >
 > Classification et provisionnement sont **une seule étape** et non deux : la provision se calcule
 > à partir de la classe, et les séparer laisserait entre elles un instant où le portefeuille est
@@ -237,6 +250,13 @@ POST /eod/runs/{id}/cancel
 - Restauration des statuts modifiés (classification, dormance) depuis l'historique.
 - Réouverture de la date comptable.
 - Opération soumise à double validation, tracée et notifiée.
+
+> **Implémenté** — l'annulation neutralise chaque sous-livre : échéances rendues à nouveau
+> exigibles, créances annulées, intérêts de retard repris, classifications neutralisées,
+> mobilisations rouvertes, **crédits clos par le traitement rendus actifs**. Et elle est
+> **ordonnée** : une journée ne s'annule pas tant qu'une journée suivante est arrêtée. Restaurer la
+> date à J sous un J+1 arrêté laisserait J+1 tenue pour faite sur un état que ses écritures ne
+> décrivent plus ; les journées s'annulent de la plus récente à la plus ancienne.
 
 C'est la fonction qui distingue un TFJ industriel d'un script de batch. Sans elle, une
 erreur de paramétrage détectée après l'arrêté impose une correction manuelle compte par

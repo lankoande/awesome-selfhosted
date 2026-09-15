@@ -230,6 +230,35 @@ class ProductFamilyTest {
             .hasMessageContaining("declaration serait fausse");
     }
 
+    // ------------------------------------------------------------------ comptes
+
+    @Test
+    @DisplayName("les parametres declares comme comptes sont soumis au controleur, et a lui seul")
+    void comptesSoumisAuControleur() {
+        Map<String, String> parametres = epargneComplete();
+        parametres.put("fee.codes", "TENUE");
+        parametres.put("fee.TENUE.amount", "2000");
+        parametres.put("fee.TENUE.income_account", "compte-frais");
+        java.util.List<String> examines = new java.util.ArrayList<>();
+        ProductFamily.AccountChecker traceur = (name, value) -> {
+            examines.add(name + "=" + value);
+            return name.endsWith("credit_account") ? java.util.Optional.of(name + " : compte inconnu")
+                                                   : java.util.Optional.empty();
+        };
+
+        assertThatThrownBy(() -> ProductFamilies.require("SAVINGS_ACCOUNT")
+            .validate("P-TEST", parametres, Set.of(), traceur))
+            .isInstanceOf(ProductFamily.IncompleteProductException.class)
+            .hasMessageContaining("interest.credit_account : compte inconnu");
+
+        // Les comptes d'interets et le compte de produit de la commission, dans le bloc repete ;
+        // ni le taux, ni le montant, qui ne sont pas des comptes.
+        assertThat(examines).containsExactlyInAnyOrder(
+            "interest.debit_account=" + parametres.get("interest.debit_account"),
+            "interest.credit_account=" + parametres.get("interest.credit_account"),
+            "fee.TENUE.income_account=compte-frais");
+    }
+
     // ------------------------------------------------------------------ accord code / catalogue
 
     @Test

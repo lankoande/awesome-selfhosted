@@ -18,10 +18,7 @@ import io.corebanking.ledger.store.SchemaMigrator;
 import io.corebanking.product.ProductCatalog;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -51,10 +48,7 @@ abstract class FeeTestBase {
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 8);
 
-        SchemaMigrator.migrate(database);
-        applyScript("/db/V3__product.sql");
-        applyScript("/db/V5__accounting_schema.sql");
-        applyScript("/db/V8__fees.sql");
+        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
         SchemaMigrator.ensurePartitions(database, OUVERTURE.minusMonths(2), OUVERTURE.plusMonths(12));
 
         database.inTransaction(c -> {
@@ -76,23 +70,6 @@ abstract class FeeTestBase {
     static void stop() throws IOException {
         if (database != null) database.close();
         if (postgres != null) postgres.close();
-    }
-
-    protected static void applyScript(String resource) {
-        String sql;
-        try (InputStream in = FeeTestBase.class.getResourceAsStream(resource)) {
-            sql = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new LedgerStoreException("Lecture de " + resource, e);
-        }
-        database.inTransaction(c -> {
-            try (Statement st = c.createStatement()) {
-                st.execute(sql);
-                return null;
-            } catch (SQLException e) {
-                throw new LedgerStoreException("Application de " + resource, e);
-            }
-        });
     }
 
     protected static Account account(String code, AccountKind kind, NormalBalance normalBalance,

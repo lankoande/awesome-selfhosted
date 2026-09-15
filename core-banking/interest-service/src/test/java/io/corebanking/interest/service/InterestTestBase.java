@@ -13,10 +13,6 @@ import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.ledger.store.SchemaMigrator;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
@@ -40,9 +36,7 @@ abstract class InterestTestBase {
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 8);
 
-        SchemaMigrator.migrate(database);
-        applyScript("/db/V3__product.sql");
-        applyScript("/db/V2__interest.sql");
+        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
         SchemaMigrator.ensurePartitions(database,
             BUSINESS_DATE.minusMonths(2), BUSINESS_DATE.plusMonths(2));
 
@@ -62,23 +56,6 @@ abstract class InterestTestBase {
     static void stopDatabase() throws IOException {
         if (database != null) database.close();
         if (postgres != null) postgres.close();
-    }
-
-    private static void applyScript(String resource) {
-        String sql;
-        try (InputStream in = InterestTestBase.class.getResourceAsStream(resource)) {
-            sql = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new LedgerStoreException("Lecture de " + resource, e);
-        }
-        database.inTransaction(c -> {
-            try (Statement st = c.createStatement()) {
-                st.execute(sql);
-                return null;
-            } catch (SQLException e) {
-                throw new LedgerStoreException("Application de " + resource, e);
-            }
-        });
     }
 
     protected static Account customer(String code) {

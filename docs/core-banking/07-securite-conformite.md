@@ -166,6 +166,26 @@ opération. D'où deux écarts possibles, tous deux interdits au démarrage :
 `RoleCatalogue.validateAgainstPolicy()` s'exécute **avant** tout appel au fournisseur d'identité :
 un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servir.
 
+### Le catalogue couvre le périmètre des services
+
+> **Implémenté.** `Operation` compte désormais une opération par point d'entrée de service qui
+> change l'état de la banque : crédit (`LOAN_CONTRACT_CREATE`, `LOAN_DISBURSE`, `LOAN_RESCHEDULE`,
+> `LOAN_PREPAY`, `LOAN_REPAYMENT`, `COLLATERAL_MANAGE`, `LOAN_READ`), paramétrage
+> (`RISK_PARAMETER_*`, `ACCOUNTING_SCHEMA_*`, `CALENDAR_MANAGE`, `FEE_EXEMPTION_GRANT`,
+> `ACCOUNT_PRODUCT_ASSIGN`), comptabilité (`JOURNAL_ENTRY_MANUAL`, `PERIOD_CLOSE`). Deux rôles
+> de crédit les portent : `credit_officer` (chargé de crédit, agence) et `credit_manager`
+> (responsable des engagements, siège) — la seconde main sur tout ce qui engage la banque.
+>
+> Tout ce qui fait sortir de l'argent ou modifie une dette se valide à deux ; le déblocage est
+> plafonné par rôle — 50 M XOF pour un chef d'agence, 500 M pour le responsable des engagements —,
+> au-delà la décision relève d'un comité, que l'origination portera.
+>
+> Le rattachement point d'entrée → opération est tenu à la main dans `OperationCoverageTest`,
+> qui refuse une opération que rien ne réclame et vérifie qu'une règle plafonnée plafonne chacun de
+> ses rôles. Les cas d'usage (`UseCase.operation()`) le rendront mécanique avec la couche API.
+> Restent hors catalogue, délibérément, la création d'une entité ou d'une devise : des actes de
+> déploiement, pas des opérations.
+
 ### Provisionnement au démarrage
 
 ```

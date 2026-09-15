@@ -7,6 +7,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Referentiel : devises, entites juridiques, periodes comptables. */
@@ -88,6 +89,39 @@ public final class Entities {
         } catch (SQLException e) {
             throw new LedgerStoreException("Lecture de la devise de tenue de compte", e);
         }
+    }
+
+    /** Statut de la periode couvrant une date, vide si aucune periode ne la couvre. */
+    public static Optional<String> periodStatus(Connection c, UUID entityId, LocalDate date) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT status FROM accounting_period "
+            + "WHERE legal_entity_id = ? AND ? BETWEEN start_date AND end_date")) {
+            ps.setObject(1, entityId);
+            ps.setObject(2, date);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(rs.getString(1)) : Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture de la periode comptable", e);
+        }
+    }
+
+    /**
+     * Garantit qu'une periode couvre la date : ouvre le mois civil si aucune ne la couvre.
+     *
+     * <p>Une periode deja presente est laissee telle quelle, <b>close comprise</b>. Rouvrir une
+     * periode close est une decision comptable, jamais un effet de bord d'une bascule de journee ;
+     * le controle prealable du traitement suivant la refusera, en la nommant.
+     *
+     * @return vrai si une periode a ete ouverte
+     */
+    public static boolean ensurePeriodCovering(Connection c, UUID entityId, LocalDate date) {
+        if (periodStatus(c, entityId, date).isPresent()) {
+            return false;
+        }
+        LocalDate start = date.withDayOfMonth(1);
+        openPeriod(c, entityId, start, start.plusMonths(1).minusDays(1));
+        return true;
     }
 
     /** Vrai si la date comptable tombe dans une periode ouverte de l'entite. */
