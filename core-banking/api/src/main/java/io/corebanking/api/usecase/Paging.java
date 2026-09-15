@@ -2,6 +2,7 @@ package io.corebanking.api.usecase;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * Pagination par pages numerotees, bornee.
@@ -81,6 +82,60 @@ public final class Paging {
             int from = Math.min(request.offset(), all.size());
             int to = Math.min(from + request.size(), all.size());
             return new Paged<>(all.subList(from, to), request, all.size());
+        }
+    }
+
+    // ------------------------------------------------------------------ par curseur
+
+    /**
+     * Pagination par curseur : la page suivante reprend strictement apres une position, sans
+     * decompte ni numero. C'est la lecture des extractions massives — grand livre, journal — ou
+     * un decalage relirait a chaque page tout ce qui la precede. Le curseur est opaque pour le
+     * client : il le rend tel qu'il l'a recu.
+     *
+     * @param after le curseur rendu par la page precedente ; nul pour commencer
+     */
+    public record CursorRequest(String after, int size) {
+
+        public CursorRequest {
+            if (size < 1 || size > MAX_SIZE) {
+                throw new InvalidPageException(
+                    "La taille d'une page va de 1 a " + MAX_SIZE + " : " + size);
+            }
+            after = after == null || after.isBlank() ? null : after.trim();
+        }
+
+        public static CursorRequest parse(String after, String size) {
+            return new CursorRequest(after, PageRequest.integer(size, DEFAULT_SIZE, "size"));
+        }
+    }
+
+    /** Une tranche d'une liste lue par curseur : ses elements, et ou reprendre s'il en reste. */
+    public record Slice<T>(List<T> items, CursorRequest request, String nextCursor) {
+
+        public Slice {
+            items = List.copyOf(Objects.requireNonNull(items, "items"));
+            Objects.requireNonNull(request, "request");
+        }
+
+        public boolean hasNext() {
+            return nextCursor != null;
+        }
+
+        public boolean hasPrevious() {
+            return request.after() != null;
+        }
+
+        /**
+         * Depuis une lecture d'un element de plus que la page : s'il est la, la page est pleine
+         * et le curseur pointe sur son dernier element ; sinon, c'etait la derniere.
+         */
+        public static <T> Slice<T> of(List<T> fetched, CursorRequest request,
+                                      Function<T, String> cursorOf) {
+            boolean more = fetched.size() > request.size();
+            List<T> items = more ? fetched.subList(0, request.size()) : fetched;
+            return new Slice<>(items, request,
+                               more ? cursorOf.apply(items.get(items.size() - 1)) : null);
         }
     }
 

@@ -61,7 +61,9 @@ public final class DualControlHandlers {
     public static List<MakerChecker.Handler> all(Database database, AccountLifecycle lifecycle,
                                                  PartyService parties, AccountDirectory accounts,
                                                  LoanService loans,
-                                                 io.corebanking.api.config.EodEngines engines) {
+                                                 io.corebanking.api.config.EodEngines engines,
+                                                 io.corebanking.ledger.domain.posting.PostingService
+                                                     posting) {
         return List.of(new OpenAccount(lifecycle), new CloseAccount(lifecycle, accounts),
                        new BlockAccount(lifecycle, accounts), new LiftBlock(lifecycle, accounts),
                        new PlaceHold(database, accounts), new ReleaseHold(database, accounts),
@@ -75,7 +77,8 @@ public final class DualControlHandlers {
                        new ResumePeriodEnd(engines, RunType.TFA),
                        new CancelPeriodEnd(engines, RunType.TFM),
                        new CancelPeriodEnd(engines, RunType.TFA),
-                       new OpenFiscalYear(database), new RegisterCollateral(database),
+                       new OpenFiscalYear(database), new AppropriateResult(database, posting),
+                       new RegisterCollateral(database),
                        new AllocateCollateral(database), new ReleaseCollateral(database),
                        new ActivateCollateralPolicy(database), new ActivateRiskProfile(database),
                        new ActivateAccountingSchema(database));
@@ -877,6 +880,74 @@ public final class DualControlHandlers {
                 c, uuid(payload, "legalEntityId"), start, end, uuid(payload, "resultAccountId"),
                 Callers.actorId(maker), Callers.actorId(checker)));
             return new Requests.Created(id);
+        }
+    }
+
+    /**
+     * L'affectation du resultat : la decision de l'assemblee, demandee par l'un, validee par un
+     * autre, comptabilisee a l'approbation avec les deux sujets. Les destinations et leur somme
+     * sont verifiees contre le resultat determine, au moment d'ecrire.
+     */
+    static final class AppropriateResult implements MakerChecker.Handler {
+        private final Database database;
+        private final io.corebanking.ledger.domain.posting.PostingService posting;
+
+        AppropriateResult(Database database,
+                          io.corebanking.ledger.domain.posting.PostingService posting) {
+            this.database = database;
+            this.posting = posting;
+        }
+
+        @Override public String name() { return "RESULT_APPROPRIATE"; }
+        @Override public Operation operation() { return Operation.RESULT_APPROPRIATION; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "fiscalYearId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            LocalDate bookingDate = date(payload, "bookingDate");
+            LocalDate decidedOn = date(payload, "decidedOn");
+            if (bookingDate == null || decidedOn == null) {
+                throw new IllegalArgumentException(
+                    "Champs obligatoires absents : bookingDate, decidedOn");
+            }
+            if (!(payload.get("allocations") instanceof List<?> items) || items.isEmpty()) {
+                throw new IllegalArgumentException("Champ obligatoire absent : allocations");
+            }
+            UUID fiscalYearId = uuid(payload, "fiscalYearId");
+            return database.inTransaction(c -> {
+                FiscalYears.FiscalYear year = FiscalYears.require(c, fiscalYearId);
+                if (!year.legalEntityId().equals(uuid(payload, "legalEntityId"))) {
+                    throw new FiscalYears.UnknownFiscalYearException(fiscalYearId);
+                }
+                var currency = io.corebanking.ledger.store.Balances.currencyOf(
+                    c, year.resultAccountId());
+                List<FiscalYears.Allocation> allocations = new java.util.ArrayList<>();
+                for (Object item : items) {
+                    if (!(item instanceof Map<?, ?> raw)) {
+                        throw new IllegalArgumentException(
+                            "Une destination est un objet : accountId, amount, currency");
+                    }
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> allocation = (Map<String, Object>) raw;
+                    allocations.add(new FiscalYears.Allocation(
+                        uuid(allocation, "accountId"),
+                        io.corebanking.api.usecase.Amounts.in(
+                            required(allocation, "amount"), text(allocation, "currency"),
+                            currency, "une destination du resultat")));
+                }
+                return FiscalYears.appropriate(c, posting, new FiscalYears.Appropriation(
+                    fiscalYearId, bookingDate, decidedOn, text(payload, "reference"),
+                    allocations, Callers.actorId(maker), Callers.actorId(checker)));
+            });
         }
     }
 

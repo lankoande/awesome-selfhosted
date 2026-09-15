@@ -61,12 +61,13 @@ class OperationCoverageTest {
         Map.entry("TfjEngine.cancel (TFM)", Operation.PERIOD_REOPEN),
         Map.entry("FiscalYears.open", Operation.FISCAL_YEAR_MANAGE),
         Map.entry("StandardTfa", Operation.YEAR_CLOSE),
-        Map.entry("TfjEngine.cancel (TFA)", Operation.YEAR_REOPEN));
+        Map.entry("TfjEngine.cancel (TFA)", Operation.YEAR_REOPEN),
+        Map.entry("FiscalYears.appropriate", Operation.RESULT_APPROPRIATION));
 
     /** Operations sans point d'entree de service : consultations, ou pas encore construites. */
     private static final Set<Operation> WITHOUT_SERVICE = EnumSet.of(
-        Operation.ACCOUNT_BALANCE_READ, Operation.ACCOUNT_JOURNAL_READ, Operation.PARTY_READ,
-        Operation.LOAN_READ, Operation.AUDIT_READ);
+        Operation.ACCOUNT_BALANCE_READ, Operation.ACCOUNT_JOURNAL_READ, Operation.LEDGER_READ,
+        Operation.PARTY_READ, Operation.LOAN_READ, Operation.AUDIT_READ);
 
     @Test
     @DisplayName("toute operation est reclamee par un point d'entree, ou est une consultation")
@@ -93,7 +94,8 @@ class OperationCoverageTest {
                                               Operation.ACCOUNT_HOLD, Operation.LOAN_PREPAY,
                                               Operation.BRANCH_MANAGE, Operation.TILL_MANAGE,
                                               Operation.FISCAL_YEAR_MANAGE, Operation.YEAR_CLOSE,
-                                              Operation.YEAR_REOPEN)) {
+                                              Operation.YEAR_REOPEN,
+                                              Operation.RESULT_APPROPRIATION)) {
             assertThat(SecurityConfig.ruleFor(operation).dualControl())
                 .as(operation.name()).isTrue();
         }

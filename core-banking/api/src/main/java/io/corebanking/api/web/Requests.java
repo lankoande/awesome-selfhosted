@@ -117,6 +117,16 @@ public final class Requests {
 
     public record OpenFiscalYear(LocalDate start, LocalDate end, UUID resultAccountId) {}
 
+    /** Une destination du resultat : reserve, report a nouveau, dividendes a payer. */
+    public record Allocation(UUID accountId, String amount, String currency) {}
+
+    /**
+     * La decision d'affectation du resultat : date comptable de l'ecriture (apres la fin de
+     * l'exercice), date de la decision, piece, destinations dont la somme est le resultat.
+     */
+    public record Appropriation(LocalDate bookingDate, LocalDate decidedOn, String reference,
+                                List<Allocation> allocations) {}
+
     // ------------------------------------------------------------------ risque et suretes
 
     public record CollateralPolicyDraft(String kind, String label, String eligibleRatePercent,

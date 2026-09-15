@@ -389,6 +389,17 @@ public final class TfjEngine {
                     + reversalBookingDate + ".");
             }
             database.inTransaction(connection -> {
+                // Un resultat affecte n'est plus a la disposition de la cloture : l'affectation
+                // se contre-passe d'abord, par une decision qui se voit.
+                FiscalYears.endingOn(connection, run.legalEntityId(), run.businessDate())
+                    .flatMap(year -> FiscalYears.currentAppropriation(connection, year.id()))
+                    .ifPresent(appropriation -> {
+                        throw new TfjRefusedException(
+                            "Le resultat de l'exercice clos le " + run.businessDate()
+                            + " est affecte (ecriture " + appropriation.entryId() + " du "
+                            + appropriation.bookingDate() + ") : contre-passer l'affectation "
+                            + "avant d'annuler la cloture.");
+                    });
                 Entities.periodBounds(connection, run.legalEntityId(), run.businessDate())
                     .ifPresent(bounds -> Entities.reopenPeriod(connection, run.legalEntityId(),
                                                                bounds[0]));

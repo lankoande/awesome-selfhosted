@@ -94,6 +94,12 @@ public final class SecurityConfig {
             AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER, ACCOUNTANT, AUDITOR)
                 .within(Scope.OWN_ENTITY).tracedOnRead().build());
 
+        // Les restitutions comptables lisent la banque entiere : la comptabilite et l'audit, et
+        // eux seuls ; un chef d'agence lit ses comptes, pas le journal.
+        policy.put(Operation.LEDGER_READ,
+            AccessRule.allow(ACCOUNTANT, AUDITOR)
+                .within(Scope.OWN_ENTITY).tracedOnRead().build());
+
         policy.put(Operation.PARTY_READ,
             AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER, AUDITOR)
                 .within(Scope.OWN_BRANCH).allowingRemote().tracedOnRead().build());
@@ -294,6 +300,12 @@ public final class SecurityConfig {
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
         policy.put(Operation.YEAR_REOPEN,
+            AccessRule.allow(ACCOUNTANT)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        // L'affectation du resultat execute une decision d'assemblee : la comptabilite la passe,
+        // a deux ; le montant n'est pas plafonne, il est celui du resultat, exactement.
+        policy.put(Operation.RESULT_APPROPRIATION,
             AccessRule.allow(ACCOUNTANT)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 

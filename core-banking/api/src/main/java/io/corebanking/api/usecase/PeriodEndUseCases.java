@@ -48,6 +48,50 @@ public final class PeriodEndUseCases {
         }
     }
 
+    public record FiscalYearLookup(UUID legalEntityId, UUID fiscalYearId) {}
+
+    /**
+     * Un exercice avec ce que la cloture en a fait : son resultat net une fois clos (positif
+     * pour un benefice), l'affectation en vigueur, et toutes les affectations, contre-passees
+     * comprises.
+     */
+    public record FiscalYearView(UUID id, UUID legalEntityId, java.time.LocalDate start,
+                                 java.time.LocalDate end, UUID resultAccountId, String status,
+                                 UUID closedByRunId, io.corebanking.kernel.money.Money netResult,
+                                 FiscalYears.AppropriationRecord appropriation,
+                                 java.util.List<FiscalYears.AppropriationRecord> appropriations) {}
+
+    public static final class ReadFiscalYear implements UseCase<FiscalYearLookup, FiscalYearView> {
+        private final Database database;
+
+        public ReadFiscalYear(Database database) {
+            this.database = database;
+        }
+
+        @Override public Operation operation() { return Operation.FISCAL_YEAR_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(FiscalYearLookup query) {
+            return AccessTarget.inEntity(query.legalEntityId());
+        }
+
+        @Override
+        public FiscalYearView execute(FiscalYearLookup query) {
+            return database.inTransaction(c -> {
+                FiscalYears.FiscalYear year = FiscalYears.find(c, query.fiscalYearId())
+                    .filter(found -> found.legalEntityId().equals(query.legalEntityId()))
+                    .orElseThrow(() -> new FiscalYears.UnknownFiscalYearException(
+                        query.fiscalYearId()));
+                var appropriations = FiscalYears.appropriations(c, year.id());
+                return new FiscalYearView(year.id(), year.legalEntityId(), year.start(),
+                    year.end(), year.resultAccountId(), year.status(), year.closedByRunId(),
+                    FiscalYears.netResult(c, year).orElse(null),
+                    appropriations.stream().filter(a -> !a.reversed()).findFirst().orElse(null),
+                    appropriations);
+            });
+        }
+    }
+
     public record FiscalYearQuery(UUID legalEntityId, Paging.PageRequest page) {}
 
     /** Les exercices de l'entite, du plus ancien au plus recent. */

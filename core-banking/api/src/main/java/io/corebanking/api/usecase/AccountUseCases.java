@@ -293,4 +293,49 @@ public final class AccountUseCases {
             });
         }
     }
+
+    // ------------------------------------------------------------------ grand livre du compte
+
+    /** Le meme releve, par curseur : pour un compte chaud sur des annees, sans decompte. */
+    public record LedgerQuery(UUID accountId, LocalDate from, LocalDate to,
+                              Paging.CursorRequest cursor) {}
+
+    public static final class ReadLedger
+            implements UseCase<LedgerQuery, Paging.Slice<io.corebanking.ledger.store.Journal.StatementLine>> {
+        private final Database database;
+        private final AccountDirectory accounts;
+
+        public ReadLedger(Database database, AccountDirectory accounts) {
+            this.database = database;
+            this.accounts = accounts;
+        }
+
+        @Override public Operation operation() { return Operation.ACCOUNT_JOURNAL_READ; }
+
+        @Override
+        public AccessTarget targetOf(LedgerQuery query) {
+            return AccessTarget.inEntity(accounts.require(query.accountId()).legalEntityId());
+        }
+
+        @Override
+        public Paging.Slice<io.corebanking.ledger.store.Journal.StatementLine> execute(
+                LedgerQuery query) {
+            Account account = accounts.require(query.accountId());
+            io.corebanking.ledger.store.Journal.Position after =
+                JournalCursor.decode(query.cursor().after());
+            return database.inTransaction(c -> {
+                LocalDate to = query.to() != null ? query.to()
+                    : businessDate(c, account.legalEntityId());
+                LocalDate from = query.from() != null ? query.from() : to.minusMonths(1);
+                if (from.isAfter(to)) {
+                    throw new IllegalArgumentException(
+                        "Plage de dates inversee : du " + from + " au " + to);
+                }
+                var fetched = io.corebanking.ledger.store.Journal.statementAfter(
+                    c, account.id(), from, to, after, query.cursor().size() + 1);
+                return Paging.Slice.of(fetched, query.cursor(),
+                                       line -> JournalCursor.encode(line.position()));
+            });
+        }
+    }
 }

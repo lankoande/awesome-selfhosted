@@ -87,15 +87,30 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
   elle ne peut donc pas manquer.
 - **Les listes sont paginées**, toutes : `page` (à partir de 0) et `size` (50 par défaut,
   **200 au plus** — au-delà, `400`, jamais un plafond appliqué en silence), lues dans un **ordre
-  total** (date, numéro d'écriture, ligne pour un relevé ; référence pour les contrats ; nom puis
-  référence pour les tiers) : deux pages successives ne montrent ni deux fois la même ligne ni
-  aucune. Pagination par décalage avec décompte, ce qu'attend un écran ; un relevé de plusieurs
-  années se demande par plage de dates — la pagination par curseur sera l'étape suivante pour les
-  extractions massives.
+  total** (date comptable, instant de connaissance, écriture, ligne pour un relevé ; référence
+  pour les contrats ; nom puis référence pour les tiers) : deux pages successives ne montrent ni
+  deux fois la même ligne ni aucune. Pagination par décalage avec décompte, ce qu'attend un
+  écran.
+- **Les extractions se lisent par curseur** : le grand livre d'un compte
+  (`GET /accounts/{id}/ledger`) et le journal de l'entité (`GET /ledger/journal`) prennent
+  `after` — le `page.nextCursor` de la page précédente, opaque, rendu tel quel — et `size` ;
+  `page` porte alors `nextCursor`, `hasNext`, `hasPrevious`, ni numéro ni décompte. La page
+  suivante reprend strictement après une position (date comptable, instant de connaissance,
+  écriture, ligne), quatre colonnes de la ligne portées par un index dans cet ordre (V37) : le
+  coût d'une page ne dépend pas de ce qui la précède, quoi qu'il ait été comptabilisé
+  entre-temps. Un curseur qui ne se relit pas est une requête invalide (`400`), pas une page
+  vide.
+- **La balance** (`GET /ledger/trial-balance`) est lue dans le journal, à six colonnes par
+  compte — solde d'ouverture, mouvements, solde de clôture, chacun au débit ou au crédit —,
+  sur une plage de dates comptables (le mois de la date comptable par défaut) ; `kind=CUSTOMER`
+  en fait la balance auxiliaire des clients, `branchId` la balance d'agence. Ses totaux
+  (`GET /ledger/trial-balance/totals`), une ligne par devise, portent le constat d'équilibre
+  colonne à colonne — vrai par construction sur la balance entière, et faux, sans le cacher, sur
+  une balance filtrée.
 - **Les refus sont des réponses** (`error` dans l'enveloppe, champs de RFC 9457) : `400` requête
   invalide (page hors bornes, paramètre mal formé, clé d'idempotence absente, corps illisible),
   `401` sans jeton valide, `403` habilitation refusée ou jeton insuffisant, `404` compte,
-  traitement ou chemin inconnu, `405`/`415` méthode ou type de contenu non admis,
+  traitement, exercice ou chemin inconnu, `405`/`415` méthode ou type de contenu non admis,
   `409` conflit d'état (compte bloqué, disponible insuffisant, tiers non opérable, clôture
   refusée, TFJ refusé, doublon de tiers), `422` requête que le socle ne peut pas honorer
   (devise, montant, condition de date de valeur absente, paramétrage), `500` seulement pour ce qui
@@ -112,6 +127,10 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `POST /accounts` | `ACCOUNT_OPEN` | numéro, titulaire, produit, devise — **202**, en attente d'un checker |
 | `GET /accounts/{id}/balance` | `ACCOUNT_BALANCE_READ` | — ; déplacée si le compte est d'une autre agence |
 | `GET /accounts/{id}/journal?from=&to=&page=&size=` | `ACCOUNT_JOURNAL_READ` | le relevé : mouvements sur une plage de dates comptables (un mois par défaut), dans l'ordre du journal, paginé ; lecture tracée |
+| `GET /accounts/{id}/ledger?from=&to=&after=&size=` | `ACCOUNT_JOURNAL_READ` | le grand livre du compte : les mêmes lignes, par curseur, pour les longues plages |
+| `GET /ledger/trial-balance?from=&to=&kind=&branchId=&page=&size=` | `LEDGER_READ` | la balance à six colonnes, dans l'ordre des codes de compte ; `kind` (balance auxiliaire) et `branchId` (balance d'agence) en filtres |
+| `GET /ledger/trial-balance/totals?from=&to=&kind=&branchId=` | `LEDGER_READ` | les totaux de la même balance, une ligne par devise, avec le constat d'équilibre |
+| `GET /ledger/journal?from=&to=&after=&size=` | `LEDGER_READ` | le journal de l'entité, toutes lignes, par curseur : un jour par défaut, la lecture des extractions |
 | `POST /accounts/{id}/deposits`, `/withdrawals` | `CASH_OPERATION` | montant, canal ; `Idempotency-Key` — la caisse est celle de l'appelant, résolue depuis son jeton (`409` s'il n'en a pas, ou si elle est arrêtée) |
 | `POST /transfers` | `TRANSFER` | émetteur, bénéficiaire, montant ; `Idempotency-Key` |
 | `POST /accounts/{id}/blocks`, `.../{blockId}/lift` | `ACCOUNT_BLOCK` | nature, motif — **202** |
@@ -124,6 +143,8 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `POST /eom/runs`, `.../{id}/resume`, `.../{id}/cancel` | `PERIOD_CLOSE`, `PERIOD_REOPEN` | journée de fin de période ; contre-passation et motif — **202** chacun, l'arrêté mensuel s'exécute à l'approbation ; `GET /eom/runs/{id}` |
 | `POST /eoy/runs`, `.../{id}/resume`, `.../{id}/cancel` | `YEAR_CLOSE`, `YEAR_REOPEN` | journée de fin d'exercice ; contre-passation (à la fin d'exercice) et motif — **202** chacun ; `GET /eoy/runs/{id}` |
 | `POST /fiscal-years`, `GET /fiscal-years` | `FISCAL_YEAR_MANAGE` | début, fin, compte de résultat — **202** ; liste paginée avec le statut |
+| `GET /fiscal-years/{id}` | `FISCAL_YEAR_MANAGE` | l'exercice, son résultat net une fois clos (positif pour un bénéfice), l'affectation en vigueur et toutes les affectations, contre-passées comprises |
+| `POST /fiscal-years/{id}/appropriation` | `RESULT_APPROPRIATION` | date comptable (après la fin de l'exercice), date de la décision, pièce, destinations (compte, montant) — **202** ; à l'approbation, l'écriture solde le compte de résultat agence par agence sur les destinations, au siège ; la somme est le résultat, exactement (`422` sinon), un exercice non clos ou déjà affecté est un conflit (`409`) |
 | `POST /loans` | `LOAN_CONTRACT_CREATE` | référence, produit, devise, compte de prêt, compte de règlement, capital, date de déblocage, client |
 | `POST /loans/{id}/disbursement` | `LOAN_DISBURSE` | conditions (taux, périodicité, échéances, différé, première échéance, méthode, base, frais) — **202**, plafond sur le capital |
 | `POST /loans/{id}/repayments` | `LOAN_REPAYMENT` | montant, date de valeur ; `Idempotency-Key` ; règlement manuel, l'excédent non affecté est rendu |

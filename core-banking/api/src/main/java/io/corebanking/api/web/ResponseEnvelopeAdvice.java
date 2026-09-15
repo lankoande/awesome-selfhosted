@@ -12,7 +12,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
 /**
  * Toute reponse des controleurs de l'API sort dans {@link ApiResponse}. Un controleur rend sa
- * donnee — ou une {@link Paging.Paged page} — et rien d'autre : l'enveloppe n'est jamais
+ * donnee — ou une {@link Paging.Paged page}, ou une {@link Paging.Slice tranche} — et rien d'autre : l'enveloppe n'est jamais
  * construite a la main, elle ne peut donc pas manquer. Les reponses hors de ce paquetage (sante
  * du service) ne sont pas touchees.
  */
@@ -37,6 +37,9 @@ public class ResponseEnvelopeAdvice implements ResponseBodyAdvice<Object> {
         }
         if (body instanceof Paging.Paged<?> paged) {
             return ApiResponse.of(paged, requestId);
+        }
+        if (body instanceof Paging.Slice<?> slice) {
+            return ApiResponse.of(slice, requestId);
         }
         return ApiResponse.of(body, requestId);
     }

@@ -155,13 +155,14 @@ public class PlatformConfiguration {
                                                      AccountLifecycle lifecycle,
                                                      PartyService parties,
                                                      AccountDirectory accounts,
-                                                     LoanService loans, EodEngines engines) {
+                                                     LoanService loans, EodEngines engines,
+                                                     PostingService postingService) {
         int hours = properties.makerChecker() == null ? 48
                     : properties.makerChecker().expiryHoursOrDefault();
         return new io.corebanking.api.web.MakerChecker(
             database, authorization, json, java.time.Duration.ofHours(hours),
             io.corebanking.api.web.DualControlHandlers.all(database, lifecycle, parties, accounts,
-                                                           loans, engines));
+                                                           loans, engines, postingService));
     }
 
     @Bean

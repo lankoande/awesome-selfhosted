@@ -111,6 +111,7 @@ public class ApiExceptionHandler {
                        Tills.UnknownTillException.class,
                        ProductUseCases.UnknownProductVersionException.class,
                        ParameterUseCases.UnknownParameterException.class,
+                       io.corebanking.ledger.store.FiscalYears.UnknownFiscalYearException.class,
                        PendingOperations.UnknownPendingOperationException.class})
     ResponseEntity<ApiResponse<Void>> unknown(RuntimeException e, HttpServletRequest request) {
         return respond(HttpStatus.NOT_FOUND, "Objet inconnu", e.getMessage(), request);
@@ -122,6 +123,7 @@ public class ApiExceptionHandler {
                        PartyService.DuplicatePartyException.class,
                        AccountLifecycle.ClosureRefusedException.class,
                        TfjEngine.TfjRefusedException.class, IllegalStateException.class,
+                       io.corebanking.ledger.store.FiscalYears.NotAppropriableException.class,
                        MakerChecker.NotDecidableException.class,
                        LoanService.ArrearsOutstandingException.class,
                        TillUseCases.NoTillException.class,

@@ -77,7 +77,7 @@ class TfaIT extends TfjTestBase {
     }
 
     @Test
-    @DisplayName("la cloture annuelle solde les comptes de resultat sur le compte de resultat, clot le mois et l'exercice ; son annulation defait tout, a la date de fin d'exercice")
+    @DisplayName("la cloture annuelle solde les comptes de resultat sur le compte de resultat, clot le mois et l'exercice ; son annulation defait tout, a la date de fin d'exercice ; le resultat affecte retient la cloture")
     void the_year_is_closed_then_reopened() {
         // Des periodes mensuelles, comme en exploitation, et un exercice qui finit avec septembre.
         database.inTransaction(c -> {
@@ -169,5 +169,33 @@ class TfaIT extends TfjTestBase {
             .isEqualTo(produitsAvant.plus(Money.of("500", Currencies.XOF)).minus(chargesAvant));
         assertThat(solde(produits).isZero()).isTrue();
         assertThat(statutExercice()).isEqualTo("CLOSED");
+
+        // Le resultat s'affecte a deux, apres la fin de l'exercice ; affecte, il n'est plus a
+        // la disposition de la cloture : l'annuler exige de contre-passer l'affectation d'abord.
+        Account reserves = account("RESERVES-TFA", AccountKind.GL, NormalBalance.CREDIT);
+        FiscalYears.FiscalYear exercice = database.inTransaction(
+            c -> FiscalYears.endingOn(c, ENTITY, FIN_EXERCICE)).orElseThrow();
+        Money net = database.inTransaction(c -> FiscalYears.netResult(c, exercice)).orElseThrow();
+        assertThat(net).isEqualTo(solde(resultat));
+        FiscalYears.AppropriationRecord affectation = database.inTransaction(c ->
+            FiscalYears.appropriate(c, postingService, new FiscalYears.Appropriation(
+                exercice.id(), LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 1),
+                "AGO du 1er octobre 2026",
+                List.of(new FiscalYears.Allocation(reserves.id(), net.abs())), ACTOR, APPROVER)));
+        assertThat(solde(resultat).isZero()).isTrue();
+        assertThat(solde(reserves)).isEqualTo(net);
+        assertThatThrownBy(() -> tfa().cancel(rejouee.id(), ACTOR, FIN_EXERCICE, "essai"))
+            .isInstanceOf(TfjEngine.TfjRefusedException.class)
+            .hasMessageContaining("affecte");
+        assertThat(statutExercice()).isEqualTo("CLOSED");
+
+        // Contre-passee, l'affectation ne retient plus rien.
+        postingService.reverse(affectation.entryId(), affectation.bookingDate(),
+                               LocalDate.of(2026, 10, 1), IdempotencyKey.of("rev-affectation"),
+                               "decision rapportee");
+        tfa().cancel(rejouee.id(), ACTOR, FIN_EXERCICE, "produit oublie, bis");
+        assertThat(statutExercice()).isEqualTo("REOPENED");
+        assertThat(solde(resultat).isZero()).isTrue();
+        assertThat(solde(reserves).isZero()).isTrue();
     }
 }

@@ -9,7 +9,8 @@ import java.util.List;
  *
  * <ul>
  *   <li>{@code data} : la donnee, ou la liste des elements de la page ; nulle sur un refus ;</li>
- *   <li>{@code page} : les bornes de la page quand la donnee est une liste paginee ;</li>
+ *   <li>{@code page} : les bornes de la page quand la donnee est une liste paginee — numero
+ *       et decompte par pages numerotees, {@code nextCursor} par curseur ;</li>
  *   <li>{@code error} : le refus, avec les champs de RFC 9457 (type, title, status, detail,
  *       instance) ; nul sur un succes ;</li>
  *   <li>{@code meta} : l'horodatage et l'identifiant de requete, repris de l'en-tete
@@ -21,11 +22,22 @@ import java.util.List;
  */
 public record ApiResponse<T>(T data, Page page, Error error, Meta meta) {
 
-    public record Page(int number, int size, long totalElements, int totalPages, boolean hasNext,
-                       boolean hasPrevious) {
+    /**
+     * Les bornes d'une liste. Par pages numerotees : numero, decompte et nombre de pages. Par
+     * curseur : ni numero ni decompte, mais {@code nextCursor}, a rendre tel quel pour la page
+     * suivante ; nul sur la derniere.
+     */
+    public record Page(Integer number, int size, Long totalElements, Integer totalPages,
+                       boolean hasNext, boolean hasPrevious, String nextCursor) {
         static Page of(Paging.Paged<?> paged) {
             return new Page(paged.request().number(), paged.request().size(), paged.total(),
-                            paged.totalPages(), paged.hasNext(), paged.request().number() > 0);
+                            paged.totalPages(), paged.hasNext(), paged.request().number() > 0,
+                            null);
+        }
+
+        static Page of(Paging.Slice<?> slice) {
+            return new Page(null, slice.request().size(), null, null, slice.hasNext(),
+                            slice.hasPrevious(), slice.nextCursor());
         }
     }
 
@@ -39,6 +51,10 @@ public record ApiResponse<T>(T data, Page page, Error error, Meta meta) {
 
     public static <T> ApiResponse<List<T>> of(Paging.Paged<T> paged, String requestId) {
         return new ApiResponse<>(paged.items(), Page.of(paged), null, meta(requestId));
+    }
+
+    public static <T> ApiResponse<List<T>> of(Paging.Slice<T> slice, String requestId) {
+        return new ApiResponse<>(slice.items(), Page.of(slice), null, meta(requestId));
     }
 
     public static ApiResponse<Void> error(int status, String title, String detail, String instance,

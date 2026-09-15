@@ -31,6 +31,12 @@ public enum Operation {
     ACCOUNT_JOURNAL_READ,
     /** Lecture du referentiel client. */
     PARTY_READ,
+    /**
+     * Restitutions comptables : balance, grand livre, journal de l'entite. La comptabilite et
+     * l'audit lisent le journal entier ; c'est une lecture de la banque, pas d'un client, et
+     * elle est tracee comme toute lecture.
+     */
+    LEDGER_READ,
 
     // ------------------------------------------------------------------ operations
     /** Versement ou retrait au guichet. */
@@ -122,6 +128,8 @@ public enum Operation {
     YEAR_CLOSE,
     /** Annulation d'une cloture annuelle : le resultat defait, l'exercice et son dernier mois rouverts. */
     YEAR_REOPEN,
+    /** Affectation du resultat d'un exercice clos : la decision de l'assemblee, comptabilisee. */
+    RESULT_APPROPRIATION,
 
     // ------------------------------------------------------------------ audit
     /** Consultation de la piste d'audit. */

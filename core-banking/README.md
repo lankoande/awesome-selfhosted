@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 564 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 261 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 568 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 265 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -661,12 +661,38 @@ refus sont des réponses nommées, du `401` au `422`, et un `500` signifie qu'il
 comptabilisé (`refus`). Le test fait tout le parcours contre un vrai serveur, une vraie base et
 de vrais jetons.
 
+### 21. Des restitutions lues dans le journal, et un résultat qui s'affecte exactement
+
+**La balance est une lecture, pas un état.** Six colonnes par compte — ouverture, mouvements,
+clôture —, calculées dans le journal à la date demandée, jamais dans un cliché : regénérée
+demain, elle redonne le même chiffre, et ses totaux par devise s'équilibrent par construction,
+constat rendu avec elle (`the_balance_has_six_columns_and_balances`). Le ledger ne tenant qu'un
+seul type de compte, la balance de tous les comptes est la balance générale ; la balance
+auxiliaire des clients et la balance d'agence sont des filtres de la même lecture, et une
+balance filtrée dit qu'elle ne s'équilibre pas.
+
+**Le grand livre se lit par curseur, sur un index.** La page suivante reprend strictement après
+une position — date comptable, instant de connaissance, écriture, ligne —, quatre colonnes de
+la ligne portées par un index dans cet ordre : le coût d'une page ne dépend pas de ce qui la
+précède, et deux extractions ne se contredisent pas
+(`the_ledger_is_read_by_cursor_in_the_statement_order`). Le curseur est opaque ; un curseur qui
+ne se relit pas est une requête invalide, pas une page vide.
+
+**Le résultat s'affecte exactement, là où la clôture l'a porté.** La décision de l'assemblée
+devient une écriture, à deux, datée après la fin de l'exercice, qui solde le compte de résultat
+agence par agence — les liaisons complétées par le service d'imputation — sur des comptes de
+bilan du siège ; la somme est le résultat lu dans les écritures de la clôture, ni plus ni moins,
+le report à nouveau étant une destination comme une autre
+(`the_result_is_appropriated_exactly_once_and_clears_every_branch`). Une affectation ne s'efface
+pas : on contre-passe son écriture pour la refaire ; et un résultat affecté retient la clôture,
+qui ne s'annule qu'une fois l'affectation contre-passée.
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
-- API : pas de contrat OpenAPI publié ; pagination par curseur pour les extractions massives
-  (la pagination par pages bornées est faite) ;
+- API : pas de contrat OpenAPI publié (la pagination par pages bornées et par curseur, elle,
+  est faite) ;
 - chèques (remise, compensation, opposition), paiements sortants, plafonds par produit et par
   client ;
 - multi-agences : schémas de liaison bilatéral et via la région (le schéma via le siège est
@@ -682,8 +708,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
   commissions de découvert (mise en place, dépassement), base minimum ou moyenne pour l'épargne
   classique — la capitalisation et les agios, eux, sont faits ;
 - archivage des partitions (leur création, elle, est garantie par le TFJ) ;
-- clôture annuelle : l'affectation du résultat (décision d'assemblée) et les états financiers —
-  la détermination du résultat, la clôture du dernier mois et de l'exercice, elles, sont faites ;
+- clôture annuelle : les états financiers et la liasse — la détermination du résultat, la
+  clôture du dernier mois et de l'exercice, et l'affectation du résultat, elles, sont faites ;
 - contrôle du cours appliqué contre la table de référence — le ledger valide la cohérence des
   contre-valeurs, pas la justesse d'un cours uniforme.
 
@@ -758,6 +784,13 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Le cliché des soldes est incrémental, le rejeu intégral mensuel | O(journée) chaque nuit, O(historique) une fois par mois ; par récurrence, la même garantie |
 | La réconciliation rafraîchit le cliché avant de contrôler | La correction passée entre un échec et la reprise est comptabilisée sur la journée ; le cliché arrêté à l'étape précédente ne la porte pas |
 | L'entité est posée par transaction, jamais par connexion | Un pool partage ses connexions : un réglage de session fuirait vers la requête suivante ; `set_config(…, true)` tombe avec la transaction, validée ou annulée |
+| L'ordre du journal par curseur est fait de colonnes de la ligne, pas du numéro d'écriture | Le numéro est sur l'écriture : l'ordre exigerait une jointure que l'index ne porte pas, et chaque page relirait tout ce qui la précède ; l'instant de connaissance est sur la ligne, et il est chronologique |
+| La balance est lue dans le journal, jamais dans un cliché | Un cliché est un cache : regénérée, une balance doit redonner le même chiffre, et ses totaux doivent s'équilibrer par construction, pas par rapprochement |
+| La balance auxiliaire et la balance d'agence sont des filtres de la balance | Un seul type de compte, un seul journal : une seconde lecture ferait exister deux balances à rapprocher |
+| Le résultat s'affecte en totalité, ou pas | Une affectation partielle laisserait un solde en instance dont personne ne porte la décision ; le report à nouveau est une destination comme une autre |
+| Le résultat net se lit dans les écritures de la clôture, pas dans une colonne | Un montant stocké serait une seconde vérité ; l'exercice rouvert n'a plus de résultat, et il n'a rien à effacer |
+| L'affectation solde le compte de résultat agence par agence | Le résultat a été porté par agence ; le solder au siège seul laisserait chaque agence porter son résultat pour toujours |
+| Un résultat affecté retient l'annulation de la clôture | Annuler la clôture défait le résultat ; le défaire sous une affectation laisserait des réserves dotées d'un résultat qui n'existe plus |
 | Sans entité posée, le rôle applicatif ne voit rien | Le défaut est l'absence d'accès : une requête écrite sans filtre renvoie zéro ligne, pas toutes les entités |
 | Une transaction ne change pas d'entité | La base a déjà reçu l'entité de la transaction ; une unité de travail qui en attendrait une autre lirait à côté de ce qu'elle croit — refusé en Java, avant la base |
 | Deux comptes de base, propriétaire et applicatif | Le propriétaire des tables n'est soumis à aucune politique ; avec un seul compte, la Row Level Security serait décorative |

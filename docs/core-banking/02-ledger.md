@@ -458,3 +458,31 @@ l'insertion.
 Un invariant en échec **bloque l'ouverture du jour suivant**. C'est volontaire : un core
 banking qui continue à tourner avec un écart comptable accumule une dette impossible à
 solder.
+
+---
+
+## 12. Restitutions : balance, grand livre, journal
+
+> **Implémenté** — `TrialBalance`, `Journal`, module `ledger-store` ; exposés par `LEDGER_READ`.
+
+Une restitution est une **lecture du journal**, jamais d'un cliché : ce qu'elle montre est
+exactement ce que les écritures disent à la date demandée, et elle se recalcule à l'identique
+tant que le journal ne change pas — c'est ce qui la rend opposable.
+
+**La balance** donne, pour chaque compte mouvementé jusqu'à la fin de la plage, six colonnes :
+solde d'ouverture (ce qui précède la plage), mouvements débit et crédit, solde de clôture —
+chaque solde n'occupant qu'une colonne, au débit ou au crédit. Le ledger tient un seul type de
+compte, clients et généraux dans le même journal : la balance de tous les comptes **est** la
+balance générale, la balance auxiliaire des clients en est un filtre (`kind`), la balance
+d'agence un autre (`branchId`, sur la dimension d'agence des lignes). Les totaux par devise
+s'équilibrent par construction — ouverture, mouvements, clôture — et le constat est rendu avec
+eux ; sur une balance filtrée il est faux, et il le dit.
+
+**Le grand livre et le journal** se lisent **par curseur**. L'ordre total est celui de quatre
+colonnes de la ligne elle-même — date comptable, instant de connaissance, écriture, ligne —,
+portées par un index dans cet ordre (`idx_line_entity_journal`, V37) : la page suivante reprend
+strictement après une position, par comparaison de lignes (`(a, b, c, d) > (?, ?, ?, ?)`), et
+son coût ne dépend pas de ce qui la précède. Dans une journée, l'ordre est celui où les
+écritures ont été connues — l'ordre chronologique du journal, celui de l'édition. Le relevé par
+pages numérotées lit le même ordre : un écran et une extraction ne se contredisent pas.
+

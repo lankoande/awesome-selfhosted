@@ -141,6 +141,8 @@ class ApiIT {
     private Account ecartsCaisse;
     private Account frais;
     private Account resultat;
+    private Account reserves;
+    private Account report;
     private String accountant2;
     private UUID caisseId;
     private String officer;
@@ -192,6 +194,8 @@ class ApiIT {
             Account courus = compte(c, "COURUS", AccountKind.GL, NormalBalance.CREDIT, null);
             frais = compteDeResultat(c, "FRAIS", NormalBalance.CREDIT);
             resultat = compte(c, "RESULTAT", AccountKind.GL, NormalBalance.CREDIT, null);
+            reserves = compte(c, "RESERVES", AccountKind.GL, NormalBalance.CREDIT, null);
+            report = compte(c, "REPORT", AccountKind.GL, NormalBalance.CREDIT, null);
             Account taxe = compte(c, "TAXE", AccountKind.GL, NormalBalance.CREDIT, null);
             Map<String, String> parametres = new LinkedHashMap<>();
             parametres.put(ProductCatalog.P_RATE, "3");
@@ -598,7 +602,7 @@ class ApiIT {
 
     @Test
     @Order(6)
-    @DisplayName("l'enveloppe et la pagination : une seule forme, des pages bornees a ordre total, l'identifiant de requete repris")
+    @DisplayName("l'enveloppe et la pagination : une seule forme, des pages bornees a ordre total, le curseur pour le grand livre et le journal, la balance a six colonnes, l'identifiant de requete repris")
     void enveloppe_et_pagination() throws Exception {
         // L'identifiant de requete fourni est repris dans l'enveloppe et dans l'en-tete.
         Reponse identifiee = get(manager, "/accounts/" + account + "/balance",
@@ -629,6 +633,61 @@ class ApiIT {
         assertThat((String) trop.body().get("detail")).contains("200");
         // Un guichetier ne lit pas le journal d'un compte.
         assertThat(get(teller, "/accounts/" + account + "/journal").status()).isEqualTo(403);
+
+        // Le grand livre du compte, par curseur : les memes lignes, la page suivante reprend
+        // apres la precedente, et un curseur qui ne se relit pas est une requete invalide.
+        Reponse livre = get(manager, "/accounts/" + account + "/ledger?from=" + J + "&to="
+                            + J.plusDays(1) + "&size=2");
+        assertThat(livre.status()).as(String.valueOf(livre.envelope())).isEqualTo(200);
+        assertThat(livre.items()).hasSize(2);
+        assertThat(livre.items().get(0).get("entryId"))
+            .isEqualTo(releve.items().get(0).get("entryId"));
+        assertThat(livre.items().get(0)).containsKeys("accountCode", "lineNumber", "knowledgeTime");
+        assertThat(livre.page().get("hasNext")).isEqualTo(true);
+        assertThat(livre.page().get("hasPrevious")).isEqualTo(false);
+        assertThat(livre.page().get("totalElements")).isNull();
+        String curseur = (String) livre.page().get("nextCursor");
+        assertThat(curseur).isNotBlank();
+        Reponse livreSuite = get(manager, "/accounts/" + account + "/ledger?from=" + J + "&to="
+                                 + J.plusDays(1) + "&size=2&after=" + curseur);
+        assertThat(livreSuite.status()).as(String.valueOf(livreSuite.envelope())).isEqualTo(200);
+        assertThat(livreSuite.items().get(0).get("entryId"))
+            .isEqualTo(suite.items().get(0).get("entryId"));
+        assertThat(livreSuite.page().get("hasPrevious")).isEqualTo(true);
+        Reponse curseurFaux = get(manager, "/accounts/" + account + "/ledger?after=n-importe-quoi");
+        assertThat(curseurFaux.status()).isEqualTo(400);
+        assertThat((String) curseurFaux.body().get("detail")).contains("Curseur");
+
+        // Le journal de l'entite et la balance : la comptabilite et l'audit, pas l'agence.
+        assertThat(get(manager, "/ledger/journal").status()).isEqualTo(403);
+        assertThat(get(manager, "/ledger/trial-balance").status()).isEqualTo(403);
+        Reponse journal = get(accountant, "/ledger/journal?from=" + J + "&to=" + J + "&size=3");
+        assertThat(journal.status()).as(String.valueOf(journal.envelope())).isEqualTo(200);
+        assertThat(journal.items()).hasSize(3);
+        assertThat(journal.page().get("nextCursor")).isNotNull();
+        assertThat(journal.items()).extracting(l -> l.get("bookingDate")).containsOnly(J.toString());
+        Reponse balance = get(accountant, "/ledger/trial-balance?from=" + J.minusMonths(1) + "&to="
+                              + J + "&size=100");
+        assertThat(balance.status()).as(String.valueOf(balance.envelope())).isEqualTo(200);
+        assertThat(balance.items()).extracting(l -> l.get("code")).contains("CAISSE", "FRAIS");
+        Map<String, Object> ligneCaisse = balance.items().stream()
+            .filter(l -> "CAISSE".equals(l.get("code"))).findFirst().orElseThrow();
+        assertThat(ligneCaisse.get("kind")).isEqualTo("INTERNAL");
+        assertThat(new java.math.BigDecimal(montant(ligneCaisse, "closingDebit"))).isPositive();
+        assertThat(montant(ligneCaisse, "closingCredit")).isEqualTo("0");
+        Reponse totaux = get(accountant, "/ledger/trial-balance/totals?from=" + J.minusMonths(1)
+                             + "&to=" + J);
+        assertThat(totaux.status()).as(String.valueOf(totaux.envelope())).isEqualTo(200);
+        assertThat(totaux.items()).hasSize(1);
+        assertThat(totaux.items().get(0).get("currency")).isEqualTo("XOF");
+        assertThat(totaux.items().get(0).get("balanced")).isEqualTo(true);
+        assertThat(montant(totaux.items().get(0), "closingDebit"))
+            .isEqualTo(montant(totaux.items().get(0), "closingCredit"));
+        Reponse clients = get(accountant, "/ledger/trial-balance?kind=CUSTOMER&to=" + J);
+        assertThat(clients.status()).isEqualTo(200);
+        assertThat(clients.items()).isNotEmpty();
+        assertThat(clients.items()).extracting(l -> l.get("kind")).containsOnly("CUSTOMER");
+        assertThat(get(accountant, "/ledger/trial-balance?kind=NIMPORTE").status()).isEqualTo(400);
 
         // Les operations en attente : une page, apres le filtre d'habilitation.
         Reponse blocage = post(manager, "/accounts/" + account + "/blocks", null,
@@ -689,7 +748,7 @@ class ApiIT {
 
     @Test
     @Order(8)
-    @DisplayName("la cloture annuelle par l'API : exercice ouvert a deux, arrete mensuel refuse sur le dernier mois, cloture a deux, annulation a deux")
+    @DisplayName("la cloture annuelle par l'API : exercice ouvert a deux, arrete mensuel refuse sur le dernier mois, cloture a deux, annulation a deux, resultat affecte a deux et cloture alors retenue")
     void cloture() throws Exception {
         // L'exercice : ouvert par la comptabilite, valide par une seconde.
         Reponse exercice = post(accountant, "/fiscal-years", null, Map.of(
@@ -746,6 +805,69 @@ class ApiIT {
             .isEqualTo(fraisAvant);
         assertThat(get(accountant, "/fiscal-years").items().get(0).get("status"))
             .isEqualTo("REOPENED");
+
+        // La cloture rejouee, puis le resultat affecte a deux — en totalite, au report a
+        // nouveau — ; affecte, il retient la cloture : l'annulation est refusee.
+        Reponse rejouee = post(accountant, "/eoy/runs", null, Map.of("businessDate", J.toString()));
+        Reponse reclos = post(accountant2, "/pending-operations/" + attente(rejouee) + "/approve",
+                              null, Map.of());
+        assertThat(reclos.status()).as(String.valueOf(reclos.envelope())).isEqualTo(200);
+        assertThat(resultat(reclos.body()).get("status")).isEqualTo("COMPLETED");
+        UUID rejoueeId = UUID.fromString((String) resultat(reclos.body()).get("id"));
+        UUID exerciceId = UUID.fromString(
+            (String) get(accountant, "/fiscal-years").items().get(0).get("id"));
+        Reponse fiche = get(accountant, "/fiscal-years/" + exerciceId);
+        assertThat(fiche.status()).as(String.valueOf(fiche.envelope())).isEqualTo(200);
+        assertThat(fiche.body().get("status")).isEqualTo("CLOSED");
+        assertThat(fiche.body().get("appropriation")).isNull();
+        java.math.BigDecimal net = new java.math.BigDecimal(montant(fiche.body(), "netResult"));
+        assertThat(net).isNotZero();
+        assertThat(montant(get(manager, "/accounts/" + resultat.id() + "/balance").body(),
+                           "current")).isEqualTo(net.toPlainString());
+        assertThat(get(accountant, "/fiscal-years/" + UUID.randomUUID()).status()).isEqualTo(404);
+
+        // Ni plus ni moins que le resultat : l'approbation execute, et le refus est la reponse.
+        Reponse partielle = post(accountant, "/fiscal-years/" + exerciceId + "/appropriation", null,
+            Map.of("bookingDate", J.plusDays(1).toString(), "decidedOn", J.plusDays(1).toString(),
+                   "reference", "AGO", "allocations", List.of(Map.of(
+                       "accountId", report.id().toString(), "amount", "1", "currency", "XOF"))));
+        assertThat(partielle.status()).as(String.valueOf(partielle.envelope())).isEqualTo(202);
+        Reponse refusPartiel = post(accountant2, "/pending-operations/" + attente(partielle)
+                                    + "/approve", null, Map.of());
+        assertThat(refusPartiel.status()).as(String.valueOf(refusPartiel.envelope())).isEqualTo(422);
+        assertThat((String) refusPartiel.body().get("detail")).contains("ni plus ni moins");
+
+        Reponse decision = post(accountant, "/fiscal-years/" + exerciceId + "/appropriation", null,
+            Map.of("bookingDate", J.plusDays(1).toString(), "decidedOn", J.plusDays(1).toString(),
+                   "reference", "AGO du " + J.plusDays(1), "allocations", List.of(Map.of(
+                       "accountId", report.id().toString(), "amount", net.abs().toPlainString(),
+                       "currency", "XOF"))));
+        assertThat(decision.status()).as(String.valueOf(decision.envelope())).isEqualTo(202);
+        assertThat(post(accountant, "/pending-operations/" + attente(decision) + "/approve", null,
+                        Map.of()).status()).isEqualTo(403);
+        Reponse affecte = post(accountant2, "/pending-operations/" + attente(decision) + "/approve",
+                               null, Map.of());
+        assertThat(affecte.status()).as(String.valueOf(affecte.envelope())).isEqualTo(200);
+        assertThat(affecte.body().get("status")).isEqualTo("EXECUTED");
+        assertThat(montant(resultat(affecte.body()), "netResult")).isEqualTo(net.toPlainString());
+        assertThat(montant(get(manager, "/accounts/" + resultat.id() + "/balance").body(),
+                           "current")).isEqualTo("0");
+        assertThat(montant(get(manager, "/accounts/" + report.id() + "/balance").body(),
+                           "current")).isEqualTo(net.toPlainString());
+        fiche = get(accountant, "/fiscal-years/" + exerciceId);
+        assertThat(((Map<?, ?>) fiche.body().get("appropriation")).get("reference"))
+            .isEqualTo("AGO du " + J.plusDays(1));
+        assertThat((List<?>) fiche.body().get("appropriations")).hasSize(1);
+
+        Reponse reannulation = post(accountant, "/eoy/runs/" + rejoueeId + "/cancel", null, Map.of(
+            "reversalBookingDate", J.toString(), "reason", "essai"));
+        assertThat(reannulation.status()).as(String.valueOf(reannulation.envelope())).isEqualTo(202);
+        Reponse retenue = post(accountant2, "/pending-operations/" + attente(reannulation)
+                               + "/approve", null, Map.of());
+        assertThat(retenue.status()).as(String.valueOf(retenue.envelope())).isEqualTo(409);
+        assertThat((String) retenue.body().get("detail")).contains("affecte");
+        assertThat(get(accountant, "/fiscal-years/" + exerciceId).body().get("status"))
+            .isEqualTo("CLOSED");
     }
 
     @Test

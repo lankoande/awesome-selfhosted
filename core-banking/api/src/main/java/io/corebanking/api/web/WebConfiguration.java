@@ -49,6 +49,7 @@ public class WebConfiguration implements WebMvcConfigurer {
         resolvers.add(new CallerResolver());
         resolvers.add(new IdempotencyKeyResolver());
         resolvers.add(new PageRequestResolver());
+        resolvers.add(new CursorRequestResolver());
     }
 
     /** {@link Paging.PageRequest} depuis {@code page} et {@code size} ; une taille au-dela du plafond est refusee. */
@@ -63,6 +64,21 @@ public class WebConfiguration implements WebMvcConfigurer {
                                       NativeWebRequest request, WebDataBinderFactory binders) {
             return Paging.PageRequest.parse(request.getParameter("page"),
                                             request.getParameter("size"));
+        }
+    }
+
+    /** {@link Paging.CursorRequest} depuis {@code after} et {@code size}. */
+    private static final class CursorRequestResolver implements HandlerMethodArgumentResolver {
+        @Override
+        public boolean supportsParameter(MethodParameter parameter) {
+            return Paging.CursorRequest.class.equals(parameter.getParameterType());
+        }
+
+        @Override
+        public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mav,
+                                      NativeWebRequest request, WebDataBinderFactory binders) {
+            return Paging.CursorRequest.parse(request.getParameter("after"),
+                                              request.getParameter("size"));
         }
     }
 

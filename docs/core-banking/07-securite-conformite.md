@@ -208,7 +208,9 @@ un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servi
 > change l'état de la banque : crédit (`LOAN_CONTRACT_CREATE`, `LOAN_DISBURSE`, `LOAN_RESCHEDULE`,
 > `LOAN_PREPAY`, `LOAN_REPAYMENT`, `COLLATERAL_MANAGE`, `LOAN_READ`), paramétrage
 > (`RISK_PARAMETER_*`, `ACCOUNTING_SCHEMA_*`, `CALENDAR_MANAGE`, `BRANCH_MANAGE`, `TILL_MANAGE`, `TILL_CLOSE`, `FEE_EXEMPTION_GRANT`,
-> `ACCOUNT_PRODUCT_ASSIGN`), comptabilité (`JOURNAL_ENTRY_MANUAL`, `PERIOD_CLOSE`). Deux rôles
+> `ACCOUNT_PRODUCT_ASSIGN`), comptabilité (`JOURNAL_ENTRY_MANUAL`, `PERIOD_CLOSE`,
+> `RESULT_APPROPRIATION` — l'affectation du résultat, à deux) et restitutions (`LEDGER_READ` :
+> balance, grand livre, journal de l'entité — la comptabilité et l'audit, lecture tracée). Deux rôles
 > de crédit les portent : `credit_officer` (chargé de crédit, agence) et `credit_manager`
 > (responsable des engagements, siège) — la seconde main sur tout ce qui engage la banque.
 >

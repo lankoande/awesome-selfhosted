@@ -244,8 +244,20 @@ comptes de bilan, états financiers, liasse réglementaire, archivage de l'exerc
 > mêmes : le journal est continu, il n'y a pas d'à-nouveaux à générer. L'annulation contre-passe
 > le résultat **à la date de fin d'exercice**, dans la période rouverte pour cela — datée plus
 > tard, elle laisserait les comptes de résultat soldés au 31 et la clôture rejouée ne trouverait
-> rien —, et rouvre l'exercice en le disant (`REOPENED`). Restent à faire : l'affectation du
-> résultat (décision de l'assemblée, écriture manuelle à deux), les états financiers et la liasse.
+> rien —, et rouvre l'exercice en le disant (`REOPENED`).
+>
+> **L'affectation du résultat** est faite (V37, `FiscalYears.appropriate`, `RESULT_APPROPRIATION`
+> à deux) : la décision de l'assemblée — date, pièce, destinations — devient une écriture datée
+> après la fin de l'exercice, qui solde le compte de résultat **là où la clôture l'a porté**,
+> agence par agence, sur les comptes que la décision désigne, au siège ; le service
+> d'imputation complète les liaisons. Le résultat net se lit dans les écritures de
+> détermination de la clôture qui a clos l'exercice, jamais dans un cliché ; les destinations
+> sont des comptes généraux de bilan de l'entité, en devise de tenue de compte, et leur somme est
+> exactement le résultat : une affectation partielle n'existe pas, le report à nouveau est une
+> destination comme une autre. Une affectation ne s'efface pas : pour la refaire, on contre-passe
+> son écriture, et le journal le dit. Un résultat affecté retient la clôture : l'annulation du
+> TFA est refusée tant que l'affectation n'est pas contre-passée. Restent à faire : les états
+> financiers et la liasse.
 
 ---
 

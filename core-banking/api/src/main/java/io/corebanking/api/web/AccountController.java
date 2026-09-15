@@ -24,6 +24,7 @@ public class AccountController {
     private final MakerChecker makerChecker;
     private final AccountUseCases.ReadBalance readBalance;
     private final AccountUseCases.ReadJournal readJournal;
+    private final AccountUseCases.ReadLedger readLedger;
 
     public AccountController(UseCaseExecutor executor, Database database,
                              AccountDirectory accounts, MakerChecker makerChecker) {
@@ -31,6 +32,7 @@ public class AccountController {
         this.makerChecker = makerChecker;
         this.readBalance = new AccountUseCases.ReadBalance(database, accounts);
         this.readJournal = new AccountUseCases.ReadJournal(database, accounts);
+        this.readLedger = new AccountUseCases.ReadLedger(database, accounts);
     }
 
     /**
@@ -68,6 +70,23 @@ public class AccountController {
                     io.corebanking.api.usecase.Paging.PageRequest page) {
         return executor.run(caller, readJournal,
                             new AccountUseCases.JournalQuery(accountId, from, to, page));
+    }
+
+    /** Le grand livre du compte : les memes mouvements, par curseur, pour les longues plages. */
+    @GetMapping("/{accountId}/ledger")
+    public io.corebanking.api.usecase.Paging.Slice<io.corebanking.ledger.store.Journal.StatementLine>
+            ledger(Caller caller, @PathVariable UUID legalEntityId, @PathVariable UUID accountId,
+                   @org.springframework.web.bind.annotation.RequestParam(required = false)
+                   @org.springframework.format.annotation.DateTimeFormat(
+                       iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                   java.time.LocalDate from,
+                   @org.springframework.web.bind.annotation.RequestParam(required = false)
+                   @org.springframework.format.annotation.DateTimeFormat(
+                       iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                   java.time.LocalDate to,
+                   io.corebanking.api.usecase.Paging.CursorRequest cursor) {
+        return executor.run(caller, readLedger,
+                            new AccountUseCases.LedgerQuery(accountId, from, to, cursor));
     }
 
     @PostMapping("/{accountId}/closure")
