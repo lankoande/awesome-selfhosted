@@ -112,6 +112,7 @@ public final class JdbcPostingService implements PostingService {
         ValidatedEntry entry = EntryValidator.validate(command, new PostingContext(functional, accounts));
 
         List<AccountDelta> deltas = aggregateDeltas(entry);
+        refuseBlocked(c, deltas, command.source());
         lockAndCheck(c, deltas, command.bookingDate());
 
         Instant knowledgeTime = insertEntry(c, command, entryId, reversalOf);
@@ -235,6 +236,39 @@ public final class JdbcPostingService implements PostingService {
                     throw new InsufficientFundsException(
                         delta.account().id(), available, delta.delta().abs());
                 }
+            }
+        }
+    }
+
+    /**
+     * Un compte sous blocage n'accepte aucun debit, quelle qu'en soit l'origine — un prelevement
+     * de commission ou d'echeance n'echappe pas a une saisie. Sous blocage total, il n'accepte
+     * pas non plus de credit venu d'une operation de guichet ou de canal : seule la banque
+     * elle-meme — interets capitalises, contre-passation — continue d'y ecrire.
+     */
+    private void refuseBlocked(Connection c, List<AccountDelta> deltas, PostingSource source) {
+        for (AccountDelta delta : deltas) {
+            if (delta.account().kind() != io.corebanking.ledger.domain.account.AccountKind.CUSTOMER) {
+                continue;
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                "SELECT kind, reason FROM account_block"
+                + " WHERE account_id = ? AND lifted_on IS NULL ORDER BY kind")) {
+                ps.setObject(1, delta.account().id());
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String kind = rs.getString(1);
+                        boolean refused = delta.delta().isNegative()
+                            || ("TOTAL".equals(kind) && source == PostingSource.ONLINE);
+                        if (refused) {
+                            throw new AccountBlockedException(delta.account().id(), kind,
+                                                              rs.getString(2));
+                        }
+                    }
+                }
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Lecture des blocages du compte "
+                                               + delta.account().code(), e);
             }
         }
     }

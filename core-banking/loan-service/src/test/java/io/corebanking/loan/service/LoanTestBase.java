@@ -148,6 +148,21 @@ abstract class LoanTestBase {
             .accrue(decor.entityId(), date, ACTOR, UUID.randomUUID());
     }
 
+    /** Un client verifie de l'entite : ce qu'un credit exige pour etre rattache. */
+    protected static UUID client(UUID entityId, String reference) {
+        var parties = new io.corebanking.party.PartyService(database,
+                                                            io.corebanking.party.Screening.NONE);
+        UUID id = parties.create(new io.corebanking.party.PartyService.Draft(
+            entityId, reference, io.corebanking.party.PartyKind.NATURAL_PERSON, "Client " + reference,
+            null, "CI", null,
+            List.of(io.corebanking.party.PartyIdentifier.of(
+                io.corebanking.party.IdentifierKind.NATIONAL_ID, "CNI-" + reference)),
+            ACTOR));
+        parties.verifyKyc(id, io.corebanking.party.RiskRating.MEDIUM, DEBLOCAGE.minusMonths(1),
+                          ACTOR, APPROVER);
+        return id;
+    }
+
     protected static Money solde(Account compte) {
         return database.inTransaction(c -> Balances.current(c, compte.id()));
     }

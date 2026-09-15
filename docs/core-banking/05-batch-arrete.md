@@ -97,9 +97,9 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | 9b | `LOAN_CLOSURE` | Clôture des crédits sans échéance à venir ni créance ouverte ; encours résiduel signalé | ✔ |
 | 10 | *(fusionné dans `LOAN_CLASSIFICATION`)* | Dotations et reprises, suspension des intérêts | ✔ |
 | 11 | `FX_REVALUATION` | Revalorisation des positions de change | ✔ |
-| 12 | `DORMANCY` | Détection de dormance, régime de frais associé | |
-| 13 | `HOLD_EXPIRY` | Expiration des blocages arrivés à terme | |
-| 14 | `KYC_REVIEW` | Échéances de revue périodique, expiration de documents | |
+| 12 | `DORMANCY` | Détection de dormance (délai du produit, sur l'absence d'opération du client) ; régime de frais : non fait | ✔ (non bloquante) |
+| 13 | `HOLD_EXPIRY` | Expiration des blocages de montant arrivés à terme, en date comptable | ✔ |
+| 14 | `KYC_REVIEW` | Échéances de revue périodique de la connaissance client ; expiration de documents : non fait | ✔ (non bloquante) |
 | 15 | `BALANCE_SNAPSHOT` | Snapshot des soldes par date comptable et par date de valeur | ✔ |
 | 16 | `RECONCILIATION` | Contrôles d'intégrité (cf. §5) | ✔ |
 | 17 | `REPORTING` | États quotidiens, extractions vers le datamart | |
@@ -108,11 +108,22 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 Une étape **bloquante** en échec arrête le run. Les autres consignent une anomalie et
 laissent le run se poursuivre, avec restitution à la clôture.
 
-> **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `FEE_CHARGING` →
-> `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_INTEREST_ACCRUAL` → `LOAN_LATE_CHARGES` →
-> `LOAN_CLASSIFICATION` → `LOAN_CLOSURE` → `INTEREST_ACCRUAL` → `INTEREST_SETTLEMENT` →
-> `BALANCE_SNAPSHOT` → `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans
-> toucher au moteur.
+> **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `HOLD_EXPIRY` →
+> `FEE_CHARGING` → `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_INTEREST_ACCRUAL` →
+> `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` → `LOAN_CLOSURE` → `INTEREST_ACCRUAL` →
+> `INTEREST_SETTLEMENT` → `DORMANCY` → `KYC_REVIEW` → `BALANCE_SNAPSHOT` → `RECONCILIATION` →
+> `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans toucher au moteur.
+>
+> `HOLD_EXPIRY` vient avant tout prélèvement : commissions et échéances se prélèvent sur le
+> disponible de la journée arrêtée, blocages expirés compris. `DORMANCY` et `KYC_REVIEW` ne
+> comptabilisent rien et ne bloquent pas la journée — un dossier de revue en retard n'empêche pas
+> la banque d'arrêter ses comptes ; les dossiers expirés sont rendus en anomalies non bloquantes,
+> liste de travail du lendemain. Les trois sont défaites par l'annulation de l'arrêté.
+>
+> Chaque frontière — lancement, reprise, étape, fin, annulation — est journalisée (SLF4J) avec
+> entité, journée, identifiant du traitement, étape, volumes lus et écrits, durée et anomalies.
+> Le rapport en base (`batch_step`) reste la référence ; le journal est ce que l'astreinte lit en
+> premier.
 >
 > `LOAN_INTEREST_ACCRUAL` étale l'intérêt contractuel de chaque échéance en cours sur les jours de
 > sa période — cumul arrondi, jamais de dérive — et le constate en produits ; à l'échéance, la
@@ -282,7 +293,8 @@ POST /eod/runs/{id}/cancel
 
 > **Implémenté** — l'annulation neutralise chaque sous-livre : échéances rendues à nouveau
 > exigibles, créances annulées, intérêts de retard repris, classifications neutralisées,
-> mobilisations rouvertes, **crédits clos par le traitement rendus actifs**. Et elle est
+> mobilisations rouvertes, **crédits clos par le traitement rendus actifs**, blocages de montant
+> reposés, dormances défaites, revues de connaissance client restaurées. Et elle est
 > **ordonnée** : une journée ne s'annule pas tant qu'une journée suivante est arrêtée. Restaurer la
 > date à J sous un J+1 arrêté laisserait J+1 tenue pour faite sur un état que ses écritures ne
 > décrivent plus ; les journées s'annulent de la plus récente à la plus ancienne.

@@ -96,6 +96,43 @@ CREATE INDEX idx_account_entity_kind ON account(legal_entity_id, account_kind, s
 `gl_account_id` est le lien qui rend la comptabilité générale gratuite : l'agrégation des
 comptes clients par compte de rattachement **est** la balance générale.
 
+### Tiers, titulaires, blocages, historique (V21, V22)
+
+```sql
+CREATE TABLE party (                  -- un tiers par entité juridique
+    id, legal_entity_id, reference, kind,          -- NATURAL_PERSON | LEGAL_PERSON
+    display_name, birth_or_registration_date, country_code, segment,
+    kyc_level, kyc_status,                          -- PENDING | VERIFIED | EXPIRED | BLOCKED
+    kyc_verified_on, kyc_review_due, kyc_verified_by,
+    status, status_reason, created_by, created_at, updated_at,
+    UNIQUE (legal_entity_id, reference)
+);
+CREATE TABLE party_identifier (party_id, kind, value, issued_on, expires_on, issuer);
+-- Le dédoublonnage est une contrainte, pas un traitement : deux dossiers d'une entité ne
+-- portent jamais le même identifiant officiel.
+CREATE UNIQUE INDEX uq_party_official_identifier ON party_identifier (legal_entity_id, kind, value)
+    WHERE kind IN ('NATIONAL_ID','PASSPORT','RESIDENCE_PERMIT','TAX_ID','TRADE_REGISTRY',
+                   'CREDIT_BUREAU');
+CREATE TABLE account_holder (account_id, party_id, role,   -- HOLDER | JOINT_HOLDER | AGENT
+                             valid_from, valid_to, created_by);
+CREATE TABLE party_event (party_id, kind, occurred_on, actor_id, approver_id, detail, batch_run_id);
+
+CREATE TABLE account_block (          -- opposition, saisie, gel : un état superposé au statut
+    id, account_id, kind,             -- DEBIT (les fonds entrent) | TOTAL (seule la banque opère)
+    reason, reference, placed_on, placed_by, approved_by, lifted_on, lifted_by,
+    CONSTRAINT ck_block_approval CHECK (approved_by <> placed_by),
+    CONSTRAINT ck_block_lift CHECK ((lifted_on IS NULL) = (lifted_by IS NULL))
+);
+CREATE TABLE account_event (          -- OPENED | BLOCKED | UNBLOCKED | DORMANT | REACTIVATED | CLOSED
+    id, account_id, kind, occurred_on, actor_id, approver_id, detail, batch_run_id
+);
+```
+
+Le statut courant est sur le compte ; l'historique est dans `account_event`, avec le traitement
+qui l'a produit lorsque c'est un arrêté — pour que son annulation le défasse. Un blocage est
+appliqué par le service d'imputation lui-même, à chaque écriture sur un compte client : il prime
+donc sur les prélèvements automatiques sans qu'aucun service n'ait à le vérifier.
+
 ---
 
 ## 3. Journal — le cœur
@@ -285,30 +322,43 @@ CREATE TABLE account_hold (
     expires_at    TIMESTAMPTZ,
     released_at   TIMESTAMPTZ,
     created_by    UUID NOT NULL,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- V21 : un blocage expire par date comptable, pas par horloge ; il est levé par
+    -- l'arrêté (released_run_id) et reposé par son annulation.
+    expires_on    DATE,
+    placed_on     DATE,
+    placed_by     UUID,
+    released_on   DATE,
+    released_by   UUID,
+    released_run_id UUID
 );
 
 CREATE INDEX idx_hold_active ON account_hold(account_id)
     WHERE released_at IS NULL;
+CREATE INDEX idx_hold_expiry ON account_hold(expires_on) WHERE released_at IS NULL;
 ```
 
 ### Solde disponible
 
 ```sql
-CREATE OR REPLACE FUNCTION available_balance(p_account UUID)
+CREATE OR REPLACE FUNCTION available_balance(p_account UUID, p_as_of DATE)
 RETURNS NUMERIC AS $$
-    SELECT COALESCE(b.balance, 0)
-         - COALESCE((SELECT SUM(h.amount) FROM account_hold h
-                      WHERE h.account_id = p_account
-                        AND h.released_at IS NULL
-                        AND (h.expires_at IS NULL OR h.expires_at > now())), 0)
-         + COALESCE((SELECT o.amount FROM overdraft_limit o
-                      WHERE o.account_id = p_account
-                        AND o.valid_from <= CURRENT_DATE
-                        AND (o.valid_to IS NULL OR o.valid_to >= CURRENT_DATE)), 0)
-      FROM account_balance_agg b WHERE b.account_id = p_account;
+    SELECT COALESCE((SELECT SUM(balance) FROM account_balance WHERE account_id = p_account), 0)
+         - COALESCE((SELECT SUM(amount) FROM account_hold
+                      WHERE account_id = p_account
+                        AND released_at IS NULL
+                        AND (expires_on IS NULL OR expires_on >= p_as_of)), 0)
+         + COALESCE((SELECT amount FROM overdraft_limit
+                      WHERE account_id = p_account
+                        AND valid_from <= p_as_of
+                        AND (valid_to IS NULL OR valid_to >= p_as_of)
+                      ORDER BY valid_from DESC LIMIT 1), 0);
 $$ LANGUAGE sql STABLE;
 ```
+
+Le disponible se lit **à une date comptable**, jamais à l'horloge : un blocage expiré la veille
+ne compte plus le lendemain, que l'arrêté qui le lève ait tourné ou non, et un contrôle rejoué
+sur une journée passée rend ce qu'il rendait ce jour-là.
 
 ---
 

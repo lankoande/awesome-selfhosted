@@ -24,10 +24,12 @@
     <module>loan-domain</module>
     <module>product-catalog</module>
     <module>ledger-store</module>
+    <module>party</module>
     <module>security-store</module>
     <module>interest-service</module>
     <module>fee-service</module>
     <module>loan-service</module>
+    <module>deposits</module>
     <module>tfj</module>
     <module>benchmark</module>
   </modules>

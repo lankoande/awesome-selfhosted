@@ -134,7 +134,29 @@ public final class InterestSettlementService {
         }
         LocalDate periodEnd = SettlementCalendar.lastPeriodEndOnOrBefore(settlement.periodicity(),
                                                                          through);
+        return settle(legalEntityId, accountId, conditions, periodEnd, periodEnd.plusDays(1),
+                      bookingDate, actorId, batchRunId);
+    }
 
+    /**
+     * Regle les courus jusqu'a une journee donnee, hors periodicite : la cloture du compte.
+     *
+     * <p>La periode se termine a la journee donnee — la veille de la cloture — et le reglement
+     * porte la date de valeur du jour de comptabilisation, exactement comme un reglement
+     * periodique, dont la date de valeur est le lendemain de la fin de periode. Le jour de la
+     * cloture n'est pas remunere : le solde verse ce jour-la porte la meme date de valeur qu'un
+     * retrait, et un retrait ne remunere pas la journee ou il est fait.
+     */
+    public Optional<Settlement> settleThrough(UUID legalEntityId, UUID accountId, LocalDate through,
+                                              InterestTerms conditions, LocalDate bookingDate,
+                                              UUID actorId, UUID batchRunId) {
+        return settle(legalEntityId, accountId, conditions, through, bookingDate, bookingDate,
+                      actorId, batchRunId);
+    }
+
+    private Optional<Settlement> settle(UUID legalEntityId, UUID accountId, InterestTerms conditions,
+                                        LocalDate periodEnd, LocalDate valueDate,
+                                        LocalDate bookingDate, UUID actorId, UUID batchRunId) {
         Optional<Planned> planned = database.inTransaction(
             c -> plan(c, legalEntityId, accountId, conditions, periodEnd));
         if (planned.isEmpty()) {
@@ -144,10 +166,10 @@ public final class InterestSettlementService {
 
         UUID entryId = p.gross().isZero()
             ? null
-            : post(legalEntityId, p, bookingDate, actorId, batchRunId);
+            : post(legalEntityId, p, valueDate, bookingDate, actorId, batchRunId);
 
         database.inTransaction(c -> {
-            record(c, p, entryId, bookingDate, batchRunId);
+            record(c, p, entryId, valueDate, bookingDate, batchRunId);
             InterestPositions.recordSettlement(c, accountId, p.side(), p.gross(), periodEnd);
             return null;
         });
@@ -180,7 +202,8 @@ public final class InterestSettlementService {
         BigDecimal withholdingRate = BigDecimal.ZERO;
         Money withholding = Money.zero(currency);
         UUID withholdingAccount = null;
-        if (terms.side() == AccrualSide.CREDITOR && settlement.withholdingCode() != null) {
+        if (terms.side() == AccrualSide.CREDITOR && settlement != null
+            && settlement.withholdingCode() != null) {
             Withholding rate = WithholdingTaxes.rateAt(c, legalEntityId,
                                                        settlement.withholdingCode(), periodEnd)
                 .orElseThrow(() -> new IllegalStateException(
@@ -195,7 +218,8 @@ public final class InterestSettlementService {
         BigDecimal taxRate = BigDecimal.ZERO;
         Money tax = Money.zero(currency);
         UUID taxAccount = null;
-        if (terms.side() == AccrualSide.DEBTOR && settlement.taxRatePercent().signum() > 0) {
+        if (terms.side() == AccrualSide.DEBTOR && settlement != null
+            && settlement.taxRatePercent().signum() > 0) {
             taxRate = settlement.taxRatePercent();
             taxAccount = settlement.taxAccount();
             tax = gross.times(taxRate.movePointLeft(2)).roundToCurrency();
@@ -231,9 +255,8 @@ public final class InterestSettlementService {
      * inverse le sens de chaque ligne : le client est debite de ce qu'il a recu en trop, la
      * retenue reversee en trop est reprise. Jamais de montant negatif au journal.
      */
-    private UUID post(UUID legalEntityId, Planned p, LocalDate bookingDate, UUID actorId,
-                      UUID batchRunId) {
-        LocalDate valueDate = p.periodEnd().plusDays(1);
+    private UUID post(UUID legalEntityId, Planned p, LocalDate valueDate, LocalDate bookingDate,
+                      UUID actorId, UUID batchRunId) {
         boolean positive = p.gross().isPositive();
         List<PostingLine> lines = new ArrayList<>();
         String type;
@@ -275,8 +298,8 @@ public final class InterestSettlementService {
                      : PostingLine.credit(account, absolute, valueDate, label);
     }
 
-    private void record(Connection c, Planned p, UUID entryId, LocalDate bookingDate,
-                        UUID batchRunId) {
+    private void record(Connection c, Planned p, UUID entryId, LocalDate valueDate,
+                        LocalDate bookingDate, UUID batchRunId) {
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO interest_settlement(id, account_id, side, period_end, gross_amount,"
             + " withholding_code, withholding_rate_percent, withholding_amount, tax_rate_percent,"
@@ -295,7 +318,7 @@ public final class InterestSettlementService {
             ps.setBigDecimal(11, p.net().amount());
             ps.setObject(12, entryId);
             ps.setObject(13, bookingDate);
-            ps.setObject(14, p.periodEnd().plusDays(1));
+            ps.setObject(14, valueDate);
             ps.setObject(15, batchRunId);
             ps.executeUpdate();
         } catch (SQLException e) {

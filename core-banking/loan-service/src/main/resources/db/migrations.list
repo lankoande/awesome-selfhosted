@@ -10,3 +10,4 @@ V14__collateral.sql
 V15__tranches.sql
 V17__loan_closure.sql
 V20__loan_interest_accrual.sql
+V23__loan_customer.sql

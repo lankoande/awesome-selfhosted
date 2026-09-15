@@ -123,6 +123,12 @@ public final class SecurityConfig {
             AccessRule.allow(BRANCH_MANAGER, RISK_OFFICER)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
+        // Un blocage de compte prive un client de ses fonds, ou l'en libere a tort : a deux,
+        // et jamais par celui qui tient le guichet.
+        policy.put(Operation.ACCOUNT_BLOCK,
+            AccessRule.allow(BRANCH_MANAGER, RISK_OFFICER)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
         // Une ecriture d'ordre divers n'a ni client ni operation pour la justifier : elle ne
         // passe que par le comptable, et jamais seul.
         policy.put(Operation.JOURNAL_ENTRY_MANUAL,
@@ -130,6 +136,16 @@ public final class SecurityConfig {
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
         // ------------------------------------------------------------------ referentiel
+        policy.put(Operation.PARTY_CREATE,
+            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_BRANCH).build());
+
+        // La verification de la connaissance client ouvre tout le reste : elle se fait a deux,
+        // et le risque y a sa place.
+        policy.put(Operation.KYC_VERIFY,
+            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER, RISK_OFFICER)
+                .within(Scope.OWN_BRANCH).requiringSecondPerson().build());
+
         policy.put(Operation.ACCOUNT_OPEN,
             AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER)
                 .within(Scope.OWN_BRANCH).requiringSecondPerson().build());

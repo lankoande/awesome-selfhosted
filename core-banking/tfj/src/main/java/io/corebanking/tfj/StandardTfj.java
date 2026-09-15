@@ -16,9 +16,12 @@ import io.corebanking.loan.service.LoanMobilisationService;
 import io.corebanking.loan.service.LoanReconciliation;
 import io.corebanking.loan.service.LoanService;
 import io.corebanking.tfj.steps.BalanceSnapshotStep;
+import io.corebanking.tfj.steps.DormancyStep;
 import io.corebanking.tfj.steps.FeeChargingStep;
+import io.corebanking.tfj.steps.HoldExpiryStep;
 import io.corebanking.tfj.steps.InterestAccrualStep;
 import io.corebanking.tfj.steps.InterestSettlementStep;
+import io.corebanking.tfj.steps.KycReviewStep;
 import io.corebanking.tfj.steps.LoanClassificationStep;
 import io.corebanking.tfj.steps.LoanClosureStep;
 import io.corebanking.tfj.steps.LoanInterestAccrualStep;
@@ -38,6 +41,9 @@ import java.util.List;
  * <ul>
  *   <li><b>Les controles prealables d'abord.</b> Echouer avant tout calcul ne coute rien ; echouer
  *       apres avoir comptabilise coute une annulation complete.</li>
+ *   <li><b>L'expiration des blocages de montant avant tout prelevement.</b> Un blocage qui expire
+ *       ce jour libere du disponible ; commissions et echeances se prelevent sur le disponible de
+ *       la journee arretee, pas sur celui de la veille.</li>
  *   <li><b>Les commissions avant les interets.</b> Une commission est imputee en date de valeur du
  *       jour : elle entre donc dans le solde sur lequel les interets de ce jour se calculent.
  *       L'ordre inverse remunererait un solde que le client n'a plus, et l'ecart se reporterait
@@ -64,13 +70,16 @@ import java.util.List;
  *       ce qui a ete calcule jusqu'a la fin de periode ; le calcul du jour doit etre fait.</li>
  *   <li><b>Les interets avant le cliche des soldes.</b> Le cliche doit refleter la journee arretee,
  *       interets compris — sinon le solde fige et le solde rejoue divergeront des le lendemain.</li>
+ *   <li><b>Dormance et revue de connaissance client apres les traitements comptables.</b> Elles ne
+ *       comptabilisent rien et ne bloquent pas la journee : un dossier de revue en retard ne doit
+ *       pas empecher la banque d'arreter ses comptes. Elles sont defaites avec l'arrete.</li>
  *   <li><b>La reconciliation avant la bascule.</b> C'est tout le mecanisme : tant que les controles
  *       ne sont pas verts, la journee ne bascule pas, et le systeme refuse de travailler sur la
  *       suivante.</li>
  * </ul>
  *
- * <p>Les etapes que le dossier prevoit et qui manquent encore — revalorisation de change,
- * dormance, expiration des blocages, revue KYC — s'inserent ici sans toucher au moteur.
+ * <p>L'etape que le dossier prevoit et qui manque encore — la revalorisation de change — s'insere
+ * ici sans toucher au moteur.
  */
 public final class StandardTfj {
 
@@ -91,6 +100,7 @@ public final class StandardTfj {
                                       BusinessCalendar calendar) {
         return List.of(
             new PreChecksStep(database),
+            new HoldExpiryStep(database),
             new FeeChargingStep(database, feeService),
             new LoanMobilisationStep(mobilisationService),
             new LoanScheduleStep(loanService),
@@ -101,6 +111,8 @@ public final class StandardTfj {
             new InterestAccrualStep(database, interestService),
             new InterestSettlementStep(database,
                                        new InterestSettlementService(database, postingService)),
+            new DormancyStep(database),
+            new KycReviewStep(database),
             new BalanceSnapshotStep(database),
             new ReconciliationStep(database, subLedgerChecks()),
             new OpenNextDayStep(database, calendar));

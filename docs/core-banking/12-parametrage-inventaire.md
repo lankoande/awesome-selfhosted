@@ -124,6 +124,23 @@ Le côté débiteur d'un compte courant, facultatif en bloc, exigeant dès qu'il
 | `overdraft.settlement` | périodicité | Arrêté des agios, débité au client taxe comprise |
 | `overdraft.tax_rate` / `.tax_account` | décimal, UUID | Taxe sur les agios (TOB, TAF) et son compte de collecte |
 
+### Opérations et dormance — `product_parameter` ✅
+
+Frais d'opération d'un compte de dépôt et délai de dormance, sur les familles `CURRENT_ACCOUNT` et
+`SAVINGS_ACCOUNT`.
+
+| Paramètre | Valeurs | Effet |
+|---|---|---|
+| `ops.withdrawal_fee` | décimal | Forfait par retrait d'espèces, dans la même écriture que le retrait |
+| `ops.transfer_fee` | décimal | Forfait par virement interne, à la charge de l'émetteur |
+| `ops.fee_income_account` | UUID | Compte de produit des frais d'opération — exigé dès qu'un frais est paramétré |
+| `ops.tax_rate` / `ops.tax_account` | décimal, UUID | Taxe sur les frais d'opération et son compte de collecte, l'un exigeant l'autre |
+| `dormancy.months` | entier positif | Mois sans opération à l'initiative du client avant dormance ; absent : le produit ne connaît pas la dormance |
+
+Les dates de valeur des opérations ne sont pas des paramètres produit : ce sont des conditions
+de banque de l'entité (`value_date_rule`, par type d'opération, canal et sens), et leur absence
+refuse l'opération.
+
 ### Retenues à la source — `interest_withholding` ✅
 
 Par entité juridique, donc par pays : code, taux, compte de reversement, période de validité sans
@@ -388,7 +405,10 @@ le code appelant.
 | Base minimum mensuelle ou moyenne pour l'épargne classique | ⬜ |
 | Conditions de découvert rattachées au produit — agios, dépassement, arrêté, taxe | ✅ |
 | Commissions de découvert (mise en place, dépassement) | ⬜ |
-| Dormance (délai, régime de frais) | ⬜ |
+| Dormance — délai | ✅ |
+| Dormance — régime de frais, compte d'abandon | ⬜ |
+| Frais d'opération (retrait, virement) avec taxe | ✅ |
+| Plafonds d'opération par produit et par client | ⬜ |
 | Profil réglementaire régional et surcouche nationale ([11](11-profil-uemoa-bceao.md)) | ⬜ |
 | Ratios prudentiels | ⬜ |
 | Mapping plan comptable interne → réglementaire | ⬜ |

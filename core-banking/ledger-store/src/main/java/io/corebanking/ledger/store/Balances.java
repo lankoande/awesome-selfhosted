@@ -44,6 +44,26 @@ public final class Balances {
     private Balances() {}
 
     /** Solde materialise, somme des stripes. C'est la valeur servie au controle du disponible. */
+    /**
+     * Disponible a une date : solde comptable, moins les blocages de montant en vigueur, plus
+     * l'autorisation de decouvert. C'est sur lui — jamais sur le solde — qu'un prelevement decide
+     * de ce qu'il peut prendre : un blocage n'est pas de l'argent disponible.
+     */
+    public static Money available(Connection c, UUID accountId, LocalDate asOf) {
+        CurrencyRef currency = currencyOf(c, accountId);
+        try (PreparedStatement ps = c.prepareStatement("SELECT available_balance(?, ?)")) {
+            ps.setObject(1, accountId);
+            ps.setObject(2, asOf);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                BigDecimal value = rs.getBigDecimal(1);
+                return Money.of(value == null ? BigDecimal.ZERO : value, currency);
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Calcul du disponible du compte " + accountId, e);
+        }
+    }
+
     public static Money current(Connection c, UUID accountId) {
         try (PreparedStatement ps = c.prepareStatement(
             "SELECT COALESCE(SUM(b.balance), 0), cur.code, cur.scale, cur.rounding_mode"

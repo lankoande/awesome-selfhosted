@@ -39,13 +39,19 @@ public enum Operation {
     TRANSFER,
     /** Contre-passation d'une ecriture. */
     ENTRY_REVERSAL,
-    /** Pose ou levee d'un blocage sur un compte. */
+    /** Pose ou levee d'un blocage de montant sur un compte. */
     ACCOUNT_HOLD,
+    /** Pose ou levee d'un blocage de compte : opposition, saisie, gel. */
+    ACCOUNT_BLOCK,
 
     /** Ecriture d'ordre divers : une imputation hors de toute operation de guichet ou de credit. */
     JOURNAL_ENTRY_MANUAL,
 
     // ------------------------------------------------------------------ referentiel
+    /** Creation d'un tiers et de ses identifiants ; blocage et deblocage du dossier. */
+    PARTY_CREATE,
+    /** Verification de la connaissance client : ce qui rend un tiers operable. */
+    KYC_VERIFY,
     /** Ouverture d'un compte. */
     ACCOUNT_OPEN,
     /** Cloture d'un compte. */

@@ -59,9 +59,9 @@ import java.util.UUID;
  * manque est le calcul qui les alimente. Le nombre de jours de retard, lui, est disponible
  * ({@link #daysPastDue}) : c'est l'entree de tout ce qui suivra.
  *
- * <p>Le prelevement automatique s'appuie sur le solde du compte de reglement, sans tenir compte
- * d'un decouvert autorise. Un compte a zero mais autorise a decouvert n'est donc pas preleve. La
- * levee de cette limite appartient au module des plafonds et limites, pas a celui du credit.
+ * <p>Le prelevement automatique s'appuie sur le <b>disponible</b> du compte de reglement : solde
+ * moins les blocages de montant en vigueur, plus l'autorisation de decouvert. Un blocage prime
+ * sur le prelevement ; une autorisation le permet.
  */
 public final class LoanService {
 
@@ -444,7 +444,9 @@ public final class LoanService {
             for (Receivable receivable : receivables) {
                 owed = owed.plus(receivable.outstanding());
             }
-            Money available = Balances.current(c, contract.settlementAccountId());
+            // Le disponible, pas le solde : un blocage de montant n'est pas de l'argent que le
+            // client peut engager, et une autorisation de decouvert en est.
+            Money available = Balances.available(c, contract.settlementAccountId(), businessDate);
             Money take = available.isLessThan(owed) ? available : owed;
             if (!take.isPositive()) {
                 return null;

@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 504 tests verts** — 299 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 205 sur PostgreSQL réel.
+**État actuel : 530 tests verts** — 300 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 230 sur PostgreSQL réel.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -595,20 +595,55 @@ compte de prêt, commissions contre écritures : un écart d'un franc nomme le c
 journée. C'est la classe de défaut — une écriture sans créance, une créance sans écriture — que la
 balance, équilibrée, ne voit jamais, et que les tests avaient déjà trouvée deux fois.
 
+### 18. Un compte qui vit : tiers, opérations, blocages, clôture
+
+La phase C de l'[audit](../docs/core-banking/14-audit.md) a donné au moteur ce qui en fait un
+système : un client, des opérations, un cycle de vie. Quatre règles y sont tenues par la
+structure plutôt que par la vigilance.
+
+**Un doublon de client est refusé par la base, pas détecté après coup.** Les identifiants
+officiels d'une entité — CNI, passeport, NIF, RCCM, centrale des risques — sont sous un index
+unique partiel : deux dossiers ne peuvent pas porter la même pièce. Le dédoublonnage périodique
+devient une vérification, pas un traitement. Et la connaissance client restreint
+progressivement : un dossier non vérifié ou dont la revue est dépassée continue d'opérer sur ses
+comptes mais rien de nouveau ne s'y ouvre ; bloqué, il n'opère plus (`PartyIT`).
+
+**Un blocage de compte est appliqué par le ledger, à chaque écriture.** Ce n'est pas un statut
+— un statut qui refuserait tout ferait perdre au client les fonds qui lui arrivent, et à la
+banque la contre-passation d'une erreur — mais un état superposé que le service d'imputation
+lit avant d'écrire. Il prime donc sur les prélèvements automatiques sans qu'aucun service n'ait
+à y penser (`blocages`, `LoanService.collect` sur le disponible).
+
+**La date de valeur se calcule, elle ne se fournit pas.** Elle vient des conditions de banque de
+l'entité, par type d'opération, canal et sens ; sans condition, l'opération est refusée — se
+rabattre sur la date comptable produirait un résultat plausible et faux (`dateDeValeur`).
+
+**Une clôture est un solde de tout compte, atomique.** Tout ce qui s'y oppose est nommé d'un
+coup ; les intérêts des deux côtés sont calculés jusqu'à la veille et réglés le jour même ; le
+solde est versé ; un solde débiteur refuse la clôture et les agios calculés pour elle
+disparaissent avec elle (`clotureSurSoldeDebiteur`). Le jour de la clôture n'est pas rémunéré :
+le versement du solde porte la même date de valeur qu'un retrait.
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
-- API REST et couche Spring Boot (le ledger reste sans framework, c'est délibéré), qui câblera
-  `RoleStartupTask`, `UseCaseExecutor` et le serveur de ressources Keycloak — et rendra mécanique
-  le rattachement point d'entrée → opération que `OperationCoverageTest` tient à la main ;
+- API REST (le ledger reste sans framework, c'est délibéré), qui câblera `RoleStartupTask`,
+  `UseCaseExecutor` et le serveur de ressources Keycloak — et rendra mécanique le rattachement
+  point d'entrée → opération que `OperationCoverageTest` tient à la main ; la signature des
+  méthodes exposées est soumise à validation avant construction ;
+- chèques (remise, compensation, opposition), paiements sortants, plafonds par produit et par
+  client ;
+- référentiel client : documents et leurs échéances, bénéficiaires effectifs, relations entre
+  tiers, rescan périodique des listes ;
 - crédit : origination (demande, scoring, décision, conditions suspensives) — le déblocage par
   tranches, lui, est fait ; la commission d'engagement sur la fraction non tirée se paramètre comme
   une commission ordinaire et n'a pas encore de barème dédié ;
 - plafonds et limites paramétrés, et le maker-checker généralisé (la table `pending_operation`
   existe, le workflow n'est pas écrit) ;
-- dormance, commissions de découvert (mise en place, dépassement), base minimum ou moyenne pour
-  l'épargne classique — la capitalisation et les agios, eux, sont faits ;
+- régime de frais de dormance et compte d'abandon (la détection et le réveil sont faits),
+  commissions de découvert (mise en place, dépassement), base minimum ou moyenne pour l'épargne
+  classique — la capitalisation et les agios, eux, sont faits ;
 - archivage des partitions (leur création, elle, est garantie par le TFJ) ;
 - clôture annuelle (TFA) : détermination du résultat, à-nouveaux, réouverture des comptes de
   bilan — la clôture mensuelle, elle, est faite ;
@@ -687,3 +722,12 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | La réconciliation rafraîchit le cliché avant de contrôler | La correction passée entre un échec et la reprise est comptabilisée sur la journée ; le cliché arrêté à l'étape précédente ne la porte pas |
 | Les tables partitionnées sont déclarées dans un registre | Une table partitionnée que la bascule ne connaît pas n'a ses partitions créées par personne |
 | Le TFM porte la date de fin de période et ne touche pas à la date comptable | Il porte sur un mois déjà arrêté jour par jour ; son annulation rouvre la période en le disant |
+| Le dédoublonnage des tiers est un index unique partiel, pas un traitement | Un doublon découvert après coup a déjà faussé les plafonds d'engagement ; refusé à la saisie, il n'existe jamais |
+| Un blocage de compte est un état superposé, appliqué par le ledger, jamais un statut | Un statut qui refuse tout ferait perdre au client les fonds qui lui arrivent, et à la banque la contre-passation d'une erreur ; lu à l'écriture, il prime sur les prélèvements automatiques sans qu'aucun service n'y pense |
+| Un blocage de montant expire par date comptable, pas par horloge | C'est l'arrêté qui le lève et son annulation qui le repose ; un disponible rejoué sur une journée passée rend ce qu'il rendait ce jour-là |
+| La date de valeur d'une opération se calcule, elle ne se fournit pas | Sans condition de banque, l'opération est refusée : se rabattre sur la date comptable produirait un résultat plausible et faux |
+| Les frais d'opération s'imputent dans l'écriture de l'opération | Un frais prélevé à part est un frais qu'on oublie, et qu'on contre-passe séparément |
+| La dormance se constate sur l'absence d'opération du client, pas d'écriture | Les intérêts et commissions de la banque ne sont pas des opérations du client ; c'est la source de l'écriture qui décide |
+| Le jour de la clôture d'un compte n'est pas rémunéré | Le solde versé porte la date de valeur d'un retrait, et un retrait ne rémunère pas la journée où il est fait ; les intérêts sont réglés jusqu'à la veille, le jour même |
+| Une clôture est une transaction : tout ou rien | Un solde débiteur découvert après le règlement des agios refuse la clôture, et les agios calculés pour elle disparaissent avec elle |
+| La connaissance client restreint progressivement, jamais brutalement | Un dossier expiré n'ouvre plus rien mais ses comptes fonctionnent ; couper les opérations d'un client sur une revue en retard serait un blocage non annoncé |

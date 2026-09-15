@@ -83,6 +83,50 @@
       ]
     },
 
+    "operations": {
+      "comment": [
+        "Frais d'operation de guichet et de virement : forfait par operation, produit et taxe.",
+        "Facultatifs ; un frais declare exige son compte de produit, une taxe son compte de",
+        "collecte. Absents, l'operation est gratuite — explicitement, puisque rien n'est saisi."
+      ],
+      "optional": [
+        "ops.withdrawal_fee",
+        "ops.transfer_fee",
+        "ops.fee_income_account",
+        "ops.tax_rate",
+        "ops.tax_account"
+      ],
+      "accounts": ["ops.fee_income_account", "ops.tax_account"],
+      "conditions": [
+        {
+          "when": "ops.withdrawal_fee",
+          "present": true,
+          "require": ["ops.fee_income_account"],
+          "because": "un frais de retrait sans compte de produit n'aurait nulle part ou aller"
+        },
+        {
+          "when": "ops.transfer_fee",
+          "present": true,
+          "require": ["ops.fee_income_account"],
+          "because": "un frais de virement sans compte de produit n'aurait nulle part ou aller"
+        },
+        {
+          "when": "ops.tax_rate",
+          "present": true,
+          "require": ["ops.tax_account"],
+          "because": "une taxe calculee et sans compte de collecte resterait dans le produit de la banque, et la declaration serait fausse"
+        }
+      ]
+    },
+
+    "dormancy": {
+      "comment": [
+        "Dormance : nombre de mois sans operation a l'initiative du client au-dela duquel le",
+        "compte passe dormant. Absent, le produit ne connait pas la dormance."
+      ],
+      "optional": ["dormancy.months"]
+    },
+
     "fees": {
       "groups": [
         {
@@ -141,12 +185,12 @@
     {
       "code": "CURRENT_ACCOUNT",
       "label": "Compte courant",
-      "includes": ["interest", "overdraft", "fees"]
+      "includes": ["interest", "overdraft", "fees", "operations", "dormancy"]
     },
     {
       "code": "SAVINGS_ACCOUNT",
       "label": "Compte d'epargne",
-      "includes": ["interest", "fees"]
+      "includes": ["interest", "fees", "operations", "dormancy"]
     },
     {
       "code": "TERM_LOAN",

@@ -46,6 +46,21 @@ les états de concentration des risques.
 Un document expiré déclenche une alerte, puis une restriction progressive — jamais un blocage
 brutal non annoncé.
 
+> **Implémenté** — module `party` : tiers (personne physique ou morale) par entité juridique,
+> identifiants officiels (CNI, passeport, titre de séjour, NIF, RCCM, centrale des risques) avec
+> **dédoublonnage garanti par la base** (index unique partiel sur les identifiants officiels
+> d'une entité : un doublon est refusé à la saisie, pas détecté après coup), titulaires de compte
+> (`account_holder` : titulaire, co-titulaire, mandataire, datés), historique des transitions.
+> Connaissance client en quatre états — `PENDING`, `VERIFIED`, `EXPIRED`, `BLOCKED` — avec la
+> **restriction progressive** annoncée : un dossier non vérifié ou dont la revue est dépassée
+> continue d'opérer sur ses comptes mais rien de nouveau ne s'y ouvre (compte ou crédit) ; un
+> dossier bloqué n'opère plus. La vérification se fait à deux et fixe l'échéance de revue par
+> niveau de risque (12 / 24 / 36 mois) ; l'étape `KYC_REVIEW` du TFJ constate les dépassements et
+> l'annulation de l'arrêté les défait. Le filtrage est une interface (`Screening`) : une
+> correspondance à la création bloque le dossier, la levée de doute est une décision à deux.
+> Non fait : documents et leurs échéances, bénéficiaires effectifs, relations entre tiers,
+> rescan périodique.
+
 ### Filtrage (screening)
 
 - **À la création et à chaque modification** : listes de sanctions, PPE, listes internes.
@@ -87,6 +102,45 @@ PROJET → OUVERT → ACTIF ⇄ DORMANT → EN CLÔTURE → CLÔTURÉ
   engagement reste attaché. Les intérêts courus sont arrêtés et capitalisés au prorata.
 - **Blocage** : un blocage judiciaire prime sur toute opération, y compris les prélèvements
   automatiques du produit.
+
+> **Implémenté** — `AccountLifecycle` et `OperationsService` du module `deposits`.
+>
+> **Ouverture** à deux, à un tiers dont la connaissance client est vérifiée, sur un produit de
+> la famille des dépôts et dans sa devise, à la date comptable de l'entité ; le compte naît
+> rattaché à son produit et à son titulaire, avec contrôle du disponible.
+>
+> **Blocage** en débit (les fonds entrent, rien ne sort) ou total (seule la banque opère :
+> intérêts, contre-passation). Il **ne change pas le statut** du compte : c'est un état superposé,
+> tenu par `account_block` et appliqué par le ledger lui-même à chaque écriture, ce qui le fait
+> primer sur les prélèvements automatiques sans qu'aucun service n'ait à y penser. Pose et levée à
+> deux, historisées.
+>
+> **Blocages de montant** (`account_hold`) : posés avec une nature, une référence et une date
+> d'expiration en date comptable ; soustraits du disponible par la base ; levés par l'étape
+> `HOLD_EXPIRY`, reposés par l'annulation de l'arrêté. Le prélèvement d'une échéance de crédit lit
+> le **disponible**, plus le solde.
+>
+> **Dormance** : N mois (paramètre du produit) sans opération à l'initiative du client — une
+> écriture de la banque, intérêts ou commission, ne reporte pas la dormance ; c'est la source de
+> l'écriture qui décide. Le compte dormant continue de porter intérêts et frais et se réveille à
+> la première opération de son client. Le régime de frais et le transfert en compte d'abandon ne
+> sont pas faits.
+>
+> **Clôture** : solde de tout compte, dans une seule transaction. Rien ne s'y oppose (aucun
+> blocage, aucun blocage de montant, aucun crédit adossé — tout ce qui s'oppose est nommé d'un
+> coup) ; les intérêts des deux côtés sont calculés jusqu'à la veille et réglés le jour même —
+> **le jour de la clôture n'est pas rémunéré**, comme pour un retrait ; le solde est versé à un
+> compte de reversement interne (caisse, compte d'attente des comptes clos) ; un solde débiteur
+> refuse la clôture, et les agios calculés pour elle sont défaits avec elle. Le compte passe
+> `CLOSED`, produit et titulaires fermés à la date de clôture ; plus aucune écriture n'y entre,
+> contre-passation comprise.
+>
+> **Opérations** : versement, retrait, virement interne. La date de valeur **se calcule** depuis
+> les conditions de banque de l'entité (type, canal, sens) et ne se fournit pas — l'absence de
+> condition est un refus ; les frais d'opération et leur taxe viennent du produit et s'imputent
+> dans la même écriture ; une opération rejouée avec la même clé rend son premier résultat. Non
+> faits : chèques, plafonds par produit ou client (les plafonds par rôle sont dans la politique
+> d'habilitation), paiements sortants.
 
 ### Moteur d'intérêts
 

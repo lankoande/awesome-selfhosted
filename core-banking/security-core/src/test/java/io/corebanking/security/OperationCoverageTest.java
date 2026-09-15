@@ -22,11 +22,16 @@ class OperationCoverageTest {
 
     /** Points d'entree de service → operation. Un point d'entree absent est un point ouvert. */
     private static final Map<String, Operation> ENTRY_POINTS = Map.ofEntries(
-        Map.entry("JdbcPostingService.post (guichet)", Operation.CASH_OPERATION),
-        Map.entry("JdbcPostingService.post (virement)", Operation.TRANSFER),
+        Map.entry("OperationsService.deposit / withdraw", Operation.CASH_OPERATION),
+        Map.entry("OperationsService.transfer", Operation.TRANSFER),
         Map.entry("JdbcPostingService.post (ordre divers)", Operation.JOURNAL_ENTRY_MANUAL),
         Map.entry("JdbcPostingService.reverse", Operation.ENTRY_REVERSAL),
-        Map.entry("Accounts.create", Operation.ACCOUNT_OPEN),
+        Map.entry("Holds.place / release", Operation.ACCOUNT_HOLD),
+        Map.entry("AccountLifecycle.block / unblock", Operation.ACCOUNT_BLOCK),
+        Map.entry("PartyService.create / block / unblock", Operation.PARTY_CREATE),
+        Map.entry("PartyService.verifyKyc", Operation.KYC_VERIFY),
+        Map.entry("AccountLifecycle.open", Operation.ACCOUNT_OPEN),
+        Map.entry("AccountLifecycle.close", Operation.ACCOUNT_CLOSE),
         Map.entry("ProductCatalog.assignProduct", Operation.ACCOUNT_PRODUCT_ASSIGN),
         Map.entry("ProductCatalog.createDraft", Operation.PRODUCT_DRAFT),
         Map.entry("ProductCatalog.activate", Operation.PRODUCT_ACTIVATE),
@@ -55,9 +60,7 @@ class OperationCoverageTest {
     /** Operations sans point d'entree de service : consultations, ou pas encore construites. */
     private static final Set<Operation> WITHOUT_SERVICE = EnumSet.of(
         Operation.ACCOUNT_BALANCE_READ, Operation.ACCOUNT_JOURNAL_READ, Operation.PARTY_READ,
-        Operation.LOAN_READ, Operation.AUDIT_READ,
-        // Blocages, cloture de compte : l'operation precede le service.
-        Operation.ACCOUNT_HOLD, Operation.ACCOUNT_CLOSE);
+        Operation.LOAN_READ, Operation.AUDIT_READ);
 
     @Test
     @DisplayName("toute operation est reclamee par un point d'entree, ou est une consultation")
@@ -78,7 +81,10 @@ class OperationCoverageTest {
                                               Operation.FEE_EXEMPTION_GRANT,
                                               Operation.JOURNAL_ENTRY_MANUAL,
                                               Operation.ACCOUNT_PRODUCT_ASSIGN,
-                                              Operation.PERIOD_CLOSE)) {
+                                              Operation.PERIOD_CLOSE,
+                                              Operation.KYC_VERIFY, Operation.ACCOUNT_OPEN,
+                                              Operation.ACCOUNT_CLOSE, Operation.ACCOUNT_BLOCK,
+                                              Operation.ACCOUNT_HOLD)) {
             assertThat(SecurityConfig.ruleFor(operation).dualControl())
                 .as(operation.name()).isTrue();
         }

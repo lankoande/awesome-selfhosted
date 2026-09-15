@@ -892,7 +892,19 @@ public final class LoanStore {
 
     // ------------------------------------------------------------------ risque
 
+    /**
+     * Rattache le contrat a son client. Le tiers doit exister dans l'entite du contrat et pouvoir
+     * contracter : dossier actif, connaissance client verifiee et non expiree.
+     */
     public static void assignCustomer(Connection c, UUID contractId, UUID customerId) {
+        LoanContract contract = requireContract(c, contractId);
+        io.corebanking.party.Party party = io.corebanking.party.PartyService.requireOnboardable(
+            c, customerId);
+        if (!party.legalEntityId().equals(contract.legalEntityId())) {
+            throw new IllegalArgumentException(
+                "Le tiers " + party.reference() + " releve d'une autre entite que le contrat "
+                + contract.reference());
+        }
         try (PreparedStatement ps = c.prepareStatement(
             "UPDATE loan_contract SET customer_id = ? WHERE id = ?")) {
             ps.setObject(1, customerId);

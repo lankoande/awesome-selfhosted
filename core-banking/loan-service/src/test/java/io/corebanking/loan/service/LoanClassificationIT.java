@@ -198,7 +198,7 @@ class LoanClassificationIT extends LoanTestBase {
     void contagionClient() {
         Risque risque = decorRisque("X6", Contagion.CUSTOMER, "DOUTEUX");
         UUID entite = risque.decor().entityId();
-        UUID client = UUID.randomUUID();
+        UUID client = client(entite, "CLI-X6");
 
         UUID impaye = credit(risque, "REF-X6A", "CRED-X6", Map.of());
         // Second credit du meme client, preleve d'office et donc a jour.
@@ -227,7 +227,7 @@ class LoanClassificationIT extends LoanTestBase {
     @DisplayName("sans contagion, chaque credit est classe pour lui-meme")
     void sansContagion() {
         Risque risque = decorRisque("X7", Contagion.NONE, "DOUTEUX");
-        UUID client = UUID.randomUUID();
+        UUID client = client(risque.decor().entityId(), "CLI-X7");
         UUID impaye = credit(risque, "REF-X7A", "CRED-X7", Map.of());
         UUID sain = contract(risque.decor(), "REF-X7B", "CRED-X7", "1000000");
         loanService.disburse(sain, ScheduleGenerator.generate(

@@ -1,5 +1,7 @@
 package io.corebanking.tfj;
 
+import io.corebanking.deposits.Dormancy;
+import io.corebanking.deposits.Holds;
 import io.corebanking.kernel.id.IdempotencyKey;
 import io.corebanking.kernel.id.Ids;
 import io.corebanking.ledger.domain.posting.PostingService;
@@ -8,6 +10,7 @@ import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.Entities;
 import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.loan.service.LoanStore;
+import io.corebanking.party.KycReviews;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -18,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Orchestration du traitement de fin de journee.
@@ -39,8 +44,17 @@ import java.util.UUID;
  *       d'un script : sans elle, une erreur de parametrage decouverte apres l'arrete se corrige
  *       compte par compte.</li>
  * </ul>
+ *
+ * <h2>Ce que le moteur dit de lui-meme</h2>
+ *
+ * <p>Chaque frontiere — lancement, reprise, etape, fin, annulation — est journalisee avec ce
+ * qu'il faut pour diagnostiquer une nuit sans ouvrir la base : entite, journee, identifiant du
+ * traitement, etape, volumes lus et ecrits, duree, anomalies. Le rapport en base
+ * ({@code batch_step}) reste la reference ; le journal est ce que l'astreinte lit en premier.
  */
 public final class TfjEngine {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TfjEngine.class);
 
     private final Database database;
     private final PostingService postingService;
@@ -108,6 +122,8 @@ public final class TfjEngine {
         }
 
         UUID runId = createRun(legalEntityId, businessDate, actorId, mode);
+        LOG.info("{} {} entite {} [{}] : lancement, traitement {}", runType, businessDate,
+                 legalEntityId, mode, runId);
         return execute(runId, 0);
     }
 
@@ -152,6 +168,8 @@ public final class TfjEngine {
         }
         int from = run.failedStep().map(TfjRun.StepExecution::order).orElse(0);
         updateRunStatus(runId, TfjRun.Status.RUNNING, null);
+        LOG.info("{} {} entite {} : reprise du traitement {} a l'etape {}", runType,
+                 run.businessDate(), run.legalEntityId(), runId, from);
         return execute(runId, from);
     }
 
@@ -177,7 +195,20 @@ public final class TfjEngine {
         TfjRun after = require(runId);
         TfjRun.Status status = after.failedStep().isPresent()
             ? TfjRun.Status.FAILED : TfjRun.Status.COMPLETED;
-        updateRunStatus(runId, status, java.time.Instant.now());
+        java.time.Instant finishedAt = java.time.Instant.now();
+        updateRunStatus(runId, status, finishedAt);
+        long millis = after.startedAt() == null ? -1
+            : java.time.Duration.between(after.startedAt(), finishedAt).toMillis();
+        if (status == TfjRun.Status.COMPLETED) {
+            LOG.info("{} {} entite {} : termine en {} ms, traitement {}", runType,
+                     run.businessDate(), run.legalEntityId(), millis, runId);
+        } else {
+            TfjRun.StepExecution failed = after.failedStep().orElseThrow();
+            LOG.error("{} {} entite {} : EN ECHEC a l'etape {} {} apres {} ms, traitement {} — {}",
+                      runType, run.businessDate(), run.legalEntityId(), failed.order(),
+                      failed.name(), millis, runId,
+                      failed.error() == null ? failed.anomalies() : failed.error());
+        }
         return require(runId);
     }
 
@@ -193,8 +224,10 @@ public final class TfjEngine {
             markStep(context.runId(), planStep.order(), TfjRun.StepExecution.Status.RUNNING,
                      StepResult.none(), null);
 
+            long startedAt = System.nanoTime();
             try {
                 StepResult result = step.execute(context);
+                long millis = (System.nanoTime() - startedAt) / 1_000_000;
                 boolean blockedByAnomaly = step.blocking() && result.hasAnomalies();
                 markStep(context.runId(), planStep.order(),
                          blockedByAnomaly ? TfjRun.StepExecution.Status.FAILED
@@ -202,11 +235,28 @@ public final class TfjEngine {
                          result,
                          blockedByAnomaly ? "anomalies bloquantes : " + result.anomalies() : null);
                 if (blockedByAnomaly) {
+                    LOG.error("{} {} etape {} {} : BLOQUEE apres {} ms, lu {}, ecrit {} — {}",
+                              runType, context.businessDate(), planStep.order(), step.name(),
+                              millis, result.read(), result.written(), result.anomalies());
                     return;
                 }
+                if (result.hasAnomalies()) {
+                    LOG.warn("{} {} etape {} {} : terminee en {} ms avec anomalies non bloquantes,"
+                             + " lu {}, ecrit {} — {}", runType, context.businessDate(),
+                             planStep.order(), step.name(), millis, result.read(),
+                             result.written(), result.anomalies());
+                } else {
+                    LOG.info("{} {} etape {} {} : terminee en {} ms, lu {}, ecrit {}", runType,
+                             context.businessDate(), planStep.order(), step.name(), millis,
+                             result.read(), result.written());
+                }
             } catch (RuntimeException e) {
+                long millis = (System.nanoTime() - startedAt) / 1_000_000;
                 markStep(context.runId(), planStep.order(), TfjRun.StepExecution.Status.FAILED,
                          StepResult.none(), message(e));
+                LOG.error("{} {} etape {} {} : EN ECHEC apres {} ms{}", runType,
+                          context.businessDate(), planStep.order(), step.name(), millis,
+                          step.blocking() ? ", la journee s'arrete" : ", la journee continue", e);
                 if (step.blocking()) {
                     return;
                 }
@@ -254,7 +304,8 @@ public final class TfjEngine {
                 + "ses ecritures ne decrivent plus.");
         });
 
-        for (PostedEntry entry : entriesOf(runId)) {
+        List<PostedEntry> entries = entriesOf(runId);
+        for (PostedEntry entry : entries) {
             postingService.reverse(entry.id(), entry.bookingDate(), reversalBookingDate,
                 IdempotencyKey.forBatch(runId.toString(), "TFJ_CANCEL", entry.id()),
                 "Annulation du " + runType + " du " + run.businessDate() + " — " + reason);
@@ -267,6 +318,7 @@ public final class TfjEngine {
                 neutraliseLoanDues(connection, runId);
                 neutraliseMobilisation(connection, runId);
                 neutraliseLoanClosures(connection, runId);
+                neutraliseDeposits(connection, runId);
                 setBusinessDate(connection, run.legalEntityId(), run.businessDate());
             } else {
                 // La cloture est defaite, et elle laisse une trace : REOPENED n'est pas OPEN.
@@ -277,6 +329,9 @@ public final class TfjEngine {
             markCancelled(connection, runId, actorId, reason);
             return null;
         });
+        LOG.warn("{} {} entite {} : ANNULE par {} — {} ; {} ecritures contre-passees en date du {},"
+                 + " traitement {}", runType, run.businessDate(), run.legalEntityId(), actorId,
+                 reason, entries.size(), reversalBookingDate, runId);
         return require(runId);
     }
 
@@ -471,6 +526,16 @@ public final class TfjEngine {
      */
     private void neutraliseAccruals(Connection connection, UUID runId) {
         InterestPositions.cancelRun(connection, runId);
+    }
+
+    /**
+     * Blocages de montant reposes, dormances defaites, revues de connaissance client restaurees :
+     * ce que l'arrete a prononce sans ecriture se defait aussi avec lui.
+     */
+    private void neutraliseDeposits(Connection connection, UUID runId) {
+        Holds.cancelRun(connection, runId);
+        Dormancy.cancelRun(connection, runId);
+        KycReviews.cancelRun(connection, runId);
     }
 
     private LocalDate currentBusinessDate(UUID legalEntityId) {

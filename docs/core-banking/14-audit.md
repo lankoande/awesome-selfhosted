@@ -145,10 +145,14 @@ intervention, et un paramétrage qui cite un compte inexistant ne s'active pas. 
 client reçoit ses intérêts net de retenue ; un compte courant produit des agios ; l'arrêté
 rapproche les sous-livres chaque nuit et rejoue tout au mois. Détail au §7.
 
-**C — Périmètre bancaire minimal et sécurité** (8 à 12 semaines)
-23 (API), 10, 15, 16, 17, 9, 27. C'est la phase la plus longue et la plus risquée : c'est là que la
-plateforme devient un système et non un moteur. L'ordre interne est API → `Caller` propagé →
-client → opérations → blocages.
+**C — Périmètre bancaire minimal et sécurité** — 🟡 **en cours**
+15, 16, 17, 9, 27 livrés : référentiel client avec dédoublonnage garanti par la base et
+restriction progressive, opérations de base avec dates de valeur calculées et frais du produit,
+cycle de vie des comptes jusqu'au solde de tout compte, blocages de montant et de compte appliqués
+par le ledger, journal applicatif aux frontières du TFJ. Détail au §7. Restent 23 (API) et 10
+(`Caller` propagé) : la couche d'exposition attend la validation de la signature d'une méthode ;
+les services sont écrits pour être appelés à travers `UseCaseExecutor`, et
+`OperationCoverageTest` tient déjà l'inventaire point d'entrée → opération.
 
 **D — Couverture UEMOA** (à planifier avec le profil réglementaire)
 18, 19, 14, 21, 22, 24, et les décisions du §2 « à valider ».
@@ -175,10 +179,20 @@ client → opérations → blocages.
 | 20 | TFM absent | ✅ `StandardTfm` sur le même moteur : mois complet jour par jour, rejeu intégral et sous-livres, clôture ; annulation = `REOPENED` ; refus d'un mois non terminé. TFA : non fait | `TfmIT` |
 | 25 | Tables quotidiennes non partitionnées | ✅ Registre `ledger_partitioned_table` ; `account_balance_daily`, `interest_accrual`, `loan_interest_accrual` mensuelles ; partitions garanties par la bascule pour toutes (V18, V19, V20) | `SchemaMigratorIT`, toutes les bases de test |
 | 26 | Réconciliation en O(historique) | ✅ Cliché incrémental depuis la dernière journée arrêtée ; contrôles quotidiens sur la journée, rafraîchis à la reprise ; rejeu intégral réservé au TFM ; état des intérêts lu dans la position, plus sommé sur l'historique | `a_sub_ledger_gap_blocks_the_day`, `TfmIT` |
+| 15 | Référentiel client | ✅ Module `party` (V22) : tiers par entité, identifiants officiels **dédoublonnés par index unique partiel**, titulaires datés, KYC en quatre états avec restriction progressive (un dossier non vérifié ou expiré opère mais n'ouvre rien ; bloqué n'opère plus), vérification à deux fixant la revue par niveau de risque, `KYC_REVIEW` au TFJ, interface de filtrage ; `loan_contract.customer_id` référence le tiers (V23) et un crédit exige un tiers vérifié. Non fait : documents, bénéficiaires effectifs, relations, rescan | `PartyIT`, `TfjDepositsIT`, `LoanClassificationIT` |
+| 16 | Opérations de base | ✅ `OperationsService` : versement, retrait, virement interne ; date de valeur **calculée** depuis les conditions de banque (`ValueDatePolicy` enfin branchée), refus sans condition ; frais et taxe du produit dans la même écriture ; rejeu idempotent de bout en bout ; titulaires opérables exigés ; disponible et blocages contrôlés par le ledger. Non fait : chèques, plafonds par produit ou client, paiements sortants | `OperationsIT` |
+| 17 | Cycle de vie des comptes | ✅ `AccountLifecycle` : ouverture à deux sur un tiers vérifié et un produit de dépôt ; blocage en débit ou total, état superposé appliqué par le ledger, sans changement de statut ; dormance sur l'absence d'opération **du client** (`DORMANCY`), réveil à la première opération ; clôture atomique — obstacles nommés d'un coup, intérêts des deux côtés réglés jusqu'à la veille, solde versé à un compte de reversement, solde débiteur refusé, produit et titulaires fermés (V21). Non fait : régime de frais de dormance, compte d'abandon | `LifecycleIT`, `DormancyIT` |
+| 9 | Blocages sans code | ✅ `Holds` : pose avec nature, référence et expiration en date comptable ; levée ; `HOLD_EXPIRY` avant tout prélèvement, reposé par l'annulation ; `available_balance(compte, date)` par date comptable ; `LoanService.collect` prélève sur le **disponible** | `HoldsIT`, `TfjDepositsIT` |
+| 27 | Aucune journalisation applicative | ✅ SLF4J : lancement, reprise, chaque étape (volumes, durée, anomalies), fin, annulation du TFJ ; transitions de statut des comptes. Métriques : non fait | `TfjEngine`, `AccountLifecycle` |
 
 Deux limites nommées, à porter en phase D : l'assiette de la suspension des intérêts comprend la
 taxe portée par la créance d'intérêts (la créance ne ventile pas intérêt et taxe) ; les intérêts
 intercalaires d'une mobilisation restent constatés à la facturation de la période, pas étalés.
+
+Phase C, une règle tranchée qu'il faut connaître : **le jour de la clôture d'un compte n'est pas
+rémunéré**. Le solde versé ce jour-là porte la même date de valeur qu'un retrait, et un retrait
+ne rémunère pas la journée où il est fait ; les intérêts sont calculés jusqu'à la veille et réglés
+le jour de la clôture, date de valeur comprise — exactement comme un règlement périodique.
 
 Trois fixtures de test ont dû changer, et c'est le contrôle qui l'a exigé : des comptes de
 paramétrage tirés au hasard, des rattachements à des produits inexistants — des situations que le
