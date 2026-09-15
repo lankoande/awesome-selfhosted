@@ -12,10 +12,12 @@ import io.corebanking.ledger.domain.account.NormalBalance;
 import io.corebanking.ledger.domain.posting.PostingCommand;
 import io.corebanking.ledger.domain.posting.PostingLine;
 import io.corebanking.ledger.store.Entities;
+import io.corebanking.ledger.store.FiscalYears;
 import io.corebanking.ledger.store.LedgerStoreException;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -47,7 +49,7 @@ class TfmIT extends TfjTestBase {
     }
 
     @Test
-    @DisplayName("le TFM clot septembre une fois toutes ses journees arretees, et son annulation rouvre en le disant")
+    @DisplayName("le TFM clot septembre une fois toutes ses journees arretees, ne se rouvre pas sous un exercice clos, et son annulation rouvre en le disant")
     void september_is_closed_then_reopened() {
         // La base de test ouvre septembre et octobre d'un bloc : un mois par periode, comme en
         // exploitation.
@@ -101,6 +103,19 @@ class TfmIT extends TfjTestBase {
         // second traitement seulement si le premier a ete annule.
         assertThat(tfm().run(ENTITY, FIN_SEPTEMBRE, ACTOR, RunMode.REAL).id())
             .isEqualTo(cloture.id());
+
+        // Un mois ne se rouvre pas sous un exercice clos : la cloture annuelle s'annule d'abord.
+        Account resultat = account("RESULTAT-TFM", AccountKind.GL, NormalBalance.CREDIT);
+        UUID exercice = database.inTransaction(c -> FiscalYears.open(
+            c, ENTITY, LocalDate.of(2026, 9, 1), LocalDate.of(2027, 8, 31), resultat.id(), ACTOR,
+            APPROVER));
+        database.inTransaction(c -> { FiscalYears.close(c, exercice, cloture.id()); return null; });
+        assertThatThrownBy(() -> tfm().cancel(cloture.id(), ACTOR, LocalDate.of(2026, 10, 1),
+                                              "ecriture oubliee"))
+            .isInstanceOf(TfjEngine.TfjRefusedException.class)
+            .hasMessageContaining("exercice clos");
+        assertThat(statut(FIN_SEPTEMBRE)).isEqualTo("CLOSED");
+        database.inTransaction(c -> { FiscalYears.reopen(c, exercice); return null; });
 
         // L'annulation rouvre la periode, et le dit : REOPENED n'est pas OPEN.
         tfm().cancel(cloture.id(), ACTOR, LocalDate.of(2026, 10, 1), "ecriture oubliee");

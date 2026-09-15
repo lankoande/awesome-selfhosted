@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 568 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 265 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 570 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 267 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -791,6 +791,10 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Le résultat net se lit dans les écritures de la clôture, pas dans une colonne | Un montant stocké serait une seconde vérité ; l'exercice rouvert n'a plus de résultat, et il n'a rien à effacer |
 | L'affectation solde le compte de résultat agence par agence | Le résultat a été porté par agence ; le solder au siège seul laisserait chaque agence porter son résultat pour toujours |
 | Un résultat affecté retient l'annulation de la clôture | Annuler la clôture défait le résultat ; le défaire sous une affectation laisserait des réserves dotées d'un résultat qui n'existe plus |
+| Affectation et annulation de clôture s'exécutent sous le verrou de l'exercice | Deux affectations concurrentes du même résultat doteraient deux fois les réserves ; un contrôle sans verrou ne voit pas ce qui n'est pas encore validé |
+| Un mois ne se rouvre pas sous un exercice clos | Le résultat a été déterminé avec ce mois ; le rouvrir changerait ce que la clôture a déjà constaté, sans passer par elle |
+| L'ordre par curseur a un index par clé de lecture, vérifié sur le plan | Un ordre total que l'index ne porte pas relit à chaque page tout ce qui la précède ; le test le prouve sur le plan d'exécution, pas sur une intention |
+| Le coût de la balance est dit, pas caché | L'ouverture est une somme sur l'historique ; un cliché quotidien serait faux sous une écriture antidatée, et l'accélération exacte est un cliché arrêté à la clôture de période, notée au plan |
 | Sans entité posée, le rôle applicatif ne voit rien | Le défaut est l'absence d'accès : une requête écrite sans filtre renvoie zéro ligne, pas toutes les entités |
 | Une transaction ne change pas d'entité | La base a déjà reçu l'entité de la transaction ; une unité de travail qui en attendrait une autre lirait à côté de ce qu'elle croit — refusé en Java, avant la base |
 | Deux comptes de base, propriétaire et applicatif | Le propriétaire des tables n'est soumis à aucune politique ; avec un seul compte, la Row Level Security serait décorative |

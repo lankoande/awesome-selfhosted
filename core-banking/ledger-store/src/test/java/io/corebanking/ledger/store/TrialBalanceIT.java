@@ -216,4 +216,57 @@ class TrialBalanceIT extends LedgerTestBase {
             Journal.journalAfter(c, ENTITY, SEPT_1, SEPT_1, null, 10));
         assertThat(vide).isEmpty();
     }
+
+    @Test
+    @DisplayName("la reprise apres une position est une condition d'index, pour le compte comme pour l'entite : le cout d'une page ne depend pas de ce qui la precede")
+    void the_cursor_is_served_by_an_index_condition() {
+        Journal.Position position = database.inTransaction(c ->
+            Journal.journalAfter(c, ENTITY, AOUT_20, BUSINESS_DATE, null, 1)).get(0).position();
+        // Sur une table de six lignes, le planificateur prefere tout lire : on lui retire ce
+        // choix pour voir si l'index peut porter la reprise — c'est ce qui compte en production.
+        String parCompte = plan(
+            "SELECT l.id FROM journal_line l WHERE l.account_id = '" + caisse.id() + "'"
+            + " AND l.booking_date >= '" + AOUT_20 + "' AND l.booking_date <= '" + BUSINESS_DATE
+            + "' AND (l.booking_date, l.knowledge_time, l.entry_id, l.line_number) > ("
+            + literal(position) + ")"
+            + " ORDER BY l.booking_date, l.knowledge_time, l.entry_id, l.line_number LIMIT 10");
+        String parEntite = plan(
+            "SELECT l.id FROM journal_line l WHERE l.legal_entity_id = '" + ENTITY + "'"
+            + " AND l.booking_date >= '" + AOUT_20 + "' AND l.booking_date <= '" + BUSINESS_DATE
+            + "' AND (l.booking_date, l.knowledge_time, l.entry_id, l.line_number) > ("
+            + literal(position) + ")"
+            + " ORDER BY l.booking_date, l.knowledge_time, l.entry_id, l.line_number LIMIT 10");
+        for (String plan : List.of(parCompte, parEntite)) {
+            assertThat(plan).as(plan).contains("Index");
+            assertThat(plan).as(plan)
+                .contains("Index Cond")
+                .contains("ROW(booking_date, knowledge_time, entry_id, line_number) > ROW(");
+            assertThat(plan).as(plan).doesNotContain("Seq Scan");
+        }
+    }
+
+    private static String literal(Journal.Position position) {
+        return "'" + position.bookingDate() + "'::date, '"
+            + java.time.OffsetDateTime.ofInstant(position.knowledgeTime(), java.time.ZoneOffset.UTC)
+            + "'::timestamptz, '" + position.entryId() + "'::uuid, " + position.lineNumber();
+    }
+
+    private static String plan(String sql) {
+        return database.inTransaction(c -> {
+            StringBuilder plan = new StringBuilder();
+            try (var ps = c.prepareStatement("SET LOCAL enable_seqscan = off")) {
+                ps.execute();
+            } catch (java.sql.SQLException e) {
+                throw new LedgerStoreException("Reglage du planificateur", e);
+            }
+            try (var ps = c.prepareStatement("EXPLAIN " + sql); var rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    plan.append(rs.getString(1)).append('\n');
+                }
+            } catch (java.sql.SQLException e) {
+                throw new LedgerStoreException("Plan d'execution", e);
+            }
+            return plan.toString();
+        });
+    }
 }

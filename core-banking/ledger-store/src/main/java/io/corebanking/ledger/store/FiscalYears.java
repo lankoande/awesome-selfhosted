@@ -233,6 +233,26 @@ public final class FiscalYears {
     }
 
     /**
+     * L'exercice, verrouille pour la transaction en cours. Tout ce qui decide de son etat — sa
+     * cloture, sa reouverture, l'affectation de son resultat — passe par ce verrou : deux
+     * decisions concurrentes se serialisent, et la seconde relit l'exercice tel que la premiere
+     * l'a laisse au lieu de raisonner sur un etat qui n'est plus.
+     */
+    public static FiscalYear lock(Connection c, UUID fiscalYearId) {
+        try (PreparedStatement ps = c.prepareStatement(SELECT + " WHERE id = ? FOR UPDATE")) {
+            ps.setObject(1, fiscalYearId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new UnknownFiscalYearException(fiscalYearId);
+                }
+                return read(rs);
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Verrouillage de l'exercice " + fiscalYearId, e);
+        }
+    }
+
+    /**
      * Le resultat net d'un exercice clos : ce que la cloture qui l'a clos a porte au compte de
      * resultat, lu dans ses ecritures de determination du resultat — positif pour un benefice,
      * negatif pour une perte. Vide tant que l'exercice n'est pas clos : un resultat ne se lit
@@ -330,11 +350,14 @@ public final class FiscalYears {
      * l'entite, dans sa devise de tenue de compte, et leur somme est exactement le resultat :
      * une affectation partielle n'existe pas, le report a nouveau est une destination comme une
      * autre. Un exercice rouvert n'a plus de resultat ; un exercice deja affecte ne l'est pas
-     * deux fois tant que son ecriture n'est pas contre-passee.
+     * deux fois tant que son ecriture n'est pas contre-passee — ni par deux demandes
+     * concurrentes : l'affectation s'execute sous le verrou de l'exercice.
      */
     public static AppropriationRecord appropriate(Connection c, PostingService posting,
                                                   Appropriation request) {
-        FiscalYear year = require(c, request.fiscalYearId());
+        // Sous le verrou de l'exercice : deux affectations concurrentes se suivent, et la
+        // seconde voit la premiere ; une annulation de cloture concurrente attend, ou est vue.
+        FiscalYear year = lock(c, request.fiscalYearId());
         if (!"CLOSED".equals(year.status())) {
             throw new NotAppropriableException(
                 "L'exercice du " + year.start() + " au " + year.end() + " n'est pas clos ("

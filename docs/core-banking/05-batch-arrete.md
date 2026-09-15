@@ -256,8 +256,12 @@ comptes de bilan, états financiers, liasse réglementaire, archivage de l'exerc
 > exactement le résultat : une affectation partielle n'existe pas, le report à nouveau est une
 > destination comme une autre. Une affectation ne s'efface pas : pour la refaire, on contre-passe
 > son écriture, et le journal le dit. Un résultat affecté retient la clôture : l'annulation du
-> TFA est refusée tant que l'affectation n'est pas contre-passée. Restent à faire : les états
-> financiers et la liasse.
+> TFA est refusée tant que l'affectation n'est pas contre-passée ; affectation et annulation
+> s'exécutent sous le **verrou de l'exercice**, deux décisions concurrentes se suivent et la
+> seconde voit la première (`concurrent_appropriations_are_serialised`). Un mois ne se rouvre
+> pas non plus sous un exercice clos : l'annulation d'un arrêté mensuel est refusée tant que la
+> clôture annuelle n'est pas annulée, parce que le résultat a été déterminé avec ce mois.
+> Restent à faire : les états financiers et la liasse.
 
 ---
 

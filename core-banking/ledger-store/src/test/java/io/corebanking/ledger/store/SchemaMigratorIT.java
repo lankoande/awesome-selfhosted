@@ -39,8 +39,8 @@ class SchemaMigratorIT extends LedgerTestBase {
         SchemaMigrator.Report report = SchemaMigrator.migrate(database,
                                                               SchemaMigrator.Gaps.TOLERATED);
         assertThat(report.applied()).isEmpty();        // la base de test est deja a niveau
-        assertThat(report.alreadyApplied()).isEqualTo(8);
-        assertThat(report.highest()).isEqualTo(37);
+        assertThat(report.alreadyApplied()).isEqualTo(9);
+        assertThat(report.highest()).isEqualTo(38);
     }
 
     @Test

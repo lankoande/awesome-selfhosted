@@ -826,6 +826,16 @@ class ApiIT {
                            "current")).isEqualTo(net.toPlainString());
         assertThat(get(accountant, "/fiscal-years/" + UUID.randomUUID()).status()).isEqualTo(404);
 
+        // Une demande sans piece ni destination n'est pas soumise.
+        assertThat(post(accountant, "/fiscal-years/" + exerciceId + "/appropriation", null,
+            Map.of("bookingDate", J.plusDays(1).toString(), "decidedOn", J.plusDays(1).toString(),
+                   "allocations", List.of(Map.of("accountId", report.id().toString(),
+                                                  "amount", "1", "currency", "XOF"))))
+            .status()).isEqualTo(422);
+        assertThat(post(accountant, "/fiscal-years/" + exerciceId + "/appropriation", null,
+            Map.of("bookingDate", J.plusDays(1).toString(), "decidedOn", J.plusDays(1).toString(),
+                   "reference", "AGO", "allocations", List.of())).status()).isEqualTo(422);
+
         // Ni plus ni moins que le resultat : l'approbation execute, et le refus est la reponse.
         Reponse partielle = post(accountant, "/fiscal-years/" + exerciceId + "/appropriation", null,
             Map.of("bookingDate", J.plusDays(1).toString(), "decidedOn", J.plusDays(1).toString(),

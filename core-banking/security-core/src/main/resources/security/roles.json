@@ -48,7 +48,7 @@
     {
       "code": "accountant",
       "name": "Comptable",
-      "description": "Comptabilite generale : contre-passation, reouverture de periode, annulation de TFJ.",
+      "description": "Comptabilite generale : contre-passation, arretes mensuel et annuel, exercices et affectation du resultat a deux, balance, grand livre et journal de l'entite.",
       "isSystem": true,
       "category": "SIEGE",
       "attributes": {
@@ -103,7 +103,7 @@
     {
       "code": "auditor",
       "name": "Auditeur",
-      "description": "Consultation transverse aux entites et acces a la piste d'audit. Profil exclusif : ne se cumule avec aucun role operationnel.",
+      "description": "Consultation transverse aux entites, acces a la piste d'audit, balance, grand livre et journal de son entite. Profil exclusif : ne se cumule avec aucun role operationnel.",
       "isSystem": true,
       "category": "CONTROLE",
       "attributes": {

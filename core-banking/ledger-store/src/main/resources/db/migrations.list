@@ -9,3 +9,4 @@ V24__agences.sql
 V26__rls_ledger.sql
 V36__exercice.sql
 V37__restitutions_affectation.sql
+V38__index_grand_livre.sql

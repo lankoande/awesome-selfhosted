@@ -12,7 +12,7 @@
 | Idempotence | En-tête `Idempotency-Key` **obligatoire** sur toute méthode non idempotente. |
 | Montants | Objet `{ "amount": "1234.56", "currency": "XOF" }` — chaîne, jamais nombre flottant JSON. |
 | Dates | `LocalDate` ISO pour les dates métier, `Instant` UTC pour les horodatages techniques. |
-| Pagination | Par curseur (`cursor`, `limit`). Pas d'`offset` : il dérive sur des données mouvantes. |
+| Pagination | Par pages bornées à ordre total (`page`, `size`) pour les écrans ; par curseur (`after`, `size`) pour les extractions — le grand livre et le journal. |
 | Erreurs | RFC 7807 (`application/problem+json`) avec un code métier stable. |
 | Contexte | `legal_entity_id` déduit du jeton, jamais du corps de la requête. |
 | Contrat | OpenAPI généré, publié, et vérifié en CI contre la version précédente. |

@@ -389,9 +389,12 @@ public final class TfjEngine {
                     + reversalBookingDate + ".");
             }
             database.inTransaction(connection -> {
-                // Un resultat affecte n'est plus a la disposition de la cloture : l'affectation
-                // se contre-passe d'abord, par une decision qui se voit.
+                // Sous le verrou de l'exercice, comme l'affectation : un resultat affecte n'est
+                // plus a la disposition de la cloture, l'affectation se contre-passe d'abord,
+                // par une decision qui se voit — et une affectation en cours est vue, pas
+                // doublee par la reouverture.
                 FiscalYears.endingOn(connection, run.legalEntityId(), run.businessDate())
+                    .map(year -> FiscalYears.lock(connection, year.id()))
                     .flatMap(year -> FiscalYears.currentAppropriation(connection, year.id()))
                     .ifPresent(appropriation -> {
                         throw new TfjRefusedException(
@@ -405,6 +408,22 @@ public final class TfjEngine {
                                                                bounds[0]));
                 FiscalYears.endingOn(connection, run.legalEntityId(), run.businessDate())
                     .ifPresent(year -> FiscalYears.reopen(connection, year.id()));
+                return null;
+            });
+        }
+        if (runType == RunType.TFM) {
+            // Un mois ne se rouvre pas sous un exercice clos : le resultat de l'exercice a ete
+            // determine avec lui. La cloture annuelle s'annule d'abord, et elle le dit.
+            database.inTransaction(connection -> {
+                FiscalYears.covering(connection, run.legalEntityId(), run.businessDate())
+                    .filter(year -> "CLOSED".equals(year.status()))
+                    .ifPresent(year -> {
+                        throw new TfjRefusedException(
+                            "Le mois se terminant le " + run.businessDate()
+                            + " appartient a l'exercice clos du " + year.start() + " au "
+                            + year.end() + " : annuler la cloture annuelle avant de rouvrir un "
+                            + "de ses mois.");
+                    });
                 return null;
             });
         }

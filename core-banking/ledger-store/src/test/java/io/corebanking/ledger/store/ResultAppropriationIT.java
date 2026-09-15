@@ -221,4 +221,110 @@ class ResultAppropriationIT extends LedgerTestBase {
             c -> FiscalYears.appropriations(c, exercice));
         assertThat(deux).hasSize(2);
     }
+
+    @Test
+    @DisplayName("deux affectations concurrentes du meme resultat : une seule passe, l'autre voit la premiere et est refusee")
+    void concurrent_appropriations_are_serialised() throws Exception {
+        // Une seconde entite, pour un exercice a elle : la premiere garde le sien.
+        UUID entite = UUID.randomUUID();
+        Account resultat2 = compteDe(entite, "RESULTAT-2", NormalBalance.CREDIT,
+                                     AccountNature.BALANCE_SHEET);
+        Account reserves2 = compteDe(entite, "RESERVES-2", NormalBalance.CREDIT,
+                                     AccountNature.BALANCE_SHEET);
+        Account produits2 = compteDe(entite, "PRODUITS-2", NormalBalance.CREDIT,
+                                     AccountNature.PROFIT_AND_LOSS);
+        Account caisse2 = compteDe(entite, "CAISSE-2", NormalBalance.DEBIT,
+                                   AccountNature.BALANCE_SHEET);
+        UUID siege2 = database.inTransaction(c -> Branches.headOffice(c, entite));
+        UUID annee = database.inTransaction(c -> FiscalYears.open(
+            c, entite, DEBUT, FIN, resultat2.id(), ACTOR, APPROVER));
+        UUID run = UUID.randomUUID();
+        postingService.post(PostingCommand.online(
+            IdempotencyKey.of("c-1"), entite, LocalDate.of(2026, 8, 10), "FEE", ACTOR,
+            List.of(PostingLine.debit(caisse2.id(), Money.of("700", XOF), LocalDate.of(2026, 8, 10),
+                                      null).withBranch(siege2),
+                    PostingLine.credit(produits2.id(), Money.of("700", XOF),
+                                       LocalDate.of(2026, 8, 10), null).withBranch(siege2))));
+        postingService.post(PostingCommand.batch(
+            IdempotencyKey.forBatch(run.toString(), "YEAR_END_RESULT", "XOF", siege2), entite,
+            FIN, FiscalYears.YEAR_END_RESULT, ACTOR, run,
+            List.of(PostingLine.debit(produits2.id(), Money.of("700", XOF), FIN, null)
+                        .withBranch(siege2),
+                    PostingLine.credit(resultat2.id(), Money.of("700", XOF), FIN, null)
+                        .withBranch(siege2))));
+        database.inTransaction(c -> { FiscalYears.close(c, annee, run); return null; });
+
+        // Deux comptables, la meme decision, au meme instant.
+        var depart = new java.util.concurrent.CountDownLatch(1);
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.concurrent.Callable<Object> tentative = () -> {
+            depart.await();
+            try {
+                return database.inTransaction(c -> FiscalYears.appropriate(
+                    c, postingService, new FiscalYears.Appropriation(
+                        annee, AFFECTATION, LocalDate.of(2026, 9, 3), "AGO",
+                        List.of(new FiscalYears.Allocation(reserves2.id(), Money.of("700", XOF))),
+                        ACTOR, APPROVER)));
+            } catch (RuntimeException e) {
+                return e;
+            }
+        };
+        var premiere = executor.submit(tentative);
+        var seconde = executor.submit(tentative);
+        depart.countDown();
+        List<Object> issues = List.of(premiere.get(), seconde.get());
+        executor.shutdown();
+
+        assertThat(issues).filteredOn(o -> o instanceof FiscalYears.AppropriationRecord).hasSize(1);
+        assertThat(issues).filteredOn(o -> o instanceof FiscalYears.NotAppropriableException)
+            .hasSize(1)
+            .allSatisfy(o -> assertThat(((RuntimeException) o).getMessage())
+                .contains("deja affecte"));
+        assertThat(solde(resultat2).isZero()).isTrue();
+        assertThat(solde(reserves2)).isEqualTo(Money.of("700", XOF));
+        List<FiscalYears.AppropriationRecord> une = database.inTransaction(
+            c -> FiscalYears.appropriations(c, annee));
+        assertThat(une).hasSize(1);
+    }
+
+    /** Un compte general d'une entite creee pour le test, avec sa periode d'aout et de septembre. */
+    private static Account compteDe(UUID entite, String code, NormalBalance normal,
+                                    AccountNature nature) {
+        database.inTransaction(c -> {
+            try (var ps = c.prepareStatement("SELECT 1 FROM legal_entity WHERE id = ?")) {
+                ps.setObject(1, entite);
+                try (var rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        Entities.insertLegalEntity(c, entite, "E-" + entite.toString().substring(0, 8),
+                                                   "Entite " + code, "CI", XOF, BUSINESS_DATE);
+                        Entities.openPeriod(c, entite, LocalDate.of(2026, 8, 1),
+                                            LocalDate.of(2026, 8, 31));
+                        Entities.openPeriod(c, entite, LocalDate.of(2026, 9, 1),
+                                            LocalDate.of(2026, 9, 30));
+                    }
+                }
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Entite de test", e);
+            }
+            Account account = new Account(UUID.randomUUID(), entite, code, AccountKind.GL, normal,
+                                          XOF, true, false, 1, AccountStatus.ACTIVE)
+                .withNature(nature);
+            Accounts.create(c, account);
+            return null;
+        });
+        return database.inTransaction(c -> {
+            try (var ps = c.prepareStatement(
+                "SELECT id FROM account WHERE legal_entity_id = ? AND code = ?")) {
+                ps.setObject(1, entite);
+                ps.setString(2, code);
+                try (var rs = ps.executeQuery()) {
+                    rs.next();
+                    UUID id = rs.getObject(1, UUID.class);
+                    return Accounts.loadAll(c, java.util.Set.of(id)).get(id);
+                }
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Relecture du compte " + code, e);
+            }
+        });
+    }
 }

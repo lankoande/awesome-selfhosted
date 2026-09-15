@@ -480,9 +480,21 @@ eux ; sur une balance filtrée il est faux, et il le dit.
 
 **Le grand livre et le journal** se lisent **par curseur**. L'ordre total est celui de quatre
 colonnes de la ligne elle-même — date comptable, instant de connaissance, écriture, ligne —,
-portées par un index dans cet ordre (`idx_line_entity_journal`, V37) : la page suivante reprend
-strictement après une position, par comparaison de lignes (`(a, b, c, d) > (?, ?, ?, ?)`), et
-son coût ne dépend pas de ce qui la précède. Dans une journée, l'ordre est celui où les
-écritures ont été connues — l'ordre chronologique du journal, celui de l'édition. Le relevé par
-pages numérotées lit le même ordre : un écran et une extraction ne se contredisent pas.
+portées par un index dans cet ordre pour chaque clé de lecture : l'entité
+(`idx_line_entity_journal`, V37) et le compte (`idx_line_account_journal`, V38, qui remplace
+l'index compte-date qu'il prolonge). La page suivante reprend strictement après une position,
+par comparaison de lignes (`(a, b, c, d) > (?, ?, ?, ?)`) que le planificateur sert comme
+condition d'index — un test le vérifie sur le plan d'exécution
+(`the_cursor_is_served_by_an_index_condition`) —, et son coût ne dépend pas de ce qui la
+précède. Dans une journée, l'ordre est celui où les écritures ont été connues — l'ordre
+chronologique du journal, celui de l'édition. Le relevé par pages numérotées lit le même ordre :
+un écran et une extraction ne se contredisent pas.
+
+**Le coût de la balance est dit, pas caché.** Le solde d'ouverture est une somme sur tout ce qui
+précède la plage : la balance coûte l'historique du journal de l'entité, borné par l'élagage des
+partitions. C'est le prix de l'exactitude en date comptable : un cliché quotidien ne la donnerait
+pas, parce qu'une écriture antidatée dans une période ouverte change le solde d'une date déjà
+clichée. L'accélération exacte, quand le volume l'exigera, est un cliché **par date comptable
+arrêté à la clôture de période** — une période close n'admet plus d'antidatage — d'où la
+balance repartirait ; elle est notée au plan, et ne change ni la forme ni le résultat.
 

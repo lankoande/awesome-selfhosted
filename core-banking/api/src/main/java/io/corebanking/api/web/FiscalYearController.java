@@ -52,23 +52,38 @@ public class FiscalYearController {
 
     /**
      * L'affectation du resultat : la decision de l'assemblee, demandee par la comptabilite et
-     * validee par une seconde. Les destinations sont rendues telles que recues ; c'est
-     * l'execution qui les verifie contre le resultat.
+     * validee par une seconde. Une demande incomplete n'est pas soumise ; les destinations sont
+     * gardees telles que recues, et c'est l'execution qui les verifie contre le resultat.
      */
     @PostMapping("/{fiscalYearId}/appropriation")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public MakerChecker.View appropriate(Caller caller, @PathVariable UUID legalEntityId,
                                          @PathVariable UUID fiscalYearId,
                                          @RequestBody Requests.Appropriation body) {
+        if (body.bookingDate() == null || body.decidedOn() == null) {
+            throw new IllegalArgumentException("Champs obligatoires absents : bookingDate, decidedOn");
+        }
+        if (body.reference() == null || body.reference().isBlank()) {
+            throw new IllegalArgumentException(
+                "La piece de la decision d'affectation est obligatoire : reference");
+        }
+        if (body.allocations() == null || body.allocations().isEmpty()) {
+            throw new IllegalArgumentException("Une affectation designe au moins une destination");
+        }
         java.util.Map<String, Object> payload = Payloads.of(
             "fiscalYearId", fiscalYearId, "bookingDate", body.bookingDate(),
-            "decidedOn", body.decidedOn(), "reference", body.reference());
+            "decidedOn", body.decidedOn(), "reference", body.reference().trim());
         java.util.List<java.util.Map<String, Object>> allocations = new java.util.ArrayList<>();
-        for (Requests.Allocation allocation : body.allocations() == null
-                ? java.util.List.<Requests.Allocation>of() : body.allocations()) {
+        for (Requests.Allocation allocation : body.allocations()) {
+            if (allocation == null || allocation.accountId() == null
+                || allocation.amount() == null || allocation.amount().isBlank()
+                || allocation.currency() == null || allocation.currency().isBlank()) {
+                throw new IllegalArgumentException(
+                    "Chaque destination porte accountId, amount et currency");
+            }
             allocations.add(Payloads.of("accountId", allocation.accountId(),
-                                        "amount", allocation.amount(),
-                                        "currency", allocation.currency()));
+                                        "amount", allocation.amount().trim(),
+                                        "currency", allocation.currency().trim()));
         }
         payload.put("allocations", allocations);
         return makerChecker.submit(caller, legalEntityId, "RESULT_APPROPRIATE", payload);
