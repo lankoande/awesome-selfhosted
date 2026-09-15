@@ -130,7 +130,7 @@ métier. Une règle ArchUnit l'impose au build : un cycle casse la CI.
 | Sujet | Choix | Justification |
 |---|---|---|
 | Langage | Java 21 (LTS) | Standard de fait en core banking, maturité transactionnelle, recrutement |
-| Framework | Spring Boot 3.x + Spring Modulith | Frontières de modules vérifiées au build |
+| Framework | **Spring Boot 4.1** (Spring Framework 7, Spring Security 7, Jackson 3, Tomcat 11 embarqué) — couche d'exposition seule ; le socle reste sans framework | Un seul exécutable à déployer ; les frontières de modules sont des modules Maven, vérifiées au build |
 | Base | PostgreSQL 16, Patroni HA | ACID strict, `NUMERIC` exact, partitionnement natif, RLS |
 | Migrations | Liquibase | Historisation versionnée, rollback, pipelines contrôlés |
 | Batch | Spring Batch | Reprise, partitionnement, traçabilité native des runs |
@@ -157,6 +157,14 @@ des écritures sans événement, ou des événements sans écriture.
 **Pas de cache sur les soldes.** Un solde en cache est un solde faux dès la première
 écriture concurrente. La performance se traite par snapshots quotidiens et
 partitionnement, pas par cache applicatif.
+
+> **Implémenté** — module `api` : Spring Boot 4.1.1, Tomcat embarqué, serveur de ressources
+> OAuth2 (jetons signés par le royaume Keycloak, clés publiques JWKS), migrations de schéma au
+> démarrage (`SchemaMigrator`, classpath complet exigé), provisionnement des rôles de `roles.json`
+> dans Keycloak au démarrage quand l'API d'administration est configurée, `/actuator/health` et
+> métriques. Le socle — ledger, intérêts, crédits, dépôts, TFJ — ne dépend pas de Spring : il est
+> assemblé dans une configuration, et exposé par des cas d'usage. Le jar exécutable se déploie
+> derrière un reverse proxy qui termine le TLS ([06](06-api-integrations.md)).
 
 ---
 

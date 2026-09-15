@@ -647,14 +647,27 @@ de liaison doit se refléter entre son agence et le siège, et s'éliminer en to
 l'agence et bloque la journée (`branch_balances_and_liaison_mirror`). Dans une même entité, les
 liaisons ne se règlent pas, elles s'éliminent.
 
+### 20. Une API qui ne décide rien
+
+Le module `api` (Spring Boot 4.1, Tomcat embarqué) expose le socle, et c'est tout ce qu'il fait.
+Chaque méthode de contrôleur a la signature validée avant construction —
+`withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyKey key, WithdrawalRequest body)`
+— et trois choses n'y sont jamais demandées au client : **qui il est** (le `Caller` est dérivé du
+jeton signé par Keycloak), **quelle est son agence** (celle du jeton, pour ce qui s'ouvre ou se
+sert), **s'il a le droit** (`UseCaseExecutor` applique `SecurityConfig` ; le contrôleur ne
+connaît aucune règle). La clé d'idempotence est un en-tête obligatoire : un client qui appuie
+deux fois reçoit deux fois le même reçu, et n'est débité qu'une fois (`parcours_client`). Les
+refus sont des réponses nommées, du `401` au `422`, et un `500` signifie qu'il n'a rien été
+comptabilisé (`refus`). Le test fait tout le parcours contre un vrai serveur, une vraie base et
+de vrais jetons.
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
-- API REST (le ledger reste sans framework, c'est délibéré), qui câblera `RoleStartupTask`,
-  `UseCaseExecutor` et le serveur de ressources Keycloak — et rendra mécanique le rattachement
-  point d'entrée → opération que `OperationCoverageTest` tient à la main ; la signature des
-  méthodes exposées est soumise à validation avant construction ;
+- API : le crédit, le paramétrage produit et le calendrier ne sont pas encore exposés (les
+  services existent, les cas d'usage suivent le même moule) ; pas de contrat OpenAPI publié, pas
+  de pagination ; Row Level Security par entité ;
 - chèques (remise, compensation, opposition), paiements sortants, plafonds par produit et par
   client ;
 - multi-agences : caisses par guichetier et arrêté de caisse, schémas de liaison bilatéral et
@@ -764,3 +777,7 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | La balance agence est un cliché quotidien, pas un solde tenu en temps réel | Les comptes généraux sont les comptes chauds ; une dimension de plus sur le chemin d'imputation coûterait sur chaque écriture ce qu'aucun contrôle en ligne ne demande |
 | Les comptes de liaison s'éliminent, ils ne se règlent pas | Dans une même entité juridique, la position d'une agence vis-à-vis du siège n'est pas une dette : un écart est une écriture qui manque |
 | Une opération déplacée porte son propre plafond, plus bas | Servir un client de passage est le métier d'un réseau ; le faire sous le plafond ordinaire, sans contrôle d'identité renforcé, est l'angle mort de la fraude au guichet |
+| Le socle ne dépend pas de Spring ; seul le module `api` en dépend | Le ledger, les intérêts et le TFJ se testent et se mesurent sans conteneur ; le framework est une couche d'exposition, remplaçable, pas une fondation |
+| L'appelant vient du jeton, jamais d'un paramètre | Un `actorId` fourni par le client est une identité déclarative ; le sujet d'un jeton signé est une identité établie |
+| L'agence d'un compte ouvert est celle du jeton | Un corps de requête qui choisirait l'agence permettrait d'ouvrir des comptes dans une agence dont on ne répond pas |
+| Un refus est une réponse au format problème, jamais une trace de pile | Le client sait ce qu'il doit corriger ; un `500` dit une seule chose, que rien n'a été comptabilisé |

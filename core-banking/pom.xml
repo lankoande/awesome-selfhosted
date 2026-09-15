@@ -32,6 +32,7 @@
     <module>deposits</module>
     <module>tfj</module>
     <module>benchmark</module>
+    <module>api</module>
   </modules>
 
   <properties>

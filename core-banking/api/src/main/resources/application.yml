@@ -1,0 +1,42 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  application:
+    name: core-banking-api
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Royaume Keycloak : la signature des jetons est verifiee contre ses cles publiques (JWKS).
+          issuer-uri: ${COREBANKING_ISSUER_URI:http://localhost:8180/realms/core-banking}
+
+corebanking:
+  datasource:
+    url: ${COREBANKING_DB_URL:jdbc:postgresql://localhost:5432/corebanking}
+    username: ${COREBANKING_DB_USER:corebanking}
+    password: ${COREBANKING_DB_PASSWORD:}
+    pool-size: ${COREBANKING_DB_POOL:16}
+  schema:
+    # Toutes les versions doivent etre sur le classpath : un module absent se voit au demarrage.
+    migrate-on-startup: true
+  security:
+    # Client backend Keycloak dont les roles portent les habilitations.
+    client-id: ${COREBANKING_CLIENT_ID:core-banking}
+  keycloak:
+    # API d'administration : provisionne au demarrage les roles de roles.json. Vide : desactive.
+    admin-url: ${COREBANKING_KEYCLOAK_ADMIN_URL:}
+    realm: ${COREBANKING_KEYCLOAK_REALM:core-banking}
+    service-client-id: ${COREBANKING_KEYCLOAK_SERVICE_CLIENT:core-banking-admin}
+    service-client-secret: ${COREBANKING_KEYCLOAK_SERVICE_SECRET:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

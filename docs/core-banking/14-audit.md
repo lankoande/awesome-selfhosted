@@ -145,18 +145,15 @@ intervention, et un paramétrage qui cite un compte inexistant ne s'active pas. 
 client reçoit ses intérêts net de retenue ; un compte courant produit des agios ; l'arrêté
 rapproche les sous-livres chaque nuit et rejoue tout au mois. Détail au §7.
 
-**C — Périmètre bancaire minimal et sécurité** — 🟡 **en cours**
-15, 16, 17, 9, 27 livrés : référentiel client avec dédoublonnage garanti par la base et
+**C — Périmètre bancaire minimal et sécurité** — ✅ **livrée**
+15, 16, 17, 9, 27, puis 23 et 10 livrés : référentiel client avec dédoublonnage garanti par la base et
 restriction progressive, opérations de base avec dates de valeur calculées et frais du produit,
 cycle de vie des comptes jusqu'au solde de tout compte, blocages de montant et de compte appliqués
-par le ledger, journal applicatif aux frontières du TFJ. Détail au §7. Restent 23 (API) et 10
-(`Caller` propagé) : la couche d'exposition attend la validation de la signature d'une méthode ;
-les services sont écrits pour être appelés à travers `UseCaseExecutor`, et
-`OperationCoverageTest` tient déjà l'inventaire point d'entrée → opération. Un préalable est
-apparu à l'étude de la signature : le **multi-agences** ([15](15-multi-agences.md)) — équilibre
-par agence, lignes de liaison, compensation inter-agences, périmètre `OWN_BRANCH` effectif. Il
-change le modèle du compte et le service d'imputation, et passe avant l'API. ✅ **Livré** (détail
-au §7, ligne MA).
+par le ledger, journal applicatif aux frontières du TFJ. Détail au §7. L'API REST (module `api`, Spring Boot 4.1) expose les services par des cas
+d'usage, sur la signature validée ; le `Caller` vient du jeton et traverse `UseCaseExecutor`,
+seul point de contrôle. Un préalable était apparu à l'étude de la signature : le
+**multi-agences** ([15](15-multi-agences.md)) — livré avant l'API (§7, ligne MA). Restent, de
+cette phase, la Row Level Security par entité et le circuit maker-checker.
 
 **D — Couverture UEMOA** (à planifier avec le profil réglementaire)
 18, 19, 14, 21, 22, 24, et les décisions du §2 « à valider ».
@@ -188,6 +185,8 @@ au §7, ligne MA).
 | 17 | Cycle de vie des comptes | ✅ `AccountLifecycle` : ouverture à deux sur un tiers vérifié et un produit de dépôt ; blocage en débit ou total, état superposé appliqué par le ledger, sans changement de statut ; dormance sur l'absence d'opération **du client** (`DORMANCY`), réveil à la première opération ; clôture atomique — obstacles nommés d'un coup, intérêts des deux côtés réglés jusqu'à la veille, solde versé à un compte de reversement, solde débiteur refusé, produit et titulaires fermés (V21). Non fait : régime de frais de dormance, compte d'abandon | `LifecycleIT`, `DormancyIT` |
 | 9 | Blocages sans code | ✅ `Holds` : pose avec nature, référence et expiration en date comptable ; levée ; `HOLD_EXPIRY` avant tout prélèvement, reposé par l'annulation ; `available_balance(compte, date)` par date comptable ; `LoanService.collect` prélève sur le **disponible** | `HoldsIT`, `TfjDepositsIT` |
 | 27 | Aucune journalisation applicative | ✅ SLF4J : lancement, reprise, chaque étape (volumes, durée, anomalies), fin, annulation du TFJ ; transitions de statut des comptes. Métriques : non fait | `TfjEngine`, `AccountLifecycle` |
+| 23 | Couche API | ✅ Module `api` : Spring Boot 4.1.1, Tomcat embarqué, serveur de ressources OAuth2 Keycloak, migrations au démarrage, provisionnement des rôles ; un cas d'usage par point d'entrée, `Idempotency-Key` obligatoire, rejeu `200`, refus en `problem+json` ; tiers, comptes, opérations, blocages, clôture, TFJ exposés ([06](06-api-integrations.md)). Non fait : crédit, paramétrage, OpenAPI publié, pagination | `ApiIT` |
+| 10 | Sécurité branchée nulle part | ✅ `Caller` dérivé du jeton signé (clés publiques du royaume), jamais d'un paramètre ; `UseCaseExecutor` sur chaque point d'entrée ; l'auteur d'une écriture est le sujet du jeton ; opérations déplacées sous plafond propre ; piste d'audit des habilitations en base (`JdbcAuthorizationAudit`). Non fait : RLS par entité, maker-checker | `ApiIT.refus`, `a_remote_operation_has_its_own_lower_ceiling` |
 | MA | Multi-agences ([15](15-multi-agences.md)) | ✅ V24 : `branch`, siège par entité, comptes de liaison par devise ; agence gestionnaire sur comptes clients et internes ; agence comptable sur chaque ligne, agence de l'opération sur l'écriture ; **invariant 13** vérifié par le validateur et par la base ; lignes de liaison générées via le siège, contre-passées telles quelles ; services de lot par agence (intérêts agrégés, ICNE, provisions, retard, frais d'opération déplacée à l'agence qui sert) ; cliché par agence et contrôle `LIAISON_AGENCE_MIROIR` / `LIAISON_ELIMINATION` / `CLICHE_AGENCES_VS_COMPTE` chaque nuit, rejoué au TFM ; opérations déplacées sous plafond propre. Non fait : caisses par guichetier, schémas bilatéral et régional | `InterbranchIT`, `TfjInterbranchIT`, `retraitDeplace`, `the_batch_posts_one_pair_of_lines_per_branch`, `a_remote_operation_has_its_own_lower_ceiling` |
 
 Deux limites nommées, à porter en phase D : l'assiette de la suspension des intérêts comprend la

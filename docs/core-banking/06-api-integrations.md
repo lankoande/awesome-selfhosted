@@ -54,6 +54,60 @@ Content-Type: application/json
 
 Un rejeu avec la même `Idempotency-Key` renvoie `200 OK` et le même corps.
 
+### Implémenté — module `api`
+
+Le contrat validé avant construction, tenu par chaque méthode de contrôleur :
+
+```java
+Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyKey key,
+                 WithdrawalRequest body)
+```
+
+- **`Caller` vient du jeton**, jamais d'un paramètre : un résolveur d'argument le dérive des
+  revendications (`sub`, `preferred_username`, `legal_entity`, `branch`,
+  `resource_access.<client>.roles`) par `KeycloakCallerFactory`. L'auteur d'une écriture est le
+  sujet du jeton ; l'agence d'un compte ouvert est celle de l'appelant.
+- **`IdempotencyKey` vient de l'en-tête** `Idempotency-Key`, obligatoire sur toute opération ;
+  absent : `400`. Un rejeu répond `200` avec le premier reçu (`replayed: true`), une opération
+  nouvelle `201`.
+- **Chaque point d'entrée est un cas d'usage** (`UseCase`) qui déclare son opération du catalogue
+  et nomme sa cible — l'agence de la caisse pour une opération de guichet, celle du compte pour
+  un acte de gestion, l'indicateur d'opération déplacée quand le client relève d'une autre
+  agence — et **ne vérifie rien** : `UseCaseExecutor` applique `SecurityConfig`, seul point de
+  contrôle. Le contrôleur ne connaît aucune règle.
+- **Les refus sont des réponses** (`application/problem+json`, RFC 9457) : `401` sans jeton
+  valide, `403` habilitation refusée ou jeton insuffisant, `404` compte ou traitement inconnu,
+  `409` conflit d'état (compte bloqué, disponible insuffisant, tiers non opérable, clôture
+  refusée, TFJ refusé, doublon de tiers), `422` requête que le socle ne peut pas honorer
+  (devise, montant, condition de date de valeur absente, paramétrage), `500` seulement pour ce qui
+  n'est pas prévu — et alors rien n'a été comptabilisé.
+- **Les montants** sortent en `{ "amount": "20000", "currency": "XOF" }` et entrent de même ;
+  une devise qui n'est pas celle du compte est un refus, jamais une conversion.
+
+| Méthode et chemin (`/v1/entities/{entityId}` en préfixe) | Opération | Corps |
+|---|---|---|
+| `POST /parties` | `PARTY_CREATE` | référence, nature, nom, identifiants |
+| `POST /parties/{id}/kyc-verifications` | `KYC_VERIFY` | niveau de risque, date, approbateur |
+| `GET /parties/{id}` | `PARTY_READ` | — |
+| `POST /accounts` | `ACCOUNT_OPEN` | numéro, titulaire, produit, devise, approbateur |
+| `GET /accounts/{id}/balance` | `ACCOUNT_BALANCE_READ` | — ; déplacée si le compte est d'une autre agence |
+| `POST /accounts/{id}/deposits`, `/withdrawals` | `CASH_OPERATION` | montant, caisse, canal ; `Idempotency-Key` |
+| `POST /transfers` | `TRANSFER` | émetteur, bénéficiaire, montant ; `Idempotency-Key` |
+| `POST /accounts/{id}/blocks`, `.../{blockId}/lift` | `ACCOUNT_BLOCK` | nature, motif, approbateur |
+| `POST /accounts/{id}/holds`, `.../{holdId}/release` | `ACCOUNT_HOLD` | montant, nature, échéance |
+| `POST /accounts/{id}/closure` | `ACCOUNT_CLOSE` | compte de reversement, approbateur |
+| `POST /eod/runs`, `GET /eod/runs/{id}`, `POST .../resume` | `TFJ_RUN` | journée, mode |
+| `POST /eod/runs/{id}/cancel` | `TFJ_CANCEL` | date de contre-passation, motif |
+
+Ce qui n'est pas encore exposé : le crédit (contrat, déblocage, remboursement), le paramétrage
+produit, le calendrier — les services existent, leurs cas d'usage suivent le même moule. La
+double validation passe aujourd'hui par un approbateur nommé dans le corps, distinct de
+l'appelant ; le circuit maker-checker (`pending_operation`) viendra le remplacer. Pas encore de
+contrat OpenAPI publié ni de pagination (aucune liste n'est exposée).
+
+Le test `ApiIT` fait tout le parcours contre un vrai serveur, une vraie base et de vrais jetons
+signés : du tiers au retrait, les refus un par un, l'arrêté lancé par l'exploitant.
+
 ---
 
 ## 2. ISO 20022

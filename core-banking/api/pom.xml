@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>io.corebanking</groupId><artifactId>core-banking</artifactId><version>0.1.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>api</artifactId>
+  <name>api</name>
+  <description>Couche d'exposition REST : Spring Boot 4, Tomcat embarque, serveur de ressources OAuth2 (Keycloak), un cas d'usage par operation du catalogue.</description>
+
+  <properties>
+    <spring-boot.version>4.1.1</spring-boot.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.boot</groupId><artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring-boot.version}</version><type>pom</type><scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <!-- le socle, en entier : toutes les migrations de schema sont sur le classpath -->
+    <dependency><groupId>io.corebanking</groupId><artifactId>platform-kernel</artifactId></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>security-core</artifactId></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>ledger-domain</artifactId></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>product-catalog</artifactId></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>calendar</artifactId></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>security-keycloak</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>security-store</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>ledger-store</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>party</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>interest-service</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>fee-service</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>loan-service</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>deposits</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.corebanking</groupId><artifactId>tfj</artifactId><version>${project.version}</version></dependency>
+
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-webmvc</artifactId></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-oauth2-resource-server</artifactId></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
+
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+    <dependency><groupId>org.springframework.security</groupId><artifactId>spring-security-test</artifactId><scope>test</scope></dependency>
+    <dependency>
+      <groupId>io.zonky.test</groupId><artifactId>embedded-postgres</artifactId>
+      <version>${zonky.version}</version><scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.zonky.test.postgres</groupId>
+      <artifactId>embedded-postgres-binaries-linux-amd64</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- Spring Framework 7 lit les noms de parametres dans le bytecode : sans -parameters,
+           aucun @PathVariable anonyme ne se resout. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration><parameters>true</parameters></configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <version>${spring-boot.version}</version>
+        <executions>
+          <execution><goals><goal>repackage</goal></goals></execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
