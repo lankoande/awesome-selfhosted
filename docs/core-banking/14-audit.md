@@ -152,7 +152,10 @@ cycle de vie des comptes jusqu'au solde de tout compte, blocages de montant et d
 par le ledger, journal applicatif aux frontières du TFJ. Détail au §7. Restent 23 (API) et 10
 (`Caller` propagé) : la couche d'exposition attend la validation de la signature d'une méthode ;
 les services sont écrits pour être appelés à travers `UseCaseExecutor`, et
-`OperationCoverageTest` tient déjà l'inventaire point d'entrée → opération.
+`OperationCoverageTest` tient déjà l'inventaire point d'entrée → opération. Un préalable est
+apparu à l'étude de la signature : le **multi-agences** ([15](15-multi-agences.md)) — équilibre
+par agence, lignes de liaison, compensation inter-agences, périmètre `OWN_BRANCH` effectif. Il
+change le modèle du compte et le service d'imputation, et passe avant l'API.
 
 **D — Couverture UEMOA** (à planifier avec le profil réglementaire)
 18, 19, 14, 21, 22, 24, et les décisions du §2 « à valider ».
