@@ -75,8 +75,27 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
   un acte de gestion, l'indicateur d'opération déplacée quand le client relève d'une autre
   agence — et **ne vérifie rien** : `UseCaseExecutor` applique `SecurityConfig`, seul point de
   contrôle. Le contrôleur ne connaît aucune règle.
-- **Les refus sont des réponses** (`application/problem+json`, RFC 9457) : `401` sans jeton
-  valide, `403` habilitation refusée ou jeton insuffisant, `404` compte ou traitement inconnu,
+- **Une seule enveloppe, `ApiResponse`**, sur toute réponse — succès, refus, et jusqu'aux
+  `401`/`403` prononcés par la chaîne de sécurité avant tout contrôleur :
+  `{ "data": …, "page": …, "error": …, "meta": { "timestamp", "requestId" } }`. `data` porte
+  la donnée ou les éléments de la page ; `page` les bornes (`number`, `size`, `totalElements`,
+  `totalPages`, `hasNext`, `hasPrevious`) quand la donnée est une liste ; `error` le refus, aux
+  champs de RFC 9457 (`type`, `title`, `status`, `detail`, `instance`) ; `meta.requestId`
+  reprend l'en-tête `X-Request-Id` du client s'il est sain, sinon en attribue un — il est aussi
+  renvoyé en en-tête, et c'est par lui qu'un incident se retrouve dans les journaux. Un
+  contrôleur rend sa donnée, jamais l'enveloppe : elle est posée par un `ResponseBodyAdvice`,
+  elle ne peut donc pas manquer.
+- **Les listes sont paginées**, toutes : `page` (à partir de 0) et `size` (50 par défaut,
+  **200 au plus** — au-delà, `400`, jamais un plafond appliqué en silence), lues dans un **ordre
+  total** (date, numéro d'écriture, ligne pour un relevé ; référence pour les contrats ; nom puis
+  référence pour les tiers) : deux pages successives ne montrent ni deux fois la même ligne ni
+  aucune. Pagination par décalage avec décompte, ce qu'attend un écran ; un relevé de plusieurs
+  années se demande par plage de dates — la pagination par curseur sera l'étape suivante pour les
+  extractions massives.
+- **Les refus sont des réponses** (`error` dans l'enveloppe, champs de RFC 9457) : `400` requête
+  invalide (page hors bornes, paramètre mal formé, clé d'idempotence absente, corps illisible),
+  `401` sans jeton valide, `403` habilitation refusée ou jeton insuffisant, `404` compte,
+  traitement ou chemin inconnu, `405`/`415` méthode ou type de contenu non admis,
   `409` conflit d'état (compte bloqué, disponible insuffisant, tiers non opérable, clôture
   refusée, TFJ refusé, doublon de tiers), `422` requête que le socle ne peut pas honorer
   (devise, montant, condition de date de valeur absente, paramétrage), `500` seulement pour ce qui
@@ -89,14 +108,16 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `POST /parties` | `PARTY_CREATE` | référence, nature, nom, identifiants |
 | `POST /parties/{id}/kyc-verifications` | `KYC_VERIFY` | niveau de risque, date — **202**, en attente d'un checker |
 | `GET /parties/{id}` | `PARTY_READ` | — |
+| `GET /parties?q=&page=&size=` | `PARTY_READ` | recherche par fragment de référence ou de nom, paginée |
 | `POST /accounts` | `ACCOUNT_OPEN` | numéro, titulaire, produit, devise — **202**, en attente d'un checker |
 | `GET /accounts/{id}/balance` | `ACCOUNT_BALANCE_READ` | — ; déplacée si le compte est d'une autre agence |
+| `GET /accounts/{id}/journal?from=&to=&page=&size=` | `ACCOUNT_JOURNAL_READ` | le relevé : mouvements sur une plage de dates comptables (un mois par défaut), dans l'ordre du journal, paginé ; lecture tracée |
 | `POST /accounts/{id}/deposits`, `/withdrawals` | `CASH_OPERATION` | montant, canal ; `Idempotency-Key` — la caisse est celle de l'appelant, résolue depuis son jeton (`409` s'il n'en a pas, ou si elle est arrêtée) |
 | `POST /transfers` | `TRANSFER` | émetteur, bénéficiaire, montant ; `Idempotency-Key` |
 | `POST /accounts/{id}/blocks`, `.../{blockId}/lift` | `ACCOUNT_BLOCK` | nature, motif — **202** |
 | `POST /accounts/{id}/holds`, `.../{holdId}/release` | `ACCOUNT_HOLD` | montant, nature, échéance — **202** |
 | `POST /accounts/{id}/closure` | `ACCOUNT_CLOSE` | compte de reversement — **202** |
-| `GET /pending-operations`, `GET .../{id}` | celle de l'opération en attente | — |
+| `GET /pending-operations?page=&size=`, `GET .../{id}` | celle de l'opération en attente | — ; la page se découpe après le filtre d'habilitation |
 | `POST /pending-operations/{id}/approve`, `.../reject` | celle de l'opération en attente, en tant que checker | motif pour un rejet |
 | `POST /eod/runs`, `GET /eod/runs/{id}`, `POST .../resume` | `TFJ_RUN` | journée, mode |
 | `POST /eod/runs/{id}/cancel` | `TFJ_CANCEL` | date de contre-passation, motif |
@@ -105,6 +126,8 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `POST /loans/{id}/repayments` | `LOAN_REPAYMENT` | montant, date de valeur ; `Idempotency-Key` ; règlement manuel, l'excédent non affecté est rendu |
 | `POST /loans/{id}/prepayments` | `LOAN_PREPAY` | montant, mode (durée ou échéance) ; `Idempotency-Key` — **202**, l'échéancier refait s'approuve à deux |
 | `GET /loans/{id}` | `LOAN_READ` | — : contrat, conditions, échéancier en vigueur, créances ouvertes, jours de retard |
+| `GET /loans?status=&page=&size=` | `LOAN_READ` | les contrats de l'entité, paginés, statut en filtre |
+| `POST /loans/{id}/rescheduling` | `LOAN_RESCHEDULE` | nouvelle durée, première échéance, date d'effet, **motif** — **202** ; le nouveau plan porte sur le capital non échu, aux conditions du contrat |
 | `POST /products` | `PRODUCT_DRAFT` | code, famille, libellé, devise, validité, paramètres, barème |
 | `POST /products/{versionId}/activation` | `PRODUCT_ACTIVATE` | — **202**, jamais approuvée par le rédacteur de la version |
 | `POST /calendar/value-date-rules` | `CALENDAR_MANAGE` | type d'opération, canal, sens, décalage, unité, convention, validité — **202** |
@@ -129,7 +152,12 @@ taxe) ; l'échéancier est généré à l'approbation, le taux effectif confront
 (`422` au-delà). Un règlement s'impute sur les créances ouvertes, la plus ancienne d'abord ;
 sans créance, rien n'est comptabilisé et le montant est rendu non affecté. Un remboursement
 anticipé est refusé tant qu'un impayé subsiste (`409`) ; il publie un nouvel échéancier, et un
-échéancier s'approuve à deux — la base l'exige, la politique aussi.
+échéancier s'approuve à deux — la base l'exige, la politique aussi. Le **rééchelonnement** suit
+le même circuit : le maker propose une durée, une première échéance et une date d'effet, avec un
+motif ; à l'approbation, le nouveau plan est généré sur le **capital non échu** (encours moins le
+principal déjà exigible) aux conditions financières du contrat — les échéances déjà exigibles
+restent dues, jamais reprises dans le nouveau plan, et l'ancien plan est clos à la veille de la
+date d'effet, jamais effacé.
 
 **Caisses.** Le guichetier ne choisit pas sa caisse : elle lui est affectée (à deux) et l'API la
 résout depuis le sujet de son jeton ; sans caisse, pas d'opération de guichet. L'arrêté de caisse
@@ -145,16 +173,18 @@ n'est jamais le rédacteur de la version (`409` s'il tente). Règles de date de 
 fériés et agences suivent le même circuit ; le moteur d'arrêté relit le calendrier à chaque
 lancement, un férié déclaré dans la journée vaut pour le soir même.
 
-Ce qui n'est pas encore exposé : le rééchelonnement, les sûretés, les grilles de risque et les
-schémas comptables (les services existent), pas de contrat OpenAPI publié ni de pagination
-(aucune liste longue n'est exposée). La réservation du disponible par une opération en attente
+Ce qui n'est pas encore exposé : les sûretés, les grilles de risque et les schémas comptables
+(les services existent) ; pas de contrat OpenAPI publié ; pagination par curseur pour les
+extractions massives. La réservation du disponible par une opération en attente
 qui déplacerait des fonds n'existe pas encore : un déblocage approuvé crédite le compte de
 règlement à l'approbation, sans réservation préalable.
 
 Le test `ApiIT` fait tout le parcours contre un vrai serveur, une vraie base et de vrais jetons
 signés, l'API connectée avec le rôle applicatif : du tiers au retrait, les refus un par un,
 la caisse affectée à deux puis arrêtée avant la journée, l'arrêté lancé par l'exploitant, le
-crédit du produit au remboursement anticipé, les conditions de banque et une agence créées à deux.
+crédit du produit au remboursement anticipé puis au rééchelonnement, les conditions de banque et
+une agence créées à deux, l'enveloppe et les pages sur le relevé, les contrats, les tiers et les
+opérations en attente.
 
 ---
 

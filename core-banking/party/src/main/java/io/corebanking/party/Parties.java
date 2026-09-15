@@ -190,4 +190,56 @@ public final class Parties {
             rs.getObject(12, LocalDate.class), rating == null ? null : RiskRating.valueOf(rating),
             PartyStatus.valueOf(rs.getString(14)), rs.getString(15));
     }
+
+    // ------------------------------------------------------------------ recherche par pages
+
+    private static final String SEARCH_WHERE =
+        " WHERE legal_entity_id = ? AND (?::text IS NULL OR reference ILIKE ? OR display_name ILIKE ?)";
+
+    /**
+     * Les tiers d'une entite dont la reference ou le nom contient le texte cherche, par pages,
+     * dans l'ordre du nom puis de la reference — un ordre total. Sans texte, tous les tiers.
+     */
+    public static List<Party> search(Connection c, UUID legalEntityId, String query, int offset,
+                                     int limit) {
+        List<Party> parties = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            SELECT + SEARCH_WHERE + " ORDER BY display_name, reference OFFSET ? LIMIT ?")) {
+            bindSearch(ps, legalEntityId, query);
+            ps.setInt(5, offset);
+            ps.setInt(6, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    parties.add(read(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Recherche de tiers", e);
+        }
+        return parties;
+    }
+
+    public static long countSearch(Connection c, UUID legalEntityId, String query) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT count(*) FROM party" + SEARCH_WHERE)) {
+            bindSearch(ps, legalEntityId, query);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getLong(1);
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Decompte des tiers", e);
+        }
+    }
+
+    private static void bindSearch(PreparedStatement ps, UUID legalEntityId, String query)
+            throws SQLException {
+        String text = query == null || query.isBlank() ? null : query.trim();
+        String pattern = text == null ? null
+            : "%" + text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+        ps.setObject(1, legalEntityId);
+        ps.setString(2, text);
+        ps.setString(3, pattern);
+        ps.setString(4, pattern);
+    }
 }

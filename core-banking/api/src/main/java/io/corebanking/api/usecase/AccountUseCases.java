@@ -245,4 +245,52 @@ public final class AccountUseCases {
             throw new io.corebanking.ledger.store.LedgerStoreException("Date comptable", e);
         }
     }
+
+    // ------------------------------------------------------------------ releve de compte
+
+    /**
+     * @param from premiere date comptable, a defaut un mois avant {@code to}
+     * @param to   derniere date comptable, a defaut la date comptable de l'entite
+     */
+    public record JournalQuery(UUID accountId, LocalDate from, LocalDate to,
+                               Paging.PageRequest page) {}
+
+    /** Les mouvements d'un compte, par pages, dans l'ordre du journal ; la lecture est tracee. */
+    public static final class ReadJournal
+            implements UseCase<JournalQuery, Paging.Paged<io.corebanking.ledger.store.Journal.StatementLine>> {
+        private final Database database;
+        private final AccountDirectory accounts;
+
+        public ReadJournal(Database database, AccountDirectory accounts) {
+            this.database = database;
+            this.accounts = accounts;
+        }
+
+        @Override public Operation operation() { return Operation.ACCOUNT_JOURNAL_READ; }
+
+        @Override
+        public AccessTarget targetOf(JournalQuery query) {
+            return AccessTarget.inEntity(accounts.require(query.accountId()).legalEntityId());
+        }
+
+        @Override
+        public Paging.Paged<io.corebanking.ledger.store.Journal.StatementLine> execute(
+                JournalQuery query) {
+            Account account = accounts.require(query.accountId());
+            return database.inTransaction(c -> {
+                LocalDate to = query.to() != null ? query.to()
+                    : businessDate(c, account.legalEntityId());
+                LocalDate from = query.from() != null ? query.from() : to.minusMonths(1);
+                if (from.isAfter(to)) {
+                    throw new IllegalArgumentException(
+                        "Plage de dates inversee : du " + from + " au " + to);
+                }
+                var lines = io.corebanking.ledger.store.Journal.statement(
+                    c, account.id(), from, to, query.page().offset(), query.page().size());
+                long total = io.corebanking.ledger.store.Journal.countStatement(
+                    c, account.id(), from, to);
+                return new Paging.Paged<>(lines, query.page(), total);
+            });
+        }
+    }
 }

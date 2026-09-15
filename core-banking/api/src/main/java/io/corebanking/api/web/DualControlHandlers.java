@@ -59,7 +59,8 @@ public final class DualControlHandlers {
                        new VerifyKyc(parties), new DisburseLoan(database, loans),
                        new PrepayLoan(database, loans), new ActivateProduct(database),
                        new AddValueDateRule(database), new AddHoliday(database),
-                       new CreateBranch(database), new CreateTill(database, accounts));
+                       new CreateBranch(database), new CreateTill(database, accounts),
+                       new RescheduleLoan(database, loans));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -634,6 +635,76 @@ public final class DualControlHandlers {
                     uuid(payload, "cashAccountId"), text(payload, "tellerSubjectId"), difference,
                     Callers.actorId(maker), Callers.actorId(checker))));
             return new Requests.Created(id);
+        }
+    }
+
+    /**
+     * Rechelonnement : un nouveau plan sur le capital non echu, a compter de sa date d'effet, aux
+     * conditions financieres du contrat — taux, methode, accessoires. Les echeances deja rendues
+     * exigibles restent dues. Un motif est exige : il modifie ce que le client devra.
+     */
+    static final class RescheduleLoan implements MakerChecker.Handler {
+        private final Database database;
+        private final LoanService loans;
+
+        RescheduleLoan(Database database, LoanService loans) {
+            this.database = database;
+            this.loans = loans;
+        }
+
+        @Override public String name() { return "LOAN_RESCHEDULE"; }
+        @Override public Operation operation() { return Operation.LOAN_RESCHEDULE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            required(payload, "reason");
+            LoanContract contract = LoanUseCases.require(database, uuid(payload, "contractId"));
+            return AccessTarget.inEntity(contract.legalEntityId());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "contractId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            LoanContract contract = LoanUseCases.require(database, uuid(payload, "contractId"));
+            if (contract.status() != LoanContract.Status.ACTIVE || contract.terms() == null) {
+                throw new IllegalStateException(
+                    "Le contrat " + contract.reference() + " n'est pas en cours d'amortissement :"
+                    + " rien a rechelonner.");
+            }
+            int instalments = integer(payload, "instalments");
+            LocalDate effectiveFrom = date(payload, "effectiveFrom");
+            LocalDate firstDueDate = date(payload, "firstDueDate");
+            if (effectiveFrom == null || firstDueDate == null) {
+                throw new IllegalArgumentException(
+                    "Champs obligatoires absents : effectiveFrom, firstDueDate");
+            }
+            Money remaining = database.inTransaction(c -> {
+                Money outstanding = io.corebanking.ledger.store.Balances.current(
+                    c, contract.loanAccountId());
+                Money due = io.corebanking.loan.service.LoanStore
+                    .openReceivables(c, contract.id(), contract.currency()).stream()
+                    .filter(r -> r.category() == io.corebanking.loan.DueCategory.PRINCIPAL)
+                    .map(io.corebanking.loan.Receivable::outstanding)
+                    .reduce(Money.zero(contract.currency()), Money::plus);
+                return outstanding.minus(due);
+            });
+            if (!remaining.isPositive()) {
+                throw new IllegalStateException(
+                    "Aucun capital non echu a rechelonner sur le contrat " + contract.reference());
+            }
+            LoanTerms terms = contract.terms().forRemaining(remaining, instalments, effectiveFrom,
+                                                           firstDueDate);
+            AmortisationSchedule schedule = ScheduleGenerator.generate(terms);
+            UUID scheduleId = loans.reschedule(
+                contract.id(), schedule,
+                io.corebanking.loan.service.LoanStore.ScheduleReason.RESCHEDULING, effectiveFrom,
+                Callers.actorId(maker), Callers.actorId(checker));
+            return new LoanUseCases.Rescheduled(contract.id(), scheduleId, remaining,
+                                                schedule.instalments());
         }
     }
 }

@@ -23,8 +23,10 @@ public class PendingOperationController {
     }
 
     @GetMapping
-    public List<MakerChecker.View> pending(Caller caller, @PathVariable UUID legalEntityId) {
-        return makerChecker.pending(caller);
+    public io.corebanking.api.usecase.Paging.Paged<MakerChecker.View> pending(
+            Caller caller, @PathVariable UUID legalEntityId,
+            io.corebanking.api.usecase.Paging.PageRequest page) {
+        return makerChecker.pending(caller, page);
     }
 
     @GetMapping("/{id}")

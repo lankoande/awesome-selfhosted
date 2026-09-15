@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 559 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 256 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 561 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 258 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -665,9 +665,10 @@ de vrais jetons.
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
-- API : rééchelonnement, sûretés, grilles de risque et schémas comptables ne sont pas encore
-  exposés (les services existent, les cas d'usage suivent le même moule) ; pas de contrat OpenAPI
-  publié, pas de pagination ;
+- API : sûretés, grilles de risque et schémas comptables ne sont pas encore exposés (les
+  services existent, les cas d'usage suivent le même moule) ; pas de contrat OpenAPI publié ;
+  pagination par curseur pour les extractions massives (la pagination par pages bornées est
+  faite) ;
 - chèques (remise, compensation, opposition), paiements sortants, plafonds par produit et par
   client ;
 - multi-agences : schémas de liaison bilatéral et via la région (le schéma via le siège est
@@ -772,6 +773,10 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Un écart de caisse se comptabilise, il ne s'ajuste pas | Ajuster le solde au comptage effacerait la seule trace d'un manquant ; l'écart va sur son compte, où il se justifie |
 | Une caisse mouvementée non arrêtée bloque l'arrêté de la banque | Des espèces non confrontées à leur solde sont un solde non prouvé ; le contrôle nomme la caisse, l'exploitant reprend après l'arrêté de caisse |
 | Un guichetier n'arrête que sa caisse, le chef d'agence toute caisse de son agence | Le titulaire vient de l'objet, jamais de la requête ; une règle « objet propre » le dit dans la politique, pas dans un cas d'usage |
+| Une seule enveloppe de réponse, succès et refus compris, posée par un advice | Un client ne lit qu'une forme ; un contrôleur ne peut pas oublier l'enveloppe puisqu'il ne la construit jamais |
+| Une page au-delà du plafond est refusée, pas ramenée au plafond | Un client qui demande dix mille lignes doit le savoir ; un plafond silencieux fabrique des extractions tronquées sans que personne ne le voie |
+| Toute liste paginée est lue dans un ordre total | Sans lui, deux pages successives peuvent montrer deux fois la même ligne, ou n'en montrer aucune |
+| Le rééchelonnement porte sur le capital non échu, aux conditions du contrat | Reprendre des échéances exigibles les réclamerait deux fois ; réviser le taux au passage serait une renégociation, qui demande un autre consentement |
 | Les tables partitionnées sont déclarées dans un registre | Une table partitionnée que la bascule ne connaît pas n'a ses partitions créées par personne |
 | Le TFM porte la date de fin de période et ne touche pas à la date comptable | Il porte sur un mois déjà arrêté jour par jour ; son annulation rouvre la période en le disant |
 | Le dédoublonnage des tiers est un index unique partiel, pas un traitement | Un doublon découvert après coup a déjà faussé les plafonds d'engagement ; refusé à la saisie, il n'existe jamais |

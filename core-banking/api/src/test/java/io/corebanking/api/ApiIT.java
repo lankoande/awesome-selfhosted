@@ -155,6 +155,7 @@ class ApiIT {
     private final Map<String, String> parametresCredit = new LinkedHashMap<>();
     private UUID party;
     private UUID account;
+    private UUID pretId;
 
     @BeforeAll
     void decor() {
@@ -348,7 +349,10 @@ class ApiIT {
     @Order(2)
     @DisplayName("les refus sont des reponses nommees : 401, 400, 403, 404, 409, 422")
     void refus() throws Exception {
-        assertThat(get(null, "/accounts/" + account + "/balance").status()).isEqualTo(401);
+        Reponse anonyme = get(null, "/accounts/" + account + "/balance");
+        assertThat(anonyme.status()).isEqualTo(401);
+        assertThat(anonyme.body().get("status")).isEqualTo(401);
+        assertThat(anonyme.body().get("title")).isEqualTo("Non authentifie");
 
         Reponse sansCle = post(teller, "/accounts/" + account + "/withdrawals", null, Map.of(
             "amount", "1000", "currency", "XOF"));
@@ -500,7 +504,7 @@ class ApiIT {
         assertThat(post(teller, "/loans", null, contrat).status()).isEqualTo(403);
         Reponse cree = post(creditOfficer, "/loans", null, contrat);
         assertThat(cree.status()).as(String.valueOf(cree.body())).isEqualTo(201);
-        UUID pretId = UUID.fromString((String) cree.body().get("id"));
+        pretId = UUID.fromString((String) cree.body().get("id"));
 
         // Le deblocage : conditions proposees par le chef d'agence, approuvees par le
         // responsable credit — l'argent sort, le plafond porte sur le capital.
@@ -588,13 +592,124 @@ class ApiIT {
         assertThat(reseau).extracting(Branches.Branch::id).contains(agenceId);
     }
 
+    @Test
+    @Order(6)
+    @DisplayName("l'enveloppe et la pagination : une seule forme, des pages bornees a ordre total, l'identifiant de requete repris")
+    void enveloppe_et_pagination() throws Exception {
+        // L'identifiant de requete fourni est repris dans l'enveloppe et dans l'en-tete.
+        Reponse identifiee = get(manager, "/accounts/" + account + "/balance",
+                                 Map.of("X-Request-Id", "support-123"));
+        assertThat(identifiee.status()).isEqualTo(200);
+        assertThat(identifiee.meta().get("requestId")).isEqualTo("support-123");
+        assertThat(identifiee.envelope().get("page")).isNull();
+        assertThat(identifiee.envelope().get("error")).isNull();
+
+        // Le releve du compte : les mouvements par pages, dans l'ordre du journal.
+        Reponse releve = get(manager, "/accounts/" + account + "/journal?from=" + J + "&to="
+                             + J.plusDays(1) + "&page=0&size=2");
+        assertThat(releve.status()).as(String.valueOf(releve.envelope())).isEqualTo(200);
+        assertThat(releve.items()).hasSize(2);
+        assertThat(releve.page().get("size")).isEqualTo(2);
+        assertThat(((Number) releve.page().get("totalElements")).longValue()).isGreaterThan(2);
+        assertThat(releve.page().get("hasNext")).isEqualTo(true);
+        assertThat(releve.items().get(0).get("bookingDate")).isEqualTo(J.toString());
+        assertThat(releve.items().get(0).get("direction")).isEqualTo("CREDIT");
+        Reponse suite = get(manager, "/accounts/" + account + "/journal?from=" + J + "&to="
+                            + J.plusDays(1) + "&page=1&size=2");
+        assertThat(suite.page().get("hasPrevious")).isEqualTo(true);
+        assertThat(suite.items().get(0).get("entryId"))
+            .isNotEqualTo(releve.items().get(0).get("entryId"));
+        // Une page au-dela du plafond est refusee, pas ramenee au plafond en silence.
+        Reponse trop = get(manager, "/accounts/" + account + "/journal?size=500");
+        assertThat(trop.status()).isEqualTo(400);
+        assertThat((String) trop.body().get("detail")).contains("200");
+        // Un guichetier ne lit pas le journal d'un compte.
+        assertThat(get(teller, "/accounts/" + account + "/journal").status()).isEqualTo(403);
+
+        // Les operations en attente : une page, apres le filtre d'habilitation.
+        Reponse blocage = post(manager, "/accounts/" + account + "/blocks", null,
+                               Map.of("kind", "DEBIT", "reason", "verification"));
+        assertThat(blocage.status()).isEqualTo(202);
+        Reponse attentes = get(manager, "/pending-operations?page=0&size=1");
+        assertThat(attentes.status()).isEqualTo(200);
+        assertThat(attentes.items()).hasSize(1);
+        assertThat(((Number) attentes.page().get("totalElements")).longValue())
+            .isGreaterThanOrEqualTo(1);
+        assertThat(post(manager2, "/pending-operations/" + attente(blocage) + "/reject", null,
+                        Map.of("reason", "sans objet")).status()).isEqualTo(200);
+
+        // Les contrats et les tiers, par pages.
+        Reponse credits = get(creditOfficer, "/loans?status=ACTIVE&page=0&size=10");
+        assertThat(credits.status()).as(String.valueOf(credits.envelope())).isEqualTo(200);
+        assertThat(credits.items()).extracting(c -> c.get("reference")).contains("CRED-API-1");
+        Reponse tiers = get(officer, "/parties?q=awa");
+        assertThat(tiers.status()).as(String.valueOf(tiers.envelope())).isEqualTo(200);
+        assertThat(tiers.items()).extracting(t -> t.get("displayName")).containsExactly("Awa Diop");
+        assertThat(get(officer, "/parties?q=personne").items()).isEmpty();
+
+        // Les refus de la chaine et du routage portent la meme enveloppe.
+        Reponse nullePart = get(manager, "/nulle-part");
+        assertThat(nullePart.status()).isEqualTo(404);
+        assertThat(nullePart.body().get("status")).isEqualTo(404);
+        assertThat(nullePart.meta().get("requestId")).isNotNull();
+        Reponse malForme = get(manager, "/accounts/pas-un-uuid/balance");
+        assertThat(malForme.status()).isEqualTo(400);
+        assertThat((String) malForme.body().get("detail")).contains("accountId");
+    }
+
+    @Test
+    @Order(7)
+    @DisplayName("le rechelonnement : propose par le chef d'agence, approuve par le responsable credit, sur le capital non echu")
+    void reechelonnement() throws Exception {
+        // Sans motif, rien n'est soumis.
+        assertThat(post(manager, "/loans/" + pretId + "/rescheduling", null, Map.of(
+            "instalments", 6, "firstDueDate", J.plusDays(3).plusMonths(1).toString(),
+            "effectiveFrom", J.plusDays(3).toString())).status()).isEqualTo(422);
+
+        Reponse demande = post(manager, "/loans/" + pretId + "/rescheduling", null, Map.of(
+            "instalments", 6, "firstDueDate", J.plusDays(3).plusMonths(1).toString(),
+            "effectiveFrom", J.plusDays(3).toString(), "reason", "difficultes passageres"));
+        assertThat(demande.status()).as(String.valueOf(demande.envelope())).isEqualTo(202);
+        Reponse replanifie = post(creditManager, "/pending-operations/" + attente(demande)
+                                  + "/approve", null, Map.of());
+        assertThat(replanifie.status()).as(String.valueOf(replanifie.envelope())).isEqualTo(200);
+        assertThat(replanifie.body().get("status")).isEqualTo("EXECUTED");
+        assertThat(montant(resultat(replanifie.body()), "remaining")).isEqualTo("800000");
+        assertThat((List<?>) resultat(replanifie.body()).get("schedule")).hasSize(6);
+
+        Reponse dossier = get(creditOfficer, "/loans/" + pretId);
+        assertThat((List<?>) dossier.body().get("schedule")).hasSize(6);
+        assertThat(((Map<?, ?>) ((List<?>) dossier.body().get("schedule")).get(0)).get("dueDate"))
+            .isEqualTo(J.plusDays(3).plusMonths(1).toString());
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static UUID attente(Reponse reponse) {
         return UUID.fromString((String) reponse.body().get("id"));
     }
 
-    private record Reponse(int status, Map<String, Object> body) {}
+    /**
+     * @param body     la donnee (ou l'erreur) telle que les assertions la lisent ; une liste est
+     *                 rendue sous {@code items}
+     * @param envelope l'enveloppe entiere : data, page, error, meta
+     */
+    private record Reponse(int status, Map<String, Object> body, Map<String, Object> envelope) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> page() {
+            return (Map<String, Object>) envelope.get("page");
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> meta() {
+            return (Map<String, Object>) envelope.get("meta");
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> items() {
+            return (List<Map<String, Object>>) body.get("items");
+        }
+    }
 
     private Reponse post(String token, String path, String idempotencyKey, Map<String, Object> body)
             throws Exception {
@@ -611,10 +726,15 @@ class ApiIT {
     }
 
     private Reponse get(String token, String path) throws Exception {
+        return get(token, path, Map.of());
+    }
+
+    private Reponse get(String token, String path, Map<String, String> headers) throws Exception {
         HttpRequest.Builder request = HttpRequest.newBuilder(uri(path)).GET();
         if (token != null) {
             request.header("Authorization", "Bearer " + token);
         }
+        headers.forEach(request::header);
         return send(request.build());
     }
 
@@ -622,15 +742,26 @@ class ApiIT {
     private Reponse send(HttpRequest request) throws Exception {
         HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
         String text = response.body();
-        Map<String, Object> body;
-        if (text == null || text.isBlank()) {
-            body = Map.of();
-        } else if (text.trim().startsWith("[")) {
-            body = Map.of("items", json.readValue(text, List.class));
-        } else {
-            body = json.readValue(text, Map.class);
+        Map<String, Object> envelope = text == null || text.isBlank()
+            ? Map.of() : json.readValue(text, Map.class);
+        // Toute reponse porte l'enveloppe, et l'identifiant de requete en en-tete.
+        if (!envelope.isEmpty()) {
+            assertThat(envelope).containsKey("meta");
+            assertThat(response.headers().firstValue("X-Request-Id")).isPresent();
         }
-        return new Reponse(response.statusCode(), body);
+        Object data = envelope.get("data");
+        Object error = envelope.get("error");
+        Map<String, Object> body;
+        if (error instanceof Map<?, ?> refus) {
+            body = (Map<String, Object>) refus;
+        } else if (data instanceof List<?> list) {
+            body = Map.of("items", list);
+        } else if (data instanceof Map<?, ?> donnee) {
+            body = (Map<String, Object>) donnee;
+        } else {
+            body = Map.of();
+        }
+        return new Reponse(response.statusCode(), body, envelope);
     }
 
     private URI uri(String path) {

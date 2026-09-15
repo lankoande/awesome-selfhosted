@@ -78,4 +78,34 @@ public final class PartyUseCases {
             return parties.require(partyId);
         }
     }
+
+    // ------------------------------------------------------------------ recherche
+
+    /** @param text fragment de reference ou de nom ; vide, tous les tiers de l'entite */
+    public record PartyQuery(UUID legalEntityId, String text, Paging.PageRequest page) {}
+
+    /** Les tiers de l'entite, par pages, dans l'ordre des noms ; la lecture est tracee. */
+    public static final class Search implements UseCase<PartyQuery, Paging.Paged<Party>> {
+        private final io.corebanking.ledger.store.Database database;
+
+        public Search(io.corebanking.ledger.store.Database database) {
+            this.database = database;
+        }
+
+        @Override public Operation operation() { return Operation.PARTY_READ; }
+
+        @Override
+        public AccessTarget targetOf(PartyQuery query) {
+            return AccessTarget.inEntity(query.legalEntityId());
+        }
+
+        @Override
+        public Paging.Paged<Party> execute(PartyQuery query) {
+            return database.inTransaction(c -> new Paging.Paged<>(
+                io.corebanking.party.Parties.search(c, query.legalEntityId(), query.text(),
+                                                    query.page().offset(), query.page().size()),
+                query.page(),
+                io.corebanking.party.Parties.countSearch(c, query.legalEntityId(), query.text())));
+        }
+    }
 }

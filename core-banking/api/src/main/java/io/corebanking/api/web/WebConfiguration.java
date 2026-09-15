@@ -1,5 +1,6 @@
 package io.corebanking.api.web;
 
+import io.corebanking.api.usecase.Paging;
 import io.corebanking.kernel.id.IdempotencyKey;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.security.Caller;
@@ -47,6 +48,22 @@ public class WebConfiguration implements WebMvcConfigurer {
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(new CallerResolver());
         resolvers.add(new IdempotencyKeyResolver());
+        resolvers.add(new PageRequestResolver());
+    }
+
+    /** {@link Paging.PageRequest} depuis {@code page} et {@code size} ; une taille au-dela du plafond est refusee. */
+    private static final class PageRequestResolver implements HandlerMethodArgumentResolver {
+        @Override
+        public boolean supportsParameter(MethodParameter parameter) {
+            return Paging.PageRequest.class.equals(parameter.getParameterType());
+        }
+
+        @Override
+        public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mav,
+                                      NativeWebRequest request, WebDataBinderFactory binders) {
+            return Paging.PageRequest.parse(request.getParameter("page"),
+                                            request.getParameter("size"));
+        }
     }
 
     /**

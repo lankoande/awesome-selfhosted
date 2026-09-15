@@ -1372,4 +1372,52 @@ public final class LoanStore {
         }
         return lines;
     }
+
+    // ------------------------------------------------------------------ contrats par pages
+
+    /**
+     * Les contrats d'une entite, par pages, dans l'ordre de leur reference — un ordre total,
+     * la reference etant unique par entite. Le statut est un filtre facultatif.
+     */
+    public static List<LoanContract> page(Connection c, UUID legalEntityId,
+                                          LoanContract.Status status, int offset, int limit) {
+        List<LoanContract> contracts = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            SELECT_CONTRACT + " WHERE l.legal_entity_id = ?"
+            + (status == null ? "" : " AND l.status = ?")
+            + " ORDER BY l.reference, l.id OFFSET ? LIMIT ?")) {
+            int i = 1;
+            ps.setObject(i++, legalEntityId);
+            if (status != null) {
+                ps.setString(i++, status.name());
+            }
+            ps.setInt(i++, offset);
+            ps.setInt(i, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    contracts.add(readContract(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des contrats de l'entite", e);
+        }
+        return contracts;
+    }
+
+    public static long count(Connection c, UUID legalEntityId, LoanContract.Status status) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT count(*) FROM loan_contract WHERE legal_entity_id = ?"
+            + (status == null ? "" : " AND status = ?"))) {
+            ps.setObject(1, legalEntityId);
+            if (status != null) {
+                ps.setString(2, status.name());
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getLong(1);
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Decompte des contrats de l'entite", e);
+        }
+    }
 }

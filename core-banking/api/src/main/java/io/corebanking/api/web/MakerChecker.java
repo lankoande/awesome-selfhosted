@@ -181,8 +181,15 @@ public final class MakerChecker {
     }
 
     /** Ce qui attend dans l'entite de l'appelant, pour un porteur habilite a l'audit ou a l'operation. */
-    public List<View> pending(Caller caller) {
-        return database.inTransaction(c -> PendingOperations.pending(c, caller.legalEntityId()))
+    /**
+     * Les operations en attente que l'appelant peut voir — les siennes, et celles qu'il est
+     * habilite a decider — par pages. Le filtre d'habilitation s'applique en memoire, puis la
+     * page se decoupe : la liste est courte par construction, une operation en attente expire.
+     */
+    public io.corebanking.api.usecase.Paging.Paged<View> pending(
+            Caller caller, io.corebanking.api.usecase.Paging.PageRequest page) {
+        List<View> visible = database.inTransaction(
+                c -> PendingOperations.pending(c, caller.legalEntityId()))
             .stream()
             .filter(p -> p.makerId().equals(caller.subjectId())
                          || authorization.decide(caller, Operation.valueOf(p.operation()),
@@ -190,6 +197,7 @@ public final class MakerChecker {
                                          .allowed())
             .map(this::view)
             .toList();
+        return io.corebanking.api.usecase.Paging.Paged.slice(visible, page);
     }
 
     private View view(PendingOperations.Pending p) {

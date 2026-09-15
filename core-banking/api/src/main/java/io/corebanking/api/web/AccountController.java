@@ -23,12 +23,14 @@ public class AccountController {
     private final UseCaseExecutor executor;
     private final MakerChecker makerChecker;
     private final AccountUseCases.ReadBalance readBalance;
+    private final AccountUseCases.ReadJournal readJournal;
 
     public AccountController(UseCaseExecutor executor, Database database,
                              AccountDirectory accounts, MakerChecker makerChecker) {
         this.executor = executor;
         this.makerChecker = makerChecker;
         this.readBalance = new AccountUseCases.ReadBalance(database, accounts);
+        this.readJournal = new AccountUseCases.ReadJournal(database, accounts);
     }
 
     /**
@@ -49,6 +51,23 @@ public class AccountController {
                                            @PathVariable UUID accountId) {
         return executor.run(caller, readBalance,
                             new AccountUseCases.BalanceQuery(accountId, caller.branchId()));
+    }
+
+    /** Le releve : les mouvements du compte sur une plage de dates comptables, par pages. */
+    @GetMapping("/{accountId}/journal")
+    public io.corebanking.api.usecase.Paging.Paged<io.corebanking.ledger.store.Journal.StatementLine>
+            journal(Caller caller, @PathVariable UUID legalEntityId, @PathVariable UUID accountId,
+                    @org.springframework.web.bind.annotation.RequestParam(required = false)
+                    @org.springframework.format.annotation.DateTimeFormat(
+                        iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                    java.time.LocalDate from,
+                    @org.springframework.web.bind.annotation.RequestParam(required = false)
+                    @org.springframework.format.annotation.DateTimeFormat(
+                        iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                    java.time.LocalDate to,
+                    io.corebanking.api.usecase.Paging.PageRequest page) {
+        return executor.run(caller, readJournal,
+                            new AccountUseCases.JournalQuery(accountId, from, to, page));
     }
 
     @PostMapping("/{accountId}/closure")

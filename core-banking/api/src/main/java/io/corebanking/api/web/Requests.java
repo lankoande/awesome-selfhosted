@@ -84,6 +84,13 @@ public final class Requests {
 
     public record LoanPrepayment(String amount, String currency, String mode) {}
 
+    /**
+     * Rechelonnement : nouvelle duree et nouveau calendrier sur le capital non echu, a compter
+     * d'une date d'effet ; les conditions financieres restent celles du contrat.
+     */
+    public record Rescheduling(Integer instalments, LocalDate firstDueDate, LocalDate effectiveFrom,
+                               String reason) {}
+
     // ------------------------------------------------------------------ parametrage
 
     public record RateTier(String from, String to, String annualRatePercent) {}

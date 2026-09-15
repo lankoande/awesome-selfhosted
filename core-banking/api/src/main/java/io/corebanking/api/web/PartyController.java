@@ -28,13 +28,25 @@ public class PartyController {
     private final MakerChecker makerChecker;
     private final PartyUseCases.Create create;
     private final PartyUseCases.Read read;
+    private final PartyUseCases.Search search;
 
     public PartyController(UseCaseExecutor executor, PartyService parties,
-                           MakerChecker makerChecker) {
+                           MakerChecker makerChecker,
+                           io.corebanking.ledger.store.Database database) {
         this.executor = executor;
         this.makerChecker = makerChecker;
         this.create = new PartyUseCases.Create(parties);
         this.read = new PartyUseCases.Read(parties);
+        this.search = new PartyUseCases.Search(database);
+    }
+
+    /** Les tiers de l'entite dont la reference ou le nom contient {@code q}, par pages. */
+    @GetMapping
+    public io.corebanking.api.usecase.Paging.Paged<Party> search(
+            Caller caller, @PathVariable UUID legalEntityId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String q,
+            io.corebanking.api.usecase.Paging.PageRequest page) {
+        return executor.run(caller, search, new PartyUseCases.PartyQuery(legalEntityId, q, page));
     }
 
     @PostMapping

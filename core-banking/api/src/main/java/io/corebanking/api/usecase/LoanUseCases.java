@@ -101,6 +101,39 @@ public final class LoanUseCases {
     /** Ce que rend un deblocage : l'echeancier publie. */
     public record Disbursed(UUID contractId, UUID scheduleId, List<Instalment> schedule) {}
 
+    /** Ce que rend un rechelonnement : le capital replanifie et le nouvel echeancier. */
+    public record Rescheduled(UUID contractId, UUID scheduleId, Money remaining,
+                              List<Instalment> schedule) {}
+
+    // ------------------------------------------------------------------ liste
+
+    public record LoanQuery(UUID legalEntityId, LoanContract.Status status,
+                            Paging.PageRequest page) {}
+
+    /** Les contrats de l'entite, par pages, dans l'ordre des references. */
+    public static final class List_ implements UseCase<LoanQuery, Paging.Paged<LoanContract>> {
+        private final Database database;
+
+        public List_(Database database) {
+            this.database = database;
+        }
+
+        @Override public Operation operation() { return Operation.LOAN_READ; }
+
+        @Override
+        public AccessTarget targetOf(LoanQuery query) {
+            return AccessTarget.inEntity(query.legalEntityId());
+        }
+
+        @Override
+        public Paging.Paged<LoanContract> execute(LoanQuery query) {
+            return database.inTransaction(c -> new Paging.Paged<>(
+                LoanStore.page(c, query.legalEntityId(), query.status(), query.page().offset(),
+                               query.page().size()),
+                query.page(), LoanStore.count(c, query.legalEntityId(), query.status())));
+        }
+    }
+
     // ------------------------------------------------------------------ reglement
 
     public record Repayment(UUID contractId, String amount, String currency, LocalDate valueDate,

@@ -31,6 +31,7 @@ public class LoanController {
     private final LoanUseCases.Create create;
     private final LoanUseCases.Repay repay;
     private final LoanUseCases.Read read;
+    private final LoanUseCases.List_ list;
 
     public LoanController(UseCaseExecutor executor, Database database, AccountDirectory accounts,
                           LoanService loans, MakerChecker makerChecker) {
@@ -39,6 +40,31 @@ public class LoanController {
         this.create = new LoanUseCases.Create(database, accounts);
         this.repay = new LoanUseCases.Repay(database, loans);
         this.read = new LoanUseCases.Read(database, loans);
+        this.list = new LoanUseCases.List_(database);
+    }
+
+    /** Les contrats de l'entite, par pages ; le statut est un filtre facultatif. */
+    @GetMapping
+    public io.corebanking.api.usecase.Paging.Paged<io.corebanking.loan.service.LoanContract> list(
+            Caller caller, @PathVariable UUID legalEntityId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String status,
+            io.corebanking.api.usecase.Paging.PageRequest page) {
+        io.corebanking.loan.service.LoanContract.Status filter = status == null ? null
+            : io.corebanking.loan.service.LoanContract.Status.valueOf(status);
+        return executor.run(caller, list,
+                            new LoanUseCases.LoanQuery(legalEntityId, filter, page));
+    }
+
+    /** Rechelonner, c'est modifier ce que le client devra : propose par l'un, approuve par un autre. */
+    @PostMapping("/{contractId}/rescheduling")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MakerChecker.View reschedule(Caller caller, @PathVariable UUID legalEntityId,
+                                        @PathVariable UUID contractId,
+                                        @RequestBody Requests.Rescheduling body) {
+        return makerChecker.submit(caller, legalEntityId, "LOAN_RESCHEDULE", Payloads.of(
+            "contractId", contractId, "instalments", body.instalments(),
+            "firstDueDate", body.firstDueDate(), "effectiveFrom", body.effectiveFrom(),
+            "reason", body.reason()));
     }
 
     @PostMapping
