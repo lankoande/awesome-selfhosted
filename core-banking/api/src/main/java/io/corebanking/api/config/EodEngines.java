@@ -12,11 +12,12 @@ import io.corebanking.loan.service.LoanService;
 import io.corebanking.tfj.StandardTfj;
 import io.corebanking.tfj.TfjEngine;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Un moteur de TFJ par entite : la bascule de journee depend du calendrier de l'entite, et le
- * calendrier ne se prend pas en parametre a chaque appel.
+ * calendrier ne se prend pas en parametre a chaque appel. Le moteur est assemble a chaque
+ * demande, et le calendrier relu avec lui : un ferie declare dans la journee vaut pour
+ * l'arrete du soir, sans redemarrage.
  */
 public final class EodEngines {
 
@@ -28,7 +29,6 @@ public final class EodEngines {
     private final LoanMobilisationService mobilisationService;
     private final LoanLateChargesService lateService;
     private final LoanClassificationService classificationService;
-    private final ConcurrentHashMap<UUID, TfjEngine> engines = new ConcurrentHashMap<>();
 
     public EodEngines(Database database, PostingService postingService,
                       BatchInterestAccrualService interestService, FeeChargingService feeService,
@@ -46,9 +46,9 @@ public final class EodEngines {
     }
 
     public TfjEngine forEntity(UUID legalEntityId) {
-        return engines.computeIfAbsent(legalEntityId, entity -> StandardTfj.engine(
+        return StandardTfj.engine(
             database, postingService, interestService, feeService, loanService,
             mobilisationService, lateService, classificationService,
-            Calendars.load(database, entity).calendar()));
+            Calendars.load(database, legalEntityId).calendar());
     }
 }

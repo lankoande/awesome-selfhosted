@@ -100,6 +100,16 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `POST /pending-operations/{id}/approve`, `.../reject` | celle de l'opération en attente, en tant que checker | motif pour un rejet |
 | `POST /eod/runs`, `GET /eod/runs/{id}`, `POST .../resume` | `TFJ_RUN` | journée, mode |
 | `POST /eod/runs/{id}/cancel` | `TFJ_CANCEL` | date de contre-passation, motif |
+| `POST /loans` | `LOAN_CONTRACT_CREATE` | référence, produit, devise, compte de prêt, compte de règlement, capital, date de déblocage, client |
+| `POST /loans/{id}/disbursement` | `LOAN_DISBURSE` | conditions (taux, périodicité, échéances, différé, première échéance, méthode, base, frais) — **202**, plafond sur le capital |
+| `POST /loans/{id}/repayments` | `LOAN_REPAYMENT` | montant, date de valeur ; `Idempotency-Key` ; règlement manuel, l'excédent non affecté est rendu |
+| `POST /loans/{id}/prepayments` | `LOAN_PREPAY` | montant, mode (durée ou échéance) ; `Idempotency-Key` — **202**, l'échéancier refait s'approuve à deux |
+| `GET /loans/{id}` | `LOAN_READ` | — : contrat, conditions, échéancier en vigueur, créances ouvertes, jours de retard |
+| `POST /products` | `PRODUCT_DRAFT` | code, famille, libellé, devise, validité, paramètres, barème |
+| `POST /products/{versionId}/activation` | `PRODUCT_ACTIVATE` | — **202**, jamais approuvée par le rédacteur de la version |
+| `POST /calendar/value-date-rules` | `CALENDAR_MANAGE` | type d'opération, canal, sens, décalage, unité, convention, validité — **202** |
+| `POST /calendar/holidays` | `CALENDAR_MANAGE` | date, libellé — **202** ; l'arrêté du soir relit le calendrier |
+| `POST /branches` | `BRANCH_MANAGE` | code, nom, nature, rattachement, ouverture, comptes de liaison par devise — **202** |
 
 **Double validation.** Une opération que la politique soumet à un second regard n'est jamais
 exécutée par celui qui la saisit : la requête est gardée telle que reçue (`pending_operation`),
@@ -110,14 +120,30 @@ sujets de leur jeton. À l'approbation la requête est rejouée contre l'état d
 fermé entre-temps la refuse comme au guichet. Un rejet se motive ; une opération non décidée
 expire (48 h par défaut). Aucun approbateur ne figure jamais dans un corps de requête.
 
-Ce qui n'est pas encore exposé : le crédit (contrat, déblocage, remboursement), le paramétrage
-produit, le calendrier — les services existent, leurs cas d'usage suivent le même moule. Pas
-encore de contrat OpenAPI publié ni de pagination (aucune liste longue n'est exposée). La
-réservation du disponible par une opération en attente qui déplacerait des fonds n'existe pas
-encore : aucune opération à double validation exposée n'en déplace.
+**Crédit.** Le contrat se crée dans l'agence de son compte de prêt et se rattache à son client.
+Le déblocage porte les conditions proposées par le maker ; ce qui n'est pas dit prend la valeur
+par défaut des conditions de crédit (mensuel, annuité constante, ACT/365, sans assurance ni
+taxe) ; l'échéancier est généré à l'approbation, le taux effectif confronté au plafond d'usure
+(`422` au-delà). Un règlement s'impute sur les créances ouvertes, la plus ancienne d'abord ;
+sans créance, rien n'est comptabilisé et le montant est rendu non affecté. Un remboursement
+anticipé est refusé tant qu'un impayé subsiste (`409`) ; il publie un nouvel échéancier, et un
+échéancier s'approuve à deux — la base l'exige, la politique aussi.
+
+**Paramétrage et réseau.** Une version de produit se rédige seul et s'active à deux : le checker
+n'est jamais le rédacteur de la version (`409` s'il tente). Règles de date de valeur, jours
+fériés et agences suivent le même circuit ; le moteur d'arrêté relit le calendrier à chaque
+lancement, un férié déclaré dans la journée vaut pour le soir même.
+
+Ce qui n'est pas encore exposé : le rééchelonnement, les sûretés, les grilles de risque et les
+schémas comptables (les services existent), pas de contrat OpenAPI publié ni de pagination
+(aucune liste longue n'est exposée). La réservation du disponible par une opération en attente
+qui déplacerait des fonds n'existe pas encore : un déblocage approuvé crédite le compte de
+règlement à l'approbation, sans réservation préalable.
 
 Le test `ApiIT` fait tout le parcours contre un vrai serveur, une vraie base et de vrais jetons
-signés : du tiers au retrait, les refus un par un, l'arrêté lancé par l'exploitant.
+signés, l'API connectée avec le rôle applicatif : du tiers au retrait, les refus un par un,
+l'arrêté lancé par l'exploitant, le crédit du produit au remboursement anticipé, les conditions
+de banque et une agence créées à deux.
 
 ---
 

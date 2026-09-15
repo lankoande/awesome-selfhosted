@@ -7,7 +7,10 @@
 > commande** (`PostingCommand.withBranch`), ce qui évite aux services de raisonner ligne par
 > ligne ; le cliché par agence est une table à part (`branch_balance_daily`), le cliché par
 > compte restant intact ; seul le schéma via le siège existe, les deux autres s'ajouteront par
-> migration. Un compte d'attente (`SUSPENSE`) peut avoir une agence ou non.
+> migration. Un compte d'attente (`SUSPENSE`) peut avoir une agence ou non. Une agence ou une
+> région se crée par l'API (`POST /branches`, opération `BRANCH_MANAGE`) : demandée par
+> l'exploitation, validée par la comptabilité, avec ses comptes de liaison par devise — celui de
+> la devise de tenue de compte est exigé, sans lui aucune opération déplacée ne s'équilibrerait.
 
 ---
 

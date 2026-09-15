@@ -63,6 +63,47 @@ public final class Requests {
 
     public record RunEod(LocalDate businessDate, String mode) {}
 
+    // ------------------------------------------------------------------ credit
+
+    public record CreateLoan(String reference, String productCode, String currency,
+                             UUID loanAccountId, UUID settlementAccountId, String principal,
+                             LocalDate disbursedOn, UUID customerPartyId) {}
+
+    /**
+     * Conditions du deblocage. Tout ce qui n'est pas dit prend la valeur par defaut des
+     * conditions de credit : mensuel, annuite constante, ACT/365, sans assurance ni taxe.
+     */
+    public record Disbursement(String annualRatePercent, String frequency, Integer instalments,
+                               Integer graceInstalments, LocalDate firstDueDate, String method,
+                               String dayCount, String periodicFee, String insuranceBasis,
+                               String insuranceRatePercent, String taxOnInterestPercent,
+                               String upfrontFees) {}
+
+    /** Un reglement recu au guichet ; le prelevement d'office, lui, releve du TFJ. */
+    public record LoanRepayment(String amount, String currency, LocalDate valueDate) {}
+
+    public record LoanPrepayment(String amount, String currency, String mode) {}
+
+    // ------------------------------------------------------------------ parametrage
+
+    public record RateTier(String from, String to, String annualRatePercent) {}
+
+    public record ProductDraft(String code, String productType, String label, String currency,
+                               LocalDate validFrom, LocalDate validTo,
+                               java.util.Map<String, String> parameters, List<RateTier> tiers) {}
+
+    public record ValueDateRuleRequest(String operationType, String channel, String direction,
+                                       Integer offset, String unit, String convention,
+                                       LocalDate validFrom, LocalDate validTo) {}
+
+    public record Holiday(LocalDate date, String label) {}
+
+    public record CreateBranch(String code, String name, String kind, UUID parentId,
+                               LocalDate openedOn, java.util.Map<String, UUID> liaisonAccounts) {}
+
+    /** Reponse d'un ferie declare. */
+    public record HolidayDeclared(UUID calendarId, LocalDate date, String label) {}
+
     public record CancelEod(LocalDate reversalBookingDate, String reason) {}
 
     /** Reponse d'une creation : l'identifiant de ce qui a ete cree. */

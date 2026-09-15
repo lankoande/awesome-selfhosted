@@ -204,7 +204,7 @@ un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servi
 > **Implémenté.** `Operation` compte désormais une opération par point d'entrée de service qui
 > change l'état de la banque : crédit (`LOAN_CONTRACT_CREATE`, `LOAN_DISBURSE`, `LOAN_RESCHEDULE`,
 > `LOAN_PREPAY`, `LOAN_REPAYMENT`, `COLLATERAL_MANAGE`, `LOAN_READ`), paramétrage
-> (`RISK_PARAMETER_*`, `ACCOUNTING_SCHEMA_*`, `CALENDAR_MANAGE`, `FEE_EXEMPTION_GRANT`,
+> (`RISK_PARAMETER_*`, `ACCOUNTING_SCHEMA_*`, `CALENDAR_MANAGE`, `BRANCH_MANAGE`, `FEE_EXEMPTION_GRANT`,
 > `ACCOUNT_PRODUCT_ASSIGN`), comptabilité (`JOURNAL_ENTRY_MANUAL`, `PERIOD_CLOSE`). Deux rôles
 > de crédit les portent : `credit_officer` (chargé de crédit, agence) et `credit_manager`
 > (responsable des engagements, siège) — la seconde main sur tout ce qui engage la banque.

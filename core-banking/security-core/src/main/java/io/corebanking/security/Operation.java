@@ -93,6 +93,8 @@ public enum Operation {
     ACCOUNTING_SCHEMA_ACTIVATE,
     /** Calendriers, jours feries, regles de date de valeur. */
     CALENDAR_MANAGE,
+    /** Creation d'une agence ou d'une region, avec ses comptes de liaison. */
+    BRANCH_MANAGE,
     /** Exoneration d'une commission pour un compte. */
     FEE_EXEMPTION_GRANT,
     /** Declaration d'une retenue a la source ou d'une taxe, par entite et periode de validite. */

@@ -56,6 +56,9 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler({AccountDirectory.UnknownAccountException.class,
                        io.corebanking.api.usecase.EodUseCases.UnknownRunException.class,
+                       io.corebanking.api.usecase.LoanUseCases.UnknownLoanException.class,
+                       io.corebanking.api.usecase.ProductUseCases
+                           .UnknownProductVersionException.class,
                        io.corebanking.security.store.PendingOperations
                            .UnknownPendingOperationException.class})
     ProblemDetail unknown(RuntimeException e) {
@@ -68,14 +71,19 @@ public class ApiExceptionHandler {
                        PartyService.DuplicatePartyException.class,
                        AccountLifecycle.ClosureRefusedException.class,
                        TfjEngine.TfjRefusedException.class, IllegalStateException.class,
-                       MakerChecker.NotDecidableException.class})
+                       MakerChecker.NotDecidableException.class,
+                       io.corebanking.loan.service.LoanService.ArrearsOutstandingException.class})
     ProblemDetail conflict(RuntimeException e) {
         return problem(HttpStatus.CONFLICT, "Operation refusee", e.getMessage());
     }
 
     @ExceptionHandler({IllegalArgumentException.class, LedgerViolation.class,
                        ValueDatePolicy.NoRuleException.class,
-                       ProductFamily.IncompleteProductException.class})
+                       ProductFamily.IncompleteProductException.class,
+                       io.corebanking.product.ProductFamilies.UnknownFamilyException.class,
+                       io.corebanking.loan.service.LoanService.UsuryCeilingExceededException.class,
+                       io.corebanking.loan.LoanTerms.InvalidLoanTermsException.class,
+                       io.corebanking.loan.AmortisationSchedule.InvalidScheduleException.class})
     ProblemDetail unprocessable(RuntimeException e) {
         return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Requete non applicable", e.getMessage());
     }

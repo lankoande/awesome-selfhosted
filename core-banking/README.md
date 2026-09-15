@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 551 tests verts** — 302 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 249 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 553 tests verts** — 302 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 251 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -665,9 +665,9 @@ de vrais jetons.
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
-- API : le crédit, le paramétrage produit et le calendrier ne sont pas encore exposés (les
-  services existent, les cas d'usage suivent le même moule) ; pas de contrat OpenAPI publié, pas
-  de pagination ;
+- API : rééchelonnement, sûretés, grilles de risque et schémas comptables ne sont pas encore
+  exposés (les services existent, les cas d'usage suivent le même moule) ; pas de contrat OpenAPI
+  publié, pas de pagination ;
 - chèques (remise, compensation, opposition), paiements sortants, plafonds par produit et par
   client ;
 - multi-agences : caisses par guichetier et arrêté de caisse, schémas de liaison bilatéral et
@@ -765,6 +765,9 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Les partitions se créent par une fonction `SECURITY DEFINER` | Le rôle applicatif ne possède pas les tables ; la bascule de journée doit pouvoir créer des partitions, et rien d'autre |
 | Soldes, positions d'intérêts et clichés restent hors politique | Ils sont sur le chemin chaud et ne se lisent jamais sans leur compte, lui-même cloisonné |
 | Une ressource d'une autre entité est inconnue (`404`), pas interdite (`403`) | La base ne la montre pas ; répondre qu'elle existe serait déjà une fuite |
+| Un remboursement anticipé s'approuve à deux | Le droit du client n'est pas discuté ; l'échéancier qu'il engendre l'est, comme tout échéancier — la base exige déjà deux signatures |
+| Les conditions d'un déblocage voyagent avec la demande, l'échéancier naît à l'approbation | Ce que le checker approuve est ce que le maker a saisi ; l'échéancier est un calcul, pas une saisie |
+| Le moteur d'arrêté relit le calendrier à chaque lancement | Un férié déclaré dans la journée vaut pour le soir même ; un moteur mis en cache aurait arrêté la banque sur un calendrier périmé |
 | Les tables partitionnées sont déclarées dans un registre | Une table partitionnée que la bascule ne connaît pas n'a ses partitions créées par personne |
 | Le TFM porte la date de fin de période et ne touche pas à la date comptable | Il porte sur un mois déjà arrêté jour par jour ; son annulation rouvre la période en le disant |
 | Le dédoublonnage des tiers est un index unique partiel, pas un traitement | Un doublon découvert après coup a déjà faussé les plafonds d'engagement ; refusé à la saisie, il n'existe jamais |

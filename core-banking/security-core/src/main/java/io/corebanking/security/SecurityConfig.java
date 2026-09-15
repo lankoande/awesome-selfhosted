@@ -188,10 +188,12 @@ public final class SecurityConfig {
             AccessRule.allow(CREDIT_MANAGER, BRANCH_MANAGER)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
-        // Un droit de l'emprunteur : l'agent l'enregistre, il ne le decide pas.
+        // Un droit de l'emprunteur : l'agent l'enregistre, il ne le decide pas. Mais il publie
+        // un nouvel echeancier, et un echeancier s'approuve a deux, comme tout ce qui fixe ce
+        // que le client doit — la base l'exige (approved_by <> created_by), la politique aussi.
         policy.put(Operation.LOAN_PREPAY,
             AccessRule.allow(CREDIT_OFFICER, CUSTOMER_OFFICER, BRANCH_MANAGER)
-                .within(Scope.OWN_BRANCH).build());
+                .within(Scope.OWN_BRANCH).requiringSecondPerson().build());
 
         policy.put(Operation.LOAN_REPAYMENT,
             AccessRule.allow(TELLER, CREDIT_OFFICER, BRANCH_MANAGER)
@@ -234,6 +236,12 @@ public final class SecurityConfig {
         // Un jour ferie deplace des dates de valeur et des echeances : ce n'est pas anodin.
         policy.put(Operation.CALENDAR_MANAGE,
             AccessRule.allow(OPERATOR, PRODUCT_MANAGER)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        // Une agence porte des comptes de liaison et des plafonds : l'exploitation la cree, la
+        // comptabilite la valide.
+        policy.put(Operation.BRANCH_MANAGE,
+            AccessRule.allow(OPERATOR, ACCOUNTANT)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
         // Une exoneration est un produit abandonne : elle se decide a deux.

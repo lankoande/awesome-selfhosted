@@ -1345,4 +1345,31 @@ public final class LoanStore {
             throw new LedgerStoreException("Recherche du reglement " + idempotencyKey, e);
         }
     }
+
+    /** L'echeancier en vigueur d'un contrat, echeance par echeance ; vide avant le deblocage. */
+    public static List<DueLine> currentSchedule(Connection c, UUID contractId, CurrencyRef currency) {
+        List<DueLine> lines = new java.util.ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT s.id, l.number, l.due_date, l.principal, l.interest, l.insurance, l.fee, l.tax,"
+            + "       l.total"
+            + "  FROM loan_schedule_line l JOIN loan_schedule s ON s.id = l.schedule_id"
+            + " WHERE s.contract_id = ? AND s.superseded_on IS NULL ORDER BY l.number")) {
+            ps.setObject(1, contractId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    lines.add(new DueLine(rs.getObject(1, UUID.class), rs.getInt(2),
+                                          rs.getObject(3, LocalDate.class),
+                                          Money.of(rs.getBigDecimal(4), currency),
+                                          Money.of(rs.getBigDecimal(5), currency),
+                                          Money.of(rs.getBigDecimal(6), currency),
+                                          Money.of(rs.getBigDecimal(7), currency),
+                                          Money.of(rs.getBigDecimal(8), currency),
+                                          Money.of(rs.getBigDecimal(9), currency)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture de l'echeancier du contrat " + contractId, e);
+        }
+        return lines;
+    }
 }

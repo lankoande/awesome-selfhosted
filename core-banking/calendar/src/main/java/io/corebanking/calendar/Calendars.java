@@ -188,4 +188,20 @@ public final class Calendars {
         }
         return rules;
     }
+
+    /** Le calendrier rattache a une entite, s'il y en a un. */
+    public static java.util.Optional<UUID> calendarIdOf(Connection c, UUID legalEntityId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT business_calendar_id FROM legal_entity WHERE id = ?")) {
+            ps.setObject(1, legalEntityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return java.util.Optional.empty();
+                }
+                return java.util.Optional.ofNullable(rs.getObject(1, UUID.class));
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture du calendrier de l'entite", e);
+        }
+    }
 }

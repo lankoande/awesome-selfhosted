@@ -456,4 +456,26 @@ public final class ProductCatalog {
             throw new LedgerStoreException("Journalisation du parametrage", e);
         }
     }
+
+    /** En-tete d'une version : ce qu'il faut savoir d'elle avant de decider de son activation. */
+    public record VersionHeader(UUID id, UUID legalEntityId, String code, String productType,
+                                String status, UUID createdBy) {}
+
+    public static java.util.Optional<VersionHeader> findVersion(Connection c, UUID versionId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, legal_entity_id, code, product_type, status, created_by"
+            + "  FROM product_version WHERE id = ?")) {
+            ps.setObject(1, versionId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return java.util.Optional.empty();
+                }
+                return java.util.Optional.of(new VersionHeader(
+                    rs.getObject(1, UUID.class), rs.getObject(2, UUID.class), rs.getString(3),
+                    rs.getString(4), rs.getString(5), rs.getObject(6, UUID.class)));
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture de la version " + versionId, e);
+        }
+    }
 }

@@ -137,23 +137,30 @@ public class PlatformConfiguration {
     }
 
     @Bean
+    LoanService loanService(Database database, PostingService postingService) {
+        return new LoanService(database, postingService);
+    }
+
+    @Bean
     io.corebanking.api.web.MakerChecker makerChecker(Database database,
                                                      AuthorizationService authorization,
                                                      tools.jackson.databind.ObjectMapper json,
                                                      PlatformProperties properties,
                                                      AccountLifecycle lifecycle,
                                                      PartyService parties,
-                                                     AccountDirectory accounts) {
+                                                     AccountDirectory accounts,
+                                                     LoanService loans) {
         int hours = properties.makerChecker() == null ? 48
                     : properties.makerChecker().expiryHoursOrDefault();
         return new io.corebanking.api.web.MakerChecker(
             database, authorization, json, java.time.Duration.ofHours(hours),
-            io.corebanking.api.web.DualControlHandlers.all(database, lifecycle, parties, accounts));
+            io.corebanking.api.web.DualControlHandlers.all(database, lifecycle, parties, accounts,
+                                                           loans));
     }
 
     @Bean
-    EodEngines eodEngines(Database database, PostingService postingService) {
-        LoanService loanService = new LoanService(database, postingService);
+    EodEngines eodEngines(Database database, PostingService postingService,
+                          LoanService loanService) {
         return new EodEngines(database, postingService,
                               new BatchInterestAccrualService(database, postingService),
                               new FeeChargingService(database, postingService), loanService,

@@ -39,6 +39,7 @@ class OperationCoverageTest {
         Map.entry("SchemaCatalog.activate", Operation.ACCOUNTING_SCHEMA_ACTIVATE),
         Map.entry("Calendars.createCalendar / addHoliday / attachToEntity / addRule",
                   Operation.CALENDAR_MANAGE),
+        Map.entry("Branches.create", Operation.BRANCH_MANAGE),
         Map.entry("FeeLedger.grantExemption", Operation.FEE_EXEMPTION_GRANT),
         Map.entry("LoanStore.createContract / assignCustomer", Operation.LOAN_CONTRACT_CREATE),
         Map.entry("LoanService.disburse", Operation.LOAN_DISBURSE),
@@ -84,7 +85,8 @@ class OperationCoverageTest {
                                               Operation.PERIOD_CLOSE,
                                               Operation.KYC_VERIFY, Operation.ACCOUNT_OPEN,
                                               Operation.ACCOUNT_CLOSE, Operation.ACCOUNT_BLOCK,
-                                              Operation.ACCOUNT_HOLD)) {
+                                              Operation.ACCOUNT_HOLD, Operation.LOAN_PREPAY,
+                                              Operation.BRANCH_MANAGE)) {
             assertThat(SecurityConfig.ruleFor(operation).dualControl())
                 .as(operation.name()).isTrue();
         }

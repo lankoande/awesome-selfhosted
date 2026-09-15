@@ -23,6 +23,7 @@ import io.corebanking.ledger.store.Accounts;
 import io.corebanking.ledger.store.Branches;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.Entities;
+import io.corebanking.loan.service.LoanCatalog;
 import io.corebanking.product.ProductCatalog;
 import io.corebanking.security.Roles;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
@@ -138,6 +139,15 @@ class ApiIT {
     private String manager;
     private String manager2;
     private String operator;
+    private String creditOfficer;
+    private String creditManager;
+    private String productManager;
+    private String riskOfficer;
+    private String accountant;
+    private Account pret;
+    private Account courant;
+    private Account liaison;
+    private final Map<String, String> parametresCredit = new LinkedHashMap<>();
     private UUID party;
     private UUID account;
 
@@ -188,6 +198,23 @@ class ApiIT {
                 ENTITY, "EP-API", "SAVINGS_ACCOUNT", "Epargne", "XOF", J.minusMonths(1), null,
                 parametres, List.of(), APPROVER));
             ProductCatalog.activate(c, version, UUID.randomUUID());
+
+            // Le decor du credit : comptes du client et comptes generaux que le produit citera.
+            pret = compte(c, "PRET", AccountKind.CUSTOMER, NormalBalance.DEBIT, siege);
+            courant = compte(c, "COURANT", AccountKind.CUSTOMER, NormalBalance.CREDIT, siege);
+            liaison = compte(c, "LIAISON-XOF", AccountKind.GL, NormalBalance.DEBIT, null);
+            Account creances = compte(c, "CREANCES", AccountKind.GL, NormalBalance.DEBIT, null);
+            Account produits = compte(c, "PRODUITS-CREDIT", AccountKind.GL, NormalBalance.CREDIT,
+                                      null);
+            Account retard = compte(c, "RETARD", AccountKind.GL, NormalBalance.CREDIT, null);
+            Account icne = compte(c, "ICNE", AccountKind.GL, NormalBalance.DEBIT, null);
+            parametresCredit.put(LoanCatalog.P_ACCRUED, creances.id().toString());
+            parametresCredit.put(LoanCatalog.P_ACCRUED_INTEREST, icne.id().toString());
+            parametresCredit.put(LoanCatalog.P_INTEREST_INCOME, produits.id().toString());
+            parametresCredit.put(LoanCatalog.P_TAX_ACCOUNT, taxe.id().toString());
+            parametresCredit.put(LoanCatalog.P_DIRECT_DEBIT, "true");
+            parametresCredit.put(LoanCatalog.P_LATE_RATE, "18");
+            parametresCredit.put(LoanCatalog.P_LATE_INCOME, retard.id().toString());
             return null;
         });
         teller = token(UUID.randomUUID(), "guichetier", siege, Roles.TELLER);
@@ -195,6 +222,11 @@ class ApiIT {
         manager = token(UUID.randomUUID(), "chef.agence", siege, Roles.BRANCH_MANAGER);
         manager2 = token(UUID.randomUUID(), "chef.agence.adjoint", siege, Roles.BRANCH_MANAGER);
         operator = token(UUID.randomUUID(), "exploitant", null, Roles.OPERATOR);
+        creditOfficer = token(UUID.randomUUID(), "charge.credit", siege, Roles.CREDIT_OFFICER);
+        creditManager = token(UUID.randomUUID(), "resp.credit", null, Roles.CREDIT_MANAGER);
+        productManager = token(UUID.randomUUID(), "resp.produits", null, Roles.PRODUCT_MANAGER);
+        riskOfficer = token(UUID.randomUUID(), "risques", null, Roles.RISK_OFFICER);
+        accountant = token(UUID.randomUUID(), "comptable", null, Roles.ACCOUNTANT);
     }
 
     @AfterAll
@@ -377,7 +409,134 @@ class ApiIT {
             .isEqualTo(J.plusDays(1).toString());
     }
 
+    @Test
+    @Order(4)
+    @DisplayName("le credit : produit active a deux, contrat, deblocage a deux, reglement, remboursement anticipe a deux, lecture")
+    void credit() throws Exception {
+        // Le produit de credit : redige par le responsable produits, active par le risque.
+        Reponse brouillon = post(productManager, "/products", null, Map.of(
+            "code", "CRED-API", "productType", "TERM_LOAN", "label", "Credit amortissable",
+            "currency", "XOF", "validFrom", J.minusMonths(1).toString(),
+            "parameters", parametresCredit));
+        assertThat(brouillon.status()).as(String.valueOf(brouillon.body())).isEqualTo(201);
+        UUID version = UUID.fromString((String) brouillon.body().get("id"));
+        Reponse activation = post(productManager, "/products/" + version + "/activation", null,
+                                  Map.of());
+        assertThat(activation.status()).as(String.valueOf(activation.body())).isEqualTo(202);
+        // Le redacteur ne valide pas sa propre version.
+        assertThat(post(productManager, "/pending-operations/" + attente(activation) + "/approve",
+                        null, Map.of()).status()).isEqualTo(403);
+        Reponse active = post(riskOfficer, "/pending-operations/" + attente(activation) + "/approve",
+                              null, Map.of());
+        assertThat(active.status()).as(String.valueOf(active.body())).isEqualTo(200);
+        assertThat(resultat(active.body()).get("status")).isEqualTo("ACTIVE");
+
+        // Le contrat, par le charge de credit, rattache au client ; jamais par un guichetier.
+        Map<String, Object> contrat = new LinkedHashMap<>();
+        contrat.put("reference", "CRED-API-1");
+        contrat.put("productCode", "CRED-API");
+        contrat.put("currency", "XOF");
+        contrat.put("loanAccountId", pret.id().toString());
+        contrat.put("settlementAccountId", courant.id().toString());
+        contrat.put("principal", "1000000");
+        contrat.put("disbursedOn", J.plusDays(1).toString());
+        contrat.put("customerPartyId", party.toString());
+        assertThat(post(teller, "/loans", null, contrat).status()).isEqualTo(403);
+        Reponse cree = post(creditOfficer, "/loans", null, contrat);
+        assertThat(cree.status()).as(String.valueOf(cree.body())).isEqualTo(201);
+        UUID pretId = UUID.fromString((String) cree.body().get("id"));
+
+        // Le deblocage : conditions proposees par le chef d'agence, approuvees par le
+        // responsable credit — l'argent sort, le plafond porte sur le capital.
+        Reponse deblocage = post(manager, "/loans/" + pretId + "/disbursement", null, Map.of(
+            "annualRatePercent", "12", "instalments", 12,
+            "firstDueDate", J.plusDays(1).plusMonths(1).toString()));
+        assertThat(deblocage.status()).as(String.valueOf(deblocage.body())).isEqualTo(202);
+        Reponse debloque = post(creditManager, "/pending-operations/" + attente(deblocage)
+                                + "/approve", null, Map.of());
+        assertThat(debloque.status()).as(String.valueOf(debloque.body())).isEqualTo(200);
+        assertThat((List<?>) resultat(debloque.body()).get("schedule")).hasSize(12);
+        assertThat(montant(get(manager, "/accounts/" + courant.id() + "/balance").body(),
+                           "current")).isEqualTo("1000000");
+
+        // Le dossier tel que l'agent le lit.
+        Reponse dossier = get(creditOfficer, "/loans/" + pretId);
+        assertThat(dossier.status()).as(String.valueOf(dossier.body())).isEqualTo(200);
+        assertThat(dossier.body().get("status")).isEqualTo("ACTIVE");
+        assertThat(montant(dossier.body(), "principal")).isEqualTo("1000000");
+        assertThat((List<?>) dossier.body().get("schedule")).hasSize(12);
+        assertThat((List<?>) dossier.body().get("receivables")).isEmpty();
+        assertThat(dossier.body().get("daysPastDue")).isEqualTo(0);
+
+        // Un reglement au guichet sans echeance echue n'affecte rien : l'excedent est rendu.
+        Reponse reglement = post(teller, "/loans/" + pretId + "/repayments", "rmb-1", Map.of(
+            "amount", "50000", "currency", "XOF"));
+        assertThat(reglement.status()).as(String.valueOf(reglement.body())).isEqualTo(201);
+        assertThat(montant(reglement.body(), "allocated")).isEqualTo("0");
+        assertThat(montant(reglement.body(), "unallocated")).isEqualTo("50000");
+
+        // Le remboursement anticipe : enregistre par le charge de credit, approuve par le chef
+        // d'agence ; l'echeancier est refait, en duree.
+        Reponse anticipe = post(creditOfficer, "/loans/" + pretId + "/prepayments", "rap-1",
+                                Map.of("amount", "200000", "currency", "XOF",
+                                       "mode", "SHORTEN_TERM"));
+        assertThat(anticipe.status()).as(String.valueOf(anticipe.body())).isEqualTo(202);
+        Reponse rembourse = post(manager, "/pending-operations/" + attente(anticipe) + "/approve",
+                                 null, Map.of());
+        assertThat(rembourse.status()).as(String.valueOf(rembourse.body())).isEqualTo(200);
+        assertThat(montant(resultat(rembourse.body()), "principalRepaid")).isEqualTo("200000");
+        assertThat((List<?>) get(creditOfficer, "/loans/" + pretId).body().get("schedule"))
+            .hasSizeLessThan(12);
+
+        // Un contrat inconnu — ou d'une autre entite — n'existe pas.
+        assertThat(get(creditOfficer, "/loans/" + UUID.randomUUID()).status()).isEqualTo(404);
+    }
+
+    @Test
+    @Order(5)
+    @DisplayName("conditions de banque et reseau : regle de date de valeur, ferie, agence — chacun a deux")
+    void parametrage() throws Exception {
+        Reponse regle = post(operator, "/calendar/value-date-rules", null, Map.of(
+            "operationType", "CHEQUE_DEPOSIT", "direction", "CREDIT", "offset", 2,
+            "unit", "BUSINESS_DAYS", "convention", "FOLLOWING", "validFrom", J.toString()));
+        assertThat(regle.status()).as(String.valueOf(regle.body())).isEqualTo(202);
+        Reponse regleActive = post(productManager, "/pending-operations/" + attente(regle)
+                                   + "/approve", null, Map.of());
+        assertThat(regleActive.status()).as(String.valueOf(regleActive.body())).isEqualTo(200);
+        assertThat(resultat(regleActive.body()).get("id")).isNotNull();
+
+        Reponse ferie = post(operator, "/calendar/holidays", null, Map.of(
+            "date", J.plusMonths(2).toString(), "label", "Fete nationale"));
+        assertThat(ferie.status()).as(String.valueOf(ferie.body())).isEqualTo(202);
+        Reponse ferieActif = post(productManager, "/pending-operations/" + attente(ferie)
+                                  + "/approve", null, Map.of());
+        assertThat(ferieActif.status()).as(String.valueOf(ferieActif.body())).isEqualTo(200);
+        assertThat(resultat(ferieActif.body()).get("date")).isEqualTo(J.plusMonths(2).toString());
+
+        // Une agence : demandee par l'exploitant, validee par la comptabilite — jamais par un
+        // guichetier, ni par l'exploitant lui-meme.
+        Map<String, Object> agence = Map.of(
+            "code", "AG-002", "name", "Agence Plateau", "kind", "BRANCH",
+            "openedOn", J.toString(), "liaisonAccounts", Map.of("XOF", liaison.id().toString()));
+        assertThat(post(teller, "/branches", null, agence).status()).isEqualTo(403);
+        Reponse demande = post(operator, "/branches", null, agence);
+        assertThat(demande.status()).as(String.valueOf(demande.body())).isEqualTo(202);
+        assertThat(post(operator, "/pending-operations/" + attente(demande) + "/approve", null,
+                        Map.of()).status()).isEqualTo(403);
+        Reponse creee = post(accountant, "/pending-operations/" + attente(demande) + "/approve",
+                             null, Map.of());
+        assertThat(creee.status()).as(String.valueOf(creee.body())).isEqualTo(200);
+        UUID agenceId = UUID.fromString((String) resultat(creee.body()).get("id"));
+        List<Branches.Branch> reseau = owner.inTransaction(c -> Branches.ofEntity(c, ENTITY));
+        assertThat(reseau).extracting(Branches.Branch::code).contains("SIEGE", "AG-002");
+        assertThat(reseau).extracting(Branches.Branch::id).contains(agenceId);
+    }
+
     // ------------------------------------------------------------------ outillage
+
+    private static UUID attente(Reponse reponse) {
+        return UUID.fromString((String) reponse.body().get("id"));
+    }
 
     private record Reponse(int status, Map<String, Object> body) {}
 
