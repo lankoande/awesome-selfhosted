@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 542 tests verts** — 302 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 240 sur PostgreSQL réel.
+**État actuel : 545 tests verts** — 302 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 243 sur PostgreSQL réel, dont l'API de bout en bout.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
