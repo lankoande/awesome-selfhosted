@@ -10,6 +10,7 @@ import io.corebanking.ledger.domain.error.InvalidPostingException;
 import io.corebanking.ledger.domain.journal.JournalEntry;
 import io.corebanking.ledger.domain.journal.Reversals;
 import io.corebanking.ledger.domain.posting.EntryValidator;
+import io.corebanking.ledger.domain.posting.InterbranchBridging;
 import io.corebanking.ledger.domain.posting.PostingCommand;
 import io.corebanking.ledger.domain.posting.PostingContext;
 import io.corebanking.ledger.domain.posting.PostingResult;
@@ -31,6 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -109,13 +111,20 @@ public final class JdbcPostingService implements PostingService {
 
         CurrencyRef functional = Entities.functionalCurrency(c, command.legalEntityId());
         Map<UUID, Account> accounts = Accounts.loadAll(c, accountIds);
-        ValidatedEntry entry = EntryValidator.validate(command, new PostingContext(functional, accounts));
+        Branches.Network network = Branches.network(c, command.legalEntityId());
+        PostingContext context = new PostingContext(functional, accounts, network.headOfficeId(),
+                                                    network.liaisonAccountIds());
+        ValidatedEntry entry = EntryValidator.validate(command, context);
+        // Treizieme invariant : equilibree agence par agence, lignes de liaison comprises.
+        entry = InterbranchBridging.complete(entry, context,
+            (branch, currency) -> liaisonAccount(c, network, branch, currency));
 
         List<AccountDelta> deltas = aggregateDeltas(entry);
         refuseBlocked(c, deltas, command.source());
         lockAndCheck(c, deltas, command.bookingDate());
 
-        Instant knowledgeTime = insertEntry(c, command, entryId, reversalOf);
+        Instant knowledgeTime = insertEntry(c, command, entryId, reversalOf,
+                                            entry.operationBranchId());
         long entryNumber = insertLines(c, command, entry, entryId, knowledgeTime);
         applyDeltas(c, deltas);
 
@@ -343,12 +352,35 @@ public final class JdbcPostingService implements PostingService {
 
     // ------------------------------------------------------------------ journal
 
-    private Instant insertEntry(Connection c, PostingCommand command, UUID entryId, UUID reversalOf) {
+    /**
+     * Compte de liaison d'une agence dans une devise. Une agence creee sur une autre instance
+     * n'est pas encore en memoire ici : une relecture avant de refuser.
+     */
+    private static Account liaisonAccount(Connection c, Branches.Network network, UUID branch,
+                                          CurrencyRef currency) {
+        Optional<UUID> id = network.liaisonAccount(branch, currency.code());
+        if (id.isEmpty()) {
+            id = Branches.reload(c, network.legalEntityId()).liaisonAccount(branch, currency.code());
+        }
+        UUID accountId = id.orElseThrow(() -> new InvalidPostingException(
+            "Aucun compte de liaison en " + currency.code() + " pour l'agence "
+            + network.require(branch).code() + " : l'ecriture met en jeu deux agences et ne peut "
+            + "pas etre equilibree agence par agence. Declarer le compte de liaison, ne pas "
+            + "contourner."));
+        Account account = Accounts.loadAll(c, Set.of(accountId)).get(accountId);
+        if (account == null) {
+            throw new LedgerStoreException("Compte de liaison introuvable : " + accountId);
+        }
+        return account;
+    }
+
+    private Instant insertEntry(Connection c, PostingCommand command, UUID entryId, UUID reversalOf,
+                                UUID operationBranchId) {
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO journal_entry(id, booking_date, legal_entity_id, entry_number,"
             + " transaction_type, source, batch_run_id, reversal_of, idempotency_key, narrative,"
-            + " metadata, created_by)"
-            + " VALUES (?,?,?, nextval('journal_entry_number_seq'), ?,?,?,?,?,?,?::jsonb,?)"
+            + " metadata, created_by, branch_id)"
+            + " VALUES (?,?,?, nextval('journal_entry_number_seq'), ?,?,?,?,?,?,?::jsonb,?,?)"
             + " RETURNING knowledge_time")) {
             ps.setObject(1, entryId);
             ps.setObject(2, command.bookingDate());
@@ -361,6 +393,7 @@ public final class JdbcPostingService implements PostingService {
             ps.setString(9, command.metadata().get("narrative"));
             ps.setString(10, Json.of(command.metadata()));
             ps.setObject(11, command.actorId());
+            ps.setObject(12, operationBranchId);
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
                 return rs.getTimestamp(1).toInstant();
@@ -385,7 +418,8 @@ public final class JdbcPostingService implements PostingService {
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO journal_line(id, booking_date, entry_id, legal_entity_id, line_number,"
             + " account_id, direction, amount, currency, functional_amount, fx_rate, value_date,"
-            + " stripe_id, label, knowledge_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+            + " stripe_id, label, knowledge_time, branch_id, kind)"
+            + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
             int lineNumber = 1;
             for (ValidatedLine line : entry.lines()) {
                 ps.setObject(1, Ids.newId());
@@ -403,6 +437,8 @@ public final class JdbcPostingService implements PostingService {
                 ps.setInt(13, 0);
                 ps.setString(14, line.line().label());
                 ps.setTimestamp(15, Timestamp.from(knowledgeTime));
+                ps.setObject(16, line.branchId());
+                ps.setString(17, line.kind().name());
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -429,7 +465,8 @@ public final class JdbcPostingService implements PostingService {
     private JournalEntry loadEntry(Connection c, UUID entryId, LocalDate bookingDate) {
         try (PreparedStatement ps = c.prepareStatement(
             "SELECT id, legal_entity_id, entry_number, booking_date, transaction_type, source,"
-            + " batch_run_id, reversal_of, idempotency_key, narrative, created_by, knowledge_time"
+            + " batch_run_id, reversal_of, idempotency_key, narrative, created_by, knowledge_time,"
+            + " branch_id"
             + " FROM journal_entry WHERE id = ? AND booking_date = ?")) {
             ps.setObject(1, entryId);
             ps.setObject(2, bookingDate);
@@ -452,7 +489,8 @@ public final class JdbcPostingService implements PostingService {
                     rs.getString(10),
                     Map.of(),
                     rs.getObject(11, UUID.class),
-                    knowledge.toInstant());
+                    knowledge.toInstant(),
+                    rs.getObject(13, UUID.class));
             }
         } catch (SQLException e) {
             throw new LedgerStoreException("Lecture de l'ecriture " + entryId, e);

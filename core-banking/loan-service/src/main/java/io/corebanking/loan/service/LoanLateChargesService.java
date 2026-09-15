@@ -329,7 +329,7 @@ public final class LoanLateChargesService {
             IdempotencyKey.forBatch(String.valueOf(batchRunId), "LOAN_LATE", contract.id(),
                                     businessDate),
             contract.legalEntityId(), businessDate, LoanSchemas.EVENT_LATE_CHARGES, actorId,
-            batchRunId, lines)).entryId();
+            batchRunId, lines).withBranch(contract.branchId())).entryId();
     }
 
     /**

@@ -69,6 +69,16 @@ portefeuille de l'agence B, alors qu'il a le même rôle.
 | Montant | Plafond par rôle | 4 |
 | Séparation des tâches | L'auteur ne valide pas | 5 |
 
+> **Implémenté** — le périmètre d'agence est effectif dès que l'objet visé porte une agence, et
+> c'est le cas d'usage qui dit laquelle : la caisse pour une opération de guichet, le compte pour
+> son ouverture, sa clôture ou son blocage. Une **opération déplacée** — l'objet d'une autre
+> agence — n'est admise que si la règle le prévoit (`allowingRemote`), sous son propre plafond
+> (`remoteUpTo`), toujours plus bas que l'ordinaire : un guichetier sert un client de passage
+> jusqu'à 500 000 XOF, un chef d'agence jusqu'à 5 M ; la lecture d'un solde ou d'un tiers d'une
+> autre agence est admise et tracée ; ouverture, clôture, blocage et crédit ne se déplacent pas.
+> Row Level Security reste par entité : un périmètre agence en base casserait tout traitement de
+> siège.
+
 Le cloisonnement par entité est appliqué **deux fois** : dans la politique et par Row Level Security
 PostgreSQL. La seconde barrière protège contre le cas réel le plus fréquent — une requête de
 reporting écrite sans le filtre d'entité.

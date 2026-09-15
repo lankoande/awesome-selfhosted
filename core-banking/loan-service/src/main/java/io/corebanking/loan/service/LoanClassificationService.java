@@ -348,7 +348,8 @@ public final class LoanClassificationService {
         return postingService.post(PostingCommand.batch(
             IdempotencyKey.forBatch(String.valueOf(batchRunId), "LOAN_" + keyPart, contract.id(),
                                     businessDate),
-            contract.legalEntityId(), businessDate, transactionType, actorId, batchRunId, lines))
+            contract.legalEntityId(), businessDate, transactionType, actorId, batchRunId, lines)
+            .withBranch(contract.branchId()))
             .entryId();
     }
 

@@ -9,8 +9,11 @@ import io.corebanking.ledger.domain.error.UnbalancedEntryException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Gardien des invariants d'ecriture.
@@ -36,11 +39,91 @@ public final class EntryValidator {
         for (PostingLine line : command.lines()) {
             validated.add(validateLine(line, command, context));
         }
+        UUID operationBranch = operationBranchOf(validated, command, context);
+        validated = withBranches(validated, operationBranch);
 
         requireBalancedPerCurrency(validated);
         requireBalancedInFunctionalCurrency(validated, context.functionalCurrency());
 
-        return new ValidatedEntry(command, validated, context.functionalCurrency());
+        return new ValidatedEntry(command, validated, context.functionalCurrency(), operationBranch);
+    }
+
+    /**
+     * Agence de l'operation : celle de la commande ; sinon l'agence unique des comptes a agence
+     * de l'ecriture, s'il n'y en a qu'une ; sinon le siege. C'est l'agence comptable des lignes
+     * sur comptes generaux qui n'en precisent pas.
+     */
+    private static UUID operationBranchOf(List<ValidatedLine> lines, PostingCommand command,
+                                          PostingContext context) {
+        if (command.branchId() != null) {
+            return command.branchId();
+        }
+        Set<UUID> branched = new LinkedHashSet<>();
+        for (ValidatedLine v : lines) {
+            if (v.account().hasBranch()) {
+                branched.add(v.account().branchId());
+            }
+        }
+        return branched.size() == 1 ? branched.iterator().next() : context.headOfficeId();
+    }
+
+    /**
+     * Agence comptable de chaque ligne. Un compte a agence impose la sienne — une valeur
+     * contraire est une erreur, pas un choix ; un compte general prend l'agence que la ligne
+     * precise, a defaut celle de l'operation.
+     */
+    private static List<ValidatedLine> withBranches(List<ValidatedLine> lines, UUID operationBranch) {
+        List<ValidatedLine> resolved = new ArrayList<>(lines.size());
+        for (ValidatedLine v : lines) {
+            UUID own = v.account().branchId();
+            UUID given = v.line().branchId();
+            UUID branch;
+            if (own != null) {
+                if (given != null && !given.equals(own)) {
+                    throw new InvalidPostingException(
+                        "La ligne sur le compte " + v.account().code() + " porte l'agence " + given
+                        + " alors que le compte releve de l'agence " + own + " : l'agence d'un "
+                        + "compte client ou interne ne se choisit pas a l'ecriture.");
+                }
+                branch = own;
+            } else {
+                branch = given != null ? given : operationBranch;
+            }
+            resolved.add(new ValidatedLine(v.line(), v.account(), v.functionalAmount(), branch,
+                                           v.kind()));
+        }
+        return resolved;
+    }
+
+    /**
+     * Equilibre par agence, par devise et en contre-valeur : le treizieme invariant. Verifie
+     * apres que le service d'imputation a complete l'ecriture par ses lignes de liaison.
+     */
+    public static void requireBalancedPerBranch(List<ValidatedLine> lines) {
+        Map<String, Money> violations = new LinkedHashMap<>();
+        Map<String, Money> byBranchAndCurrency = new LinkedHashMap<>();
+        Map<String, Money> functionalByBranch = new LinkedHashMap<>();
+        for (ValidatedLine v : lines) {
+            String branch = String.valueOf(v.branchId());
+            byBranchAndCurrency.merge(v.line().amount().currency().code() + " @ agence " + branch,
+                                      v.debitSigned(), Money::plus);
+            functionalByBranch.merge(v.functionalAmount().currency().code()
+                                     + " (contre-valeur) @ agence " + branch,
+                                     v.debitSignedFunctional(), Money::plus);
+        }
+        byBranchAndCurrency.forEach((key, imbalance) -> {
+            if (!imbalance.isZero()) {
+                violations.put(key, imbalance);
+            }
+        });
+        functionalByBranch.forEach((key, imbalance) -> {
+            if (!imbalance.isZero()) {
+                violations.put(key, imbalance);
+            }
+        });
+        if (!violations.isEmpty()) {
+            throw new UnbalancedEntryException(violations);
+        }
     }
 
     private static ValidatedLine validateLine(PostingLine line, PostingCommand command,
@@ -74,7 +157,10 @@ public final class EntryValidator {
                 + account.currency() + " admet " + account.currency().scale() + " decimale(s). "
                 + "Arrondir avant comptabilisation.");
         }
-        return new ValidatedLine(line, account, functionalAmountOf(line, account, context));
+        LineKind kind = context.liaisonAccountIds().contains(account.id()) ? LineKind.LIAISON
+                                                                          : LineKind.BUSINESS;
+        return new ValidatedLine(line, account, functionalAmountOf(line, account, context), null,
+                                 kind);
     }
 
     /**

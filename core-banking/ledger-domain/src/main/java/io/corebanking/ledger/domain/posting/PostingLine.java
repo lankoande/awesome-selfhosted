@@ -25,7 +25,13 @@ public record PostingLine(
     Money amount,
     LocalDate valueDate,
     String label,
-    BigDecimal fxRate) {
+    BigDecimal fxRate,
+    UUID branchId) {
+
+    public PostingLine(UUID accountId, Direction direction, Money amount, LocalDate valueDate,
+                       String label, BigDecimal fxRate) {
+        this(accountId, direction, amount, valueDate, label, fxRate, null);
+    }
 
     public PostingLine {
         Objects.requireNonNull(accountId, "accountId");
@@ -51,12 +57,20 @@ public record PostingLine(
     }
 
     public PostingLine withFxRate(BigDecimal rate) {
-        return new PostingLine(accountId, direction, amount, valueDate, label, rate);
+        return new PostingLine(accountId, direction, amount, valueDate, label, rate, branchId);
+    }
+
+    /**
+     * Agence comptable de la ligne, pour un compte general. Sur un compte client ou interne,
+     * l'agence est celle du compte et une valeur contraire est refusee.
+     */
+    public PostingLine withBranch(UUID branch) {
+        return new PostingLine(accountId, direction, amount, valueDate, label, fxRate, branch);
     }
 
     /** Ligne inverse, memes montant et date de valeur. Utilisee par la contre-passation. */
     public PostingLine reversed() {
         return new PostingLine(accountId, direction.opposite(), amount, valueDate,
-                               label == null ? null : "Extourne : " + label, fxRate);
+                               label == null ? null : "Extourne : " + label, fxRate, branchId);
     }
 }

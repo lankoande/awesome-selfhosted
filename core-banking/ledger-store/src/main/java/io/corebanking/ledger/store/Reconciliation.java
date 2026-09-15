@@ -259,7 +259,122 @@ public final class Reconciliation {
                                          businessDate));
         all.addAll(materializedMatchesSnapshot(c, entityId, businessDate));
         all.addAll(stripesConsistent(c, entityId));
+        all.addAll(interbranchMirror(c, entityId, businessDate));
         return all;
+    }
+
+    /**
+     * Controle 4 — compensation inter-agences, sur le cliche par agence de la journee.
+     *
+     * <ul>
+     *   <li><b>Le miroir</b> : pour chaque compte de liaison, son solde dans les livres de son
+     *       agence et son solde dans les livres du siege s'annulent.</li>
+     *   <li><b>L'elimination</b> : la somme d'un compte de liaison sur toutes les agences est
+     *       nulle — a la consolidation, il ne reste rien.</li>
+     *   <li><b>Le cliche par agence somme au cliche par compte</b> : la balance agence n'est pas
+     *       une autre verite que la balance de l'entite.</li>
+     * </ul>
+     *
+     * <p>Un ecart nomme l'agence et le compte, et bloque la journee : dans une meme entite, les
+     * comptes de liaison ne se reglent pas, ils s'eliminent, et un residu est une ecriture qui
+     * manque quelque part.
+     */
+    public static List<Discrepancy> interbranchMirror(Connection c, UUID entityId,
+                                                      LocalDate businessDate) {
+        List<Discrepancy> discrepancies = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            LIAISON_CTE
+            + " bal AS (SELECT account_id, branch_id, closing_balance FROM branch_balance_daily"
+            + "          WHERE business_date = ?)"
+            + MIRROR_SELECT)) {
+            ps.setObject(1, entityId);
+            ps.setObject(2, businessDate);
+            collectMirror(ps, discrepancies);
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Compensation inter-agences sur le cliche", e);
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT a.code, s.closing_balance, COALESCE(SUM(bb.closing_balance), 0)"
+            + "  FROM account a"
+            + "  JOIN account_balance_daily s ON s.account_id = a.id AND s.business_date = ?"
+            + "  LEFT JOIN branch_balance_daily bb ON bb.account_id = a.id AND bb.business_date = ?"
+            + " WHERE a.legal_entity_id = ?"
+            + " GROUP BY a.code, s.closing_balance"
+            + " HAVING s.closing_balance <> COALESCE(SUM(bb.closing_balance), 0)")) {
+            ps.setObject(1, businessDate);
+            ps.setObject(2, businessDate);
+            ps.setObject(3, entityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    discrepancies.add(new Discrepancy("CLICHE_AGENCES_VS_COMPTE", rs.getString(1),
+                                                      rs.getBigDecimal(2), rs.getBigDecimal(3)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Cliche par agence contre cliche par compte", e);
+        }
+        return discrepancies;
+    }
+
+    /** Le meme controle, rejoue integralement sur le journal : reserve a l'arrete mensuel. */
+    public static List<Discrepancy> interbranchMirrorReplayed(Connection c, UUID entityId) {
+        List<Discrepancy> discrepancies = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            LIAISON_CTE
+            + " bal AS (SELECT l.account_id, l.branch_id,"
+            + "                SUM(CASE WHEN l.direction = x.normal_balance THEN l.amount"
+            + "                         ELSE -l.amount END) AS closing_balance"
+            + "           FROM journal_line l JOIN account x ON x.id = l.account_id"
+            + "          WHERE l.legal_entity_id = ?"
+            + "            AND l.account_id IN (SELECT account_id FROM liaison)"
+            + "          GROUP BY l.account_id, l.branch_id)"
+            + MIRROR_SELECT)) {
+            ps.setObject(1, entityId);
+            ps.setObject(2, entityId);
+            collectMirror(ps, discrepancies);
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Compensation inter-agences par rejeu", e);
+        }
+        return discrepancies;
+    }
+
+    private static final String LIAISON_CTE =
+        "WITH liaison AS ("
+        + "   SELECT l.branch_id, l.account_id, b.code AS branch_code, a.code AS account_code,"
+        + "          h.id AS head_office"
+        + "     FROM branch_liaison l"
+        + "     JOIN branch b ON b.id = l.branch_id"
+        + "     JOIN account a ON a.id = l.account_id"
+        + "     JOIN branch h ON h.legal_entity_id = b.legal_entity_id AND h.kind = 'HEAD_OFFICE'"
+        + "    WHERE b.legal_entity_id = ?),";
+
+    private static final String MIRROR_SELECT =
+        " SELECT li.branch_code, li.account_code,"
+        + "       COALESCE((SELECT closing_balance FROM bal"
+        + "                  WHERE bal.account_id = li.account_id AND bal.branch_id = li.branch_id), 0),"
+        + "       COALESCE((SELECT closing_balance FROM bal"
+        + "                  WHERE bal.account_id = li.account_id AND bal.branch_id = li.head_office), 0),"
+        + "       COALESCE((SELECT SUM(closing_balance) FROM bal"
+        + "                  WHERE bal.account_id = li.account_id), 0)"
+        + "   FROM liaison li ORDER BY li.branch_code";
+
+    private static void collectMirror(PreparedStatement ps, List<Discrepancy> discrepancies)
+            throws SQLException {
+        try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String scope = "agence " + rs.getString(1) + " / " + rs.getString(2);
+                BigDecimal mirror = rs.getBigDecimal(3).add(rs.getBigDecimal(4));
+                if (mirror.signum() != 0) {
+                    discrepancies.add(new Discrepancy("LIAISON_AGENCE_MIROIR", scope,
+                                                      BigDecimal.ZERO, mirror));
+                }
+                BigDecimal total = rs.getBigDecimal(5);
+                if (total.signum() != 0) {
+                    discrepancies.add(new Discrepancy("LIAISON_ELIMINATION", scope,
+                                                      BigDecimal.ZERO, total));
+                }
+            }
+        }
     }
 
     /** Ensemble des controles integraux, par rejeu du journal depuis l'origine : arrete mensuel. */
@@ -268,6 +383,7 @@ public final class Reconciliation {
         all.addAll(generalLedgerBalanced(c, entityId));
         all.addAll(materializedMatchesReplay(c, entityId));
         all.addAll(stripesConsistent(c, entityId));
+        all.addAll(interbranchMirrorReplayed(c, entityId));
         return all;
     }
 }

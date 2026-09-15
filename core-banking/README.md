@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 530 tests verts** — 300 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 230 sur PostgreSQL réel.
+**État actuel : 542 tests verts** — 302 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 240 sur PostgreSQL réel.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -624,6 +624,29 @@ solde est versé ; un solde débiteur refuse la clôture et les agios calculés 
 disparaissent avec elle (`clotureSurSoldeDebiteur`). Le jour de la clôture n'est pas rémunéré :
 le versement du solde porte la même date de valeur qu'un retrait.
 
+### 19. Une banque à N agences, un seul journal
+
+Le multi-agences ([15](../docs/core-banking/15-multi-agences.md)) n'est pas une dimension de
+reporting ajoutée après coup : c'est le **treizième invariant**, une écriture est équilibrée par
+agence, tenu par le validateur et par la base. Trois règles en découlent.
+
+**Les lignes de liaison sont générées, jamais saisies.** Un client de l'agence A servi à la caisse
+de l'agence B produit une écriture équilibrée pour l'entité et déséquilibrée pour A et B ; le
+service d'imputation la complète, via le siège, avant de l'écrire, et la contre-passation reprend
+ces lignes telles quelles (`retraitDeplace`, `contrePassationExacte`). Sans compte de liaison dans
+la devise, l'écriture est refusée — jamais équilibrée à défaut.
+
+**Un compte général n'a pas d'agence, son solde en a une par ligne.** Le paramétrage cite un
+compte ; la charge d'intérêts d'un client est dans le résultat de son agence, sans aucune liaison,
+parce que le lot agrège une paire de lignes par agence
+(`the_batch_posts_one_pair_of_lines_per_branch`). La balance agence est un cliché quotidien, pas
+une dimension de plus sur le chemin d'imputation.
+
+**La compensation inter-agences est un contrôle, pas un traitement.** Chaque nuit, chaque compte
+de liaison doit se refléter entre son agence et le siège, et s'éliminer en total ; un écart nomme
+l'agence et bloque la journée (`branch_balances_and_liaison_mirror`). Dans une même entité, les
+liaisons ne se règlent pas, elles s'éliminent.
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
@@ -634,6 +657,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
   méthodes exposées est soumise à validation avant construction ;
 - chèques (remise, compensation, opposition), paiements sortants, plafonds par produit et par
   client ;
+- multi-agences : caisses par guichetier et arrêté de caisse, schémas de liaison bilatéral et
+  via la région (le schéma via le siège est fait) ;
 - référentiel client : documents et leurs échéances, bénéficiaires effectifs, relations entre
   tiers, rescan périodique des listes ;
 - crédit : origination (demande, scoring, décision, conditions suspensives) — le déblocage par
@@ -731,3 +756,11 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Le jour de la clôture d'un compte n'est pas rémunéré | Le solde versé porte la date de valeur d'un retrait, et un retrait ne rémunère pas la journée où il est fait ; les intérêts sont réglés jusqu'à la veille, le jour même |
 | Une clôture est une transaction : tout ou rien | Un solde débiteur découvert après le règlement des agios refuse la clôture, et les agios calculés pour elle disparaissent avec elle |
 | La connaissance client restreint progressivement, jamais brutalement | Un dossier expiré n'ouvre plus rien mais ses comptes fonctionnent ; couper les opérations d'un client sur une revue en retard serait un blocage non annoncé |
+| Une écriture est équilibrée par agence, et la base le vérifie aussi | Un déséquilibre par agence est invisible de la balance de l'entité, et c'est là que se loge l'écart de liaison qu'on « régularise » |
+| Les lignes de liaison sont générées par le moteur, jamais saisies | Une liaison saisie est une liaison qu'on oublie ; générée dans l'écriture, elle se contre-passe avec elle |
+| L'agence d'un compte général est une dimension de la ligne, pas un compte par agence | Le paramétrage cite un compte ; le multiplier par le nombre d'agences ferait de chaque ouverture d'agence un changement de produit |
+| L'agence de l'opération est portée par la commande | Les services savent à qui revient un produit ou une charge — au client, ou à l'agence qui sert — sans raisonner ligne par ligne |
+| Le lot d'intérêts agrège par agence | Une ligne de charge par lot mettrait tout le résultat au siège, et chaque nuit produirait autant de liaisons que d'agences |
+| La balance agence est un cliché quotidien, pas un solde tenu en temps réel | Les comptes généraux sont les comptes chauds ; une dimension de plus sur le chemin d'imputation coûterait sur chaque écriture ce qu'aucun contrôle en ligne ne demande |
+| Les comptes de liaison s'éliminent, ils ne se règlent pas | Dans une même entité juridique, la position d'une agence vis-à-vis du siège n'est pas une dette : un écart est une écriture qui manque |
+| Une opération déplacée porte son propre plafond, plus bas | Servir un client de passage est le métier d'un réseau ; le faire sous le plafond ordinaire, sans contrôle d'identité renforcé, est l'angle mort de la fraude au guichet |

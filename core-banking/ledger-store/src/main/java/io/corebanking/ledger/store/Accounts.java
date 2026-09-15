@@ -42,10 +42,11 @@ public final class Accounts {
      * premier jour de calcul des interets ; la prendre a l'horloge fausserait les deux.
      */
     public static void create(Connection c, Account account, LocalDate openedAt) {
+        UUID branch = branchFor(c, account);
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO account(id, legal_entity_id, code, account_kind, normal_balance, currency,"
             + " gl_account_id, contract_id, postable, control_available, stripe_count, status,"
-            + " opened_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+            + " opened_at, branch_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
             ps.setObject(1, account.id());
             ps.setObject(2, account.legalEntityId());
             ps.setString(3, account.code());
@@ -59,6 +60,7 @@ public final class Accounts {
             ps.setInt(11, account.stripeCount());
             ps.setString(12, account.status().name());
             ps.setObject(13, openedAt);
+            ps.setObject(14, branch);
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new LedgerStoreException("Creation du compte " + account.code(), e);
@@ -78,6 +80,26 @@ public final class Accounts {
     }
 
     /** Date comptable courante de l'entite : c'est elle qui date l'ouverture, pas l'horloge. */
+    /**
+     * Agence du compte a la creation : celle qu'il precise ; le siege pour un compte client ou
+     * interne qui n'en precise pas ; aucune pour un compte general, dont le solde se tient par
+     * agence en dimension de ligne — lui en donner une serait une erreur de modele, pas un choix.
+     */
+    private static UUID branchFor(Connection c, Account account) {
+        boolean managed = account.kind() == AccountKind.CUSTOMER
+                          || account.kind() == AccountKind.INTERNAL;
+        if (managed) {
+            return account.branchId() != null ? account.branchId()
+                                              : Branches.headOffice(c, account.legalEntityId());
+        }
+        if (account.branchId() != null && account.kind() != AccountKind.SUSPENSE) {
+            throw new IllegalArgumentException(
+                "Le compte " + account.code() + " est un compte " + account.kind() + " : il n'a "
+                + "pas d'agence, son solde se tient par agence sur chacune de ses lignes");
+        }
+        return account.branchId();
+    }
+
     private static LocalDate businessDateOf(Connection c, java.util.UUID legalEntityId) {
         try (PreparedStatement ps = c.prepareStatement(
             "SELECT current_business_date FROM legal_entity WHERE id = ?")) {
@@ -102,7 +124,7 @@ public final class Accounts {
         try (PreparedStatement ps = c.prepareStatement(
             "SELECT a.id, a.legal_entity_id, a.code, a.account_kind, a.normal_balance,"
             + " cur.code, cur.scale, cur.rounding_mode,"
-            + " a.postable, a.control_available, a.stripe_count, a.status"
+            + " a.postable, a.control_available, a.stripe_count, a.status, a.branch_id"
             + " FROM account a JOIN currency cur ON cur.code = a.currency"
             + " WHERE a.id = ANY (?)")) {
             Array array = c.createArrayOf("uuid", ids.toArray());
@@ -120,7 +142,8 @@ public final class Accounts {
                         rs.getBoolean(9),
                         rs.getBoolean(10),
                         rs.getInt(11),
-                        AccountStatus.valueOf(rs.getString(12)));
+                        AccountStatus.valueOf(rs.getString(12)),
+                        rs.getObject(13, UUID.class));
                     accounts.put(account.id(), account);
                 }
             }

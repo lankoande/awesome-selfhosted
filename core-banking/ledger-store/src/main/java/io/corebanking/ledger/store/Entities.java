@@ -45,6 +45,8 @@ public final class Entities {
         } catch (SQLException e) {
             throw new LedgerStoreException("Insertion de l'entite " + code, e);
         }
+        // Une entite nait avec son siege : sans lui, aucun compte client ne peut etre cree.
+        Branches.createHeadOffice(c, id, "SIEGE", "Siege " + name, businessDate);
     }
 
     public static void openPeriod(Connection c, UUID entityId, LocalDate start, LocalDate end) {

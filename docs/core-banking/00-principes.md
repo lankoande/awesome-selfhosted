@@ -116,6 +116,18 @@ de quelques unités a déjà perdu.
 
 ---
 
+## 13. Toute écriture est équilibrée par agence
+
+Une banque est une entité juridique et N agences, et chaque agence tient ses comptes. Une
+écriture qui met en jeu deux agences — le client de l'agence A servi à la caisse de l'agence B —
+est équilibrée pour l'entité et déséquilibrée pour chacune des deux. Le moteur la **complète**
+par des lignes de liaison, via le siège, avant de l'écrire ; il ne les demande jamais à celui
+qui saisit. L'invariant est vérifié deux fois, comme l'équilibre par devise : dans le validateur
+et par la base. La compensation inter-agences n'est pas un traitement : c'est un contrôle
+quotidien qui prouve que les comptes de liaison s'éliminent ([15](15-multi-agences.md)).
+
+---
+
 ## Anti-patterns explicitement refusés
 
 | Anti-pattern | Pourquoi il est fatal |

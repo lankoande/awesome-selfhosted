@@ -578,7 +578,9 @@ public final class LoanService {
                                     actorId, lines)
             : PostingCommand.batch(key, contract.legalEntityId(), bookingDate, transactionType,
                                    actorId, batchRunId, lines);
-        PostingResult result = postingService.post(command);
+        // L'agence d'un credit est celle de son compte de pret : produits, creances et
+        // provisions sont dans le resultat et le bilan de cette agence.
+        PostingResult result = postingService.post(command.withBranch(contract.branchId()));
         return result.entryId();
     }
 

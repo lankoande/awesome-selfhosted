@@ -14,7 +14,12 @@ import java.util.UUID;
  * @param amount         montant en jeu, nul si l'operation n'en porte pas
  * @param ownerSubjectId auteur de l'operation d'origine, pour le controle de separation des taches
  */
-public record AccessTarget(UUID legalEntityId, UUID branchId, Money amount, String ownerSubjectId) {
+public record AccessTarget(UUID legalEntityId, UUID branchId, Money amount, String ownerSubjectId,
+                           boolean remote) {
+
+    public AccessTarget(UUID legalEntityId, UUID branchId, Money amount, String ownerSubjectId) {
+        this(legalEntityId, branchId, amount, ownerSubjectId, false);
+    }
 
     public AccessTarget {
         Objects.requireNonNull(legalEntityId, "legalEntityId");
@@ -29,10 +34,19 @@ public record AccessTarget(UUID legalEntityId, UUID branchId, Money amount, Stri
     }
 
     public AccessTarget withAmount(Money amount) {
-        return new AccessTarget(legalEntityId, branchId, amount, ownerSubjectId);
+        return new AccessTarget(legalEntityId, branchId, amount, ownerSubjectId, remote);
     }
 
     public AccessTarget madeBy(String subjectId) {
-        return new AccessTarget(legalEntityId, branchId, amount, subjectId);
+        return new AccessTarget(legalEntityId, branchId, amount, subjectId, remote);
+    }
+
+    /**
+     * Operation <b>deplacee</b> : realisee hors de l'agence gestionnaire de l'objet — le client
+     * d'une autre agence servi a cette caisse, le compte d'une autre agence consulte. Elle n'est
+     * possible que si la regle la prevoit, sous son propre plafond.
+     */
+    public AccessTarget performedRemotely() {
+        return new AccessTarget(legalEntityId, branchId, amount, ownerSubjectId, true);
     }
 }

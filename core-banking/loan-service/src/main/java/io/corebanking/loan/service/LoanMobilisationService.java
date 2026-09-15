@@ -579,7 +579,7 @@ public final class LoanMobilisationService {
                                     actorId, lines)
             : PostingCommand.batch(key, contract.legalEntityId(), bookingDate, transactionType,
                                    actorId, batchRunId, lines);
-        return postingService.post(command).entryId();
+        return postingService.post(command.withBranch(contract.branchId())).entryId();
     }
 
     private AccountResolver resolver(LoanContract contract, ProductVersion product,

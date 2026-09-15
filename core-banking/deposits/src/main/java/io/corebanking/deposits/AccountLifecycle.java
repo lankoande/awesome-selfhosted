@@ -19,6 +19,7 @@ import io.corebanking.ledger.domain.posting.PostingResult;
 import io.corebanking.ledger.domain.posting.PostingService;
 import io.corebanking.ledger.store.Accounts;
 import io.corebanking.ledger.store.Balances;
+import io.corebanking.ledger.store.Branches;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.party.AccountHolders;
@@ -106,11 +107,14 @@ public final class AccountLifecycle {
      * fournit pas.
      */
     public record Opening(UUID legalEntityId, String code, UUID holderPartyId, String productCode,
-                          CurrencyRef currency, UUID actorId, UUID approverId) {
+                          CurrencyRef currency, UUID branchId, UUID actorId, UUID approverId) {
         public Opening {
             Objects.requireNonNull(legalEntityId, "legalEntityId");
             Objects.requireNonNull(holderPartyId, "holderPartyId");
             Objects.requireNonNull(currency, "currency");
+            Objects.requireNonNull(branchId,
+                "branchId : un compte s'ouvre dans une agence, qui en repond ; celle de "
+                + "l'appelant, jamais celle que le corps de la requete propose");
             if (code == null || code.isBlank()) {
                 throw new IllegalArgumentException("Numero de compte obligatoire");
             }
@@ -141,17 +145,28 @@ public final class AccountLifecycle {
             ProductCatalog.requireProductCurrency(c, opening.legalEntityId(), opening.productCode(),
                                                   opening.currency().code(),
                                                   "ouverture du compte " + opening.code());
+            Branches.Branch branch = Branches.require(c, opening.branchId());
+            if (!branch.legalEntityId().equals(opening.legalEntityId())) {
+                throw new IllegalArgumentException(
+                    "L'agence " + branch.code() + " releve d'une autre entite juridique");
+            }
+            if (!"ACTIVE".equals(branch.status())) {
+                throw new IllegalArgumentException(
+                    "L'agence " + branch.code() + " est fermee : rien ne s'y ouvre");
+            }
 
             UUID id = Ids.newId();
             Accounts.create(c, new Account(id, opening.legalEntityId(), opening.code(),
                                            AccountKind.CUSTOMER, NormalBalance.CREDIT,
-                                           opening.currency(), true, true, 1, AccountStatus.ACTIVE),
+                                           opening.currency(), true, true, 1, AccountStatus.ACTIVE,
+                                           branch.id()),
                             on);
             ProductCatalog.assignProduct(c, id, opening.productCode(), on, null);
             AccountHolders.attach(c, id, opening.holderPartyId(), HolderRole.HOLDER, on,
                                   opening.actorId());
             event(c, id, "OPENED", on, opening.actorId(), opening.approverId(),
-                  "produit " + opening.productCode() + ", titulaire " + holder.reference(), null);
+                  "produit " + opening.productCode() + ", titulaire " + holder.reference()
+                  + ", agence " + branch.code(), null);
             return id;
         });
     }
@@ -331,7 +346,8 @@ public final class AccountLifecycle {
                     IdempotencyKey.of("ACCOUNT_CLOSURE|" + account.id()), entity, on,
                     TYPE_CLOSURE_PAYOUT, closing.actorId(),
                     List.of(PostingLine.debit(account.id(), balance, on, label),
-                            PostingLine.credit(payout.id(), balance, on, label))));
+                            PostingLine.credit(payout.id(), balance, on, label)))
+                    .withBranch(payout.branchId()));
                 payoutEntry = result.entryId();
             }
 

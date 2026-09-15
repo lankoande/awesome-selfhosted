@@ -84,9 +84,11 @@ public final class SecurityConfig {
         // ------------------------------------------------------------------ consultation
         // Tracees en lecture : un agent habilite qui consulte des comptes sans motif est le cas de
         // fraude interne le plus frequent, et il est invisible d'un journal limite aux modifications.
+        // Un client de passage se sert dans n'importe quelle agence : la lecture deplacee est
+        // admise, et tracee comme toute lecture.
         policy.put(Operation.ACCOUNT_BALANCE_READ,
             AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER, ACCOUNTANT, AUDITOR)
-                .within(Scope.OWN_BRANCH).tracedOnRead().build());
+                .within(Scope.OWN_BRANCH).allowingRemote().tracedOnRead().build());
 
         policy.put(Operation.ACCOUNT_JOURNAL_READ,
             AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER, ACCOUNTANT, AUDITOR)
@@ -94,16 +96,20 @@ public final class SecurityConfig {
 
         policy.put(Operation.PARTY_READ,
             AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER, AUDITOR)
-                .within(Scope.OWN_BRANCH).tracedOnRead().build());
+                .within(Scope.OWN_BRANCH).allowingRemote().tracedOnRead().build());
 
         // ------------------------------------------------------------------ operations
         // Les plafonds vivent ici, pas dans le jeton : un attribut Keycloak mal renseigne ne doit
         // pas pouvoir elever un plafond sans passer par une revue de code.
+        // Le guichetier tient la caisse de son agence ; le client peut etre d'une autre agence
+        // — operation deplacee — sous un plafond plus bas, l'identite verifiee.
         policy.put(Operation.CASH_OPERATION,
             AccessRule.allow(TELLER, BRANCH_MANAGER)
                 .within(Scope.OWN_BRANCH)
                 .upTo(Map.of(TELLER,         Money.of("2000000", XOF),
                              BRANCH_MANAGER, Money.of("25000000", XOF)))
+                .remoteUpTo(Map.of(TELLER,         Money.of("500000", XOF),
+                                   BRANCH_MANAGER, Money.of("5000000", XOF)))
                 .build());
 
         policy.put(Operation.TRANSFER,

@@ -1,6 +1,7 @@
 package io.corebanking.security;
 
 import io.corebanking.kernel.money.Money;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -54,31 +55,43 @@ public final class AuthorizationService {
                 "aucun des roles " + caller.roles() + " ne figure parmi " + rule.roles());
         }
 
-        // 3. Perimetre d'agence.
+        // 3. Perimetre d'agence. Une operation deplacee — l'objet d'une autre agence — n'est
+        //    admise que si la regle la prevoit ; elle porte alors son propre plafond.
+        boolean remote = rule.scope() == Scope.OWN_BRANCH && target.remote();
         if (rule.scope() == Scope.OWN_BRANCH) {
             if (caller.branchId() == null) {
                 return AccessDecision.deny(operation,
                     "operation limitee au perimetre d'agence, appelant sans agence de rattachement");
             }
-            if (target.branchId() != null && !caller.branchId().equals(target.branchId())) {
+            if (remote && !rule.remoteAllowed()) {
+                return AccessDecision.deny(operation,
+                    "operation deplacee : cette operation ne se fait que dans l'agence "
+                    + "gestionnaire de l'objet");
+            }
+            if (target.branchId() != null && !caller.branchId().equals(target.branchId())
+                && !remote) {
                 return AccessDecision.deny(operation,
                     "objet rattache a l'agence " + target.branchId()
                     + ", appelant rattache a " + caller.branchId());
             }
         }
 
-        // 4. Plafond de montant.
-        if (target.amount() != null && !rule.ceilings().isEmpty()) {
-            Optional<Money> ceiling = highestCeiling(caller, rule, target.amount());
+        // 4. Plafond de montant : celui des operations deplacees quand il en existe un.
+        Map<String, Money> ceilings = remote && !rule.remoteCeilings().isEmpty()
+            ? rule.remoteCeilings() : rule.ceilings();
+        if (target.amount() != null && !ceilings.isEmpty()) {
+            Optional<Money> ceiling = highestCeiling(caller, ceilings, target.amount());
             if (ceiling.isEmpty()) {
                 return AccessDecision.deny(operation,
                     "aucun plafond defini en " + target.amount().currency()
                     + " pour les roles " + caller.roles()
+                    + (remote ? " en operation deplacee" : "")
                     + " : le defaut est l'absence de droit, pas l'absence de limite");
             }
             if (target.amount().isGreaterThan(ceiling.get())) {
                 return AccessDecision.deny(operation,
-                    "montant " + target.amount() + " au-dela du plafond " + ceiling.get());
+                    "montant " + target.amount() + " au-dela du plafond " + ceiling.get()
+                    + (remote ? " des operations deplacees" : ""));
             }
         }
 
@@ -100,8 +113,9 @@ public final class AuthorizationService {
      * qui varie avec le change n'est pas un plafond. L'absence de plafond dans la devise concernee
      * vaut refus.
      */
-    private Optional<Money> highestCeiling(Caller caller, AccessRule rule, Money amount) {
-        return rule.ceilings().entrySet().stream()
+    private Optional<Money> highestCeiling(Caller caller, Map<String, Money> ceilings,
+                                           Money amount) {
+        return ceilings.entrySet().stream()
             .filter(entry -> caller.roles().contains(entry.getKey()))
             .map(java.util.Map.Entry::getValue)
             .filter(ceiling -> ceiling.currency().equals(amount.currency()))

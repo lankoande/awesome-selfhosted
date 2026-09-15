@@ -75,7 +75,8 @@ public final class LoanInterestAccrualService {
         }
     }
 
-    private record Pair(UUID accrued, UUID credit) {}
+    /** Comptes d'imputation et agence du credit : une paire de lignes par agence dans le lot. */
+    private record Pair(UUID accrued, UUID credit, UUID branchId) {}
 
     public Outcome accrue(UUID legalEntityId, LocalDate businessDate, UUID actorId,
                           UUID batchRunId) {
@@ -123,7 +124,8 @@ public final class LoanInterestAccrualService {
             database.inTransaction(c -> {
                 LoanStore.insertInterestAccruals(
                     c, rows, businessDate,
-                    row -> posted.get(new Pair(row.accruedAccountId(), creditOf(row))),
+                    row -> posted.get(new Pair(row.accruedAccountId(), creditOf(row),
+                                               row.line().branchId())),
                     batchRunId);
                 return null;
             });
@@ -170,8 +172,9 @@ public final class LoanInterestAccrualService {
         Map<Pair, Money> totals = new LinkedHashMap<>();
         for (LoanStore.InterestAccrualRow row : rows) {
             if (!row.delta().isZero()) {
-                totals.merge(new Pair(row.accruedAccountId(), row.creditAccountId()), row.delta(),
-                             Money::plus);
+                totals.merge(new Pair(row.accruedAccountId(), row.creditAccountId(),
+                                      row.line().branchId()),
+                             row.delta(), Money::plus);
             }
         }
         String chunkTag = chunkTag(rows);
@@ -185,13 +188,14 @@ public final class LoanInterestAccrualService {
             UUID credit = total.isPositive() ? pair.credit() : pair.accrued();
             var result = postingService.post(PostingCommand.batch(
                 IdempotencyKey.forBatch(String.valueOf(batchRunId), "LOAN_ICNE", pair.accrued(),
-                                        pair.credit(), businessDate, chunkTag),
+                                        pair.credit(), businessDate, chunkTag, pair.branchId()),
                 legalEntityId, businessDate, LoanSchemas.EVENT_INTEREST_ACCRUAL, actorId,
                 batchRunId,
                 List.of(PostingLine.debit(debit, amount, businessDate,
                                           "Interets courus sur credits au " + businessDate),
                         PostingLine.credit(credit, amount, businessDate,
-                                           "Interets courus sur credits au " + businessDate))));
+                                           "Interets courus sur credits au " + businessDate)))
+                .withBranch(pair.branchId()));
             entries.put(pair, result.entryId());
         });
         return entries;

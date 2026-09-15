@@ -75,13 +75,18 @@ public final class BatchInterestAccrualService {
     /** Accrual calcule pour un compte, pret a etre enregistre. */
     private record Computed(UUID accountId, InterestTerms terms, List<DailyAccrual> days,
                             Money cumulative, Money postedBefore, Money delta, int generation,
-                            LocalDate from) {
+                            LocalDate from, UUID branchId) {
         Pair pair() {
-            return new Pair(terms.debitAccount(), terms.creditAccount(), terms.side());
+            return new Pair(terms.debitAccount(), terms.creditAccount(), terms.side(), branchId);
         }
     }
 
-    private record Pair(UUID debit, UUID credit, AccrualSide side) {}
+    /**
+     * Cle d'agregation : les deux comptes d'imputation, le cote, et <b>l'agence du compte</b>.
+     * L'ecriture agregee d'un lot porte une paire de lignes par agence, pas une pour le lot : la
+     * charge d'interets est dans le resultat de l'agence du client, sans aucune ligne de liaison.
+     */
+    private record Pair(UUID debit, UUID credit, AccrualSide side, UUID branchId) {}
 
     /**
      * @param chunkTag marque distinguant ce lot des autres lots du meme traitement. Elle entre dans
@@ -103,6 +108,7 @@ public final class BatchInterestAccrualService {
 
         database.inTransaction(connection -> {
             Map<UUID, CurrencyRef> currencies = currenciesOf(connection, accountIds);
+            Map<UUID, UUID> branches = branchesOf(connection, accountIds);
             Map<InterestPositions.Key, InterestPositions.Position> positions =
                 InterestPositions.loadAll(connection, accountIds, currencies);
             Map<UUID, LocalDate> firstValueDates = firstValueDatesOf(connection, accountIds);
@@ -110,8 +116,8 @@ public final class BatchInterestAccrualService {
 
             for (UUID accountId : accountIds) {
                 try {
-                    computeOne(accountId, through, terms, currencies, positions, firstValueDates,
-                               movements).ifPresent(computed::add);
+                    computeOne(accountId, through, terms, currencies, branches, positions,
+                               firstValueDates, movements).ifPresent(computed::add);
                 } catch (RuntimeException e) {
                     anomalies.add("Compte " + accountId + " non remunere : " + e.getMessage());
                 }
@@ -133,7 +139,7 @@ public final class BatchInterestAccrualService {
 
     private java.util.Optional<Computed> computeOne(
             UUID accountId, LocalDate through, TermsProvider termsProvider,
-            Map<UUID, CurrencyRef> currencies,
+            Map<UUID, CurrencyRef> currencies, Map<UUID, UUID> branches,
             Map<InterestPositions.Key, InterestPositions.Position> positions,
             Map<UUID, LocalDate> firstValueDates, Map<UUID, List<DayMovement>> movements) {
 
@@ -186,7 +192,8 @@ public final class BatchInterestAccrualService {
         Money delta = cumulative.roundToCurrency().minus(state.postedTotal());
         return java.util.Optional.of(new Computed(accountId, reference, days, cumulative,
                                                   state.postedTotal(), delta,
-                                                  state.generation() + 1, from));
+                                                  state.generation() + 1, from,
+                                                  branches.get(accountId)));
     }
 
     private static void requireStable(InterestTerms reference, InterestTerms ofDay, LocalDate day) {
@@ -239,13 +246,14 @@ public final class BatchInterestAccrualService {
             var result = postingService.post(new PostingCommand(
                 IdempotencyKey.forBatch(String.valueOf(batchRunId), "INTEREST_ACCRUAL_BATCH",
                                         pair.debit(), pair.credit(), pair.side(), through,
-                                        chunkTag),
+                                        chunkTag, pair.branchId()),
                 legalEntityId, bookingDate, "INTEREST_ACCRUAL", actorId,
                 PostingSource.BATCH, batchRunId,
                 List.of(PostingLine.debit(debit, amount, through, "Interets courus du " + through),
                         PostingLine.credit(credit, amount, through, "Interets courus du " + through)),
                 Map.of("side", pair.side().name(), "through", through.toString(),
-                       "accounts", String.valueOf(counts.get(pair)))));
+                       "accounts", String.valueOf(counts.get(pair))),
+                pair.branchId()));
             entries.put(pair, result.entryId());
         });
         return entries;
@@ -330,6 +338,23 @@ public final class BatchInterestAccrualService {
             throw new LedgerStoreException("Devises du lot", e);
         }
         return currencies;
+    }
+
+    /** Agence de chaque compte du lot : l'agence comptable de ses interets. */
+    private Map<UUID, UUID> branchesOf(Connection c, Collection<UUID> accountIds) {
+        Map<UUID, UUID> branches = new LinkedHashMap<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, branch_id FROM account WHERE id = ANY (?)")) {
+            ps.setArray(1, uuidArray(c, accountIds));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    branches.put(rs.getObject(1, UUID.class), rs.getObject(2, UUID.class));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Agences du lot", e);
+        }
+        return branches;
     }
 
     private Map<UUID, LocalDate> firstValueDatesOf(Connection c, Collection<UUID> accountIds) {

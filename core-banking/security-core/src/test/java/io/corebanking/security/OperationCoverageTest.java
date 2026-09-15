@@ -105,6 +105,13 @@ class OperationCoverageTest {
                 .containsExactlyInAnyOrderElementsOf(rule.roles());
             rule.ceilings().values().forEach(ceiling ->
                 assertThat(ceiling.currency()).isEqualTo(Currencies.XOF));
+            // Un plafond deplace ne vise que des roles de la regle, et ne depasse jamais
+            // l'ordinaire : deplace veut dire plus prudent, pas plus large.
+            rule.remoteCeilings().forEach((role, ceiling) -> {
+                assertThat(rule.roles()).as(entry.getKey().name()).contains(role);
+                assertThat(ceiling.currency()).isEqualTo(Currencies.XOF);
+                assertThat(ceiling.isGreaterThan(rule.ceilings().get(role))).isFalse();
+            });
         }
     }
 

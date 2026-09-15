@@ -66,7 +66,8 @@ class LifecycleIT extends DepositsTestBase {
             .hasMessageContaining("PENDING");
 
         assertThatThrownBy(() -> lifecycle.open(new AccountLifecycle.Opening(
-                decor.entityId(), "CLI-OUVR-2", verifie, "EP-OUVR", Currencies.XOF, ACTOR, ACTOR)))
+                decor.entityId(), "CLI-OUVR-2", verifie, "EP-OUVR", Currencies.XOF, siege(decor),
+                ACTOR, ACTOR)))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("a deux");
 

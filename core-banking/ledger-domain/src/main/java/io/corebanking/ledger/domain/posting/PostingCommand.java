@@ -23,7 +23,16 @@ public record PostingCommand(
     PostingSource source,
     UUID batchRunId,
     List<PostingLine> lines,
-    Map<String, String> metadata) {
+    Map<String, String> metadata,
+    UUID branchId) {
+
+    /** Commande sans agence d'operation : voir {@link #withBranch(UUID)}. */
+    public PostingCommand(IdempotencyKey idempotencyKey, UUID legalEntityId, LocalDate bookingDate,
+                          String transactionType, UUID actorId, PostingSource source,
+                          UUID batchRunId, List<PostingLine> lines, Map<String, String> metadata) {
+        this(idempotencyKey, legalEntityId, bookingDate, transactionType, actorId, source,
+             batchRunId, lines, metadata, null);
+    }
 
     public PostingCommand {
         Objects.requireNonNull(idempotencyKey, "idempotencyKey");
@@ -59,6 +68,19 @@ public record PostingCommand(
 
     public PostingCommand withMetadata(Map<String, String> extra) {
         return new PostingCommand(idempotencyKey, legalEntityId, bookingDate, transactionType,
-                                  actorId, source, batchRunId, lines, extra);
+                                  actorId, source, batchRunId, lines, extra, branchId);
+    }
+
+    /**
+     * Agence de l'operation : celle qui la realise — la caisse qui sert, le compte dont decoule
+     * un interet ou une commission. Les lignes sur comptes generaux la prennent pour agence
+     * comptable ; les lignes sur comptes client ou internes gardent l'agence de leur compte, et
+     * le service d'imputation complete l'ecriture par des lignes de liaison si les agences
+     * different. Sans agence d'operation, l'agence unique des comptes a agence de l'ecriture,
+     * a defaut le siege.
+     */
+    public PostingCommand withBranch(UUID branch) {
+        return new PostingCommand(idempotencyKey, legalEntityId, bookingDate, transactionType,
+                                  actorId, source, batchRunId, lines, metadata, branch);
     }
 }

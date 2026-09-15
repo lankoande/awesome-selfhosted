@@ -2,12 +2,26 @@ package io.corebanking.ledger.domain.posting;
 
 import io.corebanking.kernel.money.Money;
 import io.corebanking.ledger.domain.account.Account;
+import java.util.UUID;
 
 /**
  * Ligne validee, enrichie du compte resolu et de sa contre-valeur dans la devise de tenue de
  * compte de l'entite.
  */
-public record ValidatedLine(PostingLine line, Account account, Money functionalAmount) {
+public record ValidatedLine(PostingLine line, Account account, Money functionalAmount,
+                            UUID branchId, LineKind kind) {
+
+    /** Montant en sens comptable brut : positif au debit, negatif au credit. */
+    public Money debitSigned() {
+        return line.direction() == io.corebanking.ledger.domain.account.Direction.DEBIT
+            ? line.amount() : line.amount().negate();
+    }
+
+    public Money debitSignedFunctional() {
+        return line.direction() == io.corebanking.ledger.domain.account.Direction.DEBIT
+            ? functionalAmount : functionalAmount.negate();
+    }
+
 
     /**
      * Montant signe selon le sens naturel du compte : positif s'il augmente le solde.

@@ -96,6 +96,34 @@ CREATE INDEX idx_account_entity_kind ON account(legal_entity_id, account_kind, s
 `gl_account_id` est le lien qui rend la comptabilité générale gratuite : l'agrégation des
 comptes clients par compte de rattachement **est** la balance générale.
 
+### Agences, comptes de liaison, cliché par agence (V24)
+
+```sql
+CREATE TABLE branch (                 -- siege, region, agence ; un siege par entite
+    id, legal_entity_id, code, name, kind,        -- HEAD_OFFICE | REGION | BRANCH
+    parent_id, status, opened_on, closed_on,
+    UNIQUE (legal_entity_id, code)
+);
+CREATE UNIQUE INDEX uq_head_office ON branch(legal_entity_id) WHERE kind = 'HEAD_OFFICE';
+CREATE TABLE branch_liaison (branch_id, currency, account_id,   -- un compte de liaison par
+    PRIMARY KEY (branch_id, currency), UNIQUE (account_id));     -- agence et par devise
+
+ALTER TABLE account ADD COLUMN branch_id UUID REFERENCES branch(id);
+-- Les comptes clients et internes ont une agence ; les comptes generaux n'en ont pas.
+ALTER TABLE journal_entry ADD COLUMN branch_id UUID;       -- agence de l'operation
+ALTER TABLE journal_line  ADD COLUMN branch_id UUID NOT NULL;  -- agence comptable de la ligne
+ALTER TABLE journal_line  ADD COLUMN kind TEXT NOT NULL DEFAULT 'BUSINESS';  -- | LIAISON
+
+CREATE TABLE branch_balance_daily (   -- la balance agence a une date, partitionnee
+    account_id, branch_id, business_date, closing_balance,
+    PRIMARY KEY (account_id, branch_id, business_date)
+) PARTITION BY RANGE (business_date);
+```
+
+Le déclencheur d'équilibre des partitions vérifie l'équilibre par devise, par agence, et en
+contre-valeur par agence : une écriture déséquilibrée pour une agence ne peut pas exister en
+base, quelle que soit la voie d'entrée ([15](15-multi-agences.md)).
+
 ### Tiers, titulaires, blocages, historique (V21, V22)
 
 ```sql

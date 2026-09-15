@@ -68,7 +68,98 @@ public final class BalanceSnapshotStep implements TfjStep {
         long incremental = previous.isPresent()
             ? snapshotFromPrevious(c, context, previous.get()) : 0;
         long replayed = snapshotByReplay(c, context, previous.orElse(null));
-        return incremental + replayed;
+        return incremental + replayed + branchSnapshot(c, context, previous.orElse(null));
+    }
+
+    /**
+     * Cliche par agence : le solde de chaque compte dans les livres de chaque agence. Incremental
+     * depuis le cliche precedent quand il en existe un par agence ; rejoue integralement sinon —
+     * la premiere nuit apres la mise en place des agences, et elle seule.
+     */
+    private static long branchSnapshot(Connection c, TfjContext context, LocalDate previous) {
+        boolean incremental = previous != null && hasBranchRows(c, context, previous);
+        if (!incremental) {
+            return branchSnapshotByReplay(c, context, null);
+        }
+        // Les couples (compte, agence) deja cliches avancent de la journee ; ceux qui
+        // apparaissent — compte nouveau, ou ecriture antidatee sur une agence nouvelle pour ce
+        // compte — sont rejoues depuis l'origine, comme le cliche par compte le fait.
+        return branchSnapshotFromPrevious(c, context, previous)
+             + branchSnapshotByReplay(c, context, previous);
+    }
+
+    private static boolean hasBranchRows(Connection c, TfjContext context, LocalDate date) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT EXISTS (SELECT 1 FROM branch_balance_daily bb JOIN account a ON a.id = bb.account_id"
+            + " WHERE a.legal_entity_id = ? AND bb.business_date = ?)")) {
+            ps.setObject(1, context.legalEntityId());
+            ps.setObject(2, date);
+            try (var rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getBoolean(1);
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Cliche par agence precedent", e);
+        }
+    }
+
+    private static long branchSnapshotFromPrevious(Connection c, TfjContext context,
+                                                   LocalDate previous) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "INSERT INTO branch_balance_daily(account_id, branch_id, business_date, closing_balance)"
+            + " SELECT p.account_id, p.branch_id, ?::date,"
+            + "        p.closing_balance + COALESCE(t.booked, 0)"
+            + "   FROM branch_balance_daily p"
+            + "   JOIN account a ON a.id = p.account_id"
+            + "   LEFT JOIN ("
+            + "        SELECT l.account_id, l.branch_id,"
+            + "               SUM(CASE WHEN l.direction = x.normal_balance THEN l.amount"
+            + "                        ELSE -l.amount END) AS booked"
+            + "          FROM journal_line l JOIN account x ON x.id = l.account_id"
+            + "         WHERE l.legal_entity_id = ?"
+            + "           AND l.booking_date > ?::date AND l.booking_date <= ?::date"
+            + "         GROUP BY l.account_id, l.branch_id) t"
+            + "        ON t.account_id = p.account_id AND t.branch_id = p.branch_id"
+            + "  WHERE a.legal_entity_id = ? AND p.business_date = ?::date"
+            + " ON CONFLICT (account_id, branch_id, business_date) DO UPDATE"
+            + "    SET closing_balance = EXCLUDED.closing_balance")) {
+            LocalDate today = context.businessDate();
+            ps.setObject(1, today);
+            ps.setObject(2, context.legalEntityId());
+            ps.setObject(3, previous);
+            ps.setObject(4, today);
+            ps.setObject(5, context.legalEntityId());
+            ps.setObject(6, previous);
+            return (long) ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Arrete incremental des soldes par agence", e);
+        }
+    }
+
+    /** Rejeu depuis l'origine des couples sans cliche a la journee precedente — tous si elle est nulle. */
+    private static long branchSnapshotByReplay(Connection c, TfjContext context, LocalDate previous) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "INSERT INTO branch_balance_daily(account_id, branch_id, business_date, closing_balance)"
+            + " SELECT l.account_id, l.branch_id, ?::date,"
+            + "        SUM(CASE WHEN l.direction = x.normal_balance THEN l.amount ELSE -l.amount END)"
+            + "   FROM journal_line l JOIN account x ON x.id = l.account_id"
+            + "  WHERE l.legal_entity_id = ? AND l.booking_date <= ?::date"
+            + "    AND (?::date IS NULL OR NOT EXISTS ("
+            + "         SELECT 1 FROM branch_balance_daily p"
+            + "          WHERE p.account_id = l.account_id AND p.branch_id = l.branch_id"
+            + "            AND p.business_date = ?::date))"
+            + "  GROUP BY l.account_id, l.branch_id"
+            + " ON CONFLICT (account_id, branch_id, business_date) DO UPDATE"
+            + "    SET closing_balance = EXCLUDED.closing_balance")) {
+            ps.setObject(1, context.businessDate());
+            ps.setObject(2, context.legalEntityId());
+            ps.setObject(3, context.businessDate());
+            ps.setObject(4, previous);
+            ps.setObject(5, previous);
+            return (long) ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Arrete des soldes par agence par rejeu", e);
+        }
     }
 
     /** Comptes qui ont un cliche a la journee precedente : cliche precedent plus la periode. */

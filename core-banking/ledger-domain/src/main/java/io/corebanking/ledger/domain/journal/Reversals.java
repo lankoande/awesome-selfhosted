@@ -52,6 +52,7 @@ public final class Reversals {
             PostingSource.CORRECTION,
             null,
             reversedLines,
-            Map.of("reversal_of", original.id().toString(), "reason", reason));
+            Map.of("reversal_of", original.id().toString(), "reason", reason),
+            original.branchId());
     }
 }

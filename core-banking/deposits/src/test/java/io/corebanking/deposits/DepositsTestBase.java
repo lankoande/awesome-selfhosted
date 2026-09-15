@@ -215,8 +215,18 @@ abstract class DepositsTestBase {
     }
 
     protected static UUID ouvrir(Decor decor, String code, String produit, UUID partyId) {
+        return ouvrir(decor, code, produit, partyId, siege(decor));
+    }
+
+    protected static UUID ouvrir(Decor decor, String code, String produit, UUID partyId,
+                                 UUID agence) {
         return lifecycle.open(new AccountLifecycle.Opening(decor.entityId(), code, partyId, produit,
-                                                           Currencies.XOF, ACTOR, APPROVER));
+                                                           Currencies.XOF, agence, ACTOR, APPROVER));
+    }
+
+    protected static UUID siege(Decor decor) {
+        return database.inTransaction(
+            c -> io.corebanking.ledger.store.Branches.headOffice(c, decor.entityId()));
     }
 
     protected static OperationsService.Receipt verser(Decor decor, UUID accountId, String montant,

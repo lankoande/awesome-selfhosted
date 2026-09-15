@@ -100,8 +100,8 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | 12 | `DORMANCY` | Détection de dormance (délai du produit, sur l'absence d'opération du client) ; régime de frais : non fait | ✔ (non bloquante) |
 | 13 | `HOLD_EXPIRY` | Expiration des blocages de montant arrivés à terme, en date comptable | ✔ |
 | 14 | `KYC_REVIEW` | Échéances de revue périodique de la connaissance client ; expiration de documents : non fait | ✔ (non bloquante) |
-| 15 | `BALANCE_SNAPSHOT` | Snapshot des soldes par date comptable et par date de valeur | ✔ |
-| 16 | `RECONCILIATION` | Contrôles d'intégrité (cf. §5) | ✔ |
+| 15 | `BALANCE_SNAPSHOT` | Snapshot des soldes par date comptable et par date de valeur, et par agence | ✔ |
+| 16 | `RECONCILIATION` | Contrôles d'intégrité (cf. §5), compensation inter-agences comprise | ✔ |
 | 17 | `REPORTING` | États quotidiens, extractions vers le datamart | |
 | 18 | `OPEN_NEXT_DAY` | Ouverture de la date comptable suivante | ✔ |
 
@@ -120,10 +120,16 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > la banque d'arrêter ses comptes ; les dossiers expirés sont rendus en anomalies non bloquantes,
 > liste de travail du lendemain. Les trois sont défaites par l'annulation de l'arrêté.
 >
-> Chaque frontière — lancement, reprise, étape, fin, annulation — est journalisée (SLF4J) avec
-> entité, journée, identifiant du traitement, étape, volumes lus et écrits, durée et anomalies.
-> Le rapport en base (`batch_step`) reste la référence ; le journal est ce que l'astreinte lit en
-> premier.
+> Chaque frontière — lancement, reprise, étape, fin, annonce, annulation — est journalisée (SLF4J)
+> avec entité, journée, identifiant du traitement, étape, volumes lus et écrits, durée et
+> anomalies. Le rapport en base (`batch_step`) reste la référence ; le journal est ce que
+> l'astreinte lit en premier.
+>
+> `BALANCE_SNAPSHOT` tient aussi le **cliché par agence** (`branch_balance_daily`, incrémental,
+> rejoué depuis l'origine pour un couple compte-agence qui apparaît) ; `RECONCILIATION` y ajoute
+> la **compensation inter-agences** : miroir de chaque compte de liaison entre son agence et le
+> siège, élimination totale, et cliché par agence égal au cliché par compte. Un écart nomme
+> l'agence et bloque la journée ; le TFM rejoue le même contrôle sur le journal entier.
 >
 > `LOAN_INTEREST_ACCRUAL` étale l'intérêt contractuel de chaque échéance en cours sur les jours de
 > sa période — cumul arrondi, jamais de dérive — et le constate en produits ; à l'échéance, la

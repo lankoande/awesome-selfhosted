@@ -23,7 +23,8 @@ public record LoanContract(
     Money principal,
     LocalDate disbursedOn,
     Status status,
-    LoanTerms terms) {
+    LoanTerms terms,
+    UUID branchId) {
 
     public enum Status { DRAFT, ACTIVE, CLOSED, WRITTEN_OFF }
 

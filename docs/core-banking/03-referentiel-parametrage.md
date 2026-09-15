@@ -20,6 +20,12 @@ Group (groupe bancaire, consolidation)
               └── Till (caisse, guichet)
 ```
 
+> **Implémenté** — `branch` (siège, région, agence ; un siège par entité, créé avec elle) et
+> `branch_liaison` (compte de liaison par agence et par devise, celui de la devise de tenue de
+> compte obligatoire). Les comptes clients et internes portent leur agence gestionnaire ; les
+> comptes généraux n'en ont pas, leur solde se tient par agence sur chaque ligne. La caisse par
+> guichetier (`Till`) reste à faire.
+
 `legal_entity_id` est porté par **toute** donnée métier. Le cloisonnement est appliqué à
 deux niveaux : filtre applicatif **et** Row Level Security PostgreSQL. Le second est ce qui
 protège contre une requête oubliée dans un rapport.

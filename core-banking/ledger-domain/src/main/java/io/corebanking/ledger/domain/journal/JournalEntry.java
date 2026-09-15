@@ -33,7 +33,8 @@ public record JournalEntry(
     String narrative,
     Map<String, String> metadata,
     UUID createdBy,
-    Instant knowledgeTime) {
+    Instant knowledgeTime,
+    UUID branchId) {
 
     public boolean isReversal() {
         return reversalOf != null;

@@ -172,4 +172,43 @@ class AuthorizationServiceTest {
             .isInstanceOf(NullPointerException.class)
             .hasMessageContaining("aucune identite n'est valable hors d'une entite juridique");
     }
+
+    @Test
+    @DisplayName("une operation deplacee passe sous son propre plafond, plus bas que l'ordinaire")
+    void a_remote_operation_has_its_own_lower_ceiling() {
+        Caller guichetier = caller("g", ENTITE_A, AGENCE_1, Roles.TELLER);
+        AccessTarget aSaCaisse = AccessTarget.inBranch(ENTITE_A, AGENCE_1)
+            .withAmount(Money.of("1500000", XOF));
+
+        assertThat(service.decide(guichetier, Operation.CASH_OPERATION, aSaCaisse).allowed())
+            .isTrue();
+        AccessDecision deplace = service.decide(guichetier, Operation.CASH_OPERATION,
+                                                aSaCaisse.performedRemotely());
+        assertThat(deplace.allowed()).isFalse();
+        assertThat(deplace.reason()).contains("deplacees");
+        assertThat(service.decide(guichetier, Operation.CASH_OPERATION,
+                                  AccessTarget.inBranch(ENTITE_A, AGENCE_1)
+                                      .withAmount(Money.of("400000", XOF)).performedRemotely())
+                       .allowed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("une operation deplacee n'est admise que si la regle la prevoit")
+    void a_remote_operation_needs_to_be_provided_for() {
+        Caller chef = caller("chef", ENTITE_A, AGENCE_1, Roles.BRANCH_MANAGER);
+
+        // La cloture d'un compte revient a l'agence qui en repond : deplacee, refusee.
+        AccessDecision cloture = service.decide(chef, Operation.ACCOUNT_CLOSE,
+            AccessTarget.inBranch(ENTITE_A, AGENCE_2).performedRemotely());
+        assertThat(cloture.allowed()).isFalse();
+        assertThat(cloture.reason()).contains("deplacee");
+
+        // La lecture d'un solde d'une autre agence est admise deplacee, et tracee.
+        AccessDecision lecture = service.decide(chef, Operation.ACCOUNT_BALANCE_READ,
+            AccessTarget.inBranch(ENTITE_A, AGENCE_2).performedRemotely());
+        assertThat(lecture.allowed()).isTrue();
+        // ... mais pas sans le dire : le meme objet, sans l'indicateur, reste hors perimetre.
+        assertThat(service.decide(chef, Operation.ACCOUNT_BALANCE_READ,
+                                  AccessTarget.inBranch(ENTITE_A, AGENCE_2)).allowed()).isFalse();
+    }
 }

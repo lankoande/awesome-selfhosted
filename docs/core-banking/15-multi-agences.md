@@ -1,9 +1,13 @@
 # 15. Multi-agences : comptabilité par agence et compensation inter-agences
 
-> Étude de conception, préalable à la couche API. Elle fixe ce que le socle doit garantir dès
-> qu'une banque a plus d'une agence, propose un modèle, chiffre des exemples, liste les impacts
-> sur l'existant et les décisions qui restent à la banque. Rien de ce qui est décrit ici n'est
-> encore implémenté : l'agence n'existe aujourd'hui que dans le jeton (`Caller.branchId`).
+> Étude de conception, préalable à la couche API, **implémentée** (V24, `Branches`,
+> `InterbranchBridging`, `TfjInterbranchIT`). Les décisions du §4 ont été validées par la banque
+> et retenues telles quelles. Trois précisions par rapport à l'étude : l'agence d'une ligne sur
+> compte général vient d'abord de la ligne, puis de **l'agence de l'opération portée par la
+> commande** (`PostingCommand.withBranch`), ce qui évite aux services de raisonner ligne par
+> ligne ; le cliché par agence est une table à part (`branch_balance_daily`), le cliché par
+> compte restant intact ; seul le schéma via le siège existe, les deux autres s'ajouteront par
+> migration. Un compte d'attente (`SUSPENSE`) peut avoir une agence ou non.
 
 ---
 

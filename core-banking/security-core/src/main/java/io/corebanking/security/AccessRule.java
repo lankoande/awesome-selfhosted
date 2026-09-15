@@ -24,12 +24,24 @@ public record AccessRule(
     Scope scope,
     Map<String, Money> ceilings,
     boolean dualControl,
-    boolean auditEvenOnSuccess) {
+    boolean auditEvenOnSuccess,
+    boolean remoteAllowed,
+    Map<String, Money> remoteCeilings) {
+
+    public AccessRule(Set<String> roles, Scope scope, Map<String, Money> ceilings,
+                      boolean dualControl, boolean auditEvenOnSuccess) {
+        this(roles, scope, ceilings, dualControl, auditEvenOnSuccess, false, Map.of());
+    }
 
     public AccessRule {
         roles = Set.copyOf(Objects.requireNonNull(roles, "roles"));
         Objects.requireNonNull(scope, "scope");
         ceilings = Map.copyOf(Objects.requireNonNull(ceilings, "ceilings"));
+        remoteCeilings = Map.copyOf(remoteCeilings == null ? Map.of() : remoteCeilings);
+        if (!remoteCeilings.isEmpty() && !remoteAllowed) {
+            throw new IllegalArgumentException(
+                "Un plafond deplace sans operation deplacee autorisee n'a pas de sens");
+        }
     }
 
     public static Builder allow(String... roles) {
@@ -47,9 +59,27 @@ public record AccessRule(
         private Map<String, Money> ceilings = Map.of();
         private boolean dualControl;
         private boolean auditEvenOnSuccess;
+        private boolean remoteAllowed;
+        private Map<String, Money> remoteCeilings = Map.of();
 
         private Builder(Set<String> roles) {
             this.roles = roles;
+        }
+
+        /**
+         * L'operation peut etre deplacee : realisee hors de l'agence gestionnaire de l'objet.
+         * Sans plafond propre, le plafond ordinaire s'applique.
+         */
+        public Builder allowingRemote() {
+            this.remoteAllowed = true;
+            return this;
+        }
+
+        /** L'operation peut etre deplacee, sous un plafond plus bas que l'ordinaire. */
+        public Builder remoteUpTo(Map<String, Money> ceilingsByRole) {
+            this.remoteAllowed = true;
+            this.remoteCeilings = ceilingsByRole;
+            return this;
         }
 
         public Builder within(Scope scope) {
@@ -73,7 +103,8 @@ public record AccessRule(
         }
 
         public AccessRule build() {
-            return new AccessRule(roles, scope, ceilings, dualControl, auditEvenOnSuccess);
+            return new AccessRule(roles, scope, ceilings, dualControl, auditEvenOnSuccess,
+                                  remoteAllowed, remoteCeilings);
         }
     }
 }

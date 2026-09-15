@@ -15,12 +15,18 @@ public final class ValidatedEntry {
     private final PostingCommand command;
     private final List<ValidatedLine> lines;
     private final CurrencyRef functionalCurrency;
+    private final java.util.UUID operationBranchId;
 
-    ValidatedEntry(PostingCommand command, List<ValidatedLine> lines, CurrencyRef functionalCurrency) {
+    ValidatedEntry(PostingCommand command, List<ValidatedLine> lines, CurrencyRef functionalCurrency,
+                   java.util.UUID operationBranchId) {
         this.command = Objects.requireNonNull(command);
         this.lines = List.copyOf(lines);
         this.functionalCurrency = Objects.requireNonNull(functionalCurrency);
+        this.operationBranchId = operationBranchId;
     }
+
+    /** Agence de l'operation, telle que resolue : celle de la commande, sinon deduite, sinon le siege. */
+    public java.util.UUID operationBranchId() { return operationBranchId; }
 
     public PostingCommand command()          { return command; }
     public List<ValidatedLine> lines()       { return lines; }

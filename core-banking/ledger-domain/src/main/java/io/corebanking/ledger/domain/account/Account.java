@@ -24,7 +24,20 @@ public record Account(
     boolean postable,
     boolean controlAvailable,
     int stripeCount,
-    AccountStatus status) {
+    AccountStatus status,
+    UUID branchId) {
+
+    /**
+     * Compte sans agence precisee. Un compte client ou interne prendra le siege de son entite a
+     * la creation ; un compte general n'a pas d'agence : son solde se tient par agence, en
+     * dimension de chaque ligne.
+     */
+    public Account(UUID id, UUID legalEntityId, String code, AccountKind kind,
+                   NormalBalance normalBalance, CurrencyRef currency, boolean postable,
+                   boolean controlAvailable, int stripeCount, AccountStatus status) {
+        this(id, legalEntityId, code, kind, normalBalance, currency, postable, controlAvailable,
+             stripeCount, status, null);
+    }
 
     public Account {
         Objects.requireNonNull(id, "id");
@@ -48,5 +61,15 @@ public record Account(
 
     public boolean isHot() {
         return stripeCount > 1;
+    }
+
+    /** Vrai pour un compte tenu par une agence : client, interne, ou compte d'attente d'agence. */
+    public boolean hasBranch() {
+        return branchId != null;
+    }
+
+    public Account withBranch(UUID branch) {
+        return new Account(id, legalEntityId, code, kind, normalBalance, currency, postable,
+                           controlAvailable, stripeCount, status, branch);
     }
 }

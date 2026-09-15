@@ -28,7 +28,7 @@ public final class Journal {
         List<PostingLine> lines = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(
             "SELECT l.account_id, l.direction, l.amount, cur.code, cur.scale, cur.rounding_mode,"
-            + " l.value_date, l.label, l.fx_rate"
+            + " l.value_date, l.label, l.fx_rate, l.branch_id"
             + " FROM journal_line l JOIN currency cur ON cur.code = l.currency"
             + " WHERE l.entry_id = ? AND l.booking_date = ? ORDER BY l.line_number")) {
             ps.setObject(1, entryId);
@@ -43,7 +43,8 @@ public final class Journal {
                         Money.of(rs.getBigDecimal(3), currency),
                         rs.getObject(7, LocalDate.class),
                         rs.getString(8),
-                        rs.getBigDecimal(9)));
+                        rs.getBigDecimal(9),
+                        rs.getObject(10, UUID.class)));
                 }
             }
         } catch (SQLException e) {

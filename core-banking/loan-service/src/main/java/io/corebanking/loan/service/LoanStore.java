@@ -325,8 +325,9 @@ public final class LoanStore {
         + " cur.rounding_mode, l.loan_account_id, l.settlement_account_id, l.principal,"
         + " l.disbursed_on, l.status, l.annual_rate_percent, l.frequency, l.amortisation_method,"
         + " l.day_count, l.periodic_fee, l.insurance_basis, l.insurance_rate_percent,"
-        + " l.tax_on_interest_percent"
-        + "  FROM loan_contract l JOIN currency cur ON cur.code = l.currency";
+        + " l.tax_on_interest_percent, acc.branch_id"
+        + "  FROM loan_contract l JOIN currency cur ON cur.code = l.currency"
+        + "  JOIN account acc ON acc.id = l.loan_account_id";
 
     private static LoanContract readContract(ResultSet rs) throws SQLException {
         CurrencyRef currency = new CurrencyRef(rs.getString(5), rs.getInt(6),
@@ -337,7 +338,8 @@ public final class LoanStore {
         return new LoanContract(
             rs.getObject(1, UUID.class), rs.getObject(2, UUID.class), rs.getString(3),
             rs.getString(4), currency, rs.getObject(8, UUID.class), rs.getObject(9, UUID.class),
-            principal, disbursedOn, LoanContract.Status.valueOf(rs.getString(12)), terms);
+            principal, disbursedOn, LoanContract.Status.valueOf(rs.getString(12)), terms,
+            rs.getObject(21, UUID.class));
     }
 
     /**
@@ -1097,7 +1099,7 @@ public final class LoanStore {
                                    CurrencyRef currency, UUID scheduleId, int number,
                                    LocalDate periodStart, LocalDate dueDate, Money interest,
                                    boolean madeDue, boolean superseded, Money posted,
-                                   boolean doneToday) {}
+                                   boolean doneToday, UUID branchId) {}
 
     public static List<AccrualCandidate> accrualCandidates(Connection c, UUID legalEntityId,
                                                            LocalDate businessDate) {
@@ -1106,9 +1108,10 @@ public final class LoanStore {
             "SELECT k.id, k.reference, k.product_code, cur.code, cur.scale, cur.rounding_mode,"
             + "       l.schedule_id, l.number, l.period_start, l.due_date, l.interest,"
             + "       l.made_due_on IS NOT NULL, s.superseded_on IS NOT NULL,"
-            + "       COALESCE(a.posted, 0), COALESCE(a.today, FALSE)"
+            + "       COALESCE(a.posted, 0), COALESCE(a.today, FALSE), acc.branch_id"
             + "  FROM loan_contract k"
             + "  JOIN currency cur ON cur.code = k.currency"
+            + "  JOIN account acc ON acc.id = k.loan_account_id"
             + "  JOIN loan_schedule s ON s.contract_id = k.id"
             + "  JOIN loan_schedule_line l ON l.schedule_id = s.id"
             + "  LEFT JOIN LATERAL ("
@@ -1141,7 +1144,7 @@ public final class LoanStore {
                         rs.getObject(9, LocalDate.class), rs.getObject(10, LocalDate.class),
                         Money.of(rs.getBigDecimal(11), currency), rs.getBoolean(12),
                         rs.getBoolean(13), Money.of(rs.getBigDecimal(14), currency),
-                        rs.getBoolean(15)));
+                        rs.getBoolean(15), rs.getObject(16, UUID.class)));
                 }
             }
         } catch (SQLException e) {

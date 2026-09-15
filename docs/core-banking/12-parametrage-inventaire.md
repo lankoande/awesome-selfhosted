@@ -323,6 +323,15 @@ quote-part.
 décider du niveau de provision de son propre portefeuille. Les valeurs réglementaires ⚠ relèvent de
 l'instruction en vigueur.
 
+### Agences et comptes de liaison — `branch`, `branch_liaison` ✅
+
+| Élément | Contenu |
+|---|---|
+| Siège | Un par entité, créé avec elle ; porte le miroir de toutes les liaisons |
+| Agence, région | Code, nom, rattachement, statut ; comptes de liaison par devise, celui de la devise de tenue de compte obligatoire |
+| Schéma de liaison | `legal_entity.interbranch_scheme` : `VIA_HEAD_OFFICE` seul implémenté ; bilatéral et via la région s'ajouteront par migration |
+| Plafonds déplacés | Dans `SecurityConfig`, par rôle, jamais dans le jeton |
+
 ### Référentiel ✅
 
 | Élément | Table | Contenu |

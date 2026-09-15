@@ -159,6 +159,8 @@ class PostingIT extends LedgerTestBase {
     @Test
     @DisplayName("une ecriture desequilibree est refusee par la base, meme si le domaine est contourne")
     void database_refuses_unbalanced_entry() {
+        final String SIEGE = "(SELECT id FROM branch WHERE legal_entity_id = '" + ENTITY
+                             + "' AND kind = 'HEAD_OFFICE')";
         Account client = newCustomerAccount("CLI-106", XOF);
         Account caisse = newGlAccount("GL-CAISSE-106", XOF, NormalBalance.DEBIT, 1);
 
@@ -172,16 +174,18 @@ class PostingIT extends LedgerTestBase {
                     + "', nextval('journal_entry_number_seq'),'HACK','ONLINE','hack-106','" + ACTOR + "')");
                 st.executeUpdate(
                     "INSERT INTO journal_line(id, booking_date, entry_id, legal_entity_id, line_number,"
-                    + " account_id, direction, amount, currency, functional_amount, value_date)"
+                    + " account_id, direction, amount, currency, functional_amount, value_date,"
+                    + " branch_id)"
                     + " VALUES ('" + UUID.randomUUID() + "','" + BUSINESS_DATE + "','" + entryId
                     + "','" + ENTITY + "',1,'" + caisse.id() + "','DEBIT',1000,'XOF',1000,'"
-                    + BUSINESS_DATE + "')");
+                    + BUSINESS_DATE + "'," + SIEGE + ")");
                 st.executeUpdate(
                     "INSERT INTO journal_line(id, booking_date, entry_id, legal_entity_id, line_number,"
-                    + " account_id, direction, amount, currency, functional_amount, value_date)"
+                    + " account_id, direction, amount, currency, functional_amount, value_date,"
+                    + " branch_id)"
                     + " VALUES ('" + UUID.randomUUID() + "','" + BUSINESS_DATE + "','" + entryId
                     + "','" + ENTITY + "',2,'" + client.id() + "','CREDIT',900,'XOF',900,'"
-                    + BUSINESS_DATE + "')");
+                    + BUSINESS_DATE + "'," + SIEGE + ")");
                 return null;
             } catch (SQLException e) {
                 throw new LedgerStoreException("refus attendu", e);

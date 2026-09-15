@@ -110,7 +110,7 @@ public final class OperationsService {
      */
     public record Receipt(UUID entryId, long entryNumber, LocalDate bookingDate,
                           LocalDate valueDate, Money amount, Money fee, Money tax,
-                          Money balanceAfter, boolean replayed) {}
+                          Money balanceAfter, boolean replayed, UUID branchId, boolean remote) {}
 
     // ------------------------------------------------------------------ operations
 
@@ -135,9 +135,10 @@ public final class OperationsService {
 
             PostingResult result = postingService.post(PostingCommand.online(
                 command.key(), command.legalEntityId(), bookingDate, OperationSchemas.CASH_DEPOSIT,
-                command.actorId(), lines));
+                command.actorId(), lines).withBranch(cash.branchId()));
             wakeIfDormant(c, account, bookingDate, command.actorId(), result);
-            return receipt(c, result, account, valueDate, command.amount(), zero, zero);
+            return receipt(c, result, account, valueDate, command.amount(), zero, zero,
+                           cash.branchId());
         });
     }
 
@@ -165,12 +166,15 @@ public final class OperationsService {
                 bookingDate);
             lines = withValueDate(lines, account.id(), valueDate);
 
+            // L'agence de l'operation est celle de la caisse : le frais d'un retrait deplace
+            // revient a l'agence qui sert, le compte du client reste dans la sienne.
             PostingResult result = postingService.post(PostingCommand.online(
                 command.key(), command.legalEntityId(), bookingDate,
-                OperationSchemas.CASH_WITHDRAWAL, command.actorId(), lines));
+                OperationSchemas.CASH_WITHDRAWAL, command.actorId(), lines)
+                .withBranch(cash.branchId()));
             wakeIfDormant(c, account, bookingDate, command.actorId(), result);
             return receipt(c, result, account, valueDate, command.amount(), charges.fee(),
-                           charges.tax());
+                           charges.tax(), cash.branchId());
         });
     }
 
@@ -203,13 +207,14 @@ public final class OperationsService {
             lines = withValueDate(lines, source.id(), debitValue);
             lines = withValueDate(lines, destination.id(), creditValue);
 
+            // Le frais d'un virement revient a l'agence du compte emetteur.
             PostingResult result = postingService.post(PostingCommand.online(
                 command.key(), command.legalEntityId(), bookingDate, OperationSchemas.TRANSFER,
-                command.actorId(), lines));
+                command.actorId(), lines).withBranch(source.branchId()));
             wakeIfDormant(c, source, bookingDate, command.actorId(), result);
             wakeIfDormant(c, destination, bookingDate, command.actorId(), result);
             return receipt(c, result, source, debitValue, command.amount(), charges.fee(),
-                           charges.tax());
+                           charges.tax(), source.branchId());
         });
     }
 
@@ -330,14 +335,20 @@ public final class OperationsService {
         }
     }
 
+    /**
+     * @param operationBranch agence qui a realise l'operation ; l'operation est <b>deplacee</b>
+     *                        quand ce n'est pas l'agence gestionnaire du compte du client
+     */
     private static Receipt receipt(Connection c, PostingResult result, Account customer,
-                                   LocalDate valueDate, Money amount, Money fee, Money tax) {
+                                   LocalDate valueDate, Money amount, Money fee, Money tax,
+                                   UUID operationBranch) {
         Money after = result.balancesAfter().get(customer.id());
         if (after == null) {
             after = Balances.current(c, customer.id());
         }
+        boolean remote = operationBranch != null && !operationBranch.equals(customer.branchId());
         return new Receipt(result.entryId(), result.entryNumber(), result.bookingDate(), valueDate,
-                           amount, fee, tax, after, result.replayed());
+                           amount, fee, tax, after, result.replayed(), operationBranch, remote);
     }
 
     static LocalDate businessDate(Connection c, UUID legalEntityId) {

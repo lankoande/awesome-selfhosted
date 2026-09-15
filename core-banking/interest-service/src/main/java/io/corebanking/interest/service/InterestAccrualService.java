@@ -251,6 +251,11 @@ public final class InterestAccrualService {
             String.valueOf(batchRunId), "INTEREST_ACCRUAL",
             accountId, terms.side(), through, "g" + generation);
 
+        // L'agence des interets est celle du compte : les deux lignes sont sur des comptes
+        // generaux, et sans elle elles iraient au siege.
+        UUID branch = database.inTransaction(
+            c -> io.corebanking.ledger.store.Accounts.loadAll(c, List.of(accountId))
+                .get(accountId).branchId());
         PostingResult result = postingService.post(new PostingCommand(
             key, legalEntityId, bookingDate, "INTEREST_ACCRUAL", actorId,
             io.corebanking.ledger.domain.posting.PostingSource.BATCH, batchRunId,
@@ -259,7 +264,8 @@ public final class InterestAccrualService {
             Map.of("account", accountId.toString(),
                    "side", terms.side().name(),
                    "through", through.toString(),
-                   "generation", String.valueOf(generation))));
+                   "generation", String.valueOf(generation)),
+            branch));
         return result.entryId();
     }
 

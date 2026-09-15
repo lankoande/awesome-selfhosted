@@ -42,6 +42,53 @@ class OperationsIT extends DepositsTestBase {
     }
 
     @Test
+    @DisplayName("un retrait deplace est servi par la caisse d'une autre agence : le frais lui revient, le compte reste dans la sienne")
+    void retraitDeplace() {
+        Decor decor = decor("DPL");
+        produit(decor, "EP-DPL", "SAVINGS_ACCOUNT", frais(decor));
+        UUID compte = ouvrir(decor, "CLI-DPL", "EP-DPL", client(decor.entityId(), "T-DPL"));
+        verser(decor, compte, "100000", "dpl-1");
+        var liaisonB = account(decor.entityId(), "DPL-LIAISON-B",
+                               io.corebanking.ledger.domain.account.AccountKind.GL,
+                               io.corebanking.ledger.domain.account.NormalBalance.DEBIT);
+        UUID agenceB = database.inTransaction(c -> io.corebanking.ledger.store.Branches.create(
+            c, decor.entityId(), "B", "Agence B", io.corebanking.ledger.store.Branches.Kind.BRANCH,
+            null, J, Map.of(io.corebanking.kernel.money.Currencies.XOF, liaisonB.id())));
+        var caisseB = new io.corebanking.ledger.domain.account.Account(
+            UUID.randomUUID(), decor.entityId(), "DPL-CAISSE-B",
+            io.corebanking.ledger.domain.account.AccountKind.INTERNAL,
+            io.corebanking.ledger.domain.account.NormalBalance.DEBIT,
+            io.corebanking.kernel.money.Currencies.XOF, true, false, 1,
+            io.corebanking.ledger.domain.account.AccountStatus.ACTIVE, agenceB);
+        database.inTransaction(c -> {
+            io.corebanking.ledger.store.Accounts.create(c, caisseB, J);
+            return null;
+        });
+
+        OperationsService.Receipt recu = operations.withdraw(new OperationsService.Withdrawal(
+            IdempotencyKey.of("dpl-2"), decor.entityId(), compte, caisseB.id(), xof("20000"),
+            null, "retrait deplace", ACTOR));
+
+        assertThat(recu.remote()).isTrue();
+        assertThat(recu.branchId()).isEqualTo(agenceB);
+        assertThat(recu.fee()).isEqualTo(xof("500"));
+        assertThat(solde(compte)).isEqualTo(xof("79410"));
+        assertThat(solde(caisseB)).isEqualTo(xof("-20000"));
+        // Le compte du client est au siege : la seule agence a equilibrer est B, en deux lignes.
+        assertThat(nombreDeLignes(recu.entryId())).isEqualTo(6);   // 4 lignes metier, 2 de liaison
+        assertThat(agenceDesLignes(recu.entryId()))
+            .containsEntry(decor.produitsFrais().id(), agenceB)
+            .containsEntry(decor.taxe().id(), agenceB)
+            .containsEntry(compte, siege(decor));
+        assertThat(solde(liaisonB).isZero()).isTrue();
+
+        // A sa propre caisse, rien de deplace.
+        OperationsService.Receipt local = retirer(decor, compte, "1000", "dpl-3");
+        assertThat(local.remote()).isFalse();
+        assertThat(nombreDeLignes(local.entryId())).isEqualTo(4);
+    }
+
+    @Test
     @DisplayName("la date de valeur vient des conditions de banque : au guichet, un versement prend valeur le jour ouvre suivant")
     void dateDeValeur() {
         Decor decor = decor("DDV");
@@ -159,6 +206,40 @@ class OperationsIT extends DepositsTestBase {
     }
 
     // ------------------------------------------------------------------ outillage
+
+    /** Agence comptable de chaque ligne de l'ecriture, par compte (premiere ligne du compte). */
+    private static Map<UUID, UUID> agenceDesLignes(UUID entryId) {
+        return database.inTransaction(c -> {
+            Map<UUID, UUID> agences = new LinkedHashMap<>();
+            try (var ps = c.prepareStatement(
+                "SELECT account_id, branch_id FROM journal_line WHERE entry_id = ?"
+                + " AND kind = 'BUSINESS' ORDER BY line_number")) {
+                ps.setObject(1, entryId);
+                try (var rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        agences.putIfAbsent(rs.getObject(1, UUID.class), rs.getObject(2, UUID.class));
+                    }
+                }
+            } catch (SQLException e) {
+                throw new io.corebanking.ledger.store.LedgerStoreException("Lignes", e);
+            }
+            return agences;
+        });
+    }
+
+    private static long nombreDeLignes(UUID entryId) {
+        return database.inTransaction(c -> {
+            try (var ps = c.prepareStatement("SELECT count(*) FROM journal_line WHERE entry_id = ?")) {
+                ps.setObject(1, entryId);
+                try (var rs = ps.executeQuery()) {
+                    rs.next();
+                    return rs.getLong(1);
+                }
+            } catch (SQLException e) {
+                throw new io.corebanking.ledger.store.LedgerStoreException("Lignes", e);
+            }
+        });
+    }
 
     private static Map<UUID, LocalDate> valueDates(UUID entryId) {
         return database.inTransaction(c -> {

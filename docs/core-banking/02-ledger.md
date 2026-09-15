@@ -205,6 +205,21 @@ et rend la position inauditable. Une conversion directe à deux lignes — débi
 sans compte de position — est d'ailleurs rejetée d'office : elle n'est équilibrée dans aucune des
 deux devises.
 
+### Équilibre par agence
+
+Chaque ligne porte une **agence comptable** (`journal_line.branch_id`) : celle de son compte pour
+un compte client ou interne ; pour un compte général, celle que la ligne précise, à défaut
+l'agence de l'opération (`PostingCommand.branchId`), à défaut l'agence unique des comptes à
+agence de l'écriture, à défaut le siège. L'invariant `Σ débits = Σ crédits` s'applique alors
+aussi **par agence**, par devise et en contre-valeur.
+
+Quand les lignes d'une écriture ne s'équilibrent pas pour une agence, le service d'imputation
+la complète par des lignes de liaison (`kind = LIAISON`) sur le compte de liaison de l'agence :
+une ligne dans ses livres, sa ligne miroir dans les livres du siège. Elles font partie de
+l'écriture, se contre-passent avec elle et n'apparaissent sur aucun relevé. Sans compte de
+liaison dans la devise, l'écriture est refusée — jamais équilibrée à défaut. Détail, exemples et
+contrôles au [15](15-multi-agences.md).
+
 ### Portée exacte du contrôle en contre-valeur
 
 À garder en tête, car elle est facilement surestimée. Une fois l'équilibre par devise acquis, le
@@ -263,6 +278,8 @@ public record PostingLine(
 3. **Existence et statut des comptes** — actifs, non clôturés, imputables.
 4. **Cohérence de devise** — la devise de la ligne correspond à celle du compte.
 5. **Équilibre** — par devise et en contre-valeur.
+5 bis. **Agence** — agence comptable de chaque ligne, lignes de liaison générées, équilibre
+   par agence.
 6. **Disponible** — pour les comptes à contrôle de solde : `solde − blocages + autorisation
    de découvert ≥ montant`.
 7. **Limites et plafonds** — par produit, client, canal, période.
