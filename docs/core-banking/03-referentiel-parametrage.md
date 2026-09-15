@@ -31,9 +31,19 @@ deux niveaux : filtre applicatif **et** Row Level Security PostgreSQL. Le second
 protège contre une requête oubliée dans un rapport.
 
 ```sql
+-- NULL sans réglage : aucune ligne n'est visible tant que l'entité n'est pas posée.
+CREATE FUNCTION ledger_current_entity() RETURNS UUID AS $$
+    SELECT NULLIF(current_setting('app.entity_id', true), '')::uuid;
+$$ LANGUAGE sql STABLE;
+
 CREATE POLICY entity_isolation ON journal_entry
-  USING (legal_entity_id = current_setting('app.entity_id')::uuid);
+    USING (legal_entity_id = ledger_current_entity())
+    WITH CHECK (legal_entity_id = ledger_current_entity());
 ```
+
+> **Implémenté** — V26 à V34, sur toutes les tables à entité et leurs tables filles ; l'entité est
+> posée par transaction par l'API et par le TFJ, le rôle applicatif ne possède aucune table
+> ([07](07-securite-conformite.md)).
 
 ---
 

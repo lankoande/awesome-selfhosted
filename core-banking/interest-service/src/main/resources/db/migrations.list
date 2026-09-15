@@ -3,3 +3,4 @@
 # les tests du module le refusent.
 V2__interest.sql
 V19__interest_position.sql
+V32__rls_interest.sql

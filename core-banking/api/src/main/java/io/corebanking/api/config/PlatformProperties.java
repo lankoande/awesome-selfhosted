@@ -16,7 +16,17 @@ public record PlatformProperties(Datasource datasource, Schema schema, Security 
 
     public record Datasource(String url, String username, String password, int poolSize) {}
 
-    public record Schema(boolean migrateOnStartup) {}
+    /**
+     * Montee de version au demarrage. Avec un compte proprietaire distinct, les migrations
+     * s'executent sous lui et l'application ne possede rien : c'est ce qui rend la Row Level
+     * Security effective pour elle. Sans compte distinct, un seul role fait tout — installation
+     * de developpement, jamais de production.
+     */
+    public record Schema(boolean migrateOnStartup, String username, String password) {
+        public boolean ownerConfigured() {
+            return username != null && !username.isBlank();
+        }
+    }
 
     public record Security(String clientId) {}
 

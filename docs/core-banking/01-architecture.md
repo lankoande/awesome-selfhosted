@@ -165,6 +165,15 @@ partitionnement, pas par cache applicatif.
 > métriques. Le socle — ledger, intérêts, crédits, dépôts, TFJ — ne dépend pas de Spring : il est
 > assemblé dans une configuration, et exposé par des cas d'usage. Le jar exécutable se déploie
 > derrière un reverse proxy qui termine le TLS ([06](06-api-integrations.md)).
+>
+> **Deux comptes de base, jamais un seul.** Le propriétaire du schéma
+> (`COREBANKING_SCHEMA_USER` / `_PASSWORD`) exécute les migrations au démarrage puis se retire ;
+> l'application se connecte avec le rôle applicatif `corebanking_app`
+> (`COREBANKING_DB_USER` / `_PASSWORD`, créé par `ops/roles.sql`), qui ne possède rien — c'est ce
+> qui rend effectif le cloisonnement par entité que la base applique elle-même (Row Level
+> Security, [07](07-securite-conformite.md)). Sans compte propriétaire distinct, l'application
+> migre elle-même et possède tout : le démarrage l'écrit en avertissement, c'est une installation
+> de développement.
 
 ---
 

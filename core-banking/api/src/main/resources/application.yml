@@ -15,12 +15,18 @@ spring:
 corebanking:
   datasource:
     url: ${COREBANKING_DB_URL:jdbc:postgresql://localhost:5432/corebanking}
-    username: ${COREBANKING_DB_USER:corebanking}
+    # Role applicatif : il ne possede aucune table, la base lui applique le cloisonnement par
+    # entite (ops/roles.sql le cree).
+    username: ${COREBANKING_DB_USER:corebanking_app}
     password: ${COREBANKING_DB_PASSWORD:}
     pool-size: ${COREBANKING_DB_POOL:16}
   schema:
     # Toutes les versions doivent etre sur le classpath : un module absent se voit au demarrage.
     migrate-on-startup: true
+    # Proprietaire du schema, distinct du role applicatif : les migrations s'executent sous lui.
+    # Vide : le role applicatif migre lui-meme et possede tout (developpement seulement).
+    username: ${COREBANKING_SCHEMA_USER:}
+    password: ${COREBANKING_SCHEMA_PASSWORD:}
   security:
     # Client backend Keycloak dont les roles portent les habilitations.
     client-id: ${COREBANKING_CLIENT_ID:core-banking}

@@ -88,6 +88,15 @@ public final class TfjEngine {
     // ------------------------------------------------------------------ lancement
 
     public TfjRun run(UUID legalEntityId, LocalDate businessDate, UUID actorId, RunMode mode) {
+        // Le traitement entier travaille dans l'entite qu'il arrete : c'est la portee que chacune
+        // de ses transactions transmet a la base, et que la Row Level Security applique.
+        try (Database.EntityScope scope = Database.enterEntity(legalEntityId)) {
+            return runWithin(legalEntityId, businessDate, actorId, mode);
+        }
+    }
+
+    private TfjRun runWithin(UUID legalEntityId, LocalDate businessDate, UUID actorId,
+                             RunMode mode) {
         // L'etat d'un traitement existant est examine AVANT la date comptable courante. Demander
         // le TFJ d'une journee deja arretee doit renvoyer son rapport — c'est la reponse utile a
         // la question posee — et non une erreur sur la date, qui serait exacte et inexploitable.
@@ -177,6 +186,14 @@ public final class TfjEngine {
 
     private TfjRun execute(UUID runId, int fromOrder) {
         TfjRun run = require(runId);
+        // Une reprise arrive par l'identifiant du traitement : l'entite est celle du traitement,
+        // et la portee est posee (ou confirmee, si l'appelant l'a deja posee) avant toute etape.
+        try (Database.EntityScope scope = Database.enterEntity(run.legalEntityId())) {
+            return executeWithin(runId, run, fromOrder);
+        }
+    }
+
+    private TfjRun executeWithin(UUID runId, TfjRun run, int fromOrder) {
         TfjContext context = new TfjContext(run.legalEntityId(), run.businessDate(), runId,
                                             startedBy(runId), run.mode());
 
@@ -279,6 +296,13 @@ public final class TfjEngine {
      */
     public TfjRun cancel(UUID runId, UUID actorId, LocalDate reversalBookingDate, String reason) {
         TfjRun run = require(runId);
+        try (Database.EntityScope scope = Database.enterEntity(run.legalEntityId())) {
+            return cancelWithin(runId, run, actorId, reversalBookingDate, reason);
+        }
+    }
+
+    private TfjRun cancelWithin(UUID runId, TfjRun run, UUID actorId,
+                                LocalDate reversalBookingDate, String reason) {
         if (run.mode() != RunMode.REAL) {
             throw new TfjRefusedException("Un TFJ a blanc n'a rien laisse : il n'y a rien a annuler.");
         }

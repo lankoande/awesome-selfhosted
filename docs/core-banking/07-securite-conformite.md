@@ -83,6 +83,29 @@ Le cloisonnement par entité est appliqué **deux fois** : dans la politique et 
 PostgreSQL. La seconde barrière protège contre le cas réel le plus fréquent — une requête de
 reporting écrite sans le filtre d'entité.
 
+> **Implémenté** — V26 à V34 : une politique `entity_isolation` sur chaque table qui porte une
+> entité (`legal_entity`, `account`, `branch`, `accounting_period`, journal, idempotence, tiers,
+> contrats de crédit et sûretés, opérations en attente, piste d'audit, commissions, retenues,
+> versions de produit, règles de date de valeur), et sur leurs tables filles à travers leur
+> parent (`EXISTS`). L'entité courante est lue par `ledger_current_entity()` dans le réglage
+> `app.entity_id`, **posé par transaction** (`set_config(…, true)`), jamais par connexion : un
+> pool partage ses connexions, un réglage de session fuirait vers la requête suivante. **Sans
+> entité posée, le rôle applicatif ne voit aucune ligne** — le défaut est l'absence d'accès.
+> La portée est posée par la couche qui connaît l'appelant : l'API pour chaque requête, depuis
+> l'entité du jeton (`WebConfiguration`), le moteur de fin de journée pour chaque traitement
+> (`TfjEngine`) ; `Database.enterEntity` la transmet à chaque transaction, y compris aux
+> transactions indépendantes de la piste d'audit, et **refuse de changer d'entité sous une
+> transaction ouverte**. Deux comptes de base sont exigés ([01](01-architecture.md) §5) : le
+> propriétaire du schéma, qui migre et que les politiques ne concernent pas, et le rôle applicatif
+> `corebanking_app` (`ops/roles.sql`), qui ne possède rien. Les partitions mensuelles, que la
+> bascule de journée crée, passent par une fonction `SECURITY DEFINER`. Restent hors politique,
+> délibérément : les soldes (`account_balance`), les positions d'intérêts et les clichés
+> quotidiens — sur le chemin chaud, et jamais lus sans leur compte, lui-même cloisonné. Pour un
+> porteur d'une autre entité, une ressource **n'existe pas** (`404`) : la base ne la montre pas,
+> et dire qu'elle existe serait déjà une fuite ; la politique tranche avant (`403`) quand le cas
+> d'usage n'a pas à la chercher. Prouvé par `RowLevelSecurityIT` (rôle applicatif réel) et par
+> `ApiIT`, qui démarre l'API avec ce rôle et migre avec le propriétaire.
+
 ### Keycloak : ce que le jeton dit, et ce qu'il ne dit pas
 
 **Le jeton dit qui vous êtes et où vous travaillez ; la politique dit ce que vous avez le droit de

@@ -6,3 +6,4 @@ V16__partitions_idempotentes.sql
 V18__partitions_registre.sql
 V21__blocages.sql
 V24__agences.sql
+V26__rls_ledger.sql

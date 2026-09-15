@@ -60,13 +60,31 @@ public class PlatformConfiguration {
         };
     }
 
+    /**
+     * Deux comptes de base, jamais un seul : le proprietaire du schema fait la montee de version
+     * puis se retire ; l'application se connecte avec un role qui ne possede rien, et la base lui
+     * applique ses politiques de cloisonnement (Row Level Security). Le classpath doit porter
+     * toutes les versions : un module absent du deploiement se voit au demarrage, pas au premier
+     * appel qui le demande.
+     */
     @Bean(destroyMethod = "close")
     Database database(PlatformProperties properties) {
         PlatformProperties.Datasource ds = properties.datasource();
+        PlatformProperties.Schema schema = properties.schema();
+        if (schema.migrateOnStartup() && schema.ownerConfigured()) {
+            try (Database owner = new Database(ds.url(), schema.username(), schema.password(), 1)) {
+                SchemaMigrator.Report report = SchemaMigrator.migrate(owner,
+                                                                      SchemaMigrator.Gaps.REFUSED);
+                LOG.info("Schema : version {} sous le compte proprietaire {}, {} script(s) applique(s)",
+                         report.highest(), schema.username(), report.applied().size());
+            }
+        }
         Database database = new Database(ds.url(), ds.username(), ds.password(), ds.poolSize());
-        if (properties.schema().migrateOnStartup()) {
-            // Le classpath doit porter toutes les versions : un module absent du deploiement se
-            // voit au demarrage, pas au premier appel qui le demande.
+        if (schema.migrateOnStartup() && !schema.ownerConfigured()) {
+            LOG.warn("Schema : aucun compte proprietaire distinct (corebanking.schema.username) ; "
+                     + "les migrations s'executent avec le compte applicatif, qui possede alors "
+                     + "les tables et n'est soumis a aucun cloisonnement par la base. Acceptable "
+                     + "en developpement, jamais en production.");
             SchemaMigrator.migrate(database, SchemaMigrator.Gaps.REFUSED);
         }
         return database;

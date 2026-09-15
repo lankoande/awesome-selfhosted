@@ -77,6 +77,8 @@ class ApiIT {
     private static final UUID APPROVER = UUID.randomUUID();
     private static final LocalDate J = LocalDate.of(2026, 9, 15);
     private static final String CLIENT_ID = "core-banking";
+    private static final String APP_ROLE = "corebanking_app";
+    private static final UUID AUTRE_ENTITE = UUID.randomUUID();
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry registry) {
@@ -85,12 +87,31 @@ class ApiIT {
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
-        registry.add("corebanking.datasource.url",
-                     () -> "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres");
-        registry.add("corebanking.datasource.username", () -> "postgres");
-        registry.add("corebanking.datasource.password", () -> "");
+        // Deux comptes, comme en production : le proprietaire migre, l'API se connecte avec un
+        // role qui ne possede rien et auquel la base applique le cloisonnement par entite. Les
+        // droits par defaut couvrent les tables que les migrations vont creer (ops/roles.sql).
+        try (java.sql.Connection c = java.sql.DriverManager.getConnection(url(), "postgres", "");
+             java.sql.Statement s = c.createStatement()) {
+            s.execute("CREATE ROLE " + APP_ROLE + " LOGIN PASSWORD 'app'");
+            s.execute("GRANT USAGE ON SCHEMA public TO " + APP_ROLE);
+            s.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE,"
+                      + " DELETE ON TABLES TO " + APP_ROLE);
+            s.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES"
+                      + " TO " + APP_ROLE);
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException(e);
+        }
+        registry.add("corebanking.datasource.url", ApiIT::url);
+        registry.add("corebanking.datasource.username", () -> APP_ROLE);
+        registry.add("corebanking.datasource.password", () -> "app");
         registry.add("corebanking.datasource.pool-size", () -> "8");
+        registry.add("corebanking.schema.username", () -> "postgres");
+        registry.add("corebanking.schema.password", () -> "");
         registry.add("corebanking.security.client-id", () -> CLIENT_ID);
+    }
+
+    private static String url() {
+        return "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres";
     }
 
     /** Les jetons du test sont signes par une cle du test ; le serveur ne connait que la publique. */
@@ -106,6 +127,9 @@ class ApiIT {
     @Autowired private Database database;
     @Autowired private ObjectMapper json;
 
+    /** Le decor est pose par le proprietaire du schema : c'est un acte d'exploitation, pas de l'API. */
+    private Database owner;
+
     private final HttpClient http = HttpClient.newHttpClient();
     private UUID siege;
     private Account caisse;
@@ -119,11 +143,16 @@ class ApiIT {
 
     @BeforeAll
     void decor() {
+        // Les partitions, elles, sont creees par l'API avec son role applicatif : la fonction
+        // s'execute avec les droits du proprietaire, comme le fera chaque bascule de journee.
         io.corebanking.ledger.store.SchemaMigrator.ensurePartitions(database, J.minusMonths(2),
                                                                      J.plusMonths(3));
-        database.inTransaction(c -> {
+        owner = new Database(url(), "postgres", "", 2);
+        owner.inTransaction(c -> {
             Entities.insertCurrency(c, Currencies.XOF, "Franc CFA BCEAO");
             Entities.insertLegalEntity(c, ENTITY, "API", "Banque API", "CI", Currencies.XOF, J);
+            Entities.insertLegalEntity(c, AUTRE_ENTITE, "AUTRE", "Autre banque", "SN",
+                                       Currencies.XOF, J);
             Entities.openPeriod(c, ENTITY, J.minusMonths(2), J.plusMonths(3));
             UUID calendar = Calendars.createCalendar(c, "CI", "Cote d'Ivoire",
                 Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY), J.minusYears(1), J.plusYears(1));
@@ -169,7 +198,8 @@ class ApiIT {
     }
 
     @AfterAll
-    static void stop() throws IOException {
+    void stop() throws IOException {
+        if (owner != null) owner.close();
         if (postgres != null) postgres.close();
     }
 
@@ -305,6 +335,18 @@ class ApiIT {
         Reponse inconnu = get(teller, "/accounts/" + UUID.randomUUID() + "/balance");
         assertThat(inconnu.status()).as(String.valueOf(inconnu.body())).isEqualTo(404);
 
+        // L'entite est celle du jeton, et la base ne montre rien d'autre : pour un porteur d'une
+        // autre entite, le compte n'existe pas — meme role, meme adresse, meme identifiant.
+        String etranger = tokenOf(UUID.randomUUID(), "chef.autre.banque", AUTRE_ENTITE, null,
+                                  Roles.BRANCH_MANAGER);
+        Reponse ailleurs = get(etranger, "/accounts/" + account + "/balance");
+        assertThat(ailleurs.status()).as(String.valueOf(ailleurs.body())).isEqualTo(404);
+        Reponse ailleursAussi = post(etranger, "/accounts/" + account + "/blocks", null, Map.of(
+            "kind", "DEBIT", "reason", "tentative transverse"));
+        assertThat(ailleursAussi.status()).as(String.valueOf(ailleursAussi.body())).isEqualTo(404);
+        assertThat(get(etranger, "/pending-operations").body().get("items"))
+            .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST).isEmpty();
+
         Reponse devise = post(teller, "/accounts/" + account + "/withdrawals", "ret-eur", Map.of(
             "amount", "10", "currency", "EUR", "cashAccountId", caisse.id().toString()));
         assertThat(devise.status()).as(String.valueOf(devise.body())).isEqualTo(422);
@@ -400,6 +442,11 @@ class ApiIT {
     }
 
     private static String token(UUID subject, String username, UUID branch, String... roles) {
+        return tokenOf(subject, username, ENTITY, branch, roles);
+    }
+
+    private static String tokenOf(UUID subject, String username, UUID entity, UUID branch,
+                                  String... roles) {
         try {
             JWTClaimsSet.Builder claims = new JWTClaimsSet.Builder()
                 .subject(subject.toString())
@@ -407,7 +454,7 @@ class ApiIT {
                 .issueTime(Date.from(Instant.now()))
                 .expirationTime(Date.from(Instant.now().plusSeconds(3600)))
                 .claim("preferred_username", username)
-                .claim("legal_entity", ENTITY.toString())
+                .claim("legal_entity", entity.toString())
                 .claim("resource_access", Map.of(CLIENT_ID, Map.of("roles", List.of(roles))));
             if (branch != null) {
                 claims.claim("branch", branch.toString());

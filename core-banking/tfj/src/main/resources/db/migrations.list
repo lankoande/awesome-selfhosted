@@ -2,3 +2,4 @@
 # SchemaMigrator. Un script present ici mais absent de cette liste n'est jamais applique :
 # les tests du module le refusent.
 V6__tfj.sql
+V27__rls_batch.sql

@@ -2,3 +2,4 @@
 # SchemaMigrator. Un script present ici mais absent de cette liste n'est jamais applique :
 # les tests du module le refusent.
 V8__fees.sql
+V31__rls_fees.sql

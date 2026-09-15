@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 545 tests verts** — 302 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 243 sur PostgreSQL réel, dont l'API de bout en bout.
+**État actuel : 551 tests verts** — 302 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 249 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -667,7 +667,7 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
 - API : le crédit, le paramétrage produit et le calendrier ne sont pas encore exposés (les
   services existent, les cas d'usage suivent le même moule) ; pas de contrat OpenAPI publié, pas
-  de pagination ; Row Level Security par entité ;
+  de pagination ;
 - chèques (remise, compensation, opposition), paiements sortants, plafonds par produit et par
   client ;
 - multi-agences : caisses par guichetier et arrêté de caisse, schémas de liaison bilatéral et
@@ -758,6 +758,13 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Un échéancier remplacé emporte ses courus | Ses échéances ne seront jamais réclamées ; le nouvel échéancier repart de sa première période |
 | Le cliché des soldes est incrémental, le rejeu intégral mensuel | O(journée) chaque nuit, O(historique) une fois par mois ; par récurrence, la même garantie |
 | La réconciliation rafraîchit le cliché avant de contrôler | La correction passée entre un échec et la reprise est comptabilisée sur la journée ; le cliché arrêté à l'étape précédente ne la porte pas |
+| L'entité est posée par transaction, jamais par connexion | Un pool partage ses connexions : un réglage de session fuirait vers la requête suivante ; `set_config(…, true)` tombe avec la transaction, validée ou annulée |
+| Sans entité posée, le rôle applicatif ne voit rien | Le défaut est l'absence d'accès : une requête écrite sans filtre renvoie zéro ligne, pas toutes les entités |
+| Une transaction ne change pas d'entité | La base a déjà reçu l'entité de la transaction ; une unité de travail qui en attendrait une autre lirait à côté de ce qu'elle croit — refusé en Java, avant la base |
+| Deux comptes de base, propriétaire et applicatif | Le propriétaire des tables n'est soumis à aucune politique ; avec un seul compte, la Row Level Security serait décorative |
+| Les partitions se créent par une fonction `SECURITY DEFINER` | Le rôle applicatif ne possède pas les tables ; la bascule de journée doit pouvoir créer des partitions, et rien d'autre |
+| Soldes, positions d'intérêts et clichés restent hors politique | Ils sont sur le chemin chaud et ne se lisent jamais sans leur compte, lui-même cloisonné |
+| Une ressource d'une autre entité est inconnue (`404`), pas interdite (`403`) | La base ne la montre pas ; répondre qu'elle existe serait déjà une fuite |
 | Les tables partitionnées sont déclarées dans un registre | Une table partitionnée que la bascule ne connaît pas n'a ses partitions créées par personne |
 | Le TFM porte la date de fin de période et ne touche pas à la date comptable | Il porte sur un mois déjà arrêté jour par jour ; son annulation rouvre la période en le disant |
 | Le dédoublonnage des tiers est un index unique partiel, pas un traitement | Un doublon découvert après coup a déjà faussé les plafonds d'engagement ; refusé à la saisie, il n'existe jamais |

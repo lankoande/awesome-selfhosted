@@ -3,3 +3,4 @@
 # les tests du module le refusent.
 V4__security.sql
 V25__maker_checker.sql
+V30__rls_security.sql

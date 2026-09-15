@@ -3,3 +3,4 @@
 # les tests du module le refusent.
 V3__product.sql
 V5__accounting_schema.sql
+V33__rls_products.sql
