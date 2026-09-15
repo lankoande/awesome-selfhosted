@@ -46,7 +46,7 @@ public final class Accounts {
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO account(id, legal_entity_id, code, account_kind, normal_balance, currency,"
             + " gl_account_id, contract_id, postable, control_available, stripe_count, status,"
-            + " opened_at, branch_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+            + " opened_at, branch_id, nature) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
             ps.setObject(1, account.id());
             ps.setObject(2, account.legalEntityId());
             ps.setString(3, account.code());
@@ -61,6 +61,7 @@ public final class Accounts {
             ps.setString(12, account.status().name());
             ps.setObject(13, openedAt);
             ps.setObject(14, branch);
+            ps.setString(15, account.nature().name());
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new LedgerStoreException("Creation du compte " + account.code(), e);
@@ -124,7 +125,7 @@ public final class Accounts {
         try (PreparedStatement ps = c.prepareStatement(
             "SELECT a.id, a.legal_entity_id, a.code, a.account_kind, a.normal_balance,"
             + " cur.code, cur.scale, cur.rounding_mode,"
-            + " a.postable, a.control_available, a.stripe_count, a.status, a.branch_id"
+            + " a.postable, a.control_available, a.stripe_count, a.status, a.branch_id, a.nature"
             + " FROM account a JOIN currency cur ON cur.code = a.currency"
             + " WHERE a.id = ANY (?)")) {
             Array array = c.createArrayOf("uuid", ids.toArray());
@@ -143,7 +144,9 @@ public final class Accounts {
                         rs.getBoolean(10),
                         rs.getInt(11),
                         AccountStatus.valueOf(rs.getString(12)),
-                        rs.getObject(13, UUID.class));
+                        rs.getObject(13, UUID.class),
+                        io.corebanking.ledger.domain.account.AccountNature.valueOf(
+                            rs.getString(14)));
                     accounts.put(account.id(), account);
                 }
             }

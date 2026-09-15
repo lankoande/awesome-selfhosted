@@ -25,7 +25,8 @@ public record Account(
     boolean controlAvailable,
     int stripeCount,
     AccountStatus status,
-    UUID branchId) {
+    UUID branchId,
+    AccountNature nature) {
 
     /**
      * Compte sans agence precisee. Un compte client ou interne prendra le siege de son entite a
@@ -36,10 +37,19 @@ public record Account(
                    NormalBalance normalBalance, CurrencyRef currency, boolean postable,
                    boolean controlAvailable, int stripeCount, AccountStatus status) {
         this(id, legalEntityId, code, kind, normalBalance, currency, postable, controlAvailable,
-             stripeCount, status, null);
+             stripeCount, status, null, AccountNature.BALANCE_SHEET);
+    }
+
+    public Account(UUID id, UUID legalEntityId, String code, AccountKind kind,
+                   NormalBalance normalBalance, CurrencyRef currency, boolean postable,
+                   boolean controlAvailable, int stripeCount, AccountStatus status,
+                   UUID branchId) {
+        this(id, legalEntityId, code, kind, normalBalance, currency, postable, controlAvailable,
+             stripeCount, status, branchId, AccountNature.BALANCE_SHEET);
     }
 
     public Account {
+        Objects.requireNonNull(nature, "nature");
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(legalEntityId, "legalEntityId");
         Objects.requireNonNull(code, "code");
@@ -70,6 +80,12 @@ public record Account(
 
     public Account withBranch(UUID branch) {
         return new Account(id, legalEntityId, code, kind, normalBalance, currency, postable,
-                           controlAvailable, stripeCount, status, branch);
+                           controlAvailable, stripeCount, status, branch, nature);
+    }
+
+    /** Le meme compte, qualifie pour les etats de synthese. */
+    public Account withNature(AccountNature accountNature) {
+        return new Account(id, legalEntityId, code, kind, normalBalance, currency, postable,
+                           controlAvailable, stripeCount, status, branchId, accountNature);
     }
 }

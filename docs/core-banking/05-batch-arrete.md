@@ -228,6 +228,25 @@ effets de fin de période des TFJ, pas du TFM : à la fin du mois, ils sont déj
 **TFA (annuel)** : détermination du résultat, affectation, report à nouveau, réouverture des
 comptes de bilan, états financiers, liasse réglementaire, archivage de l'exercice.
 
+> **Implémenté** — `StandardTfa`, sur le même moteur (`RunType.TFA`) : `MONTH_COMPLETE`,
+> `YEAR_COMPLETE` (chaque mois de l'exercice hors le dernier est clos par un arrêté mensuel, les
+> manquants sont nommés), `RESULT_DETERMINATION`, `FULL_RECONCILIATION` (rejeu intégral,
+> écritures de résultat comprises), `PERIOD_CLOSE`, `FISCAL_YEAR_CLOSE`. Le traitement porte la
+> date de fin de l'exercice (`fiscal_year`, V36 : bornes, statut, compte de résultat, ouvert à
+> deux) et **clôt lui-même le dernier mois** : les écritures de résultat lui sont imputées avant
+> que la période ne se ferme, et l'arrêté mensuel refuse ce mois-là (« il se clôt par la
+> clôture annuelle »). La détermination du résultat solde chaque compte de **nature** résultat
+> (`account.nature` : bilan, résultat, hors bilan — une donnée du compte, pas une convention sur
+> son code) par agence et par devise sur le compte de résultat de l'exercice, une écriture par
+> devise et par agence, équilibrée dans les deux dimensions, lue dans le journal en date de fin
+> d'exercice, jamais dans un cliché ; un compte de résultat tenu dans une autre devise que le
+> compte de résultat est nommé, jamais soldé en silence. Les soldes de bilan se reportent d'eux-
+> mêmes : le journal est continu, il n'y a pas d'à-nouveaux à générer. L'annulation contre-passe
+> le résultat **à la date de fin d'exercice**, dans la période rouverte pour cela — datée plus
+> tard, elle laisserait les comptes de résultat soldés au 31 et la clôture rejouée ne trouverait
+> rien —, et rouvre l'exercice en le disant (`REOPENED`). Restent à faire : l'affectation du
+> résultat (décision de l'assemblée, écriture manuelle à deux), les états financiers et la liasse.
+
 ---
 
 ## 3. Performance

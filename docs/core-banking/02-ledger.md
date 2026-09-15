@@ -40,6 +40,13 @@ l'agrégation du ledger par compte général de rattachement. Il n'existe pas d'
 C'est le point où la plupart des refontes bancaires se trompent : elles conservent deux
 bases et passent ensuite dix ans à réconcilier.
 
+> **Implémenté** — chaque compte porte en outre sa **nature** pour les états de synthèse
+> (`account.nature` : `BALANCE_SHEET`, `PROFIT_AND_LOSS`, `OFF_BALANCE_SHEET`, V36). C'est une
+> donnée du compte, jamais une convention sur son code : un plan comptable interne ne numérote
+> pas forcément comme le plan de référence, et la clôture annuelle ne peut pas deviner ce qu'elle
+> doit solder. Les comptes existants sont de bilan par défaut ; les comptes de charges et de
+> produits sont à qualifier avant la première clôture ([05](05-batch-arrete.md)).
+
 ---
 
 ## 2. Représentation des montants

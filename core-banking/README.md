@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 561 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 258 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 562 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 259 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -684,8 +684,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
   commissions de découvert (mise en place, dépassement), base minimum ou moyenne pour l'épargne
   classique — la capitalisation et les agios, eux, sont faits ;
 - archivage des partitions (leur création, elle, est garantie par le TFJ) ;
-- clôture annuelle (TFA) : détermination du résultat, à-nouveaux, réouverture des comptes de
-  bilan — la clôture mensuelle, elle, est faite ;
+- clôture annuelle : l'affectation du résultat (décision d'assemblée) et les états financiers —
+  la détermination du résultat, la clôture du dernier mois et de l'exercice, elles, sont faites ;
 - contrôle du cours appliqué contre la table de référence — le ledger valide la cohérence des
   contre-valeurs, pas la justesse d'un cours uniforme.
 
@@ -777,6 +777,11 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Une page au-delà du plafond est refusée, pas ramenée au plafond | Un client qui demande dix mille lignes doit le savoir ; un plafond silencieux fabrique des extractions tronquées sans que personne ne le voie |
 | Toute liste paginée est lue dans un ordre total | Sans lui, deux pages successives peuvent montrer deux fois la même ligne, ou n'en montrer aucune |
 | Le rééchelonnement porte sur le capital non échu, aux conditions du contrat | Reprendre des échéances exigibles les réclamerait deux fois ; réviser le taux au passage serait une renégociation, qui demande un autre consentement |
+| La nature d'un compte est une donnée du compte, pas une convention sur son code | Un plan comptable interne ne numérote pas forcément comme le plan de référence ; la clôture ne peut pas deviner ce qu'elle doit solder |
+| La clôture annuelle clôt elle-même le dernier mois de l'exercice | Les écritures de résultat doivent être imputées avant que la période ne se ferme ; un arrêté mensuel séparé les rendrait impossibles ou les daterait faux |
+| Le résultat se détermine dans le journal en date de fin d'exercice, jamais dans un cliché | Le cliché est incrémental et vit sa vie ; le journal est la vérité, et l'écriture de clôture doit l'être aussi |
+| L'annulation d'une clôture annuelle se contre-passe à la date de fin d'exercice | Datée plus tard, elle laisserait les comptes de résultat soldés au 31 : la clôture rejouée ne trouverait rien à solder |
+| Pas d'à-nouveaux : le journal est continu | Les soldes de bilan se reportent d'eux-mêmes ; générer des à-nouveaux serait écrire deux fois la même vérité |
 | Les tables partitionnées sont déclarées dans un registre | Une table partitionnée que la bascule ne connaît pas n'a ses partitions créées par personne |
 | Le TFM porte la date de fin de période et ne touche pas à la date comptable | Il porte sur un mois déjà arrêté jour par jour ; son annulation rouvre la période en le disant |
 | Le dédoublonnage des tiers est un index unique partiel, pas un traitement | Un doublon découvert après coup a déjà faussé les plafonds d'engagement ; refusé à la saisie, il n'existe jamais |

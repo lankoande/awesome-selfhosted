@@ -284,6 +284,19 @@ public final class SecurityConfig {
             AccessRule.allow(ACCOUNTANT)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
+        // L'exercice et sa cloture fixent ce que la banque presente : la comptabilite, a deux.
+        policy.put(Operation.FISCAL_YEAR_MANAGE,
+            AccessRule.allow(ACCOUNTANT)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        policy.put(Operation.YEAR_CLOSE,
+            AccessRule.allow(ACCOUNTANT)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        policy.put(Operation.YEAR_REOPEN,
+            AccessRule.allow(ACCOUNTANT)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
         // ------------------------------------------------------------------ audit
         // Seul acces legitimement transverse aux entites, et le seul.
         policy.put(Operation.AUDIT_READ,

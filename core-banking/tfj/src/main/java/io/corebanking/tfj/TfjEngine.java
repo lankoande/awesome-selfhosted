@@ -8,6 +8,7 @@ import io.corebanking.ledger.domain.posting.PostingService;
 import io.corebanking.interest.service.InterestPositions;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.Entities;
+import io.corebanking.ledger.store.FiscalYears;
 import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.loan.service.LoanStore;
 import io.corebanking.party.KycReviews;
@@ -126,8 +127,10 @@ public final class TfjEngine {
                     + "en enchainant les TFJ dans l'ordre chronologique, jamais en fusionnant des "
                     + "journees : la fusion produirait des interets faux.");
             }
-        } else {
+        } else if (runType == RunType.TFM) {
             requireClosableMonth(legalEntityId, businessDate);
+        } else {
+            requireClosableYear(legalEntityId, businessDate);
         }
 
         UUID runId = createRun(legalEntityId, businessDate, actorId, mode);
@@ -158,11 +161,57 @@ public final class TfjEngine {
                 throw new TfjRefusedException(
                     "La periode se terminant le " + periodEnd + " est deja close.");
             }
+            // Le dernier mois d'un exercice ne se clot pas seul : les ecritures de resultat
+            // doivent lui etre imputees avant qu'il ne se ferme.
+            FiscalYears.endingOn(connection, legalEntityId, periodEnd).ifPresent(year -> {
+                throw new TfjRefusedException(
+                    "Le mois se terminant le " + periodEnd + " clot l'exercice du " + year.start()
+                    + " au " + year.end() + " : il se clot par la cloture annuelle (TFA), qui "
+                    + "determine le resultat avant de fermer la periode.");
+            });
             LocalDate current = Runs.currentBusinessDate(connection, legalEntityId);
             if (!current.isAfter(periodEnd)) {
                 throw new TfjRefusedException(
                     "La date comptable de l'entite est le " + current + " : le mois se terminant "
                     + "le " + periodEnd + " n'est pas encore arrete jour par jour.");
+            }
+            return null;
+        });
+    }
+
+    /**
+     * Une cloture annuelle porte la date de fin d'un exercice ouvert, dont le dernier mois est
+     * arrete jour par jour et pas encore clos — les ecritures de resultat lui sont imputees.
+     */
+    private void requireClosableYear(UUID legalEntityId, LocalDate yearEnd) {
+        database.inTransaction(connection -> {
+            FiscalYears.FiscalYear year = FiscalYears.endingOn(connection, legalEntityId, yearEnd)
+                .orElseThrow(() -> new TfjRefusedException(
+                    "Aucun exercice ne se termine le " + yearEnd + " : la cloture annuelle porte "
+                    + "la date de fin d'un exercice."));
+            if ("CLOSED".equals(year.status())) {
+                throw new TfjRefusedException(
+                    "L'exercice se terminant le " + yearEnd + " est deja clos.");
+            }
+            LocalDate[] bounds = Entities.periodBounds(connection, legalEntityId, yearEnd)
+                .orElseThrow(() -> new TfjRefusedException(
+                    "Aucune periode comptable ne couvre le " + yearEnd + "."));
+            if (!bounds[1].equals(yearEnd)) {
+                throw new TfjRefusedException(
+                    "Le " + yearEnd + " n'est pas la fin de sa periode comptable, qui court du "
+                    + bounds[0] + " au " + bounds[1] + " : un exercice se termine avec un mois.");
+            }
+            if ("CLOSED".equals(Entities.periodStatus(connection, legalEntityId, yearEnd)
+                                    .orElse("?"))) {
+                throw new TfjRefusedException(
+                    "La periode se terminant le " + yearEnd + " est deja close : les ecritures "
+                    + "de resultat ne pourraient pas y etre imputees.");
+            }
+            LocalDate current = Runs.currentBusinessDate(connection, legalEntityId);
+            if (!current.isAfter(yearEnd)) {
+                throw new TfjRefusedException(
+                    "La date comptable de l'entite est le " + current + " : l'exercice se "
+                    + "terminant le " + yearEnd + " n'est pas encore arrete jour par jour.");
             }
             return null;
         });
@@ -328,6 +377,27 @@ public final class TfjEngine {
                 + "ses ecritures ne decrivent plus.");
         });
 
+        if (runType == RunType.TFA) {
+            // Les ecritures de resultat se contre-passent a la date qu'elles portent, dans la
+            // periode rouverte pour cela : datees plus tard, elles laisseraient les comptes de
+            // resultat soldes en date de fin d'exercice, et la cloture rejouee ne trouverait
+            // rien a solder.
+            if (!reversalBookingDate.equals(run.businessDate())) {
+                throw new TfjRefusedException(
+                    "L'annulation d'une cloture annuelle se date de la fin d'exercice, le "
+                    + run.businessDate() + ", dans la periode rouverte — pas du "
+                    + reversalBookingDate + ".");
+            }
+            database.inTransaction(connection -> {
+                Entities.periodBounds(connection, run.legalEntityId(), run.businessDate())
+                    .ifPresent(bounds -> Entities.reopenPeriod(connection, run.legalEntityId(),
+                                                               bounds[0]));
+                FiscalYears.endingOn(connection, run.legalEntityId(), run.businessDate())
+                    .ifPresent(year -> FiscalYears.reopen(connection, year.id()));
+                return null;
+            });
+        }
+
         List<PostedEntry> entries = entriesOf(runId);
         for (PostedEntry entry : entries) {
             postingService.reverse(entry.id(), entry.bookingDate(), reversalBookingDate,
@@ -344,7 +414,7 @@ public final class TfjEngine {
                 neutraliseLoanClosures(connection, runId);
                 neutraliseDeposits(connection, runId);
                 setBusinessDate(connection, run.legalEntityId(), run.businessDate());
-            } else {
+            } else if (runType == RunType.TFM) {
                 // La cloture est defaite, et elle laisse une trace : REOPENED n'est pas OPEN.
                 Entities.periodBounds(connection, run.legalEntityId(), run.businessDate())
                     .ifPresent(bounds -> Entities.reopenPeriod(connection, run.legalEntityId(),

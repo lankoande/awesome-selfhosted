@@ -58,7 +58,10 @@ class OperationCoverageTest {
         Map.entry("TfjEngine.cancel", Operation.TFJ_CANCEL),
         Map.entry("WithholdingTaxes.declare", Operation.TAX_PARAMETER_DECLARE),
         Map.entry("StandardTfm / PeriodCloseStep", Operation.PERIOD_CLOSE),
-        Map.entry("TfjEngine.cancel (TFM)", Operation.PERIOD_REOPEN));
+        Map.entry("TfjEngine.cancel (TFM)", Operation.PERIOD_REOPEN),
+        Map.entry("FiscalYears.open", Operation.FISCAL_YEAR_MANAGE),
+        Map.entry("StandardTfa", Operation.YEAR_CLOSE),
+        Map.entry("TfjEngine.cancel (TFA)", Operation.YEAR_REOPEN));
 
     /** Operations sans point d'entree de service : consultations, ou pas encore construites. */
     private static final Set<Operation> WITHOUT_SERVICE = EnumSet.of(
@@ -88,7 +91,9 @@ class OperationCoverageTest {
                                               Operation.KYC_VERIFY, Operation.ACCOUNT_OPEN,
                                               Operation.ACCOUNT_CLOSE, Operation.ACCOUNT_BLOCK,
                                               Operation.ACCOUNT_HOLD, Operation.LOAN_PREPAY,
-                                              Operation.BRANCH_MANAGE, Operation.TILL_MANAGE)) {
+                                              Operation.BRANCH_MANAGE, Operation.TILL_MANAGE,
+                                              Operation.FISCAL_YEAR_MANAGE, Operation.YEAR_CLOSE,
+                                              Operation.YEAR_REOPEN)) {
             assertThat(SecurityConfig.ruleFor(operation).dualControl())
                 .as(operation.name()).isTrue();
         }

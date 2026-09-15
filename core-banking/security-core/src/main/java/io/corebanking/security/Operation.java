@@ -116,6 +116,12 @@ public enum Operation {
     PERIOD_CLOSE,
     /** Reouverture d'une periode comptable close. */
     PERIOD_REOPEN,
+    /** Ouverture d'un exercice fiscal : ses bornes et son compte de resultat. */
+    FISCAL_YEAR_MANAGE,
+    /** Cloture annuelle : determination du resultat, dernier mois et exercice clos. */
+    YEAR_CLOSE,
+    /** Annulation d'une cloture annuelle : le resultat defait, l'exercice et son dernier mois rouverts. */
+    YEAR_REOPEN,
 
     // ------------------------------------------------------------------ audit
     /** Consultation de la piste d'audit. */

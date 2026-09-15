@@ -14,5 +14,8 @@ public enum RunType {
     TFJ,
 
     /** Traitement de fin de mois : cloture d'une periode comptable. */
-    TFM
+    TFM,
+
+    /** Cloture annuelle : determination du resultat, dernier mois et exercice clos. */
+    TFA
 }

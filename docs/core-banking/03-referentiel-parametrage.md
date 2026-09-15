@@ -299,6 +299,12 @@ FiscalYear (exercice)
 - La clôture annuelle produit les écritures de détermination du résultat et de report à
   nouveau, selon le schéma de l'entité.
 
+> **Implémenté** — `fiscal_year` (V36) : bornes, statut (`OPEN`, `CLOSED`, `REOPENED`), compte de
+> résultat de l'exercice — un compte général de bilan de l'entité dans sa devise de tenue de
+> compte —, ouvert à deux (`FISCAL_YEAR_MANAGE`), sans chevauchement possible entre exercices. La
+> clôture annuelle (`YEAR_CLOSE`) clôt le dernier mois et l'exercice ; son annulation
+> (`YEAR_REOPEN`) les rouvre en le disant ([05](05-batch-arrete.md)).
+
 ---
 
 ## 7. Profil réglementaire par pays
