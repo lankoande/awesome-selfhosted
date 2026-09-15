@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 562 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 259 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 564 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 261 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -665,10 +665,8 @@ de vrais jetons.
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
-- API : sûretés, grilles de risque et schémas comptables ne sont pas encore exposés (les
-  services existent, les cas d'usage suivent le même moule) ; pas de contrat OpenAPI publié ;
-  pagination par curseur pour les extractions massives (la pagination par pages bornées est
-  faite) ;
+- API : pas de contrat OpenAPI publié ; pagination par curseur pour les extractions massives
+  (la pagination par pages bornées est faite) ;
 - chèques (remise, compensation, opposition), paiements sortants, plafonds par produit et par
   client ;
 - multi-agences : schémas de liaison bilatéral et via la région (le schéma via le siège est
@@ -782,6 +780,7 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Le résultat se détermine dans le journal en date de fin d'exercice, jamais dans un cliché | Le cliché est incrémental et vit sa vie ; le journal est la vérité, et l'écriture de clôture doit l'être aussi |
 | L'annulation d'une clôture annuelle se contre-passe à la date de fin d'exercice | Datée plus tard, elle laisserait les comptes de résultat soldés au 31 : la clôture rejouée ne trouverait rien à solder |
 | Pas d'à-nouveaux : le journal est continu | Les soldes de bilan se reportent d'eux-mêmes ; générer des à-nouveaux serait écrire deux fois la même vérité |
+| Un arrêté mensuel ou annuel se lance à deux par l'API, et son rapport est le résultat de l'approbation | Fermer ou rouvrir une période fixe ce que la banque présente ; le refus du moteur est la réponse de l'approbation, jamais un état ambigu |
 | Les tables partitionnées sont déclarées dans un registre | Une table partitionnée que la bascule ne connaît pas n'a ses partitions créées par personne |
 | Le TFM porte la date de fin de période et ne touche pas à la date comptable | Il porte sur un mois déjà arrêté jour par jour ; son annulation rouvre la période en le disant |
 | Le dédoublonnage des tiers est un index unique partiel, pas un traitement | Un doublon découvert après coup a déjà faussé les plafonds d'engagement ; refusé à la saisie, il n'existe jamais |

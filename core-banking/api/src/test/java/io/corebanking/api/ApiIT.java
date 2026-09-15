@@ -139,6 +139,9 @@ class ApiIT {
     private String teller;
     private String teller2;
     private Account ecartsCaisse;
+    private Account frais;
+    private Account resultat;
+    private String accountant2;
     private UUID caisseId;
     private String officer;
     private String manager;
@@ -169,7 +172,7 @@ class ApiIT {
             Entities.insertLegalEntity(c, ENTITY, "API", "Banque API", "CI", Currencies.XOF, J);
             Entities.insertLegalEntity(c, AUTRE_ENTITE, "AUTRE", "Autre banque", "SN",
                                        Currencies.XOF, J);
-            Entities.openPeriod(c, ENTITY, J.minusMonths(2), J.plusMonths(3));
+            Entities.openPeriod(c, ENTITY, J.minusMonths(2), J);
             UUID calendar = Calendars.createCalendar(c, "CI", "Cote d'Ivoire",
                 Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY), J.minusYears(1), J.plusYears(1));
             Calendars.attachToEntity(c, ENTITY, calendar);
@@ -185,9 +188,10 @@ class ApiIT {
             }
             siege = Branches.headOffice(c, ENTITY);
             caisse = compte(c, "CAISSE", AccountKind.INTERNAL, NormalBalance.DEBIT, siege);
-            Account charges = compte(c, "CHARGES", AccountKind.GL, NormalBalance.DEBIT, null);
+            Account charges = compteDeResultat(c, "CHARGES", NormalBalance.DEBIT);
             Account courus = compte(c, "COURUS", AccountKind.GL, NormalBalance.CREDIT, null);
-            Account frais = compte(c, "FRAIS", AccountKind.GL, NormalBalance.CREDIT, null);
+            frais = compteDeResultat(c, "FRAIS", NormalBalance.CREDIT);
+            resultat = compte(c, "RESULTAT", AccountKind.GL, NormalBalance.CREDIT, null);
             Account taxe = compte(c, "TAXE", AccountKind.GL, NormalBalance.CREDIT, null);
             Map<String, String> parametres = new LinkedHashMap<>();
             parametres.put(ProductCatalog.P_RATE, "3");
@@ -209,11 +213,10 @@ class ApiIT {
             pret = compte(c, "PRET", AccountKind.CUSTOMER, NormalBalance.DEBIT, siege);
             courant = compte(c, "COURANT", AccountKind.CUSTOMER, NormalBalance.CREDIT, siege);
             liaison = compte(c, "LIAISON-XOF", AccountKind.GL, NormalBalance.DEBIT, null);
-            ecartsCaisse = compte(c, "ECARTS-CAISSE", AccountKind.GL, NormalBalance.DEBIT, null);
+            ecartsCaisse = compteDeResultat(c, "ECARTS-CAISSE", NormalBalance.DEBIT);
             Account creances = compte(c, "CREANCES", AccountKind.GL, NormalBalance.DEBIT, null);
-            Account produits = compte(c, "PRODUITS-CREDIT", AccountKind.GL, NormalBalance.CREDIT,
-                                      null);
-            Account retard = compte(c, "RETARD", AccountKind.GL, NormalBalance.CREDIT, null);
+            Account produits = compteDeResultat(c, "PRODUITS-CREDIT", NormalBalance.CREDIT);
+            Account retard = compteDeResultat(c, "RETARD", NormalBalance.CREDIT);
             Account icne = compte(c, "ICNE", AccountKind.GL, NormalBalance.DEBIT, null);
             parametresCredit.put(LoanCatalog.P_ACCRUED, creances.id().toString());
             parametresCredit.put(LoanCatalog.P_ACCRUED_INTEREST, icne.id().toString());
@@ -235,6 +238,7 @@ class ApiIT {
         productManager = token(UUID.randomUUID(), "resp.produits", null, Roles.PRODUCT_MANAGER);
         riskOfficer = token(UUID.randomUUID(), "risques", null, Roles.RISK_OFFICER);
         accountant = token(UUID.randomUUID(), "comptable", null, Roles.ACCOUNTANT);
+        accountant2 = token(UUID.randomUUID(), "chef.comptable", null, Roles.ACCOUNTANT);
     }
 
     @AfterAll
@@ -683,6 +687,156 @@ class ApiIT {
             .isEqualTo(J.plusDays(3).plusMonths(1).toString());
     }
 
+    @Test
+    @Order(8)
+    @DisplayName("la cloture annuelle par l'API : exercice ouvert a deux, arrete mensuel refuse sur le dernier mois, cloture a deux, annulation a deux")
+    void cloture() throws Exception {
+        // L'exercice : ouvert par la comptabilite, valide par une seconde.
+        Reponse exercice = post(accountant, "/fiscal-years", null, Map.of(
+            "start", J.minusYears(1).plusDays(1).toString(), "end", J.toString(),
+            "resultAccountId", resultat.id().toString()));
+        assertThat(exercice.status()).as(String.valueOf(exercice.envelope())).isEqualTo(202);
+        assertThat(post(accountant, "/pending-operations/" + attente(exercice) + "/approve", null,
+                        Map.of()).status()).isEqualTo(403);
+        Reponse ouvert = post(accountant2, "/pending-operations/" + attente(exercice) + "/approve",
+                              null, Map.of());
+        assertThat(ouvert.status()).as(String.valueOf(ouvert.envelope())).isEqualTo(200);
+        Reponse exercices = get(accountant, "/fiscal-years");
+        assertThat(exercices.status()).isEqualTo(200);
+        assertThat(exercices.items()).hasSize(1);
+        assertThat(exercices.items().get(0).get("status")).isEqualTo("OPEN");
+
+        // Le dernier mois d'un exercice ne se clot pas par un arrete mensuel : l'approbation
+        // execute, le moteur refuse, et le refus est la reponse.
+        Reponse mois = post(accountant, "/eom/runs", null, Map.of("businessDate", J.toString()));
+        assertThat(mois.status()).as(String.valueOf(mois.envelope())).isEqualTo(202);
+        Reponse refus = post(accountant2, "/pending-operations/" + attente(mois) + "/approve", null,
+                             Map.of());
+        assertThat(refus.status()).as(String.valueOf(refus.envelope())).isEqualTo(409);
+        assertThat((String) refus.body().get("detail")).contains("cloture annuelle");
+
+        // La cloture annuelle : le resultat determine, le mois et l'exercice clos.
+        String fraisAvant = montant(get(manager, "/accounts/" + frais.id() + "/balance").body(),
+                                    "current");
+        assertThat(new java.math.BigDecimal(fraisAvant)).isPositive();
+        Reponse annee = post(accountant, "/eoy/runs", null, Map.of("businessDate", J.toString()));
+        assertThat(annee.status()).as(String.valueOf(annee.envelope())).isEqualTo(202);
+        Reponse clos = post(accountant2, "/pending-operations/" + attente(annee) + "/approve", null,
+                            Map.of());
+        assertThat(clos.status()).as(String.valueOf(clos.envelope())).isEqualTo(200);
+        assertThat(resultat(clos.body()).get("status")).isEqualTo("COMPLETED");
+        UUID runId = UUID.fromString((String) resultat(clos.body()).get("id"));
+        Reponse lecture = get(accountant, "/eoy/runs/" + runId);
+        assertThat(lecture.status()).as(String.valueOf(lecture.envelope())).isEqualTo(200);
+        assertThat(String.valueOf(lecture.body().get("steps"))).contains("RESULT_DETERMINATION");
+        assertThat(montant(get(manager, "/accounts/" + frais.id() + "/balance").body(), "current"))
+            .isEqualTo("0");
+        assertThat(get(accountant, "/fiscal-years").items().get(0).get("status"))
+            .isEqualTo("CLOSED");
+
+        // L'annulation, a deux, datee de la fin d'exercice : tout est defait.
+        Reponse annulation = post(accountant, "/eoy/runs/" + runId + "/cancel", null, Map.of(
+            "reversalBookingDate", J.toString(), "reason", "produit oublie"));
+        assertThat(annulation.status()).as(String.valueOf(annulation.envelope())).isEqualTo(202);
+        Reponse annule = post(accountant2, "/pending-operations/" + attente(annulation)
+                              + "/approve", null, Map.of());
+        assertThat(annule.status()).as(String.valueOf(annule.envelope())).isEqualTo(200);
+        assertThat(resultat(annule.body()).get("status")).isEqualTo("CANCELLED");
+        assertThat(montant(get(manager, "/accounts/" + frais.id() + "/balance").body(), "current"))
+            .isEqualTo(fraisAvant);
+        assertThat(get(accountant, "/fiscal-years").items().get(0).get("status"))
+            .isEqualTo("REOPENED");
+    }
+
+    @Test
+    @Order(9)
+    @DisplayName("regime de surete, grille de risque et schema comptable rediges puis actives a deux ; une surete prise, affectee, levee")
+    void parametrage_du_risque_et_suretes() throws Exception {
+        Reponse regime = post(riskOfficer, "/collateral-policies", null, Map.of(
+            "kind", "HYPOTHEQUE", "label", "Hypotheque de premier rang",
+            "eligibleRatePercent", "50", "maxValuationAgeMonths", 24,
+            "validFrom", J.minusMonths(1).toString()));
+        assertThat(regime.status()).as(String.valueOf(regime.envelope())).isEqualTo(201);
+        Reponse activation = post(riskOfficer, "/collateral-policies/"
+                                  + regime.body().get("id") + "/activation", null, Map.of());
+        assertThat(activation.status()).isEqualTo(202);
+        Reponse actif = post(accountant, "/pending-operations/" + attente(activation) + "/approve",
+                             null, Map.of());
+        assertThat(actif.status()).as(String.valueOf(actif.envelope())).isEqualTo(200);
+        assertThat(resultat(actif.body()).get("status")).isEqualTo("ACTIVE");
+
+        // Une grille lacunaire est refusee des la redaction ; une grille contigue est acceptee.
+        Map<String, Object> sain = Map.of("ordinal", 0, "code", "SAIN", "label", "Sain",
+            "fromDays", 0, "toDays", 89, "provisionRatePercent", "0", "performing", true);
+        Map<String, Object> douteux = Map.of("ordinal", 1, "code", "DOUTEUX", "label", "Douteux",
+            "fromDays", 90, "provisionRatePercent", "20", "performing", false);
+        Map<String, Object> lacunaire = Map.of("ordinal", 1, "code", "DOUTEUX", "label", "Douteux",
+            "fromDays", 120, "provisionRatePercent", "20", "performing", false);
+        assertThat(post(riskOfficer, "/risk-profiles", null, Map.of(
+            "label", "Grille lacunaire", "validFrom", J.minusMonths(1).toString(),
+            "grid", Map.of("code", "GRILLE-LACUNE", "contagion", "NONE",
+                           "buckets", List.of(sain, lacunaire)))).status()).isEqualTo(422);
+        Reponse grille = post(riskOfficer, "/risk-profiles", null, Map.of(
+            "label", "Grille BCEAO", "validFrom", J.minusMonths(1).toString(),
+            "grid", Map.of("code", "GRILLE-API", "contagion", "NONE",
+                           "buckets", List.of(sain, douteux))));
+        assertThat(grille.status()).as(String.valueOf(grille.envelope())).isEqualTo(201);
+        Reponse grilleActivation = post(riskOfficer, "/risk-profiles/" + grille.body().get("id")
+                                        + "/activation", null, Map.of());
+        assertThat(post(accountant, "/pending-operations/" + attente(grilleActivation)
+                        + "/approve", null, Map.of()).status()).isEqualTo(200);
+
+        // Le schema comptable : valide avant d'entrer en base, active par une seconde main.
+        Map<String, Object> evenement = Map.of(
+            "eventType", "MAINTENANCE_FEE", "derivations", Map.of("total", "round(base, 0)"),
+            "lines", List.of(
+                Map.of("account", "CONTRACT", "direction", "DEBIT", "amount", "total",
+                       "label", "Frais de tenue de compte"),
+                Map.of("account", "GL:" + frais.code(), "direction", "CREDIT", "amount", "total",
+                       "label", "Commissions percues")));
+        Reponse schema = post(accountant, "/accounting-schemas", null, Map.of(
+            "code", "FRAIS-API", "label", "Frais de tenue", "currency", "XOF",
+            "validFrom", J.minusMonths(1).toString(), "version", 1,
+            "events", List.of(evenement)));
+        assertThat(schema.status()).as(String.valueOf(schema.envelope())).isEqualTo(201);
+        Reponse schemaActivation = post(accountant, "/accounting-schemas/"
+                                        + schema.body().get("id") + "/activation", null, Map.of());
+        assertThat(schemaActivation.status()).isEqualTo(202);
+        // Le redacteur ne l'active pas, meme par une seconde requete.
+        assertThat(post(accountant, "/pending-operations/" + attente(schemaActivation)
+                        + "/approve", null, Map.of()).status()).isEqualTo(403);
+        assertThat(post(accountant2, "/pending-operations/" + attente(schemaActivation)
+                        + "/approve", null, Map.of()).status()).isEqualTo(200);
+
+        // La surete : prise par le charge de credit, validee par le responsable credit,
+        // affectee au contrat, puis levee — a deux a chaque fois.
+        Reponse surete = post(creditOfficer, "/collaterals", null, Map.of(
+            "customerPartyId", party.toString(), "assetReference", "TF-1234",
+            "kind", "HYPOTHEQUE", "label", "Villa Cocody", "assetValue", "50000000",
+            "securedAmount", "20000000", "currency", "XOF", "rank", 1,
+            "valuedOn", J.toString()));
+        assertThat(surete.status()).as(String.valueOf(surete.envelope())).isEqualTo(202);
+        Reponse prise = post(creditManager, "/pending-operations/" + attente(surete) + "/approve",
+                             null, Map.of());
+        assertThat(prise.status()).as(String.valueOf(prise.envelope())).isEqualTo(200);
+        UUID sureteId = UUID.fromString((String) resultat(prise.body()).get("id"));
+        Reponse affectation = post(creditOfficer, "/collaterals/" + sureteId + "/allocations", null,
+                                   Map.of("contractId", pretId.toString(), "sharePercent", "100"));
+        assertThat(affectation.status()).as(String.valueOf(affectation.envelope())).isEqualTo(202);
+        assertThat(post(creditManager, "/pending-operations/" + attente(affectation) + "/approve",
+                        null, Map.of()).status()).isEqualTo(200);
+        Reponse mainlevee = post(creditOfficer, "/collaterals/" + sureteId + "/release", null,
+                                 Map.of("on", J.plusDays(1).toString()));
+        assertThat(mainlevee.status()).isEqualTo(202);
+        Reponse levee = post(creditManager, "/pending-operations/" + attente(mainlevee) + "/approve",
+                             null, Map.of());
+        assertThat(levee.status()).as(String.valueOf(levee.envelope())).isEqualTo(200);
+        assertThat(resultat(levee.body()).get("status")).isEqualTo("RELEASED");
+        // Une surete inconnue n'existe pas.
+        assertThat(post(creditOfficer, "/collaterals/" + UUID.randomUUID() + "/release", null,
+                        Map.of("on", J.toString())).status()).isEqualTo(404);
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static UUID attente(Reponse reponse) {
@@ -777,6 +931,16 @@ class ApiIT {
     @SuppressWarnings("unchecked")
     private static String montant(Map<String, Object> body, String field) {
         return (String) ((Map<String, Object>) body.get(field)).get("amount");
+    }
+
+    /** Un compte general de charges ou de produits : ce que la cloture annuelle solde. */
+    private static Account compteDeResultat(java.sql.Connection c, String code,
+                                            NormalBalance normal) {
+        Account account = new Account(UUID.randomUUID(), ENTITY, code, AccountKind.GL, normal,
+                                      Currencies.XOF, true, false, 1, AccountStatus.ACTIVE, null)
+            .withNature(io.corebanking.ledger.domain.account.AccountNature.PROFIT_AND_LOSS);
+        Accounts.create(c, account, J.minusMonths(1));
+        return account;
     }
 
     private static Account compte(java.sql.Connection c, String code, AccountKind kind,

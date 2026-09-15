@@ -51,4 +51,16 @@ public final class EodEngines {
             mobilisationService, lateService, classificationService,
             Calendars.load(database, legalEntityId).calendar());
     }
+
+    /** L'arrete mensuel de l'entite, sur le meme moteur. */
+    public TfjEngine monthEnd(UUID legalEntityId) {
+        return io.corebanking.tfj.StandardTfm.engine(
+            database, postingService, Calendars.load(database, legalEntityId).calendar());
+    }
+
+    /** La cloture annuelle de l'entite, sur le meme moteur. */
+    public TfjEngine yearEnd(UUID legalEntityId) {
+        return io.corebanking.tfj.StandardTfa.engine(
+            database, postingService, Calendars.load(database, legalEntityId).calendar());
+    }
 }

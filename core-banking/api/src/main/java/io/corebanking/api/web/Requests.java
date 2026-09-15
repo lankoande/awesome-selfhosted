@@ -113,6 +113,46 @@ public final class Requests {
 
     public record TillClosing(String counted, String currency) {}
 
+    // ------------------------------------------------------------------ arretes et exercices
+
+    public record OpenFiscalYear(LocalDate start, LocalDate end, UUID resultAccountId) {}
+
+    // ------------------------------------------------------------------ risque et suretes
+
+    public record CollateralPolicyDraft(String kind, String label, String eligibleRatePercent,
+                                        Integer maxValuationAgeMonths, LocalDate validFrom,
+                                        LocalDate validTo) {}
+
+    public record RiskBucketRequest(Integer ordinal, String code, String label, Integer fromDays,
+                                    Integer toDays, String provisionRatePercent,
+                                    Boolean performing) {}
+
+    public record RiskGridRequest(String code, List<RiskBucketRequest> buckets, String contagion,
+                                  String suspendFromBucket, Integer cureDays) {}
+
+    public record RiskProfileDraft(String label, LocalDate validFrom, LocalDate validTo,
+                                   RiskGridRequest grid) {}
+
+    public record RegisterCollateral(UUID customerPartyId, String assetReference, String kind,
+                                     String label, String assetValue, String securedAmount,
+                                     String currency, Integer rank, LocalDate valuedOn) {}
+
+    public record AllocateCollateral(UUID contractId, String sharePercent) {}
+
+    public record ReleaseCollateral(LocalDate on) {}
+
+    // ------------------------------------------------------------------ schemas comptables
+
+    public record SchemaLine(String account, String direction, String amount, String label,
+                             String condition) {}
+
+    public record SchemaEvent(String eventType, java.util.Map<String, String> derivations,
+                              List<SchemaLine> lines) {}
+
+    public record AccountingSchemaDraft(String code, String label, String currency,
+                                        LocalDate validFrom, LocalDate validTo, Integer version,
+                                        List<SchemaEvent> events) {}
+
     /** Reponse d'un ferie declare. */
     public record HolidayDeclared(UUID calendarId, LocalDate date, String label) {}
 

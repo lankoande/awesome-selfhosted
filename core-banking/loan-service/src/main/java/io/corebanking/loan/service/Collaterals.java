@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Depot des suretes, de leur regime d'eligibilite et de leur affectation aux credits. */
@@ -203,5 +204,45 @@ public final class Collaterals {
             throw new LedgerStoreException("Lecture des suretes du contrat " + contractId, e);
         }
         return charges;
+    }
+
+    // ------------------------------------------------------------------ en-tetes
+
+    /** Ce qu'il faut savoir d'un regime avant de decider de son activation. */
+    public record PolicyHeader(UUID id, UUID legalEntityId, String kind, String status,
+                               UUID createdBy) {}
+
+    public static Optional<PolicyHeader> findPolicy(Connection c, UUID policyId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, legal_entity_id, kind, status, created_by FROM collateral_policy"
+            + " WHERE id = ?")) {
+            ps.setObject(1, policyId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(new PolicyHeader(
+                    rs.getObject(1, UUID.class), rs.getObject(2, UUID.class), rs.getString(3),
+                    rs.getString(4), rs.getObject(5, UUID.class))) : Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture du regime de surete " + policyId, e);
+        }
+    }
+
+    /** L'en-tete d'une surete : son entite et son etat. */
+    public record Header(UUID id, UUID legalEntityId, String assetReference, String kind,
+                         String status) {}
+
+    public static Optional<Header> find(Connection c, UUID collateralId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, legal_entity_id, asset_reference, kind, status FROM collateral"
+            + " WHERE id = ?")) {
+            ps.setObject(1, collateralId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(new Header(
+                    rs.getObject(1, UUID.class), rs.getObject(2, UUID.class), rs.getString(3),
+                    rs.getString(4), rs.getString(5))) : Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture de la surete " + collateralId, e);
+        }
     }
 }

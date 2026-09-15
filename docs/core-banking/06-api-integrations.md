@@ -121,6 +121,9 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `POST /pending-operations/{id}/approve`, `.../reject` | celle de l'opération en attente, en tant que checker | motif pour un rejet |
 | `POST /eod/runs`, `GET /eod/runs/{id}`, `POST .../resume` | `TFJ_RUN` | journée, mode |
 | `POST /eod/runs/{id}/cancel` | `TFJ_CANCEL` | date de contre-passation, motif |
+| `POST /eom/runs`, `.../{id}/resume`, `.../{id}/cancel` | `PERIOD_CLOSE`, `PERIOD_REOPEN` | journée de fin de période ; contre-passation et motif — **202** chacun, l'arrêté mensuel s'exécute à l'approbation ; `GET /eom/runs/{id}` |
+| `POST /eoy/runs`, `.../{id}/resume`, `.../{id}/cancel` | `YEAR_CLOSE`, `YEAR_REOPEN` | journée de fin d'exercice ; contre-passation (à la fin d'exercice) et motif — **202** chacun ; `GET /eoy/runs/{id}` |
+| `POST /fiscal-years`, `GET /fiscal-years` | `FISCAL_YEAR_MANAGE` | début, fin, compte de résultat — **202** ; liste paginée avec le statut |
 | `POST /loans` | `LOAN_CONTRACT_CREATE` | référence, produit, devise, compte de prêt, compte de règlement, capital, date de déblocage, client |
 | `POST /loans/{id}/disbursement` | `LOAN_DISBURSE` | conditions (taux, périodicité, échéances, différé, première échéance, méthode, base, frais) — **202**, plafond sur le capital |
 | `POST /loans/{id}/repayments` | `LOAN_REPAYMENT` | montant, date de valeur ; `Idempotency-Key` ; règlement manuel, l'excédent non affecté est rendu |
@@ -133,6 +136,10 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `POST /calendar/value-date-rules` | `CALENDAR_MANAGE` | type d'opération, canal, sens, décalage, unité, convention, validité — **202** |
 | `POST /calendar/holidays` | `CALENDAR_MANAGE` | date, libellé — **202** ; l'arrêté du soir relit le calendrier |
 | `POST /branches` | `BRANCH_MANAGE` | code, nom, nature, rattachement, ouverture, comptes de liaison par devise — **202** |
+| `POST /collateral-policies`, `.../{id}/activation` | `RISK_PARAMETER_DRAFT`, `RISK_PARAMETER_ACTIVATE` | nature de sûreté, quotité, âge maximal d'expertise, validité ; activation **202**, jamais par le rédacteur |
+| `POST /risk-profiles`, `.../{id}/activation` | `RISK_PARAMETER_DRAFT`, `RISK_PARAMETER_ACTIVATE` | grille : classes contiguës (rang, bornes en jours, taux de provision, saine ou non), contagion, suspension, période d'observation ; une grille lacunaire est refusée (`422`) |
+| `POST /accounting-schemas`, `.../{id}/activation` | `ACCOUNTING_SCHEMA_DRAFT`, `ACCOUNTING_SCHEMA_ACTIVATE` | code, devise, validité, événements (dérivations ordonnées, lignes `CONTRACT` / `GL:code` / paramètre, conditions) ; validé avant d'entrer en base |
+| `POST /collaterals`, `.../{id}/allocations`, `.../{id}/release` | `COLLATERAL_MANAGE` | prise (actif, nature, valeur, montant garanti, rang, date d'expertise), affectation à un contrat (quote-part), mainlevée — **202** chacun |
 | `POST /tills` | `TILL_MANAGE` | code, compte de caisse, sujet du guichetier titulaire, compte d'écarts — **202**, un chef d'agence demande, un autre valide |
 | `POST /tills/{id}/closure` | `TILL_CLOSE` | especes comptées : solde comptable confronté, écart comptabilisé, journée de caisse close ; le guichetier n'arrête que la sienne |
 
@@ -173,9 +180,16 @@ n'est jamais le rédacteur de la version (`409` s'il tente). Règles de date de 
 fériés et agences suivent le même circuit ; le moteur d'arrêté relit le calendrier à chaque
 lancement, un férié déclaré dans la journée vaut pour le soir même.
 
-Ce qui n'est pas encore exposé : les sûretés, les grilles de risque et les schémas comptables
-(les services existent) ; pas de contrat OpenAPI publié ; pagination par curseur pour les
-extractions massives. La réservation du disponible par une opération en attente
+**Arrêtés.** L'arrêté mensuel et la clôture annuelle passent par le même circuit à deux que
+tout ce qui ferme ou rouvre une période : la demande est acceptée (`202`), le traitement
+s'exécute à l'approbation, et son rapport (`TfjRun`) est le résultat de l'opération en attente ;
+un refus du moteur — un mois non terminé, le dernier mois d'un exercice demandé en arrêté
+mensuel — est la réponse de l'approbation (`409`), et la demande est à refaire. L'exercice
+s'ouvre à deux, avec son compte de résultat ; sa liste dit son statut (`OPEN`, `CLOSED`,
+`REOPENED`).
+
+Ce qui n'est pas encore exposé : pas de contrat OpenAPI publié ; pagination par curseur pour les
+extractions massives ; l'affectation du résultat. La réservation du disponible par une opération en attente
 qui déplacerait des fonds n'existe pas encore : un déblocage approuvé crédite le compte de
 règlement à l'approbation, sans réservation préalable.
 
@@ -184,7 +198,8 @@ signés, l'API connectée avec le rôle applicatif : du tiers au retrait, les re
 la caisse affectée à deux puis arrêtée avant la journée, l'arrêté lancé par l'exploitant, le
 crédit du produit au remboursement anticipé puis au rééchelonnement, les conditions de banque et
 une agence créées à deux, l'enveloppe et les pages sur le relevé, les contrats, les tiers et les
-opérations en attente.
+opérations en attente, l'exercice ouvert puis clos et rouvert à deux, le régime de sûreté, la
+grille de risque et le schéma comptable activés à deux, une sûreté prise, affectée et levée.
 
 ---
 

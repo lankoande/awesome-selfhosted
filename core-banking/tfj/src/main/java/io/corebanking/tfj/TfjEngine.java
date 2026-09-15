@@ -405,7 +405,7 @@ public final class TfjEngine {
                 "Annulation du " + runType + " du " + run.businessDate() + " — " + reason);
         }
 
-        database.inTransaction(connection -> {
+        TfjRun cancelled = database.inTransaction(connection -> {
             if (runType == RunType.TFJ) {
                 neutraliseAccruals(connection, runId);
                 neutraliseFees(connection, runId);
@@ -421,12 +421,14 @@ public final class TfjEngine {
                                                                bounds[0]));
             }
             markCancelled(connection, runId, actorId, reason);
-            return null;
+            // Lu dans la transaction qui annule : appele sous une transaction englobante — la
+            // double validation —, une lecture independante rendrait l'etat d'avant.
+            return loadRun(connection, runId).orElseThrow();
         });
         LOG.warn("{} {} entite {} : ANNULE par {} — {} ; {} ecritures contre-passees en date du {},"
                  + " traitement {}", runType, run.businessDate(), run.legalEntityId(), actorId,
                  reason, entries.size(), reversalBookingDate, runId);
-        return require(runId);
+        return cancelled;
     }
 
     // ------------------------------------------------------------------ acces aux donnees

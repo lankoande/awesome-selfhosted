@@ -190,4 +190,22 @@ public final class SchemaCatalog {
             eventType, derivations.getOrDefault(eventType, new LinkedHashMap<>()), eventLines)));
         return builder.build();
     }
+
+    /** Ce qu'il faut savoir d'un schema avant de decider de son activation. */
+    public record Header(UUID id, UUID legalEntityId, String code, String status, UUID createdBy) {}
+
+    public static java.util.Optional<Header> find(Connection c, UUID schemaId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, legal_entity_id, code, status, created_by FROM accounting_schema"
+            + " WHERE id = ?")) {
+            ps.setObject(1, schemaId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? java.util.Optional.of(new Header(
+                    rs.getObject(1, UUID.class), rs.getObject(2, UUID.class), rs.getString(3),
+                    rs.getString(4), rs.getObject(5, UUID.class))) : java.util.Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture du schema comptable " + schemaId, e);
+        }
+    }
 }

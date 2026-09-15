@@ -12,6 +12,7 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -137,6 +138,23 @@ public final class RiskProfiles {
             ps.executeBatch();
         } catch (SQLException e) {
             throw new LedgerStoreException("Enregistrement des classes de risque", e);
+        }
+    }
+
+    /** Ce qu'il faut savoir d'un profil avant de decider de son activation. */
+    public record Header(UUID id, UUID legalEntityId, String code, String status, UUID createdBy) {}
+
+    public static Optional<Header> find(Connection c, UUID profileId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, legal_entity_id, code, status, created_by FROM risk_profile WHERE id = ?")) {
+            ps.setObject(1, profileId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(new Header(
+                    rs.getObject(1, UUID.class), rs.getObject(2, UUID.class), rs.getString(3),
+                    rs.getString(4), rs.getObject(5, UUID.class))) : Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture du profil de risque " + profileId, e);
         }
     }
 }

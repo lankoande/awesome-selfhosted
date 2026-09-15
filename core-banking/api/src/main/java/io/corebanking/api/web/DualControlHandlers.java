@@ -31,6 +31,14 @@ import io.corebanking.kernel.money.CurrencyRef;
 import io.corebanking.kernel.time.Periodicity;
 import io.corebanking.ledger.domain.account.Direction;
 import io.corebanking.product.ProductCatalog;
+import io.corebanking.tfj.RunMode;
+import io.corebanking.tfj.RunType;
+import io.corebanking.tfj.TfjEngine;
+import io.corebanking.ledger.store.FiscalYears;
+import io.corebanking.loan.service.Collaterals;
+import io.corebanking.loan.service.RiskProfiles;
+import io.corebanking.product.SchemaCatalog;
+import io.corebanking.api.usecase.ParameterUseCases;
 import io.corebanking.party.PartyService;
 import io.corebanking.party.RiskRating;
 import io.corebanking.security.AccessTarget;
@@ -52,7 +60,8 @@ public final class DualControlHandlers {
 
     public static List<MakerChecker.Handler> all(Database database, AccountLifecycle lifecycle,
                                                  PartyService parties, AccountDirectory accounts,
-                                                 LoanService loans) {
+                                                 LoanService loans,
+                                                 io.corebanking.api.config.EodEngines engines) {
         return List.of(new OpenAccount(lifecycle), new CloseAccount(lifecycle, accounts),
                        new BlockAccount(lifecycle, accounts), new LiftBlock(lifecycle, accounts),
                        new PlaceHold(database, accounts), new ReleaseHold(database, accounts),
@@ -60,7 +69,16 @@ public final class DualControlHandlers {
                        new PrepayLoan(database, loans), new ActivateProduct(database),
                        new AddValueDateRule(database), new AddHoliday(database),
                        new CreateBranch(database), new CreateTill(database, accounts),
-                       new RescheduleLoan(database, loans));
+                       new RescheduleLoan(database, loans),
+                       new RunPeriodEnd(engines, RunType.TFM), new RunPeriodEnd(engines, RunType.TFA),
+                       new ResumePeriodEnd(engines, RunType.TFM),
+                       new ResumePeriodEnd(engines, RunType.TFA),
+                       new CancelPeriodEnd(engines, RunType.TFM),
+                       new CancelPeriodEnd(engines, RunType.TFA),
+                       new OpenFiscalYear(database), new RegisterCollateral(database),
+                       new AllocateCollateral(database), new ReleaseCollateral(database),
+                       new ActivateCollateralPolicy(database), new ActivateRiskProfile(database),
+                       new ActivateAccountingSchema(database));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -705,6 +723,432 @@ public final class DualControlHandlers {
                 Callers.actorId(maker), Callers.actorId(checker));
             return new LoanUseCases.Rescheduled(contract.id(), scheduleId, remaining,
                                                 schedule.instalments());
+        }
+    }
+
+    // ------------------------------------------------------------------ arretes mensuel et annuel
+
+    private static TfjEngine engineFor(io.corebanking.api.config.EodEngines engines, RunType type,
+                                       UUID entity) {
+        return type == RunType.TFA ? engines.yearEnd(entity) : engines.monthEnd(entity);
+    }
+
+    private static Operation closeOperation(RunType type) {
+        return type == RunType.TFA ? Operation.YEAR_CLOSE : Operation.PERIOD_CLOSE;
+    }
+
+    /** Lancement d'un arrete mensuel ou annuel : demande par l'un, approuve par un autre. */
+    static final class RunPeriodEnd implements MakerChecker.Handler {
+        private final io.corebanking.api.config.EodEngines engines;
+        private final RunType type;
+
+        RunPeriodEnd(io.corebanking.api.config.EodEngines engines, RunType type) {
+            this.engines = engines;
+            this.type = type;
+        }
+
+        @Override public String name() { return type.name() + "_RUN"; }
+        @Override public Operation operation() { return closeOperation(type); }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "businessDate");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            UUID entity = uuid(payload, "legalEntityId");
+            LocalDate date = date(payload, "businessDate");
+            if (date == null) {
+                throw new IllegalArgumentException("Champ obligatoire absent : businessDate");
+            }
+            return engineFor(engines, type, entity).run(entity, date, Callers.actorId(maker),
+                                                        RunMode.REAL);
+        }
+    }
+
+    /** Reprise d'un arrete en echec, a deux comme son lancement. */
+    static final class ResumePeriodEnd implements MakerChecker.Handler {
+        private final io.corebanking.api.config.EodEngines engines;
+        private final RunType type;
+
+        ResumePeriodEnd(io.corebanking.api.config.EodEngines engines, RunType type) {
+            this.engines = engines;
+            this.type = type;
+        }
+
+        @Override public String name() { return type.name() + "_RESUME"; }
+        @Override public Operation operation() { return closeOperation(type); }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "runId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            UUID entity = uuid(payload, "legalEntityId");
+            return engineFor(engines, type, entity).resume(uuid(payload, "runId"),
+                                                           Callers.actorId(maker));
+        }
+    }
+
+    /** Annulation d'un arrete : le mois ou l'exercice rouvert, en le disant. */
+    static final class CancelPeriodEnd implements MakerChecker.Handler {
+        private final io.corebanking.api.config.EodEngines engines;
+        private final RunType type;
+
+        CancelPeriodEnd(io.corebanking.api.config.EodEngines engines, RunType type) {
+            this.engines = engines;
+            this.type = type;
+        }
+
+        @Override public String name() { return type.name() + "_CANCEL"; }
+
+        @Override
+        public Operation operation() {
+            return type == RunType.TFA ? Operation.YEAR_REOPEN : Operation.PERIOD_REOPEN;
+        }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            required(payload, "reason");
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "runId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            UUID entity = uuid(payload, "legalEntityId");
+            LocalDate reversalBookingDate = date(payload, "reversalBookingDate");
+            if (reversalBookingDate == null) {
+                throw new IllegalArgumentException(
+                    "Champ obligatoire absent : reversalBookingDate");
+            }
+            return engineFor(engines, type, entity).cancel(
+                uuid(payload, "runId"), Callers.actorId(maker), reversalBookingDate,
+                required(payload, "reason"));
+        }
+    }
+
+    /** Ouverture d'un exercice : ses bornes et son compte de resultat, a deux. */
+    static final class OpenFiscalYear implements MakerChecker.Handler {
+        private final Database database;
+
+        OpenFiscalYear(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "FISCAL_YEAR_OPEN"; }
+        @Override public Operation operation() { return Operation.FISCAL_YEAR_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "end");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            LocalDate start = date(payload, "start");
+            LocalDate end = date(payload, "end");
+            if (start == null || end == null) {
+                throw new IllegalArgumentException("Champs obligatoires absents : start, end");
+            }
+            UUID id = database.inTransaction(c -> FiscalYears.open(
+                c, uuid(payload, "legalEntityId"), start, end, uuid(payload, "resultAccountId"),
+                Callers.actorId(maker), Callers.actorId(checker)));
+            return new Requests.Created(id);
+        }
+    }
+
+    // ------------------------------------------------------------------ suretes
+
+    /** Prise d'une surete : enregistree par l'un, validee par un autre. */
+    static final class RegisterCollateral implements MakerChecker.Handler {
+        private final Database database;
+
+        RegisterCollateral(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "COLLATERAL_REGISTER"; }
+        @Override public Operation operation() { return Operation.COLLATERAL_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "assetReference");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            UUID entity = uuid(payload, "legalEntityId");
+            UUID id = database.inTransaction(c -> {
+                CurrencyRef currency = io.corebanking.api.usecase.AccountUseCases.currency(
+                    c, required(payload, "currency"));
+                Money assetValue = Money.of(new java.math.BigDecimal(required(payload, "assetValue")),
+                                            currency);
+                Money secured = Money.of(new java.math.BigDecimal(required(payload, "securedAmount")),
+                                         currency);
+                UUID customer = payload.get("customerPartyId") == null ? null
+                                                                        : uuid(payload, "customerPartyId");
+                LocalDate valuedOn = date(payload, "valuedOn");
+                if (valuedOn == null) {
+                    throw new IllegalArgumentException("Champ obligatoire absent : valuedOn");
+                }
+                return Collaterals.register(c, new Collaterals.Draft(
+                    entity, customer, required(payload, "assetReference"),
+                    required(payload, "kind"), required(payload, "label"), assetValue, secured,
+                    integer(payload, "rank"), valuedOn, Callers.actorId(maker),
+                    Callers.actorId(checker)));
+            });
+            return new Requests.Created(id);
+        }
+    }
+
+    private static Collaterals.Header requireCollateral(Database database, UUID entity, UUID id) {
+        return database.inTransaction(c -> Collaterals.find(c, id))
+            .filter(header -> header.legalEntityId().equals(entity))
+            .orElseThrow(() -> new ParameterUseCases.UnknownParameterException("Surete", id));
+    }
+
+    /** Affectation d'une quote-part de surete a un credit. */
+    static final class AllocateCollateral implements MakerChecker.Handler {
+        private final Database database;
+
+        AllocateCollateral(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "COLLATERAL_ALLOCATE"; }
+        @Override public Operation operation() { return Operation.COLLATERAL_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            Collaterals.Header collateral = requireCollateral(
+                database, uuid(payload, "legalEntityId"), uuid(payload, "collateralId"));
+            return AccessTarget.inEntity(collateral.legalEntityId());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "collateralId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            Collaterals.Header collateral = requireCollateral(
+                database, uuid(payload, "legalEntityId"), uuid(payload, "collateralId"));
+            LoanContract contract = LoanUseCases.require(database, uuid(payload, "contractId"));
+            java.math.BigDecimal share = new java.math.BigDecimal(required(payload, "sharePercent"));
+            database.inTransaction(c -> {
+                Collaterals.allocate(c, collateral.id(), contract.id(), share);
+                return null;
+            });
+            return Map.of("collateralId", collateral.id(), "contractId", contract.id(),
+                          "sharePercent", share);
+        }
+    }
+
+    /** Mainlevee : la surete est marquee, jamais supprimee. */
+    static final class ReleaseCollateral implements MakerChecker.Handler {
+        private final Database database;
+
+        ReleaseCollateral(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "COLLATERAL_RELEASE"; }
+        @Override public Operation operation() { return Operation.COLLATERAL_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            Collaterals.Header collateral = requireCollateral(
+                database, uuid(payload, "legalEntityId"), uuid(payload, "collateralId"));
+            return AccessTarget.inEntity(collateral.legalEntityId());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "collateralId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            Collaterals.Header collateral = requireCollateral(
+                database, uuid(payload, "legalEntityId"), uuid(payload, "collateralId"));
+            if (!"ACTIVE".equals(collateral.status())) {
+                throw new IllegalStateException(
+                    "La surete " + collateral.assetReference() + " est deja " + collateral.status());
+            }
+            LocalDate on = date(payload, "on");
+            database.inTransaction(c -> {
+                Collaterals.release(c, collateral.id(),
+                                    on != null ? on : io.corebanking.api.usecase.AccountUseCases
+                                        .businessDate(c, collateral.legalEntityId()));
+                return null;
+            });
+            return Map.of("collateralId", collateral.id(), "status", "RELEASED");
+        }
+    }
+
+    // ------------------------------------------------------------------ activations
+
+    /** Activation d'un regime de surete : jamais par son redacteur. */
+    static final class ActivateCollateralPolicy implements MakerChecker.Handler {
+        private final Database database;
+
+        ActivateCollateralPolicy(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "COLLATERAL_POLICY_ACTIVATE"; }
+        @Override public Operation operation() { return Operation.RISK_PARAMETER_ACTIVATE; }
+
+        private Collaterals.PolicyHeader require(Map<String, Object> payload) {
+            UUID id = uuid(payload, "policyId");
+            return database.inTransaction(c -> Collaterals.findPolicy(c, id))
+                .filter(h -> h.legalEntityId().equals(uuid(payload, "legalEntityId")))
+                .orElseThrow(() -> new ParameterUseCases.UnknownParameterException(
+                    "Regime de surete", id));
+        }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(require(payload).legalEntityId());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "policyId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            Collaterals.PolicyHeader policy = require(payload);
+            UUID approver = Callers.actorId(checker);
+            if (approver.equals(policy.createdBy())) {
+                throw new IllegalStateException(
+                    "Le regime " + policy.kind() + " ne peut pas etre active par son redacteur.");
+            }
+            database.inTransaction(c -> {
+                Collaterals.activatePolicy(c, policy.id(), approver);
+                return null;
+            });
+            return Map.of("policyId", policy.id(), "kind", policy.kind(), "status", "ACTIVE");
+        }
+    }
+
+    /** Activation d'une grille de risque : elle decide du niveau de provision du portefeuille. */
+    static final class ActivateRiskProfile implements MakerChecker.Handler {
+        private final Database database;
+
+        ActivateRiskProfile(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "RISK_PROFILE_ACTIVATE"; }
+        @Override public Operation operation() { return Operation.RISK_PARAMETER_ACTIVATE; }
+
+        private RiskProfiles.Header require(Map<String, Object> payload) {
+            UUID id = uuid(payload, "profileId");
+            return database.inTransaction(c -> RiskProfiles.find(c, id))
+                .filter(h -> h.legalEntityId().equals(uuid(payload, "legalEntityId")))
+                .orElseThrow(() -> new ParameterUseCases.UnknownParameterException(
+                    "Profil de risque", id));
+        }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(require(payload).legalEntityId());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "profileId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            RiskProfiles.Header profile = require(payload);
+            UUID approver = Callers.actorId(checker);
+            if (approver.equals(profile.createdBy())) {
+                throw new IllegalStateException(
+                    "La grille " + profile.code() + " ne peut pas etre activee par son redacteur.");
+            }
+            database.inTransaction(c -> {
+                RiskProfiles.activate(c, profile.id(), approver);
+                return null;
+            });
+            return Map.of("profileId", profile.id(), "code", profile.code(), "status", "ACTIVE");
+        }
+    }
+
+    /** Activation d'un schema comptable : il traduit toute operation ; jamais par son redacteur. */
+    static final class ActivateAccountingSchema implements MakerChecker.Handler {
+        private final Database database;
+
+        ActivateAccountingSchema(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "ACCOUNTING_SCHEMA_ACTIVATE"; }
+        @Override public Operation operation() { return Operation.ACCOUNTING_SCHEMA_ACTIVATE; }
+
+        private SchemaCatalog.Header require(Map<String, Object> payload) {
+            UUID id = uuid(payload, "schemaId");
+            return database.inTransaction(c -> SchemaCatalog.find(c, id))
+                .filter(h -> h.legalEntityId().equals(uuid(payload, "legalEntityId")))
+                .orElseThrow(() -> new ParameterUseCases.UnknownParameterException(
+                    "Schema comptable", id));
+        }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(require(payload).legalEntityId());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "schemaId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            SchemaCatalog.Header schema = require(payload);
+            UUID approver = Callers.actorId(checker);
+            if (approver.equals(schema.createdBy())) {
+                throw new IllegalStateException(
+                    "Le schema " + schema.code() + " ne peut pas etre active par son redacteur.");
+            }
+            database.inTransaction(c -> {
+                SchemaCatalog.activate(c, schema.id(), approver);
+                return null;
+            });
+            return Map.of("schemaId", schema.id(), "code", schema.code(), "status", "ACTIVE");
         }
     }
 }

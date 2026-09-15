@@ -4,6 +4,7 @@ import io.corebanking.api.config.AccountDirectory;
 import io.corebanking.api.usecase.EodUseCases;
 import io.corebanking.api.usecase.LoanUseCases;
 import io.corebanking.api.usecase.Paging;
+import io.corebanking.api.usecase.ParameterUseCases;
 import io.corebanking.api.usecase.ProductUseCases;
 import io.corebanking.api.usecase.TillUseCases;
 import io.corebanking.calendar.ValueDatePolicy;
@@ -109,6 +110,7 @@ public class ApiExceptionHandler {
                        LoanUseCases.UnknownLoanException.class,
                        Tills.UnknownTillException.class,
                        ProductUseCases.UnknownProductVersionException.class,
+                       ParameterUseCases.UnknownParameterException.class,
                        PendingOperations.UnknownPendingOperationException.class})
     ResponseEntity<ApiResponse<Void>> unknown(RuntimeException e, HttpServletRequest request) {
         return respond(HttpStatus.NOT_FOUND, "Objet inconnu", e.getMessage(), request);
@@ -135,7 +137,10 @@ public class ApiExceptionHandler {
                        ProductFamilies.UnknownFamilyException.class,
                        LoanService.UsuryCeilingExceededException.class,
                        LoanTerms.InvalidLoanTermsException.class,
-                       AmortisationSchedule.InvalidScheduleException.class})
+                       AmortisationSchedule.InvalidScheduleException.class,
+                       io.corebanking.loan.RiskGrid.InvalidRiskGridException.class,
+                       io.corebanking.schema.SchemaValidator.InvalidSchemaException.class,
+                       io.corebanking.schema.expr.ExpressionException.class})
     ResponseEntity<ApiResponse<Void>> unprocessable(RuntimeException e,
                                                     HttpServletRequest request) {
         return respond(HttpStatus.UNPROCESSABLE_ENTITY, "Requete non applicable", e.getMessage(),
