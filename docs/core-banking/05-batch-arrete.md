@@ -87,8 +87,10 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | 3 | `FX_RATES` | Chargement et contrôle des cours de clôture | ✔ |
 | 4 | `VALUE_DATE_REBUILD` | Reconstruction des soldes en date de valeur, détection des antidatages | ✔ |
 | 5 | `INTEREST_ACCRUAL` | Accruals créditeurs et débiteurs, y compris recalculs rétroactifs | ✔ |
+| 5b | `INTEREST_SETTLEMENT` | Capitalisation nette de retenue, arrêté des agios taxe comprise, aux fins de période civiles | ✔ |
 | 6 | `LOAN_MOBILISATION` | Intérêts intercalaires, clôture de la mobilisation, échéancier définitif | ✔ |
 | 6b | `LOAN_SCHEDULE` | Échéances du jour, exigibilité, prélèvement, passage en impayé | ✔ |
+| 6c | `LOAN_INTEREST_ACCRUAL` | Intérêts courus non échus des crédits : étalement de l'intérêt de l'échéance en cours | ✔ |
 | 7 | `LOAN_LATE_CHARGES` | Intérêts de retard, pénalités | ✔ |
 | 8 | `FEE_CHARGING` | Commissions périodiques, frais de tenue de compte, taxes associées | ✔ |
 | 9 | `LOAN_CLASSIFICATION` | Jours de retard, buckets, contagion, provision, suspension | ✔ |
@@ -107,9 +109,29 @@ Une étape **bloquante** en échec arrête le run. Les autres consignent une ano
 laissent le run se poursuivre, avec restitution à la clôture.
 
 > **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `FEE_CHARGING` →
-> `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` →
-> `LOAN_CLOSURE` → `INTEREST_ACCRUAL` → `BALANCE_SNAPSHOT` → `RECONCILIATION` → `OPEN_NEXT_DAY`.
-> Les étapes absentes s'insèrent sans toucher au moteur.
+> `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_INTEREST_ACCRUAL` → `LOAN_LATE_CHARGES` →
+> `LOAN_CLASSIFICATION` → `LOAN_CLOSURE` → `INTEREST_ACCRUAL` → `INTEREST_SETTLEMENT` →
+> `BALANCE_SNAPSHOT` → `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans
+> toucher au moteur.
+>
+> `LOAN_INTEREST_ACCRUAL` étale l'intérêt contractuel de chaque échéance en cours sur les jours de
+> sa période — cumul arrondi, jamais de dérive — et le constate en produits ; à l'échéance, la
+> créance reprend les courus. Il vient juste après l'exigibilité, pour que l'échéance réclamée
+> aujourd'hui soit complétée dans le même arrêté, et avant la classification, qui commande le
+> compte de produit du lendemain. Un échéancier remplacé emporte ses courus ; un crédit suspendu
+> les constate en intérêts réservés.
+>
+> `INTEREST_ACCRUAL` calcule les deux côtés : le côté principal du produit pour tous les comptes
+> rattachés, les agios pour ceux dont le produit en déclare — deux séries, deux positions, qui ne
+> se compensent jamais. `INTEREST_SETTLEMENT` règle toute position dont une fin de période civile
+> est atteinte et pas encore réglée : capitalisation nette de retenue à la source, ou arrêté des
+> agios taxe comprise, jusqu'à la fin de période même quand l'arrêté tourne quelques jours après
+> elle, date de valeur du lendemain.
+>
+> `BALANCE_SNAPSHOT` est incrémental : le cliché du jour repart du cliché de la dernière journée
+> arrêtée et n'y ajoute que la journée — par sa partition. `RECONCILIATION` contrôle la journée
+> contre ce cliché, puis rapproche les sous-livres du grand livre (§5). Le rejeu intégral du journal
+> est l'affaire du TFM.
 >
 > `PRE_CHECKS` garantit la partition du journal pour le mois traité — sa création est idempotente
 > et ne préjuge de rien — et refuse une journée qu'aucune période ne couvre, ou dont la période est
@@ -175,9 +197,16 @@ Trois contraintes d'ordre sont structurelles :
 
 ### Étapes supplémentaires
 
-**TFM (mensuel)** : capitalisation des intérêts, échelles et agios, commissions mensuelles,
-arrêté de la balance, contrôle de rejeu **intégral** des soldes, états réglementaires,
-clôture de la période.
+**TFM (mensuel)** : arrêté de la balance, contrôle de rejeu **intégral** des soldes, états
+réglementaires, clôture de la période. Capitalisation, agios et commissions mensuelles sont des
+effets de fin de période des TFJ, pas du TFM : à la fin du mois, ils sont déjà dans les comptes.
+
+> **Implémenté** — `StandardTfm`, sur le même moteur (`RunType.TFM`) : `MONTH_COMPLETE` (chaque
+> jour ouvré de la période, depuis la première journée jamais arrêtée par l'entité, a un TFJ
+> terminé — les journées manquantes sont nommées), `FULL_RECONCILIATION` (rejeu intégral du journal
+> et sous-livres), `PERIOD_CLOSE`. Le traitement porte la date du dernier jour de la période, ne
+> touche pas à la date comptable, refuse un mois non terminé ou une date qui n'est pas une fin de
+> période. Son annulation rouvre la période en le disant : `REOPENED`, pas `OPEN`.
 
 **TFA (annuel)** : détermination du résultat, affectation, report à nouveau, réouverture des
 comptes de bilan, états financiers, liasse réglementaire, archivage de l'exercice.
@@ -277,7 +306,21 @@ c'est le dimensionnement à retenir, pas la durée d'un TFJ isolé.
 
 ## 5. Contrôles de réconciliation
 
-Exécutés à l'étape 16, tous bloquants.
+Exécutés à l'étape `RECONCILIATION`, tous bloquants. Le rejeu intégral du journal coûte
+O(historique) ; il est réservé au TFM. Chaque nuit, le contrôle porte sur la **journée** et, par
+récurrence depuis le dernier rejeu intégral vérifié, donne la même garantie.
+
+> **Implémenté** — chaque nuit : `BALANCE_EQUILIBREE` sur les lignes comptabilisées depuis le
+> cliché précédent, `SOLDE_MATERIALISE_VS_CLICHE` (solde matérialisé = cliché du jour, plus les
+> lignes datées après la journée), `STRIPES_COMPLETES` ; et les sous-livres, chacun apporté par son
+> module par `Reconciliation.Check` : `SOUS_LIVRE_INTERETS_COURUS` (Σ imputé − réglé des positions
+> = solde de chaque compte de courus), `SOUS_LIVRE_CREANCES_CREDIT` (créances ouvertes hors capital
+> = compte de créances rattachées), `SOUS_LIVRE_ENCOURS_CREDIT` (par crédit : compte de prêt =
+> capital restant dû de l'échéancier + capital échu impayé, ou tranches versées), `SOUS_LIVRE_ICNE_CREDIT`
+> (courus des échéances en cours = compte de courus), `SOUS_LIVRE_COMMISSIONS` (chaque commission
+> perçue par le traitement = total débité par son écriture). Au TFM : `BALANCE_EQUILIBREE` et
+> `SOLDE_MATERIALISE_VS_REJOUE` depuis l'origine, puis les mêmes sous-livres. Un écart nomme le
+> compte, le crédit ou la commission, l'attendu et le constaté.
 
 ```sql
 -- 1. Balance générale équilibrée, par entité et par devise

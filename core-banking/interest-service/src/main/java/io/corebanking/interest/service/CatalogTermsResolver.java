@@ -1,13 +1,7 @@
 package io.corebanking.interest.service;
 
-import io.corebanking.interest.accrual.AccrualSide;
-import io.corebanking.interest.daycount.DayCountConvention;
-import io.corebanking.interest.rate.FlatRate;
-import io.corebanking.interest.rate.RateSchedule;
 import io.corebanking.ledger.store.Database;
-import io.corebanking.product.ParameterSet;
 import io.corebanking.product.ProductCatalog;
-import io.corebanking.product.ProductVersion;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,20 +31,7 @@ public final class CatalogTermsResolver implements InterestTermsResolver {
     @Override
     public InterestTerms termsAt(LocalDate valueDate) {
         return cache.computeIfAbsent(valueDate,
-            date -> database.inTransaction(c -> build(
+            date -> database.inTransaction(c -> CatalogTermsProvider.primaryTerms(
                 ProductCatalog.resolveForAccount(c, legalEntityId, accountId, date))));
-    }
-
-    private InterestTerms build(ProductVersion version) {
-        ParameterSet parameters = version.parameters();
-        RateSchedule rates = version.tieredSchedule()
-            .orElseGet(() -> new FlatRate(parameters.requireDecimal(ProductCatalog.P_RATE)));
-
-        return new InterestTerms(
-            rates,
-            parameters.requireEnum(ProductCatalog.P_DAY_COUNT, DayCountConvention.class),
-            parameters.requireEnum(ProductCatalog.P_SIDE, AccrualSide.class),
-            parameters.requireUuid(ProductCatalog.P_DEBIT_ACCOUNT),
-            parameters.requireUuid(ProductCatalog.P_CREDIT_ACCOUNT));
     }
 }

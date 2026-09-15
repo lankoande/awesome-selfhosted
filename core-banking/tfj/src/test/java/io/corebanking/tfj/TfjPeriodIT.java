@@ -57,13 +57,20 @@ class TfjPeriodIT extends TfjTestBase {
         assertThat(periodBounds(LocalDate.of(2027, 1, 15)))
             .isEqualTo("2027-01-01..2027-01-31");
 
-        // Le premier arrete de l'annee comptabilise dans le nouveau mois : 36 500 000 a 6 % font
-        // 6 000 par jour, et le 1er janvier en porte un.
+        // Le 31 decembre est une fin de trimestre : les 6 000 courus de la journee ont ete
+        // capitalises au client, date de valeur du 1er janvier, et le compte de courus est vide.
         Money avant = database.inTransaction(c -> Balances.current(c, courus.id()));
+        assertThat(avant.isZero()).isTrue();
+        Money capitalise = database.inTransaction(c -> Balances.current(c, client.id()));
+        assertThat(capitalise)
+            .isEqualTo(Money.of("36506000", io.corebanking.kernel.money.Currencies.XOF));
+
+        // Le premier arrete de l'annee comptabilise dans le nouveau mois : 36 506 000 a 6 % font
+        // 6 001 par jour — les interets capitalises produisent des le lendemain.
         TfjRun janvier = engine.run(ENTITY, LocalDate.of(2027, 1, 1), ACTOR, RunMode.REAL);
         assertThat(janvier.isCompleted()).as(janvier.summary()).isTrue();
         Money apres = database.inTransaction(c -> Balances.current(c, courus.id()));
-        assertThat(apres.minus(avant)).isEqualTo(Money.of("6000", io.corebanking.kernel.money.Currencies.XOF));
+        assertThat(apres.minus(avant)).isEqualTo(Money.of("6001", io.corebanking.kernel.money.Currencies.XOF));
         assertThat(businessDate()).isEqualTo(LocalDate.of(2027, 1, 4));      // lundi
     }
 

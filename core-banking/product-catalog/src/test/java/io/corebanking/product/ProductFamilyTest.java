@@ -31,6 +31,7 @@ class ProductFamilyTest {
         parametres.put(ProductCatalog.P_RATE, "3");
         parametres.put(ProductCatalog.P_DAY_COUNT, "ACT_365");
         parametres.put(ProductCatalog.P_SIDE, "CREDITOR");
+        parametres.put(ProductCatalog.P_CAPITALISATION, "QUARTERLY");
         parametres.put(ProductCatalog.P_DEBIT_ACCOUNT, id());
         parametres.put(ProductCatalog.P_CREDIT_ACCOUNT, id());
         return parametres;
@@ -81,7 +82,7 @@ class ProductFamilyTest {
             .isInstanceOf(ProductFamily.IncompleteProductException.class)
             .extracting(e -> ((ProductFamily.IncompleteProductException) e).problems())
             .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.list(String.class))
-            .hasSize(4);
+            .hasSize(5);
     }
 
     @Test
@@ -266,11 +267,22 @@ class ProductFamilyTest {
     void constantesDInteretsEtFamillesSAccordent() {
         Set<String> lus = constantes(ProductCatalog.class);
         assertThat(lus).isNotEmpty();
+        // Le bloc d'interets est commun aux deux familles ; les agios n'existent que sur le compte
+        // courant — un livret d'epargne ne se met pas a decouvert.
+        Set<String> interets = new TreeSet<>();
+        Set<String> agios = new TreeSet<>();
+        for (String nom : lus) {
+            (nom.startsWith("overdraft.") ? agios : interets).add(nom);
+        }
+        assertThat(agios).isNotEmpty();
         for (String famille : Set.of("CURRENT_ACCOUNT", "SAVINGS_ACCOUNT")) {
             assertThat(ProductFamilies.declaredParameters(famille))
                 .as("famille " + famille)
-                .containsAll(lus);
+                .containsAll(interets);
         }
+        assertThat(ProductFamilies.declaredParameters("CURRENT_ACCOUNT")).containsAll(agios);
+        assertThat(ProductFamilies.declaredParameters("SAVINGS_ACCOUNT"))
+            .doesNotContainAnyElementsOf(agios);
     }
 
     /** Constantes {@code P_*} publiques d'une classe de lecture de paramétrage. */
@@ -293,6 +305,7 @@ class ProductFamilyTest {
     private static Map<String, String> creditComplet() {
         Map<String, String> parametres = new LinkedHashMap<>();
         parametres.put("loan.accrued_receivable", id());
+        parametres.put("loan.accrued_interest", id());
         parametres.put("loan.interest_income", id());
         parametres.put("loan.tax_account", id());
         return parametres;

@@ -39,7 +39,8 @@ import java.util.UUID;
  *
  * <p>Cette implementation renverse la boucle. Les donnees sont lues <b>par lot</b> — un acces pour
  * tous les comptes, au lieu d'un acces par compte — le calcul se fait en memoire, et
- * l'imputation est <b>agregee</b>.
+ * l'imputation est <b>agregee</b>. L'etat de chaque compte vient de sa position, en un acces pour
+ * le lot, jamais d'une somme sur son historique.
  *
  * <h2>Une ecriture par couple de comptes, pas une par client</h2>
  *
@@ -51,7 +52,15 @@ import java.util.UUID;
  * <p>C'est la pratique du metier, et elle a une consequence a connaitre : le grand livre du compte
  * d'interets courus porte une ecriture par jour et par produit, pas une par client. La piste vers
  * le client passe par la table d'interets — d'ou l'importance d'y conserver l'integralite du
- * calcul, ce que fait le moteur.
+ * calcul, ce que fait le moteur. Chaque journee qui impute reference l'ecriture agregee qui porte
+ * son montant.
+ *
+ * <h2>Deux cotes</h2>
+ *
+ * <p>Un compte courant est remunere sur ses jours crediteurs et debite d'agios sur ses jours
+ * debiteurs : deux series, deux positions, deux couples de comptes. Le lot ne traite qu'un cote a
+ * la fois — celui que les conditions fournies designent — et l'appelant le lance une fois par
+ * cote.
  */
 public final class BatchInterestAccrualService {
 
@@ -63,12 +72,16 @@ public final class BatchInterestAccrualService {
         this.postingService = postingService;
     }
 
-    /** Etat courant du cumul d'un compte. */
-    private record AccrualState(LocalDate lastDate, Money cumulative, Money posted, int generation) {}
-
     /** Accrual calcule pour un compte, pret a etre enregistre. */
     private record Computed(UUID accountId, InterestTerms terms, List<DailyAccrual> days,
-                            Money cumulative, Money delta, int generation, LocalDate from) {}
+                            Money cumulative, Money postedBefore, Money delta, int generation,
+                            LocalDate from) {
+        Pair pair() {
+            return new Pair(terms.debitAccount(), terms.creditAccount(), terms.side());
+        }
+    }
+
+    private record Pair(UUID debit, UUID credit, AccrualSide side) {}
 
     /**
      * @param chunkTag marque distinguant ce lot des autres lots du meme traitement. Elle entre dans
@@ -90,13 +103,14 @@ public final class BatchInterestAccrualService {
 
         database.inTransaction(connection -> {
             Map<UUID, CurrencyRef> currencies = currenciesOf(connection, accountIds);
-            Map<UUID, AccrualState> states = statesOf(connection, accountIds, currencies);
+            Map<InterestPositions.Key, InterestPositions.Position> positions =
+                InterestPositions.loadAll(connection, accountIds, currencies);
             Map<UUID, LocalDate> firstValueDates = firstValueDatesOf(connection, accountIds);
             Map<UUID, List<DayMovement>> movements = movementsOf(connection, accountIds, through);
 
             for (UUID accountId : accountIds) {
                 try {
-                    computeOne(accountId, through, terms, currencies, states, firstValueDates,
+                    computeOne(accountId, through, terms, currencies, positions, firstValueDates,
                                movements).ifPresent(computed::add);
                 } catch (RuntimeException e) {
                     anomalies.add("Compte " + accountId + " non remunere : " + e.getMessage());
@@ -105,21 +119,22 @@ public final class BatchInterestAccrualService {
             return null;
         });
 
-        List<UUID> entries = postAggregated(legalEntityId, computed, bookingDate, through, actorId,
-                                            batchRunId, chunkTag);
-        recordAll(computed, bookingDate, batchRunId, entries);
+        Map<Pair, UUID> entries = postAggregated(legalEntityId, computed, bookingDate, through,
+                                                 actorId, batchRunId, chunkTag);
+        recordAll(computed, bookingDate, through, batchRunId, entries);
 
         Map<UUID, Money> deltas = new LinkedHashMap<>();
         computed.forEach(c -> deltas.put(c.accountId(), c.delta()));
-        return new BatchAccrualOutcome(accountIds.size(), computed.size(), deltas, entries,
-                                       anomalies);
+        return new BatchAccrualOutcome(accountIds.size(), computed.size(), deltas,
+                                       List.copyOf(entries.values()), anomalies);
     }
 
     // ------------------------------------------------------------------ calcul
 
     private java.util.Optional<Computed> computeOne(
             UUID accountId, LocalDate through, TermsProvider termsProvider,
-            Map<UUID, CurrencyRef> currencies, Map<UUID, AccrualState> states,
+            Map<UUID, CurrencyRef> currencies,
+            Map<InterestPositions.Key, InterestPositions.Position> positions,
             Map<UUID, LocalDate> firstValueDates, Map<UUID, List<DayMovement>> movements) {
 
         CurrencyRef currency = currencies.get(accountId);
@@ -133,16 +148,17 @@ public final class BatchInterestAccrualService {
         // C'est la difference entre un compte sans interet a calculer et un compte mal parametre.
         InterestTerms reference = termsProvider.termsFor(accountId, through);
 
-        AccrualState state = states.getOrDefault(accountId,
-            new AccrualState(null, Money.zero(currency), Money.zero(currency), 0));
+        InterestPositions.Position state = positions.getOrDefault(
+            new InterestPositions.Key(accountId, reference.side()),
+            InterestPositions.Position.empty(accountId, reference.side(), currency));
 
-        LocalDate from = state.lastDate() == null
+        LocalDate from = state.accruedThrough() == null
             ? firstValueDates.get(accountId)
-            : state.lastDate().plusDays(1);
+            : state.accruedThrough().plusDays(1);
         if (from == null || through.isBefore(from)) {
             return java.util.Optional.empty();
         }
-        Money cumulative = state.cumulative();
+        Money cumulative = state.cumulativePrecise();
         List<DailyAccrual> days = new ArrayList<>();
 
         // Serie des soldes en date de valeur, reconstituee en memoire depuis les mouvements du lot.
@@ -167,8 +183,9 @@ public final class BatchInterestAccrualService {
                                       amount));
         }
 
-        Money delta = cumulative.roundToCurrency().minus(state.posted());
-        return java.util.Optional.of(new Computed(accountId, reference, days, cumulative, delta,
+        Money delta = cumulative.roundToCurrency().minus(state.postedTotal());
+        return java.util.Optional.of(new Computed(accountId, reference, days, cumulative,
+                                                  state.postedTotal(), delta,
                                                   state.generation() + 1, from));
     }
 
@@ -196,22 +213,21 @@ public final class BatchInterestAccrualService {
 
     // ------------------------------------------------------------------ imputation agregee
 
-    private List<UUID> postAggregated(UUID legalEntityId, List<Computed> computed,
-                                      LocalDate bookingDate, LocalDate through, UUID actorId,
-                                      UUID batchRunId, String chunkTag) {
-        record Pair(UUID debit, UUID credit, AccrualSide side) {}
+    private Map<Pair, UUID> postAggregated(UUID legalEntityId, List<Computed> computed,
+                                           LocalDate bookingDate, LocalDate through, UUID actorId,
+                                           UUID batchRunId, String chunkTag) {
         Map<Pair, Money> totals = new LinkedHashMap<>();
+        Map<Pair, Integer> counts = new LinkedHashMap<>();
 
         for (Computed c : computed) {
             if (c.delta().isZero()) {
                 continue;
             }
-            Pair pair = new Pair(c.terms().debitAccount(), c.terms().creditAccount(),
-                                 c.terms().side());
-            totals.merge(pair, c.delta(), Money::plus);
+            totals.merge(c.pair(), c.delta(), Money::plus);
+            counts.merge(c.pair(), 1, Integer::sum);
         }
 
-        List<UUID> entries = new ArrayList<>();
+        Map<Pair, UUID> entries = new LinkedHashMap<>();
         totals.forEach((pair, total) -> {
             if (total.isZero()) {
                 return;
@@ -229,26 +245,27 @@ public final class BatchInterestAccrualService {
                 List.of(PostingLine.debit(debit, amount, through, "Interets courus du " + through),
                         PostingLine.credit(credit, amount, through, "Interets courus du " + through)),
                 Map.of("side", pair.side().name(), "through", through.toString(),
-                       "accounts", String.valueOf(computed.size()))));
-            entries.add(result.entryId());
+                       "accounts", String.valueOf(counts.get(pair)))));
+            entries.put(pair, result.entryId());
         });
         return entries;
     }
 
-    private void recordAll(List<Computed> computed, LocalDate bookingDate, UUID batchRunId,
-                           List<UUID> entries) {
+    private void recordAll(List<Computed> computed, LocalDate bookingDate, LocalDate through,
+                           UUID batchRunId, Map<Pair, UUID> entries) {
         if (computed.isEmpty()) {
             return;
         }
-        UUID entryId = entries.isEmpty() ? null : entries.get(0);
 
         database.inTransaction(connection -> {
             try (PreparedStatement ps = connection.prepareStatement(
                 "INSERT INTO interest_accrual(id, account_id, accrual_date, side, generation,"
                 + " basis_balance, effective_rate, year_fraction, precise_amount,"
-                + " cumulative_precise, posted_delta, entry_id, booking_date, batch_run_id)"
-                + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+                + " cumulative_precise, posted_delta, posted_cumulative, entry_id, booking_date,"
+                + " batch_run_id)"
+                + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
                 for (Computed c : computed) {
+                    UUID entryId = c.delta().isZero() ? null : entries.get(c.pair());
                     Money running = c.cumulative();
                     List<Money> cumulatives = new ArrayList<>(c.days().size());
                     for (int i = c.days().size() - 1; i >= 0; i--) {
@@ -270,15 +287,23 @@ public final class BatchInterestAccrualService {
                         ps.setBigDecimal(9, day.amount().amount());
                         ps.setBigDecimal(10, cumulatives.get(i).amount());
                         ps.setBigDecimal(11, last ? c.delta().amount() : BigDecimal.ZERO);
-                        ps.setObject(12, last ? entryId : null);
-                        ps.setObject(13, last ? bookingDate : null);
-                        ps.setObject(14, batchRunId);
+                        ps.setBigDecimal(12, last ? c.postedBefore().plus(c.delta()).amount()
+                                                  : c.postedBefore().amount());
+                        ps.setObject(13, last ? entryId : null);
+                        ps.setObject(14, last ? bookingDate : null);
+                        ps.setObject(15, batchRunId);
                         ps.addBatch();
                     }
                 }
                 ps.executeBatch();
             } catch (SQLException e) {
                 throw new LedgerStoreException("Enregistrement des interets du lot", e);
+            }
+            for (Computed c : computed) {
+                InterestPositions.recordAccrual(connection, c.accountId(), c.terms().side(),
+                                                c.terms().accruedAccount(), through,
+                                                c.cumulative(), c.postedBefore().plus(c.delta()),
+                                                c.generation());
             }
             return null;
         });
@@ -305,51 +330,6 @@ public final class BatchInterestAccrualService {
             throw new LedgerStoreException("Devises du lot", e);
         }
         return currencies;
-    }
-
-    private Map<UUID, AccrualState> statesOf(Connection c, Collection<UUID> accountIds,
-                                             Map<UUID, CurrencyRef> currencies) {
-        Map<UUID, AccrualState> states = new LinkedHashMap<>();
-        // Derniere journee calculee et cumul associe, en un seul acces pour tout le lot.
-        try (PreparedStatement ps = c.prepareStatement(
-            "SELECT DISTINCT ON (account_id) account_id, accrual_date, cumulative_precise, generation"
-            + "  FROM interest_accrual WHERE account_id = ANY (?) AND status = 'ACTIVE'"
-            + " ORDER BY account_id, accrual_date DESC")) {
-            ps.setArray(1, uuidArray(c, accountIds));
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    UUID accountId = rs.getObject(1, UUID.class);
-                    CurrencyRef currency = currencies.get(accountId);
-                    states.put(accountId, new AccrualState(
-                        rs.getObject(2, LocalDate.class),
-                        Money.of(rs.getBigDecimal(3), currency),
-                        Money.zero(currency),
-                        rs.getInt(4)));
-                }
-            }
-        } catch (SQLException e) {
-            throw new LedgerStoreException("Etat des cumuls du lot", e);
-        }
-        // Total deja impute, egalement en un seul acces.
-        try (PreparedStatement ps = c.prepareStatement(
-            "SELECT account_id, COALESCE(SUM(posted_delta), 0) FROM interest_accrual"
-            + " WHERE account_id = ANY (?) AND status = 'ACTIVE' GROUP BY account_id")) {
-            ps.setArray(1, uuidArray(c, accountIds));
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    UUID accountId = rs.getObject(1, UUID.class);
-                    AccrualState state = states.get(accountId);
-                    if (state != null) {
-                        states.put(accountId, new AccrualState(state.lastDate(), state.cumulative(),
-                            Money.of(rs.getBigDecimal(2), currencies.get(accountId)),
-                            state.generation()));
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            throw new LedgerStoreException("Cumuls imputes du lot", e);
-        }
-        return states;
     }
 
     private Map<UUID, LocalDate> firstValueDatesOf(Connection c, Collection<UUID> accountIds) {

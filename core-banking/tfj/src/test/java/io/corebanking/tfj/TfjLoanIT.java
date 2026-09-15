@@ -164,8 +164,10 @@ class TfjLoanIT extends TfjTestBase {
         assertThat(soldeDe(provisions)).isEqualTo(xof("505020"));
         assertThat(soldeDe(dotations)).isEqualTo(xof("505020"));
         // Les interets deja constates sortent du resultat vers les interets reserves — chacun
-        // repris sur le compte ou il avait ete constate.
-        assertThat(soldeDe(reserves)).isEqualTo(xof("10039"));
+        // repris sur le compte ou il avait ete constate : 10 000 d'echeance impayee, 39 de retard,
+        // et les 307 de courus du premier jour de la deuxieme echeance (9 212 sur 30 jours), qui
+        // etaient en produits depuis le matin.
+        assertThat(soldeDe(reserves)).isEqualTo(xof("10346"));
         assertThat(soldeDe(dossier.produits()).isZero()).isTrue();
 
         engine.cancel(second.id(), ACTOR, businessDate(), "erreur de grille");
@@ -206,9 +208,11 @@ class TfjLoanIT extends TfjTestBase {
         Account produits = account(code + "-PRODUITS", AccountKind.GL, NormalBalance.CREDIT);
         Account taxe = account(code + "-TAXE", AccountKind.GL, NormalBalance.CREDIT);
         Account retard = account(code + "-RETARD", AccountKind.GL, NormalBalance.CREDIT);
+        Account courus = account(code + "-ICNE", AccountKind.GL, NormalBalance.DEBIT);
 
         Map<String, String> parametres = new LinkedHashMap<>();
         parametres.put(LoanCatalog.P_ACCRUED, creances.id().toString());
+        parametres.put(LoanCatalog.P_ACCRUED_INTEREST, courus.id().toString());
         parametres.put(LoanCatalog.P_INTEREST_INCOME, produits.id().toString());
         parametres.put(LoanCatalog.P_TAX_ACCOUNT, taxe.id().toString());
         parametres.put(LoanCatalog.P_DIRECT_DEBIT, String.valueOf(prelevementAutomatique));

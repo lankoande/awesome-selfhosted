@@ -593,6 +593,7 @@ public final class LoanService {
             case PARAMETER -> switch (reference.value()) {
                 case LoanSchemas.ROLE_SETTLEMENT -> contract.settlementAccountId();
                 case LoanSchemas.ROLE_ACCRUED -> LoanCatalog.accruedReceivable(product);
+                case LoanSchemas.ROLE_ACCRUED_INTEREST -> LoanCatalog.accruedInterest(product);
                 case LoanSchemas.ROLE_INTEREST_INCOME -> suspended
                     ? LoanCatalog.reservedInterest(product) : LoanCatalog.interestIncome(product);
                 case LoanSchemas.ROLE_INSURANCE_INCOME -> LoanCatalog.insuranceIncome(product);

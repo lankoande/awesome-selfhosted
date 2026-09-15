@@ -89,6 +89,8 @@ public enum Operation {
     CALENDAR_MANAGE,
     /** Exoneration d'une commission pour un compte. */
     FEE_EXEMPTION_GRANT,
+    /** Declaration d'une retenue a la source ou d'une taxe, par entite et periode de validite. */
+    TAX_PARAMETER_DECLARE,
 
     // ------------------------------------------------------------------ exploitation
     /** Lancement ou reprise du traitement de fin de journee. */

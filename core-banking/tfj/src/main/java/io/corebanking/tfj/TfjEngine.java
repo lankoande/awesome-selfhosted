@@ -3,8 +3,11 @@ package io.corebanking.tfj;
 import io.corebanking.kernel.id.IdempotencyKey;
 import io.corebanking.kernel.id.Ids;
 import io.corebanking.ledger.domain.posting.PostingService;
+import io.corebanking.interest.service.InterestPositions;
 import io.corebanking.ledger.store.Database;
+import io.corebanking.ledger.store.Entities;
 import io.corebanking.ledger.store.LedgerStoreException;
+import io.corebanking.loan.service.LoanStore;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -39,19 +42,33 @@ import java.util.UUID;
  */
 public final class TfjEngine {
 
-    private static final String RUN_TYPE = "TFJ";
-
     private final Database database;
     private final PostingService postingService;
     private final List<TfjStep> steps;
+    private final RunType runType;
 
     public TfjEngine(Database database, PostingService postingService, List<TfjStep> steps) {
+        this(database, postingService, steps, RunType.TFJ);
+    }
+
+    /**
+     * @param runType nature du traitement. Le traitement de fin de mois partage le moteur — etapes,
+     *                reprise, annulation — mais ne touche pas a la date comptable : il porte sur
+     *                un mois deja arrete jour par jour, et clot sa periode.
+     */
+    public TfjEngine(Database database, PostingService postingService, List<TfjStep> steps,
+                     RunType runType) {
         this.database = database;
         this.postingService = postingService;
         this.steps = List.copyOf(steps);
+        this.runType = runType;
         if (steps.isEmpty()) {
-            throw new IllegalArgumentException("Un TFJ sans etape ne signifie rien");
+            throw new IllegalArgumentException("Un traitement sans etape ne signifie rien");
         }
+    }
+
+    public RunType runType() {
+        return runType;
     }
 
     // ------------------------------------------------------------------ lancement
@@ -77,17 +94,53 @@ public final class TfjEngine {
             }
         }
 
-        LocalDate current = currentBusinessDate(legalEntityId);
-        if (!businessDate.equals(current)) {
-            throw new TfjRefusedException(
-                "Le TFJ ne traite que la date comptable courante de l'entite, soit le " + current
-                + ". Demande pour le " + businessDate + ". Un rattrapage s'effectue en enchainant "
-                + "les TFJ dans l'ordre chronologique, jamais en fusionnant des journees : "
-                + "la fusion produirait des interets faux.");
+        if (runType == RunType.TFJ) {
+            LocalDate current = currentBusinessDate(legalEntityId);
+            if (!businessDate.equals(current)) {
+                throw new TfjRefusedException(
+                    "Le TFJ ne traite que la date comptable courante de l'entite, soit le "
+                    + current + ". Demande pour le " + businessDate + ". Un rattrapage s'effectue "
+                    + "en enchainant les TFJ dans l'ordre chronologique, jamais en fusionnant des "
+                    + "journees : la fusion produirait des interets faux.");
+            }
+        } else {
+            requireClosableMonth(legalEntityId, businessDate);
         }
 
         UUID runId = createRun(legalEntityId, businessDate, actorId, mode);
         return execute(runId, 0);
+    }
+
+    /**
+     * Un traitement de fin de mois porte sur le dernier jour d'une periode comptable, que toutes
+     * les journees ont depassee et qui n'est pas encore close. Les manques de journees sont
+     * l'affaire de la premiere etape, qui les nomme ; ici ne sont refusees que les demandes qui
+     * n'ont pas de sens.
+     */
+    private void requireClosableMonth(UUID legalEntityId, LocalDate periodEnd) {
+        database.inTransaction(connection -> {
+            LocalDate[] bounds = Entities.periodBounds(connection, legalEntityId, periodEnd)
+                .orElseThrow(() -> new TfjRefusedException(
+                    "Aucune periode comptable ne couvre le " + periodEnd + "."));
+            if (!bounds[1].equals(periodEnd)) {
+                throw new TfjRefusedException(
+                    "Le " + periodEnd + " n'est pas la fin de sa periode comptable, qui court du "
+                    + bounds[0] + " au " + bounds[1] + ". L'arrete mensuel clot une periode "
+                    + "entiere.");
+            }
+            String status = Entities.periodStatus(connection, legalEntityId, periodEnd).orElse("?");
+            if ("CLOSED".equals(status)) {
+                throw new TfjRefusedException(
+                    "La periode se terminant le " + periodEnd + " est deja close.");
+            }
+            LocalDate current = Runs.currentBusinessDate(connection, legalEntityId);
+            if (!current.isAfter(periodEnd)) {
+                throw new TfjRefusedException(
+                    "La date comptable de l'entite est le " + current + " : le mois se terminant "
+                    + "le " + periodEnd + " n'est pas encore arrete jour par jour.");
+            }
+            return null;
+        });
     }
 
     /** Reprend un TFJ en echec, a partir de l'etape fautive. */
@@ -191,28 +244,36 @@ public final class TfjEngine {
         // Une journee ne s'annule pas sous une journee suivante deja arretee. Restaurer la date a
         // N alors que N+1 a tourne laisserait N+1 tenue pour faite sur un etat que ses ecritures
         // ne decrivent plus ; rejouer N puis relancer N+1 rendrait l'ancien rapport sans rien
-        // recalculer. Les annulations se font de la plus recente a la plus ancienne.
+        // recalculer. Les annulations se font de la plus recente a la plus ancienne. Un mois clos
+        // ne se rouvre pas non plus sous un mois suivant deja clos.
         laterRealRun(run.legalEntityId(), run.businessDate()).ifPresent(later -> {
             throw new TfjRefusedException(
-                "Le TFJ du " + later + " a ete execute apres celui du " + run.businessDate()
-                + ". Les journees s'annulent de la plus recente a la plus ancienne : annuler "
-                + "celle-ci d'abord laisserait la suivante arretee sur un etat que ses ecritures "
-                + "ne decrivent plus.");
+                "Le " + runType + " du " + later + " a ete execute apres celui du "
+                + run.businessDate() + ". Les traitements s'annulent du plus recent au plus "
+                + "ancien : annuler celui-ci d'abord laisserait le suivant arrete sur un etat que "
+                + "ses ecritures ne decrivent plus.");
         });
 
         for (PostedEntry entry : entriesOf(runId)) {
             postingService.reverse(entry.id(), entry.bookingDate(), reversalBookingDate,
                 IdempotencyKey.forBatch(runId.toString(), "TFJ_CANCEL", entry.id()),
-                "Annulation du TFJ du " + run.businessDate() + " — " + reason);
+                "Annulation du " + runType + " du " + run.businessDate() + " — " + reason);
         }
 
         database.inTransaction(connection -> {
-            neutraliseAccruals(connection, runId);
-            neutraliseFees(connection, runId);
-            neutraliseLoanDues(connection, runId);
-            neutraliseMobilisation(connection, runId);
-            neutraliseLoanClosures(connection, runId);
-            setBusinessDate(connection, run.legalEntityId(), run.businessDate());
+            if (runType == RunType.TFJ) {
+                neutraliseAccruals(connection, runId);
+                neutraliseFees(connection, runId);
+                neutraliseLoanDues(connection, runId);
+                neutraliseMobilisation(connection, runId);
+                neutraliseLoanClosures(connection, runId);
+                setBusinessDate(connection, run.legalEntityId(), run.businessDate());
+            } else {
+                // La cloture est defaite, et elle laisse une trace : REOPENED n'est pas OPEN.
+                Entities.periodBounds(connection, run.legalEntityId(), run.businessDate())
+                    .ifPresent(bounds -> Entities.reopenPeriod(connection, run.legalEntityId(),
+                                                               bounds[0]));
+            }
             markCancelled(connection, runId, actorId, reason);
             return null;
         });
@@ -272,6 +333,10 @@ public final class TfjEngine {
      * de retard ne demarrerait jamais, et aucun controle comptable ne verrait l'ecart.
      */
     private void neutraliseLoanDues(Connection connection, UUID runId) {
+        // Les journees d'etalement des interets courus sur credits, et les marques de suspension
+        // posees par le traitement : le sous-livre du credit ne doit plus rien affirmer que ses
+        // ecritures, contre-passees, ne portent plus.
+        LoanStore.cancelInterestAccruals(connection, runId);
         // Les interets de retard imputes par le traitement sont repris avant que ses journees ne
         // soient neutralisees : l'ordre importe, la reprise se calculant sur les journees actives.
         try (PreparedStatement ps = connection.prepareStatement(
@@ -399,15 +464,13 @@ public final class TfjEngine {
         }
     }
 
+    /**
+     * Journees d'interets et reglements du traitement annule, neutralises, et positions
+     * reconstruites depuis ce qui reste actif : le module d'interets sait le faire, et lui seul
+     * sait ce qu'une position doit affirmer.
+     */
     private void neutraliseAccruals(Connection connection, UUID runId) {
-        try (PreparedStatement ps = connection.prepareStatement(
-            "UPDATE interest_accrual SET status = 'REVERSED' WHERE batch_run_id = ?")) {
-            ps.setObject(1, runId);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new LedgerStoreException(
-                "Neutralisation des interets calcules par le TFJ annule", e);
-        }
+        InterestPositions.cancelRun(connection, runId);
     }
 
     private LocalDate currentBusinessDate(UUID legalEntityId) {
@@ -447,7 +510,7 @@ public final class TfjEngine {
                 ps.setObject(1, runId);
                 ps.setObject(2, legalEntityId);
                 ps.setObject(3, businessDate);
-                ps.setString(4, RUN_TYPE);
+                ps.setString(4, runType.name());
                 ps.setString(5, mode.name());
                 ps.setObject(6, actorId);
                 ps.executeUpdate();
@@ -562,7 +625,7 @@ public final class TfjEngine {
                 + " AND run_type = ? AND mode = 'REAL' AND status <> 'CANCELLED'")) {
                 ps.setObject(1, legalEntityId);
                 ps.setObject(2, businessDate);
-                ps.setString(3, RUN_TYPE);
+                ps.setString(3, runType.name());
                 try (ResultSet rs = ps.executeQuery()) {
                     return rs.next() ? loadRun(connection, rs.getObject(1, UUID.class))
                                      : Optional.<TfjRun>empty();
@@ -582,7 +645,7 @@ public final class TfjEngine {
                 + "   AND mode = 'REAL' AND status <> 'CANCELLED'")) {
                 ps.setObject(1, legalEntityId);
                 ps.setObject(2, businessDate);
-                ps.setString(3, RUN_TYPE);
+                ps.setString(3, runType.name());
                 try (ResultSet rs = ps.executeQuery()) {
                     rs.next();
                     return Optional.ofNullable(rs.getObject(1, LocalDate.class));

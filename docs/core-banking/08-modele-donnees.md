@@ -493,6 +493,55 @@ prononcée : l'annulation du traitement rend le contrat actif.
 
 ---
 
+## 5 quater. Positions d'intérêts, règlements, courus sur crédits
+
+```sql
+CREATE TABLE interest_position (           -- l'état du calcul, par compte et par côté
+    account_id         UUID NOT NULL,
+    side               TEXT NOT NULL,       -- CREDITOR | DEBTOR
+    accrued_account_id UUID,                -- compte de courus où l'imputation est faite
+    accrued_through    DATE,
+    cumulative_precise NUMERIC(23,5) NOT NULL,
+    posted_total       NUMERIC(23,5) NOT NULL,   -- Σ imputé
+    settled_total      NUMERIC(23,5) NOT NULL,   -- Σ réglé
+    settled_through    DATE,
+    PRIMARY KEY (account_id, side)
+);
+
+CREATE TABLE interest_settlement (         -- capitalisation, arrêté des agios
+    id, account_id, side, period_end, gross_amount, withholding_code, withholding_rate_percent,
+    withholding_amount, tax_rate_percent, tax_amount, net_amount, entry_id, booking_date,
+    value_date, batch_run_id, status
+);
+
+CREATE TABLE interest_withholding (        -- retenue à la source, par entité, datée
+    legal_entity_id, code, rate_percent, payable_account_id, valid_from, valid_to,
+    EXCLUDE USING gist (legal_entity_id WITH =, code WITH =, validité WITH &&)
+);
+
+CREATE TABLE loan_interest_accrual (       -- ICNE sur crédits : une ligne par échéance et par jour
+    id, contract_id, schedule_id, instalment_number, accrual_date,
+    period_days, elapsed_days, instalment_interest, cumulative_precise, posted_delta,
+    accrued_account_id, reserved, reserved_run_id, entry_id, batch_run_id, status,
+    PRIMARY KEY (id, accrual_date)
+) PARTITION BY RANGE (accrual_date);
+```
+
+La position est une **projection** des journées calculées et des règlements : elle se reconstruit
+depuis eux, et c'est ce que fait l'annulation d'un traitement. `posted_total − settled_total`,
+sommé par compte de courus, doit égaler le solde de ce compte ; c'est le contrôle
+`SOUS_LIVRE_INTERETS_COURUS`. Les journées calculées (`interest_accrual`) portent désormais
+`posted_cumulative`, la somme courante des montants imputés : la position se reconstruit depuis la
+dernière journée active sans sommer l'historique.
+
+Sur les crédits, le cumul imputé d'une échéance est la somme de ses lignes actives — au plus une
+trentaine — et le compte de courus doit porter la somme des échéances en cours, celles qui ne sont
+pas encore réclamées (`SOUS_LIVRE_ICNE_CREDIT`). `reserved` dit si le montant a été constaté en
+intérêts réservés plutôt qu'en produits ; la suspension bascule la marque, et l'annulation du
+traitement qui a suspendu la défait (`reserved_run_id`).
+
+---
+
 ## 6. Batch et outbox
 
 ```sql
@@ -615,9 +664,16 @@ CREATE TRIGGER trg_segregation BEFORE INSERT ON operation_approval
 | Table | Partition | Rétention en ligne | Au-delà |
 |---|---|---|---|
 | `journal_entry` / `journal_line` | Mensuelle, par `booking_date` | 24 mois | Partition détachée, archivée en stockage objet |
-| `account_balance_daily` | Annuelle | 10 ans | Conservée (volumétrie faible) |
+| `account_balance_daily` | Mensuelle, par `business_date` | 24 mois | Détachée, archivée |
+| `interest_accrual` | Mensuelle, par `accrual_date` | 24 mois | Détachée, archivée ; la position reste |
+| `loan_interest_accrual` | Mensuelle, par `accrual_date` | 24 mois | Détachée, archivée |
 | `audit_log` | Mensuelle | 12 mois | Archivée, 10 ans au total |
 | `outbox` | — | 7 jours | Purge des lignes publiées |
+
+Les tables partitionnées sont **déclarées** dans `ledger_partitioned_table` par le module qui les
+crée, et `ledger_ensure_partitions` crée les partitions de toutes en une fois : la bascule de
+journée garantit les trois mois à venir pour chacune, le contrôle préalable le mois traité. Une
+table partitionnée non déclarée n'aurait ses partitions créées par personne.
 
 Le détachement de partition (`DETACH PARTITION`) est instantané et ne bloque pas la
 production, contrairement à un `DELETE` de masse qui saturerait les WAL et déclencherait un

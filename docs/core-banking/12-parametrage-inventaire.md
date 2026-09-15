@@ -105,8 +105,31 @@ licites ; aucune n'est un défaut raisonnable.
 | `interest.tiering_mode` | `PROGRESSIVE`, `WHOLE_BALANCE` | Mode d'application du barème |
 | `interest.debit_account` | UUID | Compte débité de l'écriture d'intérêts courus |
 | `interest.credit_account` | UUID | Compte crédité |
+| `interest.capitalisation` | `MONTHLY`, `QUARTERLY`, `SEMIANNUAL`, `ANNUAL` | Périodicité civile de règlement des courus au client — exigée : un produit qui ne règle jamais est un défaut |
+| `interest.withholding` | code (`IRC`, `IRCM`…) | Retenue à la source appliquée aux intérêts créditeurs ; absent : exonéré |
 
 Barème par tranches dans `product_rate_tier` : bornes et taux par tranche.
+
+### Agios — `product_parameter` ✅
+
+Le côté débiteur d'un compte courant, facultatif en bloc, exigeant dès qu'il est entamé.
+
+| Paramètre | Valeurs | Effet |
+|---|---|---|
+| `overdraft.rate` | décimal | Taux annuel dans l'autorisation |
+| `overdraft.excess_rate` | décimal | Taux de la part au-delà de l'autorisation, celui de l'autorisation à défaut |
+| `overdraft.limit` | décimal | Autorisation par défaut du produit ; celle du compte (`overdraft_limit`, datée) l'emporte |
+| `overdraft.day_count` | convention | Celle du côté principal à défaut |
+| `overdraft.debit_account` / `.credit_account` | UUID | Agios courus à recevoir (actif), produit d'intérêts sur découverts |
+| `overdraft.settlement` | périodicité | Arrêté des agios, débité au client taxe comprise |
+| `overdraft.tax_rate` / `.tax_account` | décimal, UUID | Taxe sur les agios (TOB, TAF) et son compte de collecte |
+
+### Retenues à la source — `interest_withholding` ✅
+
+Par entité juridique, donc par pays : code, taux, compte de reversement, période de validité sans
+chevauchement. Le taux est résolu **à la fin de période réglée**, jamais à la date du jour : une loi
+de finances au 1ᵉʳ janvier ne change pas la capitalisation de décembre. Un produit qui désigne une
+retenue sans taux en vigueur ne capitalise pas — il bloque, plutôt que de payer brut.
 
 **Taux et convention de jours peuvent varier d'une journée à l'autre** — c'est le cas normal d'un
 changement de barème, et chaque journée est rémunérée au taux en vigueur ce jour-là
@@ -171,6 +194,7 @@ d'un dossier à l'autre et appartiennent au contrat.
 | `loan.direct_debit` | `true`, `false` | Prélèvement d'office à l'exigibilité |
 | `loan.grace_days` | entier | Délai de grâce avant comptage des jours de retard |
 | `loan.accrued_receivable` | UUID | Créances rattachées, débitées à l'exigibilité |
+| `loan.accrued_interest` | UUID | Intérêts courus non échus : l'intérêt de l'échéance en cours, constaté jour après jour, repris par la créance à l'échéance |
 | `loan.interest_income` | UUID | Produit d'intérêts |
 | `loan.insurance_income` / `.fee_income` | UUID | Ventilation fine, celle des intérêts à défaut |
 | `loan.tax_account` | UUID | Taxe collectée sur intérêts |
@@ -360,8 +384,10 @@ le code appelant.
 
 | Élément | État |
 |---|---|
-| Capitalisation des intérêts (périodicité, base minimum/moyenne) | ⬜ |
-| Conditions de découvert rattachées au produit — agios, échelles (seul `overdraft.limit` existe, employé au contrôle de provision) | 🔶 |
+| Capitalisation des intérêts — périodicité civile, retenue à la source par pays | ✅ |
+| Base minimum mensuelle ou moyenne pour l'épargne classique | ⬜ |
+| Conditions de découvert rattachées au produit — agios, dépassement, arrêté, taxe | ✅ |
+| Commissions de découvert (mise en place, dépassement) | ⬜ |
 | Dormance (délai, régime de frais) | ⬜ |
 | Profil réglementaire régional et surcouche nationale ([11](11-profil-uemoa-bceao.md)) | ⬜ |
 | Ratios prudentiels | ⬜ |

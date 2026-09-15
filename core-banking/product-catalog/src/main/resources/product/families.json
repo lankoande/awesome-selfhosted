@@ -22,9 +22,10 @@
         "interest.day_count",
         "interest.side",
         "interest.debit_account",
-        "interest.credit_account"
+        "interest.credit_account",
+        "interest.capitalisation"
       ],
-      "optional": ["interest.tiering_mode"],
+      "optional": ["interest.tiering_mode", "interest.withholding"],
       "accounts": ["interest.debit_account", "interest.credit_account"],
       "requireOneOf": [
         {
@@ -35,7 +36,51 @@
     },
 
     "overdraft": {
-      "optional": ["overdraft.limit"]
+      "comment": [
+        "Agios : le cote debiteur d'un compte courant. Facultatif en bloc, exigeant des qu'il",
+        "est entame : un taux sans comptes d'imputation echouerait a la premiere journee",
+        "debitrice, un compte d'agios sans taux designerait des agios jamais calcules. Le",
+        "taux de depassement s'applique a la part du solde debiteur au-dela de l'autorisation",
+        "du compte, a defaut de l'autorisation par defaut du produit, a defaut zero."
+      ],
+      "optional": [
+        "overdraft.limit",
+        "overdraft.rate",
+        "overdraft.excess_rate",
+        "overdraft.day_count",
+        "overdraft.debit_account",
+        "overdraft.credit_account",
+        "overdraft.settlement",
+        "overdraft.tax_rate",
+        "overdraft.tax_account"
+      ],
+      "accounts": ["overdraft.debit_account", "overdraft.credit_account", "overdraft.tax_account"],
+      "conditions": [
+        {
+          "when": "overdraft.rate",
+          "present": true,
+          "require": ["overdraft.debit_account", "overdraft.credit_account", "overdraft.settlement"],
+          "because": "des agios sans comptes d'imputation ni arrete echoueraient a la premiere journee debitrice, ou courraient sans jamais etre preleves"
+        },
+        {
+          "when": "overdraft.debit_account",
+          "present": true,
+          "require": ["overdraft.rate"],
+          "because": "un compte d'agios courus sans taux designe des agios jamais calcules"
+        },
+        {
+          "when": "overdraft.excess_rate",
+          "present": true,
+          "require": ["overdraft.rate"],
+          "because": "un taux de depassement suppose un taux dans l'autorisation"
+        },
+        {
+          "when": "overdraft.tax_rate",
+          "present": true,
+          "require": ["overdraft.tax_account"],
+          "because": "une taxe sur agios sans compte de collecte resterait dans le produit de la banque, et la declaration serait fausse"
+        }
+      ]
     },
 
     "fees": {
@@ -108,6 +153,7 @@
       "label": "Credit amortissable",
       "required": [
         "loan.accrued_receivable",
+        "loan.accrued_interest",
         "loan.interest_income",
         "loan.tax_account"
       ],
@@ -130,6 +176,7 @@
       ],
       "accounts": [
         "loan.accrued_receivable",
+        "loan.accrued_interest",
         "loan.interest_income",
         "loan.tax_account",
         "loan.insurance_income",

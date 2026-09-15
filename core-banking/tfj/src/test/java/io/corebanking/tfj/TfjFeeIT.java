@@ -132,6 +132,7 @@ class TfjFeeIT extends TfjTestBase {
         parametres.put(ProductCatalog.P_RATE, "6");
         parametres.put(ProductCatalog.P_DAY_COUNT, "ACT_365");
         parametres.put(ProductCatalog.P_SIDE, AccrualSide.CREDITOR.name());
+        parametres.put(ProductCatalog.P_CAPITALISATION, "QUARTERLY");
         parametres.put(ProductCatalog.P_DEBIT_ACCOUNT, charges.id().toString());
         parametres.put(ProductCatalog.P_CREDIT_ACCOUNT, courus.id().toString());
         parametres.put("fee.codes", "TENUE");

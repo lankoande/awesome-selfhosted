@@ -13,9 +13,15 @@ import io.corebanking.schema.TemplateLine;
  * <ol>
  *   <li><b>Deblocage</b> — le compte de pret est debite du capital, le compte du client credite.
  *       L'encours nait a l'actif, la contrepartie est mise a disposition.</li>
- *   <li><b>Exigibilite</b> — a l'echeance, les <b>charges</b> de l'echeance sont constatees en
- *       produits et portees en creances rattachees. Le capital, lui, ne bouge pas : il est deja a
- *       l'actif depuis le deblocage, et le rendre exigible ne cree aucun flux.</li>
+ *   <li><b>Interets courus</b> — chaque nuit, l'interet de l'echeance en cours est constate en
+ *       produits au prorata des jours ecoules, en contrepartie d'un compte de courus a l'actif.
+ *       Le produit d'un mois est ainsi dans le resultat de ce mois, pas dans celui de
+ *       l'echeance.</li>
+ *   <li><b>Exigibilite</b> — a l'echeance, les <b>charges</b> de l'echeance sont portees en
+ *       creances rattachees : l'assurance, les frais et la taxe sont constates en produits ou
+ *       en dettes ce jour-la, l'interet est <b>repris des courus</b>, ou il a deja ete reconnu
+ *       en totalite. Le capital, lui, ne bouge pas : il est deja a l'actif depuis le deblocage,
+ *       et le rendre exigible ne cree aucun flux.</li>
  *   <li><b>Reglement</b> — le compte du client est debite du montant regle ; la part de capital
  *       vient en diminution de l'encours, la part de charges solde les creances rattachees.</li>
  * </ol>
@@ -43,9 +49,11 @@ public final class LoanSchemas {
     public static final String EVENT_INTEREST_SUSPENSION = "LOAN_INTEREST_SUSPENSION";
     public static final String EVENT_TRANCHE_RELEASE = "LOAN_TRANCHE_RELEASE";
     public static final String EVENT_INTERIM_INTEREST = "LOAN_INTERIM_INTEREST";
+    public static final String EVENT_INTEREST_ACCRUAL = "LOAN_INTEREST_ACCRUAL";
 
     public static final String ROLE_SETTLEMENT = "settlement";
     public static final String ROLE_ACCRUED = "accrued_receivable";
+    public static final String ROLE_ACCRUED_INTEREST = "accrued_interest";
     public static final String ROLE_INTEREST_INCOME = "interest_income";
     public static final String ROLE_INSURANCE_INCOME = "insurance_income";
     public static final String ROLE_FEE_INCOME = "fee_income";
@@ -144,8 +152,10 @@ public final class LoanSchemas {
             .derive("t", "round(tax, " + scale + ")")
             .derive("charges", "i + s + f + t")
             .line(TemplateLine.debit("PARAM:" + ROLE_ACCRUED, "charges", "Echeance exigible"))
-            .line(TemplateLine.credit("PARAM:" + ROLE_INTEREST_INCOME, "i", "Interets")
-                      .onlyIf("i > 0"))
+            // L'interet a ete constate jour apres jour : l'echeance le reprend des courus, elle
+            // ne le constate pas une seconde fois.
+            .line(TemplateLine.credit("PARAM:" + ROLE_ACCRUED_INTEREST, "i",
+                                      "Interets courus repris").onlyIf("i > 0"))
             .line(TemplateLine.credit("PARAM:" + ROLE_INSURANCE_INCOME, "s", "Assurance")
                       .onlyIf("s > 0"))
             .line(TemplateLine.credit("PARAM:" + ROLE_FEE_INCOME, "f", "Frais de dossier")

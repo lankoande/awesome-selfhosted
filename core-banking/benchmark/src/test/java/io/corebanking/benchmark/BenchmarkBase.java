@@ -152,6 +152,7 @@ abstract class BenchmarkBase {
             Map.of(ProductCatalog.P_RATE, "6",
                    ProductCatalog.P_DAY_COUNT, "ACT_365",
                    ProductCatalog.P_SIDE, AccrualSide.CREDITOR.name(),
+                   ProductCatalog.P_CAPITALISATION, "QUARTERLY",
                    ProductCatalog.P_DEBIT_ACCOUNT, charges.id().toString(),
                    ProductCatalog.P_CREDIT_ACCOUNT, accrued.id().toString()));
         parameters.putAll(surcharges);

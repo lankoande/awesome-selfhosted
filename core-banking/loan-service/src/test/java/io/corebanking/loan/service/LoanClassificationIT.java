@@ -281,8 +281,10 @@ class LoanClassificationIT extends LoanTestBase {
         Money reservesApresSuspension = soldeDe(risque.reserves());
         Money produitsApresSuspension = soldeDe(risque.decor().produitsInterets());
 
-        // L'echeance de fevrier devient exigible sur un credit deja suspendu.
+        // L'echeance de fevrier devient exigible sur un credit deja suspendu, et ses interets
+        // courus sont etales : ils naissent en interets reserves, pas en produits.
         loanService.makeDue(entite, LocalDate.of(2027, 2, 15), ACTOR, UUID.randomUUID());
+        accrue(risque.decor(), LocalDate.of(2027, 2, 15));
 
         assertThat(soldeDe(risque.decor().produitsInterets())).isEqualTo(produitsApresSuspension);
         assertThat(soldeDe(risque.reserves())).isGreaterThan(reservesApresSuspension);

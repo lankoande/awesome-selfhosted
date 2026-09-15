@@ -39,6 +39,21 @@ public final class ProductCatalog {
     public static final String P_TIERING_MODE    = "interest.tiering_mode";
     public static final String P_DEBIT_ACCOUNT   = "interest.debit_account";
     public static final String P_CREDIT_ACCOUNT  = "interest.credit_account";
+    /** Periodicite civile de capitalisation des interets courus au client. */
+    public static final String P_CAPITALISATION  = "interest.capitalisation";
+    /** Code de la retenue a la source appliquee aux interets crediteurs ; absent : exonere. */
+    public static final String P_WITHHOLDING     = "interest.withholding";
+
+    // Agios : le cote debiteur d'un compte courant, facultatif.
+    public static final String P_OD_LIMIT          = "overdraft.limit";
+    public static final String P_OD_RATE           = "overdraft.rate";
+    public static final String P_OD_EXCESS_RATE    = "overdraft.excess_rate";
+    public static final String P_OD_DAY_COUNT      = "overdraft.day_count";
+    public static final String P_OD_DEBIT_ACCOUNT  = "overdraft.debit_account";
+    public static final String P_OD_CREDIT_ACCOUNT = "overdraft.credit_account";
+    public static final String P_OD_SETTLEMENT     = "overdraft.settlement";
+    public static final String P_OD_TAX_RATE       = "overdraft.tax_rate";
+    public static final String P_OD_TAX_ACCOUNT    = "overdraft.tax_account";
 
     private ProductCatalog() {}
 

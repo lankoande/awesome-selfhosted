@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 487 tests verts** — 297 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 190 sur PostgreSQL réel.
+**État actuel : 504 tests verts** — 299 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 205 sur PostgreSQL réel.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -65,6 +65,11 @@ classification et provisionnement à 1,168 ms par crédit, mobilisation et inté
 | Découpage d'une période sans effet sur le total | Additivité | `le_decoupage_dune_periode_ne_change_pas_le_total` |
 | Taux résolu à la date de la journée, pas du traitement | `product_version` daté + `CatalogTermsResolver` | `each_day_uses_the_rate_in_force_that_day` |
 | Recalcul rétroactif réappliquant les taux d'époque | idem | `retroactive_recompute_reapplies_historical_rates` |
+| Intérêts de crédit reconnus jour après jour, exacts à l'échéance par construction | `LoanInterestAccrualService` — étalement de l'intérêt contractuel, cumul arrondi | `etalementPuisReprise` |
+| Intérêts capitalisés au client, nets de retenue, à la fin de période civile | `InterestSettlementService` + `interest_withholding` | `quarterly_capitalisation_pays_net_of_withholding`, `quarter_end_settles_both_sides` |
+| Agios à deux taux, dans et au-delà de l'autorisation, arrêtés taxe comprise | `OverdraftRate` + bloc `overdraft.*` | `overdraft_interest_accrues_at_two_rates_and_is_charged_with_tax` |
+| Sous-livres = grand livre chaque nuit, écart nommé et bloquant | `Reconciliation.Check` par module | `ecartsNommes`, `a_sub_ledger_gap_blocks_the_day` |
+| Un mois ne se clôt que complet et rejoué intégralement, et se rouvre en le disant | `StandardTfm` | `september_is_closed_then_reopened` |
 | Jamais deux versions de produit actives simultanées | `EXCLUDE USING gist` | `overlapping_versions_are_rejected` |
 | Le rédacteur d'un paramétrage ne l'active pas | `CHECK (approved_by <> created_by)` | `maker_cannot_be_checker` |
 | Un type de produit hors catalogue est refusé dès la saisie | `ProductFamilies` | `unknown_family_is_refused_upfront` |
@@ -566,6 +571,30 @@ intérêts, que le socle refuse par construction.
 comptabilisation, écart d'arrondi restitué explicitement. `MoneyTest.daily_rounding_drifts_measurably`
 mesure la dérive évitée : **25 XOF par an et par compte**, soit 12,5 M XOF sur 500 000 comptes.
 
+### 17. Des intérêts réglés, des deux côtés, et des sous-livres rapprochés chaque nuit
+
+Un moteur d'accruals qui n'est jamais réglé fait croître un compte de courus à l'infini ; c'est
+l'état dans lequel le socle était jusqu'à la phase B de l'[audit](../docs/core-banking/14-audit.md).
+Trois choses ont changé, et chacune a une règle qui se vérifie.
+
+**Le brut réglé est le cumul exact arrondi à la fin de période, moins ce qui a déjà été réglé.** Le
+moteur du cumul arrondi connaît le cumul de n'importe quelle journée ; l'arrêté qui tourne le lundi
+règle donc exactement ce qui était couru le samedi, fin de trimestre, et les deux journées suivantes
+restent en courus (`settlement_stops_at_the_period_end_even_when_run_later`). Les intérêts
+capitalisés portent date de valeur du lendemain : ceux de la fin de période ont été calculés sur le
+solde d'avant.
+
+**Les crédits reconnaissent leur intérêt jour après jour**, par étalement linéaire de l'intérêt
+contractuel de l'échéance sur les jours de sa période — la seule règle qui vaille pour toutes les
+méthodes d'amortissement et qui retombe exactement sur l'échéance. Entre deux échéances, le résultat
+d'un mois porte les intérêts de ce mois (`etalementPuisReprise`).
+
+**Chaque module dit ce que le grand livre doit porter, et l'arrêté le vérifie.** Positions
+d'intérêts contre comptes de courus, créances contre créances rattachées, capital restant dû contre
+compte de prêt, commissions contre écritures : un écart d'un franc nomme le compte et bloque la
+journée. C'est la classe de défaut — une écriture sans créance, une créance sans écriture — que la
+balance, équilibrée, ne voit jamais, et que les tests avaient déjà trouvée deux fois.
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
@@ -578,10 +607,11 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
   une commission ordinaire et n'a pas encore de barème dédié ;
 - plafonds et limites paramétrés, et le maker-checker généralisé (la table `pending_operation`
   existe, le workflow n'est pas écrit) ;
-- capitalisation des intérêts, dormance, découverts et agios côté produit ;
+- dormance, commissions de découvert (mise en place, dépassement), base minimum ou moyenne pour
+  l'épargne classique — la capitalisation et les agios, eux, sont faits ;
 - archivage des partitions (leur création, elle, est garantie par le TFJ) ;
-- clôture mensuelle (TFM) : la période suivante s'ouvre seule, sa clôture reste une opération
-  comptable sans traitement ;
+- clôture annuelle (TFA) : détermination du résultat, à-nouveaux, réouverture des comptes de
+  bilan — la clôture mensuelle, elle, est faite ;
 - contrôle du cours appliqué contre la table de référence — le ledger valide la cohérence des
   contre-valeurs, pas la justesse d'un cours uniforme.
 
@@ -648,3 +678,12 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Les frais de dossier sont retenus sur la première tranche, et sur elle seule | Les étaler ferait dépendre leur montant du nombre de tranches réellement tirées |
 | Un dépassement d'usure constaté à la clôture est bloquant, pas un fait de gestion | Les fonds sont versés : la banque est en infraction tant que la ristourne n'est pas décidée |
 | Une tranche non tirée à la date limite n'est pas une anomalie | Un chantier qui n'a pas avancé n'a pas à bloquer l'arrêté de la banque |
+| L'état d'un calcul d'intérêts est une position, pas une somme sur l'historique | Deux ans à deux millions de comptes font un milliard et demi de lignes à relire chaque nuit pour retrouver ce que l'on savait la veille ; la position se reconstruit depuis les journées actives après toute annulation |
+| Le brut capitalisé se lit au cumul de la fin de période, pas à celui du jour du traitement | Un trimestre qui finit un samedi est réglé le lundi, pour ce qui était couru le samedi |
+| Les intérêts capitalisés portent date de valeur du lendemain | Ceux de la fin de période ont été calculés sur le solde d'avant ; les dater du même jour ferait rémunérer, à tout recalcul, un solde que le compte n'avait pas |
+| L'intérêt d'une échéance de crédit est étalé linéairement sur sa période | À annuité constante, le taux périodique n'est pas un taux journalier ; l'étalement retombe exactement sur l'échéance, quelle que soit la méthode |
+| Un échéancier remplacé emporte ses courus | Ses échéances ne seront jamais réclamées ; le nouvel échéancier repart de sa première période |
+| Le cliché des soldes est incrémental, le rejeu intégral mensuel | O(journée) chaque nuit, O(historique) une fois par mois ; par récurrence, la même garantie |
+| La réconciliation rafraîchit le cliché avant de contrôler | La correction passée entre un échec et la reprise est comptabilisée sur la journée ; le cliché arrêté à l'étape précédente ne la porte pas |
+| Les tables partitionnées sont déclarées dans un registre | Une table partitionnée que la bascule ne connaît pas n'a ses partitions créées par personne |
+| Le TFM porte la date de fin de période et ne touche pas à la date comptable | Il porte sur un mois déjà arrêté jour par jour ; son annulation rouvre la période en le disant |

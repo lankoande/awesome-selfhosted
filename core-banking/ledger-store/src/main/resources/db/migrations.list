@@ -3,3 +3,4 @@
 # les tests du module le refusent.
 V1__ledger_core.sql
 V16__partitions_idempotentes.sql
+V18__partitions_registre.sql

@@ -120,9 +120,11 @@ class TfjMobilisationIT extends TfjTestBase {
         Account creances = account(code + "-CREANCES", AccountKind.GL, NormalBalance.DEBIT);
         Account produits = account(code + "-PRODUITS", AccountKind.GL, NormalBalance.CREDIT);
         Account taxe = account(code + "-TAXE", AccountKind.GL, NormalBalance.CREDIT);
+        Account courus = account(code + "-ICNE", AccountKind.GL, NormalBalance.DEBIT);
 
         Map<String, String> parametres = new LinkedHashMap<>();
         parametres.put(LoanCatalog.P_ACCRUED, creances.id().toString());
+        parametres.put(LoanCatalog.P_ACCRUED_INTEREST, courus.id().toString());
         parametres.put(LoanCatalog.P_INTEREST_INCOME, produits.id().toString());
         parametres.put(LoanCatalog.P_TAX_ACCOUNT, taxe.id().toString());
         parametres.put(LoanCatalog.P_DIRECT_DEBIT, String.valueOf(prelevementAutomatique));

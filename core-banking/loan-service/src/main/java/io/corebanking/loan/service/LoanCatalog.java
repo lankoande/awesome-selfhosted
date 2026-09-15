@@ -27,6 +27,7 @@ public final class LoanCatalog {
     public static final String P_DIRECT_DEBIT     = "loan.direct_debit";
     public static final String P_GRACE_DAYS       = "loan.grace_days";
     public static final String P_ACCRUED          = "loan.accrued_receivable";
+    public static final String P_ACCRUED_INTEREST = "loan.accrued_interest";
     public static final String P_INTEREST_INCOME  = "loan.interest_income";
     public static final String P_INSURANCE_INCOME = "loan.insurance_income";
     public static final String P_FEE_INCOME       = "loan.fee_income";
@@ -209,6 +210,14 @@ public final class LoanCatalog {
 
     public static UUID accruedReceivable(ProductVersion product) {
         return product.parameters().requireUuid(P_ACCRUED);
+    }
+
+    /**
+     * Compte des interets courus non echus : l'actif ou l'interet de l'echeance en cours est
+     * constate jour apres jour, avant d'etre repris par la creance a l'echeance.
+     */
+    public static UUID accruedInterest(ProductVersion product) {
+        return product.parameters().requireUuid(P_ACCRUED_INTEREST);
     }
 
     public static UUID interestIncome(ProductVersion product) {

@@ -53,6 +53,13 @@ import java.util.UUID;
  * semaines d'exploitation. Le moteur doit savoir extourner les interets devenus faux et les
  * reemettre — {@link #recomputeFrom}. Un moteur qui en est incapable facture des agios faux, ce
  * qui se traduit en reclamations de masse.
+ *
+ * <h2>L'etat du calcul</h2>
+ *
+ * <p>L'etat d'un compte — derniere journee remuneree, cumul exact, total impute — est lu dans sa
+ * {@link InterestPositions position}, jamais recalcule par une somme sur son historique. La
+ * position est mise a jour a chaque imputation et reconstruite depuis les journees actives apres
+ * toute neutralisation.
  */
 public final class InterestAccrualService {
 
@@ -72,16 +79,18 @@ public final class InterestAccrualService {
                                         InterestTermsResolver resolver, LocalDate bookingDate,
                                         UUID actorId, UUID batchRunId) {
         InterestTerms reference = resolver.termsAt(through);
-        AccrualState state = database.inTransaction(c -> loadState(c, accountId, reference.side()));
+        InterestPositions.Position state = database.inTransaction(
+            c -> InterestPositions.load(c, accountId, reference.side(),
+                                        InterestPositions.currencyOf(c, accountId)));
 
-        LocalDate from = state.lastAccrualDate() == null
+        LocalDate from = state.accruedThrough() == null
             ? database.inTransaction(c -> ValueDatedSeries.firstValueDate(c, accountId))
-            : state.lastAccrualDate().plusDays(1);
+            : state.accruedThrough().plusDays(1);
 
         if (from == null || through.isBefore(from)) {
             return new AccrualOutcome(accountId, from, through, state.generation(),
                                       state.cumulativePrecise(), state.postedTotal(),
-                                      Money.zero(state.currency()), null);
+                                      Money.zero(state.postedTotal().currency()), null);
         }
         return compute(legalEntityId, accountId, from, through, resolver, reference, bookingDate,
                        actorId, batchRunId, state);
@@ -95,13 +104,19 @@ public final class InterestAccrualService {
      * deja remuneree. Les ecritures d'interets devenues fausses sont contre-passees, jamais
      * modifiees, et les lignes de calcul d'origine sont conservees en generation anterieure : on
      * peut donc toujours reconstituer ce qui avait ete facture, et pourquoi.
+     *
+     * <p>Un reglement deja effectue sur la periode recalculee n'est pas remis en cause : ce que le
+     * client a recu est acquis. L'ecart entre l'ancien et le nouveau cumul se retrouve dans la
+     * position, et le reglement suivant le regularise.
      */
     public AccrualOutcome recomputeFrom(UUID legalEntityId, UUID accountId, LocalDate fromValueDate,
                                         InterestTermsResolver resolver, LocalDate bookingDate,
                                         UUID actorId, UUID batchRunId) {
         InterestTerms reference = resolver.termsAt(fromValueDate);
         LocalDate lastAccrued = database.inTransaction(
-            c -> loadState(c, accountId, reference.side()).lastAccrualDate());
+            c -> InterestPositions.load(c, accountId, reference.side(),
+                                        InterestPositions.currencyOf(c, accountId))
+                                  .accruedThrough());
         if (lastAccrued == null || lastAccrued.isBefore(fromValueDate)) {
             // Rien n'a encore ete remunere sur cette periode : le calcul courant suffira.
             return accrueThrough(legalEntityId, accountId, lastAccrued == null ? fromValueDate
@@ -121,14 +136,17 @@ public final class InterestAccrualService {
                 "Recalcul retroactif des interets a compter du " + fromValueDate);
         }
 
-        // 2. Neutraliser les journees de calcul concernees, sans les supprimer.
+        // 2. Neutraliser les journees de calcul concernees, sans les supprimer, et reconstruire
+        //    la position depuis ce qui reste actif.
         database.inTransaction(c -> {
-            markReversed(c, accountId, reference.side(), fromValueDate);
+            InterestPositions.reverseFrom(c, accountId, reference.side(), fromValueDate);
             return null;
         });
 
         // 3. Recalculer sur la serie corrigee, avec le parametrage en vigueur a chaque journee.
-        AccrualState state = database.inTransaction(c -> loadState(c, accountId, reference.side()));
+        InterestPositions.Position state = database.inTransaction(
+            c -> InterestPositions.load(c, accountId, reference.side(),
+                                        InterestPositions.currencyOf(c, accountId)));
         return compute(legalEntityId, accountId, fromValueDate, lastAccrued, resolver, reference,
                        bookingDate, actorId, batchRunId, state);
     }
@@ -138,7 +156,7 @@ public final class InterestAccrualService {
     private AccrualOutcome compute(UUID legalEntityId, UUID accountId, LocalDate from,
                                    LocalDate through, InterestTermsResolver resolver,
                                    InterestTerms reference, LocalDate bookingDate, UUID actorId,
-                                   UUID batchRunId, AccrualState state) {
+                                   UUID batchRunId, InterestPositions.Position state) {
 
         // La generation doit etre determinee AVANT l'imputation : elle entre dans la cle
         // d'idempotence. Sans elle, une reemission apres extourne porterait la meme cle que
@@ -152,7 +170,7 @@ public final class InterestAccrualService {
         if (series.isEmpty()) {
             return new AccrualOutcome(accountId, from, through, state.generation(),
                                       state.cumulativePrecise(), state.postedTotal(),
-                                      Money.zero(state.currency()), null);
+                                      Money.zero(state.postedTotal().currency()), null);
         }
 
         CurrencyRef currency = series.get(0).balance().currency();
@@ -187,7 +205,10 @@ public final class InterestAccrualService {
         Money cumulativeFinal = cumulative;
         database.inTransaction(c -> {
             recordDays(c, accountId, reference.side(), generation, daily, cumulativeFinal,
-                       delta, entryId, bookingDate, batchRunId);
+                       state.postedTotal(), delta, entryId, bookingDate, batchRunId);
+            InterestPositions.recordAccrual(c, accountId, reference.side(),
+                                            reference.accruedAccount(), through, cumulativeFinal,
+                                            target, generation);
             return null;
         });
 
@@ -244,51 +265,7 @@ public final class InterestAccrualService {
 
     // ------------------------------------------------------------------ persistance
 
-    private record AccrualState(LocalDate lastAccrualDate, Money cumulativePrecise,
-                                Money postedTotal, int generation, CurrencyRef currency) {}
-
     private record PostedAccrual(UUID entryId, LocalDate bookingDate) {}
-
-    private AccrualState loadState(Connection c, UUID accountId, AccrualSide side) {
-        CurrencyRef currency = io.corebanking.ledger.store.Balances.currencyOf(c, accountId);
-        try (PreparedStatement ps = c.prepareStatement(
-            "SELECT MAX(accrual_date),"
-            + "       COALESCE(SUM(posted_delta), 0),"
-            + "       COALESCE(MAX(generation), 1)"
-            + "  FROM interest_accrual"
-            + " WHERE account_id = ? AND side = ? AND status = 'ACTIVE'")) {
-            ps.setObject(1, accountId);
-            ps.setString(2, side.name());
-            try (ResultSet rs = ps.executeQuery()) {
-                rs.next();
-                LocalDate last = rs.getObject(1, LocalDate.class);
-                Money posted = Money.of(rs.getBigDecimal(2), currency);
-                int generation = rs.getInt(3);
-                Money cumulative = last == null
-                    ? Money.zero(currency)
-                    : cumulativeAt(c, accountId, side, last, currency);
-                return new AccrualState(last, cumulative, posted, generation, currency);
-            }
-        } catch (SQLException e) {
-            throw new LedgerStoreException("Etat des interets courus", e);
-        }
-    }
-
-    private Money cumulativeAt(Connection c, UUID accountId, AccrualSide side, LocalDate day,
-                               CurrencyRef currency) {
-        try (PreparedStatement ps = c.prepareStatement(
-            "SELECT cumulative_precise FROM interest_accrual"
-            + " WHERE account_id = ? AND side = ? AND accrual_date = ? AND status = 'ACTIVE'")) {
-            ps.setObject(1, accountId);
-            ps.setString(2, side.name());
-            ps.setObject(3, day);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? Money.of(rs.getBigDecimal(1), currency) : Money.zero(currency);
-            }
-        } catch (SQLException e) {
-            throw new LedgerStoreException("Cumul des interets courus", e);
-        }
-    }
 
     private List<PostedAccrual> loadActiveEntriesFrom(Connection c, UUID accountId,
                                                       AccrualSide side, LocalDate from) {
@@ -313,22 +290,9 @@ public final class InterestAccrualService {
         return entries;
     }
 
-    private void markReversed(Connection c, UUID accountId, AccrualSide side, LocalDate from) {
-        try (PreparedStatement ps = c.prepareStatement(
-            "UPDATE interest_accrual SET status = 'REVERSED'"
-            + " WHERE account_id = ? AND side = ? AND accrual_date >= ? AND status = 'ACTIVE'")) {
-            ps.setObject(1, accountId);
-            ps.setString(2, side.name());
-            ps.setObject(3, from);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new LedgerStoreException("Neutralisation des journees recalculees", e);
-        }
-    }
-
     private void recordDays(Connection c, UUID accountId, AccrualSide side, int generation,
-                            List<DailyAccrual> daily, Money cumulativeFinal, Money delta,
-                            UUID entryId, LocalDate bookingDate, UUID batchRunId) {
+                            List<DailyAccrual> daily, Money cumulativeFinal, Money postedBefore,
+                            Money delta, UUID entryId, LocalDate bookingDate, UUID batchRunId) {
         Money running = cumulativeFinal;
         // Recalcul du cumul journee par journee, a rebours, pour l'historiser exactement.
         List<Money> cumulatives = new ArrayList<>(daily.size());
@@ -340,8 +304,8 @@ public final class InterestAccrualService {
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO interest_accrual(id, account_id, accrual_date, side, generation,"
             + " basis_balance, effective_rate, year_fraction, precise_amount, cumulative_precise,"
-            + " posted_delta, entry_id, booking_date, batch_run_id)"
-            + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+            + " posted_delta, posted_cumulative, entry_id, booking_date, batch_run_id)"
+            + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
             for (int i = 0; i < daily.size(); i++) {
                 DailyAccrual day = daily.get(i);
                 boolean isLast = i == daily.size() - 1;
@@ -356,9 +320,12 @@ public final class InterestAccrualService {
                 ps.setBigDecimal(9, day.amount().amount());
                 ps.setBigDecimal(10, cumulatives.get(i).amount());
                 ps.setBigDecimal(11, isLast ? delta.amount() : BigDecimal.ZERO);
-                ps.setObject(12, isLast ? entryId : null);
-                ps.setObject(13, isLast ? bookingDate : null);
-                ps.setObject(14, batchRunId);
+                // Cumul impute apres cette journee : inchange jusqu'a la journee qui impute.
+                ps.setBigDecimal(12, isLast ? postedBefore.plus(delta).amount()
+                                            : postedBefore.amount());
+                ps.setObject(13, isLast ? entryId : null);
+                ps.setObject(14, isLast ? bookingDate : null);
+                ps.setObject(15, batchRunId);
                 ps.addBatch();
             }
             ps.executeBatch();

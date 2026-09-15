@@ -61,6 +61,40 @@ public final class Entities {
         }
     }
 
+    /**
+     * Rouvre une periode close. C'est une decision comptable — l'annulation d'un arrete mensuel —
+     * et elle laisse une trace : le statut REOPENED n'est pas OPEN.
+     */
+    public static void reopenPeriod(Connection c, UUID entityId, LocalDate start) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE accounting_period SET status = 'REOPENED' "
+            + "WHERE legal_entity_id = ? AND start_date = ? AND status = 'CLOSED'")) {
+            ps.setObject(1, entityId);
+            ps.setObject(2, start);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Reouverture de periode", e);
+        }
+    }
+
+    /** Bornes de la periode comptable couvrant une date, si elle existe. */
+    public static Optional<LocalDate[]> periodBounds(Connection c, UUID entityId, LocalDate date) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT start_date, end_date FROM accounting_period "
+            + "WHERE legal_entity_id = ? AND ? BETWEEN start_date AND end_date")) {
+            ps.setObject(1, entityId);
+            ps.setObject(2, date);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next()
+                    ? Optional.of(new LocalDate[] {rs.getObject(1, LocalDate.class),
+                                                   rs.getObject(2, LocalDate.class)})
+                    : Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des bornes de periode", e);
+        }
+    }
+
     public static void closePeriod(Connection c, UUID entityId, LocalDate start) {
         try (PreparedStatement ps = c.prepareStatement(
             "UPDATE accounting_period SET status = 'CLOSED' "

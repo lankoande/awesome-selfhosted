@@ -109,6 +109,7 @@ abstract class FeeTestBase {
         complets.putIfAbsent(ProductCatalog.P_RATE, "0");
         complets.putIfAbsent(ProductCatalog.P_DAY_COUNT, "ACT_365");
         complets.putIfAbsent(ProductCatalog.P_SIDE, "CREDITOR");
+        complets.putIfAbsent(ProductCatalog.P_CAPITALISATION, "MONTHLY");
         complets.putIfAbsent(ProductCatalog.P_DEBIT_ACCOUNT, chargesInterets.id().toString());
         complets.putIfAbsent(ProductCatalog.P_CREDIT_ACCOUNT, interetsCourus.id().toString());
         return database.inTransaction(c -> {

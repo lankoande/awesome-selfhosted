@@ -219,6 +219,12 @@ public final class SecurityConfig {
             AccessRule.allow(BRANCH_MANAGER, PRODUCT_MANAGER)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
+        // Un taux de retenue faux est reverse faux a l'Etat sur tout le portefeuille : la
+        // declaration est comptable et validee a deux, comme un schema.
+        policy.put(Operation.TAX_PARAMETER_DECLARE,
+            AccessRule.allow(ACCOUNTANT)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
         // ------------------------------------------------------------------ exploitation
         policy.put(Operation.TFJ_RUN,
             AccessRule.allow(OPERATOR).within(Scope.OWN_ENTITY).build());

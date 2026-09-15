@@ -37,8 +37,10 @@ abstract class InterestTestBase {
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 8);
 
         SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
+        // Les journees calculees sont partitionnees par mois : un an d'accruals demande un an
+        // de partitions. En exploitation, la bascule de journee les cree ; ici, la base de test.
         SchemaMigrator.ensurePartitions(database,
-            BUSINESS_DATE.minusMonths(2), BUSINESS_DATE.plusMonths(2));
+            BUSINESS_DATE.minusMonths(2), BUSINESS_DATE.plusMonths(14));
 
         database.inTransaction(c -> {
             Entities.insertCurrency(c, Currencies.XOF, "Franc CFA BCEAO");

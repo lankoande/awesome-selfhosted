@@ -287,6 +287,8 @@ class CollateralIT extends LoanTestBase {
             account(entite, "SEC-TAX-" + entite.toString().substring(0, 8), AccountKind.GL,
                     NormalBalance.CREDIT),
             account(entite, "SEC-CSH-" + entite.toString().substring(0, 8), AccountKind.GL,
+                    NormalBalance.DEBIT),
+            account(entite, "SEC-ICNE-" + entite.toString().substring(0, 8), AccountKind.GL,
                     NormalBalance.DEBIT));
     }
 

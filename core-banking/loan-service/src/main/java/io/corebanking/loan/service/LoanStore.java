@@ -30,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /** Acces aux contrats, echeanciers, creances et reglements. */
@@ -1023,10 +1024,202 @@ public final class LoanStore {
                     }
                 }
             }
+            // Les interets de l'echeance en cours, constates jour apres jour en produits et pas
+            // encore reclames, sont tout autant des produits non percus.
+            contractual = contractual.plus(accruedInterestInIncome(c, contractId, currency));
             return new RecognisedInterest(contractual, late);
         } catch (SQLException e) {
             throw new LedgerStoreException("Lecture des interets impayes du contrat " + contractId,
                                            e);
+        }
+    }
+
+    /** Interets courus non echus constates en produits — pas en interets reserves — du contrat. */
+    public static Money accruedInterestInIncome(Connection c, UUID contractId,
+                                                CurrencyRef currency) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT COALESCE(SUM(a.posted_delta), 0) FROM loan_interest_accrual a"
+            + " JOIN loan_schedule_line l ON l.schedule_id = a.schedule_id"
+            + "                          AND l.number = a.instalment_number"
+            + " WHERE a.contract_id = ? AND a.status = 'ACTIVE' AND NOT a.reserved"
+            + "   AND l.made_due_on IS NULL")) {
+            ps.setObject(1, contractId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return Money.of(rs.getBigDecimal(1), currency);
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des courus en produits du contrat " + contractId,
+                                           e);
+        }
+    }
+
+    /**
+     * Marque les courus du contrat comme sortis du resultat : la suspension vient de les porter en
+     * interets reserves. Le traitement qui suspend est conserve, pour que son annulation defasse
+     * la marque.
+     */
+    public static int markInterestReserved(Connection c, UUID contractId, UUID batchRunId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE loan_interest_accrual SET reserved = TRUE, reserved_run_id = ?"
+            + " WHERE contract_id = ? AND status = 'ACTIVE' AND NOT reserved")) {
+            ps.setObject(1, batchRunId);
+            ps.setObject(2, contractId);
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Marquage des courus reserves du contrat " + contractId,
+                                           e);
+        }
+    }
+
+    // ------------------------------------------------------------------ interets courus
+
+    /**
+     * Echeance dont l'interet est a etaler : en cours, reclamee aujourd'hui, ou d'un echeancier
+     * remplace dont les courus restent a reprendre.
+     *
+     * @param posted    cumul deja impute pour cette echeance
+     * @param doneToday vrai si une journee active existe deja a la date traitee : reprise
+     */
+    public record AccrualCandidate(UUID contractId, String reference, String productCode,
+                                   CurrencyRef currency, UUID scheduleId, int number,
+                                   LocalDate periodStart, LocalDate dueDate, Money interest,
+                                   boolean madeDue, boolean superseded, Money posted,
+                                   boolean doneToday) {}
+
+    public static List<AccrualCandidate> accrualCandidates(Connection c, UUID legalEntityId,
+                                                           LocalDate businessDate) {
+        List<AccrualCandidate> candidates = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT k.id, k.reference, k.product_code, cur.code, cur.scale, cur.rounding_mode,"
+            + "       l.schedule_id, l.number, l.period_start, l.due_date, l.interest,"
+            + "       l.made_due_on IS NOT NULL, s.superseded_on IS NOT NULL,"
+            + "       COALESCE(a.posted, 0), COALESCE(a.today, FALSE)"
+            + "  FROM loan_contract k"
+            + "  JOIN currency cur ON cur.code = k.currency"
+            + "  JOIN loan_schedule s ON s.contract_id = k.id"
+            + "  JOIN loan_schedule_line l ON l.schedule_id = s.id"
+            + "  LEFT JOIN LATERAL ("
+            + "       SELECT SUM(posted_delta) AS posted, BOOL_OR(accrual_date = ?) AS today"
+            + "         FROM loan_interest_accrual a"
+            + "        WHERE a.schedule_id = l.schedule_id AND a.instalment_number = l.number"
+            + "          AND a.status = 'ACTIVE') a ON TRUE"
+            + " WHERE k.legal_entity_id = ? AND k.status = 'ACTIVE'"
+            + "   AND l.period_start <= ? AND l.interest > 0"
+            // Echeancier en vigueur : l'echeance en cours, et toute echeance reclamee depuis
+            // peu dont l'etalement n'est pas complet — normalement celle du jour, mais un
+            // etalement manque une nuit se rattrape la suivante au lieu de rester faux.
+            + "   AND ((s.superseded_on IS NULL"
+            + "         AND (l.made_due_on IS NULL"
+            + "              OR (l.made_due_on >= ? AND COALESCE(a.posted, 0) <> l.interest)))"
+            + "     OR (s.superseded_on IS NOT NULL AND l.made_due_on IS NULL"
+            + "         AND COALESCE(a.posted, 0) <> 0))"
+            + " ORDER BY k.id, l.due_date, l.number")) {
+            ps.setObject(1, businessDate);
+            ps.setObject(2, legalEntityId);
+            ps.setObject(3, businessDate);
+            ps.setObject(4, businessDate.minusDays(45));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    CurrencyRef currency = new CurrencyRef(rs.getString(4), rs.getInt(5),
+                                                           RoundingMode.valueOf(rs.getString(6)));
+                    candidates.add(new AccrualCandidate(
+                        rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3), currency,
+                        rs.getObject(7, UUID.class), rs.getInt(8),
+                        rs.getObject(9, LocalDate.class), rs.getObject(10, LocalDate.class),
+                        Money.of(rs.getBigDecimal(11), currency), rs.getBoolean(12),
+                        rs.getBoolean(13), Money.of(rs.getBigDecimal(14), currency),
+                        rs.getBoolean(15)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Recensement des echeances a etaler", e);
+        }
+        return candidates;
+    }
+
+    /** Contrats sous suspension d'interets, parmi ceux donnes, en un acces. */
+    public static Set<UUID> suspendedContracts(Connection c, Collection<UUID> contractIds) {
+        Set<UUID> suspended = new java.util.HashSet<>();
+        if (contractIds.isEmpty()) {
+            return suspended;
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT DISTINCT ON (contract_id) contract_id, suspended FROM loan_classification"
+            + " WHERE contract_id = ANY (?) AND status = 'ACTIVE'"
+            + " ORDER BY contract_id, classified_on DESC")) {
+            ps.setArray(1, c.createArrayOf("uuid", contractIds.toArray()));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    if (rs.getBoolean(2)) {
+                        suspended.add(rs.getObject(1, UUID.class));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des suspensions d'interets", e);
+        }
+        return suspended;
+    }
+
+    /** Journee d'etalement d'une echeance, prete a etre enregistree. */
+    public record InterestAccrualRow(AccrualCandidate line, int periodDays, int elapsedDays,
+                                     Money cumulativePrecise, Money delta, UUID accruedAccountId,
+                                     boolean reserved, UUID creditAccountId) {}
+
+    public static void insertInterestAccruals(Connection c, List<InterestAccrualRow> rows,
+                                              LocalDate accrualDate, java.util.function.Function<InterestAccrualRow, UUID> entryOf,
+                                              UUID batchRunId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "INSERT INTO loan_interest_accrual(id, contract_id, schedule_id, instalment_number,"
+            + " accrual_date, period_days, elapsed_days, instalment_interest, cumulative_precise,"
+            + " posted_delta, accrued_account_id, reserved, entry_id, booking_date, batch_run_id)"
+            + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+            for (InterestAccrualRow row : rows) {
+                UUID entryId = row.delta().isZero() ? null : entryOf.apply(row);
+                ps.setObject(1, Ids.newId());
+                ps.setObject(2, row.line().contractId());
+                ps.setObject(3, row.line().scheduleId());
+                ps.setInt(4, row.line().number());
+                ps.setObject(5, accrualDate);
+                ps.setInt(6, row.periodDays());
+                ps.setInt(7, row.elapsedDays());
+                ps.setBigDecimal(8, row.line().interest().amount());
+                ps.setBigDecimal(9, row.cumulativePrecise().amount());
+                ps.setBigDecimal(10, row.delta().amount());
+                ps.setObject(11, row.accruedAccountId());
+                ps.setBoolean(12, row.reserved());
+                ps.setObject(13, entryId);
+                ps.setObject(14, entryId == null ? null : accrualDate);
+                ps.setObject(15, batchRunId);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Enregistrement des interets courus des credits", e);
+        }
+    }
+
+    /**
+     * Neutralise les journees d'etalement d'un traitement annule, et defait les marques de
+     * suspension qu'il a posees. Les ecritures sont contre-passees par l'appelant.
+     */
+    public static int cancelInterestAccruals(Connection c, UUID batchRunId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE loan_interest_accrual SET reserved = FALSE, reserved_run_id = NULL"
+            + " WHERE reserved_run_id = ?")) {
+            ps.setObject(1, batchRunId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Retrait des marques de suspension du traitement", e);
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE loan_interest_accrual SET status = 'REVERSED'"
+            + " WHERE batch_run_id = ? AND status = 'ACTIVE'")) {
+            ps.setObject(1, batchRunId);
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Neutralisation des interets courus du traitement", e);
         }
     }
 

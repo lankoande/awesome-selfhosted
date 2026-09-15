@@ -295,6 +295,9 @@ public final class LoanClassificationService {
                          LoanSchemas.interestSuspension(contract.currency()), input,
                          LoanSchemas.EVENT_INTEREST_SUSPENSION, businessDate, actorId, batchRunId,
                          "SUSP");
+                // Les courus de l'echeance en cours viennent de sortir du resultat avec le reste :
+                // ils ne doivent pas en ressortir a un second franchissement.
+                LoanStore.markInterestReserved(c, contract.id(), batchRunId);
                 tally.suspended(toReserve.total());
             }
             // Un credit classe sain pour la premiere fois n'est pas declasse : le compteur ne

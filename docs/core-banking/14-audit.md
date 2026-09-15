@@ -2,6 +2,8 @@
 
 > Établi sur le code à la révision `1b9b37d` (465 tests verts). Chaque constat cite le fichier qui le
 > prouve. Un constat sans preuve dans le code n'y figure pas.
+>
+> Suivi au §7 : phase A livrée (`a2d9c08`), phase B livrée (504 tests verts).
 
 ## 0. Comment lire
 
@@ -138,9 +140,10 @@ nommé dans le [README du socle](../../core-banking/README.md).
 1, 2, 3, 4, 5, 12, 11. Une base se monte par `SchemaMigrator`, le TFJ franchit une fin d'année sans
 intervention, et un paramétrage qui cite un compte inexistant ne s'active pas. Détail au §7.
 
-**B — Exactitude comptable** (4 à 6 semaines)
-6, 7, 8, 13, 20, 25, 26. À la fin de B, le résultat mensuel est juste, le client reçoit ses
-intérêts, un compte courant produit des agios, et l'arrêté rapproche les sous-livres.
+**B — Exactitude comptable** — ✅ **livrée**
+6, 7, 8, 13, 20, 25, 26. Le résultat d'un mois porte les intérêts de ce mois, crédits compris ; le
+client reçoit ses intérêts net de retenue ; un compte courant produit des agios ; l'arrêté
+rapproche les sous-livres chaque nuit et rejoue tout au mois. Détail au §7.
 
 **C — Périmètre bancaire minimal et sécurité** (8 à 12 semaines)
 23 (API), 10, 15, 16, 17, 9, 27. C'est la phase la plus longue et la plus risquée : c'est là que la
@@ -165,6 +168,17 @@ client → opérations → blocages.
 | 5 | Crédit soldé jamais clos | ✅ Étape `LOAN_CLOSURE` après la classification ; encours résiduel signalé comme écart de sous-livre ; clôture annulable avec l'arrêté (V17) | `clotureALaDerniereEcheance`, `encoursResiduelNomme`, `clotureParLArreteEtReouverture` |
 | 11 | Politique en retard sur le périmètre | ✅ 15 opérations ajoutées, 2 rôles de crédit, 2 postes ; inventaire des points d'entrée tenu par test — le rattachement mécanique viendra avec les cas d'usage | `OperationCoverageTest` |
 | 12 | Comptes du paramétrage non vérifiés | ✅ Existence, nature GL, entité, devise, imputabilité à l'activation ; devise et existence du produit au rattachement ; comptes clients de l'entité au contrat | `ProductCatalogIT`, `contratSurCompteImpropre` |
+| 6 | ICNE sur crédits absents | ✅ Étape `LOAN_INTEREST_ACCRUAL` : l'intérêt de l'échéance est étalé linéairement sur les jours de sa période, cumul arrondi ; la créance le reprend à l'échéance ; échéancier remplacé repris, crédit suspendu en intérêts réservés, annulation avec l'arrêté (V20). Règle retenue pour l'annuité constante : l'étalement de l'intérêt contractuel, exact à l'échéance par construction | `LoanInterestAccrualIT`, `classificationEtProvision` |
+| 7 | Intérêts sur dépôts jamais versés | ✅ `INTEREST_SETTLEMENT` : capitalisation à la fin de période civile du produit, brut = cumul arrondi à la fin de période, retenue à la source par entité et datée, date de valeur du lendemain ; position par compte (`interest_position`) | `InterestSettlementIT`, `quarter_end_settles_both_sides`, `the_year_end_run_prepares_january_on_its_own` |
+| 8 | Agios impossibles | ✅ Bloc `overdraft.*` : deux côtés calculés séparément, taux de dépassement sur la part au-delà de l'autorisation du compte (`overdraft_limit` rattaché), arrêté taxe comprise | `overdraft_interest_accrues_at_two_rates_and_is_charged_with_tax`, `quarter_end_settles_both_sides` |
+| 13 | Réconciliation limitée au grand livre | ✅ `Reconciliation.Check` par module : courus des dépôts et agios, créances de crédit, encours par contrat, ICNE des crédits, commissions du traitement ; un écart nomme le compte et bloque la journée | `ecartsNommes`, `a_manual_entry_on_the_accrued_account_is_a_named_discrepancy`, `a_sub_ledger_gap_blocks_the_day` |
+| 20 | TFM absent | ✅ `StandardTfm` sur le même moteur : mois complet jour par jour, rejeu intégral et sous-livres, clôture ; annulation = `REOPENED` ; refus d'un mois non terminé. TFA : non fait | `TfmIT` |
+| 25 | Tables quotidiennes non partitionnées | ✅ Registre `ledger_partitioned_table` ; `account_balance_daily`, `interest_accrual`, `loan_interest_accrual` mensuelles ; partitions garanties par la bascule pour toutes (V18, V19, V20) | `SchemaMigratorIT`, toutes les bases de test |
+| 26 | Réconciliation en O(historique) | ✅ Cliché incrémental depuis la dernière journée arrêtée ; contrôles quotidiens sur la journée, rafraîchis à la reprise ; rejeu intégral réservé au TFM ; état des intérêts lu dans la position, plus sommé sur l'historique | `a_sub_ledger_gap_blocks_the_day`, `TfmIT` |
+
+Deux limites nommées, à porter en phase D : l'assiette de la suspension des intérêts comprend la
+taxe portée par la créance d'intérêts (la créance ne ventile pas intérêt et taxe) ; les intérêts
+intercalaires d'une mobilisation restent constatés à la facturation de la période, pas étalés.
 
 Trois fixtures de test ont dû changer, et c'est le contrôle qui l'a exigé : des comptes de
 paramétrage tirés au hasard, des rattachements à des produits inexistants — des situations que le

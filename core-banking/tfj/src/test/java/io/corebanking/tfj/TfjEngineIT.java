@@ -42,6 +42,8 @@ class TfjEngineIT extends TfjTestBase {
                     java.util.Map.of(io.corebanking.product.ProductCatalog.P_RATE, "6",
                                      io.corebanking.product.ProductCatalog.P_DAY_COUNT, "ACT_365",
                                      io.corebanking.product.ProductCatalog.P_SIDE, "CREDITOR",
+                                     io.corebanking.product.ProductCatalog.P_CAPITALISATION,
+                                     "QUARTERLY",
                                      io.corebanking.product.ProductCatalog.P_DEBIT_ACCOUNT,
                                      charges.id().toString(),
                                      io.corebanking.product.ProductCatalog.P_CREDIT_ACCOUNT,
@@ -69,9 +71,9 @@ class TfjEngineIT extends TfjTestBase {
         assertThat(run.isCompleted()).as(run.summary()).isTrue();
         assertThat(run.steps()).extracting(TfjRun.StepExecution::name)
             .containsExactly("PRE_CHECKS", "FEE_CHARGING", "LOAN_MOBILISATION", "LOAN_SCHEDULE",
-                             "LOAN_LATE_CHARGES", "LOAN_CLASSIFICATION", "LOAN_CLOSURE",
-                             "INTEREST_ACCRUAL", "BALANCE_SNAPSHOT", "RECONCILIATION",
-                             "OPEN_NEXT_DAY");
+                             "LOAN_INTEREST_ACCRUAL", "LOAN_LATE_CHARGES", "LOAN_CLASSIFICATION",
+                             "LOAN_CLOSURE", "INTEREST_ACCRUAL", "INTEREST_SETTLEMENT",
+                             "BALANCE_SNAPSHOT", "RECONCILIATION", "OPEN_NEXT_DAY");
         assertThat(run.steps()).allMatch(
             step -> step.status() == TfjRun.StepExecution.Status.COMPLETED);
 
@@ -281,7 +283,7 @@ class TfjEngineIT extends TfjTestBase {
         assertThatThrownBy(() -> engine.cancel(premier.id(), ACTOR, lendemain, "erreur"))
             .isInstanceOf(TfjEngine.TfjRefusedException.class)
             .hasMessageContaining(lendemain.toString())
-            .hasMessageContaining("de la plus recente a la plus ancienne");
+            .hasMessageContaining("du plus recent au plus ancien");
         assertThat(businessDate()).isAfter(lendemain);   // rien n'a bouge
 
         // Dans l'ordre, les deux annulations passent et la date revient a J.

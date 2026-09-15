@@ -120,6 +120,28 @@ tous les accruals postérieurs. Le moteur contre-passe les accruals invalidés e
 Un moteur incapable de cela produit des agios faux dès la première opération antidatée —
 cas qui survient dans les premières semaines d'exploitation.
 
+> **Implémenté** ([`interest-service`](../../core-banking/interest-service)) :
+>
+> - **Position par compte et par côté** (`interest_position`) : dernière journée calculée, cumul
+>   exact, total imputé, total réglé. L'état d'un calcul est lu, jamais recalculé par une somme sur
+>   l'historique ; la position se reconstruit depuis les journées et règlements actifs après toute
+>   annulation. `imputé − réglé` est ce que le sous-livre affirme se trouver au compte de courus,
+>   et la réconciliation le vérifie chaque nuit.
+> - **Capitalisation** à périodicité civile du produit (`interest.capitalisation`) : le brut réglé
+>   est le cumul exact arrondi **à la fin de période**, moins ce qui a déjà été réglé — exact même
+>   quand l'arrêté tourne après un trimestre finissant un samedi. La **retenue à la source** est
+>   déclarée par entité, donc par pays, avec période de validité (`interest_withholding`) ; le
+>   produit la désigne par son code ou en est exonéré. Date de valeur du lendemain de la fin de
+>   période : les intérêts capitalisés produisent dès le lendemain, jamais le jour même.
+> - **Deux côtés** : le bloc `overdraft.*` du produit décrit les agios — taux dans l'autorisation,
+>   taux de dépassement au-delà, comptes, arrêté, taxe. L'autorisation est celle du compte
+>   (`overdraft_limit`, datée), à défaut celle du produit. Les deux séries sont calculées
+>   séparément, chacune sur son assiette, et ne se compensent jamais ; l'arrêté des agios débite
+>   le client taxe comprise.
+> - Un recalcul rétroactif postérieur à un règlement ne remet pas en cause ce que le client a reçu :
+>   l'écart se retrouve dans la position, et le règlement suivant le régularise, en plus ou en
+>   moins.
+
 ### Commissions et frais périodiques
 
 Le calcul et la perception sont implémentés ([`fee-domain`](../../core-banking/fee-domain),
@@ -158,6 +180,13 @@ c'est un pourcentage d'un montant constaté. L'annualiser serait une erreur de n
 - **Non autorisé** : dépassement toléré ou rejeté selon paramétrage, taux majoré, commission
   de dépassement, plafonné par le taux d'usure quand le pays en impose un.
 - Les agios se calculent par la méthode des échelles sur les nombres débiteurs.
+
+> **Implémenté** : le côté débiteur d'un compte courant est un bloc de paramètres du produit
+> (`overdraft.*`), calculé chaque nuit par le même moteur que le côté créditeur — assiette,
+> taux effectif et fraction d'année conservés jour par jour, ce qui est l'échelle — et arrêté à
+> périodicité civile, taxe comprise. Le dépassement de l'autorisation se paie au taux de
+> dépassement, sur la seule part qui dépasse. Ce qui n'est pas fait : la commission de
+> dépassement et la commission de mise en place, qui sont des commissions et non des intérêts.
 
 ---
 

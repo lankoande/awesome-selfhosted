@@ -48,14 +48,16 @@ class OperationCoverageTest {
                   Operation.RISK_PARAMETER_ACTIVATE),
         Map.entry("TfjEngine.run / resume", Operation.TFJ_RUN),
         Map.entry("TfjEngine.cancel", Operation.TFJ_CANCEL),
-        Map.entry("Entities.closePeriod", Operation.PERIOD_CLOSE));
+        Map.entry("WithholdingTaxes.declare", Operation.TAX_PARAMETER_DECLARE),
+        Map.entry("StandardTfm / PeriodCloseStep", Operation.PERIOD_CLOSE),
+        Map.entry("TfjEngine.cancel (TFM)", Operation.PERIOD_REOPEN));
 
     /** Operations sans point d'entree de service : consultations, ou pas encore construites. */
     private static final Set<Operation> WITHOUT_SERVICE = EnumSet.of(
         Operation.ACCOUNT_BALANCE_READ, Operation.ACCOUNT_JOURNAL_READ, Operation.PARTY_READ,
         Operation.LOAN_READ, Operation.AUDIT_READ,
-        // Blocages, cloture de compte, reouverture de periode : l'operation precede le service.
-        Operation.ACCOUNT_HOLD, Operation.ACCOUNT_CLOSE, Operation.PERIOD_REOPEN);
+        // Blocages, cloture de compte : l'operation precede le service.
+        Operation.ACCOUNT_HOLD, Operation.ACCOUNT_CLOSE);
 
     @Test
     @DisplayName("toute operation est reclamee par un point d'entree, ou est une consultation")

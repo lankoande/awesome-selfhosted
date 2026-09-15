@@ -90,7 +90,8 @@ abstract class LoanTestBase {
 
     /** Comptes generaux et comptes clients d'un dossier de credit. */
     protected record Decor(UUID entityId, Account pret, Account courant, Account creances,
-                           Account produitsInterets, Account taxe, Account caisse) {}
+                           Account produitsInterets, Account taxe, Account caisse,
+                           Account courus) {}
 
     protected static Decor decor(String code) {
         UUID entityId = entity(code);
@@ -100,12 +101,14 @@ abstract class LoanTestBase {
             account(entityId, code + "-CREANCES", AccountKind.GL, NormalBalance.DEBIT),
             account(entityId, code + "-PRODUITS", AccountKind.GL, NormalBalance.CREDIT),
             account(entityId, code + "-TAXE", AccountKind.GL, NormalBalance.CREDIT),
-            account(entityId, code + "-CAISSE", AccountKind.GL, NormalBalance.DEBIT));
+            account(entityId, code + "-CAISSE", AccountKind.GL, NormalBalance.DEBIT),
+            account(entityId, code + "-ICNE", AccountKind.GL, NormalBalance.DEBIT));
     }
 
     protected static void product(Decor decor, String code, Map<String, String> surcharges) {
         java.util.Map<String, String> parametres = new java.util.LinkedHashMap<>();
         parametres.put(LoanCatalog.P_ACCRUED, decor.creances().id().toString());
+        parametres.put(LoanCatalog.P_ACCRUED_INTEREST, decor.courus().id().toString());
         parametres.put(LoanCatalog.P_INTEREST_INCOME, decor.produitsInterets().id().toString());
         parametres.put(LoanCatalog.P_TAX_ACCOUNT, decor.taxe().id().toString());
         parametres.putAll(surcharges);
@@ -134,6 +137,15 @@ abstract class LoanTestBase {
                         decor.caisse().id(), Money.of(montant, Currencies.XOF), valueDate, null),
                     io.corebanking.ledger.domain.posting.PostingLine.credit(
                         decor.courant().id(), Money.of(montant, Currencies.XOF), valueDate, null))));
+    }
+
+    /**
+     * Etale les interets courus des credits de l'entite jusqu'a la date donnee : ce que l'etape
+     * LOAN_INTEREST_ACCRUAL fait chaque nuit apres l'exigibilite.
+     */
+    protected static LoanInterestAccrualService.Outcome accrue(Decor decor, LocalDate date) {
+        return new LoanInterestAccrualService(database, postingService)
+            .accrue(decor.entityId(), date, ACTOR, UUID.randomUUID());
     }
 
     protected static Money solde(Account compte) {

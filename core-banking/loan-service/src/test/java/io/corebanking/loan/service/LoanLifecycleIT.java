@@ -101,6 +101,9 @@ class LoanLifecycleIT extends LoanTestBase {
 
         var bilan = loanService.makeDue(decor.entityId(), PREMIERE_ECHEANCE, ACTOR,
                                         UUID.randomUUID());
+        // L'arrete etale ensuite les interets de l'echeance : ceux d'aujourd'hui completent le
+        // mois, et la creance les a repris des courus.
+        accrue(decor, PREMIERE_ECHEANCE);
 
         assertThat(bilan.anomalies()).isEmpty();
         assertThat(bilan.instalmentsMadeDue()).isEqualTo(1);
@@ -113,6 +116,7 @@ class LoanLifecycleIT extends LoanTestBase {
 
         assertThat(solde(decor.produitsInterets())).isEqualTo(xof("10000"));
         assertThat(solde(decor.creances())).isEqualTo(xof("10000"));
+        assertThat(solde(decor.courus()).isZero()).isTrue();
 
         // Le point du test : rendre une echeance exigible ne cree aucun flux sur le capital. Il est
         // deja a l'actif depuis le deblocage, et l'amortir des l'exigibilite afficherait un actif
@@ -130,7 +134,9 @@ class LoanLifecycleIT extends LoanTestBase {
 
         UUID run = UUID.randomUUID();
         loanService.makeDue(decor.entityId(), PREMIERE_ECHEANCE, ACTOR, run);
+        accrue(decor, PREMIERE_ECHEANCE);
         var second = loanService.makeDue(decor.entityId(), PREMIERE_ECHEANCE, ACTOR, run);
+        accrue(decor, PREMIERE_ECHEANCE);
 
         assertThat(second.instalmentsMadeDue()).isZero();
         assertThat(creances(contrat)).hasSize(2);
@@ -147,6 +153,7 @@ class LoanLifecycleIT extends LoanTestBase {
 
         var bilan = loanService.makeDue(decor.entityId(), LocalDate.of(2026, 12, 15), ACTOR,
                                         UUID.randomUUID());
+        accrue(decor, LocalDate.of(2026, 12, 15));
 
         assertThat(bilan.instalmentsMadeDue()).isEqualTo(3);
         assertThat(creances(contrat)).extracting(Creance::dueDate).containsExactly(

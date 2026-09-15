@@ -2,6 +2,7 @@ package io.corebanking.tfj.steps;
 
 import io.corebanking.interest.service.BatchInterestAccrualService;
 import io.corebanking.interest.service.CatalogTermsProvider;
+import io.corebanking.interest.service.TermsProvider;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.tfj.StepResult;
 import io.corebanking.tfj.TfjContext;
@@ -16,6 +17,12 @@ import java.util.UUID;
  * <p>Chaque compte rattache a un produit est remunere jusqu'a la date de valeur traitee, avec le
  * bareme en vigueur ce jour-la et non celui du jour du traitement. Un TFJ de rattrapage produit
  * donc exactement ce que le TFJ du jour aurait produit.
+ *
+ * <h2>Deux cotes</h2>
+ *
+ * <p>Le cote principal du produit est calcule pour tous les comptes rattaches ; le cote des agios,
+ * pour les comptes dont le produit en declare. Deux series, deux positions, deux couples de
+ * comptes d'imputation : elles ne se compensent jamais.
  *
  * <h2>Un compte sans produit resolvable est une anomalie, pas un compte a ignorer</h2>
  *
@@ -69,8 +76,19 @@ public final class InterestAccrualStep implements TfjStep {
             database, context.legalEntityId(), accounts, context.businessDate());
 
         List<String> anomalies = new ArrayList<>();
-        long accrued = 0;
+        long accrued = accrue(accounts, provider, context, anomalies);
+        List<UUID> overdraft = provider.overdraftAccounts(context.businessDate());
+        accrued += accrue(overdraft, provider.overdraft(), context, anomalies);
 
+        if (anomalies.size() >= MAX_REPORTED) {
+            anomalies.add("... liste tronquee ; corriger le parametrage et relancer.");
+        }
+        return new StepResult(accounts.size() + overdraft.size(), accrued, anomalies);
+    }
+
+    private long accrue(List<UUID> accounts, TermsProvider provider, TfjContext context,
+                        List<String> anomalies) {
+        long accrued = 0;
         for (int start = 0; start < accounts.size(); start += CHUNK_SIZE) {
             List<UUID> chunk = accounts.subList(start,
                                                 Math.min(start + CHUNK_SIZE, accounts.size()));
@@ -84,9 +102,6 @@ public final class InterestAccrualStep implements TfjStep {
                 .limit(Math.max(0, MAX_REPORTED - anomalies.size()))
                 .forEach(anomalies::add);
         }
-        if (anomalies.size() >= MAX_REPORTED) {
-            anomalies.add("... liste tronquee ; corriger le parametrage et relancer.");
-        }
-        return new StepResult(accounts.size(), accrued, anomalies);
+        return accrued;
     }
 }

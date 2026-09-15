@@ -38,6 +38,7 @@ class ProductCatalogIT extends ProductTestBase {
         }
         parameters.put(ProductCatalog.P_DAY_COUNT, "ACT_365");
         parameters.put(ProductCatalog.P_SIDE, "CREDITOR");
+        parameters.put(ProductCatalog.P_CAPITALISATION, "QUARTERLY");
         parameters.put(ProductCatalog.P_DEBIT_ACCOUNT,
                        gl("GL-CHARGES-" + UUID.randomUUID(), NormalBalance.DEBIT).id().toString());
         parameters.put(ProductCatalog.P_CREDIT_ACCOUNT,
@@ -157,6 +158,7 @@ class ProductCatalogIT extends ProductTestBase {
             .hasMessageContaining("interest.side")
             .hasMessageContaining("interest.debit_account")
             .hasMessageContaining("interest.credit_account")
+            .hasMessageContaining("interest.capitalisation")
             .hasMessageContaining("aucun de [interest.rate, tier:INTEREST]");
 
         // Les manques sont restitues tous ensemble : s'arreter au premier obligerait a redeployer
@@ -166,7 +168,7 @@ class ProductCatalogIT extends ProductTestBase {
                 ProductFamily.IncompleteProductException.class))
             .extracting(ProductFamily.IncompleteProductException::problems)
             .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.list(String.class))
-            .hasSize(4);
+            .hasSize(5);
 
         // Le brouillon subsiste : il n'est simplement resolvable par aucun traitement.
         assertThatThrownBy(() -> database.inTransaction(c ->

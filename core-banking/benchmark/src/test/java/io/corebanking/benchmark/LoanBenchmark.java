@@ -232,8 +232,10 @@ class LoanBenchmark extends BenchmarkBase {
 
     private static void produit(String code, Account creances, Account produits, Account taxe,
                                 Account retard, boolean prelevement) {
+        Account courus = gl("GL-ICNE-" + code, NormalBalance.DEBIT, 64);
         Map<String, String> parametres = new LinkedHashMap<>();
         parametres.put(LoanCatalog.P_ACCRUED, creances.id().toString());
+        parametres.put(LoanCatalog.P_ACCRUED_INTEREST, courus.id().toString());
         parametres.put(LoanCatalog.P_INTEREST_INCOME, produits.id().toString());
         parametres.put(LoanCatalog.P_TAX_ACCOUNT, taxe.id().toString());
         parametres.put(LoanCatalog.P_DIRECT_DEBIT, String.valueOf(prelevement));
