@@ -59,7 +59,7 @@ public final class DualControlHandlers {
                        new VerifyKyc(parties), new DisburseLoan(database, loans),
                        new PrepayLoan(database, loans), new ActivateProduct(database),
                        new AddValueDateRule(database), new AddHoliday(database),
-                       new CreateBranch(database));
+                       new CreateBranch(database), new CreateTill(database, accounts));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -596,6 +596,43 @@ public final class DualControlHandlers {
                 openedOn != null ? openedOn
                     : io.corebanking.api.usecase.AccountUseCases.businessDate(c, entity),
                 liaison));
+            return new Requests.Created(id);
+        }
+    }
+
+    /** Une caisse affecte un compte de la banque a une personne : elle se cree a deux, dans l'agence du compte. */
+    static final class CreateTill implements MakerChecker.Handler {
+        private final Database database;
+        private final AccountDirectory accounts;
+
+        CreateTill(Database database, AccountDirectory accounts) {
+            this.database = database;
+            this.accounts = accounts;
+        }
+
+        @Override public String name() { return "TILL_CREATE"; }
+        @Override public Operation operation() { return Operation.TILL_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            Account cash = accounts.require(uuid(payload, "cashAccountId"));
+            return AccessTarget.inBranch(uuid(payload, "legalEntityId"), cash.branchId());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "code");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            UUID difference = payload.get("differenceAccountId") == null ? null
+                                                                          : uuid(payload, "differenceAccountId");
+            UUID id = database.inTransaction(c -> io.corebanking.deposits.Tills.create(
+                c, new io.corebanking.deposits.Tills.Draft(
+                    uuid(payload, "legalEntityId"), required(payload, "code"),
+                    uuid(payload, "cashAccountId"), text(payload, "tellerSubjectId"), difference,
+                    Callers.actorId(maker), Callers.actorId(checker))));
             return new Requests.Created(id);
         }
     }

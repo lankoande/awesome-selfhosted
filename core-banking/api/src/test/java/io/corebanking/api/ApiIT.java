@@ -80,6 +80,8 @@ class ApiIT {
     private static final String CLIENT_ID = "core-banking";
     private static final String APP_ROLE = "corebanking_app";
     private static final UUID AUTRE_ENTITE = UUID.randomUUID();
+    /** Le sujet du guichetier : sa caisse lui est affectee, et resolue depuis son jeton. */
+    private static final UUID GUICHETIER = UUID.randomUUID();
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry registry) {
@@ -135,6 +137,9 @@ class ApiIT {
     private UUID siege;
     private Account caisse;
     private String teller;
+    private String teller2;
+    private Account ecartsCaisse;
+    private UUID caisseId;
     private String officer;
     private String manager;
     private String manager2;
@@ -203,6 +208,7 @@ class ApiIT {
             pret = compte(c, "PRET", AccountKind.CUSTOMER, NormalBalance.DEBIT, siege);
             courant = compte(c, "COURANT", AccountKind.CUSTOMER, NormalBalance.CREDIT, siege);
             liaison = compte(c, "LIAISON-XOF", AccountKind.GL, NormalBalance.DEBIT, null);
+            ecartsCaisse = compte(c, "ECARTS-CAISSE", AccountKind.GL, NormalBalance.DEBIT, null);
             Account creances = compte(c, "CREANCES", AccountKind.GL, NormalBalance.DEBIT, null);
             Account produits = compte(c, "PRODUITS-CREDIT", AccountKind.GL, NormalBalance.CREDIT,
                                       null);
@@ -217,7 +223,8 @@ class ApiIT {
             parametresCredit.put(LoanCatalog.P_LATE_INCOME, retard.id().toString());
             return null;
         });
-        teller = token(UUID.randomUUID(), "guichetier", siege, Roles.TELLER);
+        teller = token(GUICHETIER, "guichetier", siege, Roles.TELLER);
+        teller2 = token(UUID.randomUUID(), "guichetier.2", siege, Roles.TELLER);
         officer = token(UUID.randomUUID(), "charge.clientele", siege, Roles.CUSTOMER_OFFICER);
         manager = token(UUID.randomUUID(), "chef.agence", siege, Roles.BRANCH_MANAGER);
         manager2 = token(UUID.randomUUID(), "chef.agence.adjoint", siege, Roles.BRANCH_MANAGER);
@@ -233,6 +240,32 @@ class ApiIT {
     void stop() throws IOException {
         if (owner != null) owner.close();
         if (postgres != null) postgres.close();
+    }
+
+    @Test
+    @Order(0)
+    @DisplayName("la caisse du guichetier : demandee par un chef d'agence, validee par un autre ; sans caisse, pas d'operation de guichet")
+    void caisse() throws Exception {
+        Map<String, Object> demande = Map.of(
+            "code", "C-01", "cashAccountId", caisse.id().toString(),
+            "tellerSubjectId", GUICHETIER.toString(),
+            "differenceAccountId", ecartsCaisse.id().toString());
+        // Un guichetier ne cree pas de caisse ; sans caisse, il ne sert pas non plus.
+        assertThat(post(teller, "/tills", null, demande).status()).isEqualTo(403);
+        UUID compteQuelconque = caisse.id();
+        Reponse sansCaisse = post(teller, "/accounts/" + compteQuelconque + "/deposits", "dep-0",
+                                  Map.of("amount", "100", "currency", "XOF"));
+        assertThat(sansCaisse.status()).as(String.valueOf(sansCaisse.body())).isEqualTo(409);
+        assertThat((String) sansCaisse.body().get("detail")).contains("Aucune caisse");
+
+        Reponse soumise = post(manager, "/tills", null, demande);
+        assertThat(soumise.status()).as(String.valueOf(soumise.body())).isEqualTo(202);
+        assertThat(post(manager, "/pending-operations/" + attente(soumise) + "/approve", null,
+                        Map.of()).status()).isEqualTo(403);
+        Reponse creee = post(manager2, "/pending-operations/" + attente(soumise) + "/approve",
+                             null, Map.of());
+        assertThat(creee.status()).as(String.valueOf(creee.body())).isEqualTo(200);
+        caisseId = UUID.fromString((String) resultat(creee.body()).get("id"));
     }
 
     @Test
@@ -283,14 +316,14 @@ class ApiIT {
                         Map.of()).status()).isEqualTo(409);
 
         Reponse versement = post(teller, "/accounts/" + account + "/deposits", "dep-1", Map.of(
-            "amount", "100000", "currency", "XOF", "cashAccountId", caisse.id().toString(),
+            "amount", "100000", "currency", "XOF",
             "channel", "GUICHET"));
         assertThat(versement.status()).as(String.valueOf(versement.body())).isEqualTo(201);
         assertThat(montant(versement.body(), "balanceAfter")).isEqualTo("100000");
         assertThat(versement.body().get("replayed")).isEqualTo(false);
 
         Reponse retrait = post(teller, "/accounts/" + account + "/withdrawals", "ret-1", Map.of(
-            "amount", "20000", "currency", "XOF", "cashAccountId", caisse.id().toString()));
+            "amount", "20000", "currency", "XOF"));
         assertThat(retrait.status()).as(String.valueOf(retrait.body())).isEqualTo(201);
         assertThat(montant(retrait.body(), "fee")).isEqualTo("500");
         assertThat(montant(retrait.body(), "tax")).isEqualTo("90");
@@ -299,7 +332,7 @@ class ApiIT {
 
         // Le client a appuye deux fois : meme cle, meme resultat, rien de plus comptabilise.
         Reponse rejeu = post(teller, "/accounts/" + account + "/withdrawals", "ret-1", Map.of(
-            "amount", "20000", "currency", "XOF", "cashAccountId", caisse.id().toString()));
+            "amount", "20000", "currency", "XOF"));
         assertThat(rejeu.status()).as(String.valueOf(rejeu.body())).isEqualTo(200);
         assertThat(rejeu.body().get("replayed")).isEqualTo(true);
         assertThat(rejeu.body().get("entryId")).isEqualTo(retrait.body().get("entryId"));
@@ -318,7 +351,7 @@ class ApiIT {
         assertThat(get(null, "/accounts/" + account + "/balance").status()).isEqualTo(401);
 
         Reponse sansCle = post(teller, "/accounts/" + account + "/withdrawals", null, Map.of(
-            "amount", "1000", "currency", "XOF", "cashAccountId", caisse.id().toString()));
+            "amount", "1000", "currency", "XOF"));
         assertThat(sansCle.status()).as(String.valueOf(sansCle.body())).isEqualTo(400);
         assertThat(sansCle.body().get("title")).isEqualTo("Cle d'idempotence absente");
 
@@ -346,22 +379,18 @@ class ApiIT {
         assertThat(attentes.status()).isEqualTo(200);
         assertThat((List<?>) attentes.body().get("items")).isNotNull();
         assertThat(post(teller, "/accounts/" + account + "/withdrawals", "ret-apres-rejet",
-                        Map.of("amount", "1000", "currency", "XOF",
-                               "cashAccountId", caisse.id().toString())).status()).isEqualTo(201);
+                        Map.of("amount", "1000", "currency", "XOF")).status()).isEqualTo(201);
         assertThat(post(teller, "/accounts/" + account + "/deposits", "dep-apres-rejet",
-                        Map.of("amount", "1590", "currency", "XOF",
-                               "cashAccountId", caisse.id().toString())).status()).isEqualTo(201);
+                        Map.of("amount", "1590", "currency", "XOF")).status()).isEqualTo(201);
 
         // Au-dela du plafond du role, meme avec la caisse et le compte de son agence.
         Reponse plafond = post(teller, "/accounts/" + account + "/withdrawals", "ret-plafond",
-            Map.of("amount", "3000000", "currency", "XOF",
-                   "cashAccountId", caisse.id().toString()));
+            Map.of("amount", "3000000", "currency", "XOF"));
         assertThat(plafond.status()).as(String.valueOf(plafond.body())).isEqualTo(403);
         assertThat((String) plafond.body().get("detail")).contains("plafond");
 
         Reponse insuffisant = post(teller, "/accounts/" + account + "/withdrawals", "ret-trop",
-            Map.of("amount", "1000000", "currency", "XOF",
-                   "cashAccountId", caisse.id().toString()));
+            Map.of("amount", "1000000", "currency", "XOF"));
         assertThat(insuffisant.status()).as(String.valueOf(insuffisant.body())).isEqualTo(409);
 
         Reponse inconnu = get(teller, "/accounts/" + UUID.randomUUID() + "/balance");
@@ -380,7 +409,7 @@ class ApiIT {
             .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST).isEmpty();
 
         Reponse devise = post(teller, "/accounts/" + account + "/withdrawals", "ret-eur", Map.of(
-            "amount", "10", "currency", "EUR", "cashAccountId", caisse.id().toString()));
+            "amount", "10", "currency", "EUR"));
         assertThat(devise.status()).as(String.valueOf(devise.body())).isEqualTo(422);
 
         // Le solde n'a pas bouge.
@@ -390,12 +419,39 @@ class ApiIT {
 
     @Test
     @Order(3)
-    @DisplayName("l'exploitant lance l'arrete de la journee, et le consulte")
+    @SuppressWarnings("unchecked")
+    @DisplayName("l'arrete de caisse precede l'arrete de la banque ; l'exploitant lance la journee, et la consulte")
     void arrete() throws Exception {
+        // La caisse a servi et n'est pas arretee : les controles prealables refusent la journee.
         Reponse lancement = post(operator, "/eod/runs", null, Map.of("businessDate", J.toString()));
         assertThat(lancement.status()).as(String.valueOf(lancement.body())).isEqualTo(201);
-        assertThat(lancement.body().get("status")).isEqualTo("COMPLETED");
+        assertThat(lancement.body().get("status")).isEqualTo("FAILED");
         UUID runId = UUID.fromString((String) lancement.body().get("id"));
+        Map<String, Object> controles = ((List<Map<String, Object>>) lancement.body().get("steps"))
+            .get(0);
+        assertThat(controles.get("name")).isEqualTo("PRE_CHECKS");
+        assertThat(String.valueOf(controles.get("anomalies"))).contains("C-01");
+
+        // Le guichetier compte sa caisse — juste ; un autre guichetier n'arrete pas la sienne.
+        String livre = montant(get(manager, "/accounts/" + caisse.id() + "/balance").body(),
+                               "current");
+        assertThat(post(teller2, "/tills/" + caisseId + "/closure", null,
+                        Map.of("counted", livre, "currency", "XOF")).status()).isEqualTo(403);
+        Reponse comptage = post(teller, "/tills/" + caisseId + "/closure", null,
+                                Map.of("counted", livre, "currency", "XOF"));
+        assertThat(comptage.status()).as(String.valueOf(comptage.body())).isEqualTo(201);
+        assertThat(montant(comptage.body(), "difference")).isEqualTo("0");
+        assertThat(comptage.body().get("entryId")).isNull();
+        // La journee de caisse est close : ni second arrete, ni operation.
+        assertThat(post(teller, "/tills/" + caisseId + "/closure", null,
+                        Map.of("counted", livre, "currency", "XOF")).status()).isEqualTo(409);
+        assertThat(post(teller, "/accounts/" + account + "/deposits", "dep-clos",
+                        Map.of("amount", "100", "currency", "XOF")).status()).isEqualTo(409);
+
+        // La reprise passe les controles et arrete la journee.
+        Reponse reprise = post(operator, "/eod/runs/" + runId + "/resume", null, Map.of());
+        assertThat(reprise.status()).as(String.valueOf(reprise.body())).isEqualTo(200);
+        assertThat(reprise.body().get("status")).isEqualTo("COMPLETED");
 
         Reponse lecture = get(operator, "/eod/runs/" + runId);
         assertThat(lecture.status()).as(String.valueOf(lecture.body())).isEqualTo(200);

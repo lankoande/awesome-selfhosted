@@ -57,6 +57,7 @@ public class ApiExceptionHandler {
     @ExceptionHandler({AccountDirectory.UnknownAccountException.class,
                        io.corebanking.api.usecase.EodUseCases.UnknownRunException.class,
                        io.corebanking.api.usecase.LoanUseCases.UnknownLoanException.class,
+                       io.corebanking.deposits.Tills.UnknownTillException.class,
                        io.corebanking.api.usecase.ProductUseCases
                            .UnknownProductVersionException.class,
                        io.corebanking.security.store.PendingOperations
@@ -72,7 +73,10 @@ public class ApiExceptionHandler {
                        AccountLifecycle.ClosureRefusedException.class,
                        TfjEngine.TfjRefusedException.class, IllegalStateException.class,
                        MakerChecker.NotDecidableException.class,
-                       io.corebanking.loan.service.LoanService.ArrearsOutstandingException.class})
+                       io.corebanking.loan.service.LoanService.ArrearsOutstandingException.class,
+                       io.corebanking.api.usecase.TillUseCases.NoTillException.class,
+                       io.corebanking.deposits.Tills.TillClosedException.class,
+                       io.corebanking.deposits.TillService.UnjustifiedDifferenceException.class})
     ProblemDetail conflict(RuntimeException e) {
         return problem(HttpStatus.CONFLICT, "Operation refusee", e.getMessage());
     }

@@ -42,6 +42,15 @@ public record AccessTarget(UUID legalEntityId, UUID branchId, Money amount, Stri
     }
 
     /**
+     * Titulaire de l'objet vise — la caisse d'un guichetier. Meme champ que l'auteur d'une
+     * operation a valider : dans un cas la regle exige que l'appelant soit ce porteur, dans
+     * l'autre qu'il ne le soit pas.
+     */
+    public AccessTarget ownedBy(String subjectId) {
+        return new AccessTarget(legalEntityId, branchId, amount, subjectId, remote);
+    }
+
+    /**
      * Operation <b>deplacee</b> : realisee hors de l'agence gestionnaire de l'objet — le client
      * d'une autre agence servi a cette caisse, le compte d'une autre agence consulte. Elle n'est
      * possible que si la regle la prevoit, sous son propre plafond.

@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 553 tests verts** — 302 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 251 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 559 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 256 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -670,8 +670,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
   publié, pas de pagination ;
 - chèques (remise, compensation, opposition), paiements sortants, plafonds par produit et par
   client ;
-- multi-agences : caisses par guichetier et arrêté de caisse, schémas de liaison bilatéral et
-  via la région (le schéma via le siège est fait) ;
+- multi-agences : schémas de liaison bilatéral et via la région (le schéma via le siège est
+  fait, les caisses par guichetier et l'arrêté de caisse aussi) ;
 - référentiel client : documents et leurs échéances, bénéficiaires effectifs, relations entre
   tiers, rescan périodique des listes ;
 - crédit : origination (demande, scoring, décision, conditions suspensives) — le déblocage par
@@ -768,6 +768,10 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Un remboursement anticipé s'approuve à deux | Le droit du client n'est pas discuté ; l'échéancier qu'il engendre l'est, comme tout échéancier — la base exige déjà deux signatures |
 | Les conditions d'un déblocage voyagent avec la demande, l'échéancier naît à l'approbation | Ce que le checker approuve est ce que le maker a saisi ; l'échéancier est un calcul, pas une saisie |
 | Le moteur d'arrêté relit le calendrier à chaque lancement | Un férié déclaré dans la journée vaut pour le soir même ; un moteur mis en cache aurait arrêté la banque sur un calendrier périmé |
+| Le guichetier ne choisit pas sa caisse : elle est la sienne, résolue depuis son jeton | Une caisse choisie dans la requête est une caisse que n'importe qui peut mouvementer ; l'affectation est un acte à deux |
+| Un écart de caisse se comptabilise, il ne s'ajuste pas | Ajuster le solde au comptage effacerait la seule trace d'un manquant ; l'écart va sur son compte, où il se justifie |
+| Une caisse mouvementée non arrêtée bloque l'arrêté de la banque | Des espèces non confrontées à leur solde sont un solde non prouvé ; le contrôle nomme la caisse, l'exploitant reprend après l'arrêté de caisse |
+| Un guichetier n'arrête que sa caisse, le chef d'agence toute caisse de son agence | Le titulaire vient de l'objet, jamais de la requête ; une règle « objet propre » le dit dans la politique, pas dans un cas d'usage |
 | Les tables partitionnées sont déclarées dans un registre | Une table partitionnée que la bascule ne connaît pas n'a ses partitions créées par personne |
 | Le TFM porte la date de fin de période et ne touche pas à la date comptable | Il porte sur un mois déjà arrêté jour par jour ; son annulation rouvre la période en le disant |
 | Le dédoublonnage des tiers est un index unique partiel, pas un traitement | Un doublon découvert après coup a déjà faussé les plafonds d'engagement ; refusé à la saisie, il n'existe jamais |

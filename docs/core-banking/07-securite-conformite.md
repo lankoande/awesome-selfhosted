@@ -77,7 +77,10 @@ portefeuille de l'agence B, alors qu'il a le même rôle.
 > jusqu'à 500 000 XOF, un chef d'agence jusqu'à 5 M ; la lecture d'un solde ou d'un tiers d'une
 > autre agence est admise et tracée ; ouverture, clôture, blocage et crédit ne se déplacent pas.
 > Row Level Security reste par entité : un périmètre agence en base casserait tout traitement de
-> siège.
+> siège. Une règle peut enfin limiter certains rôles à **leurs propres objets** (`ownOnlyFor`) :
+> l'objet nomme son titulaire (`AccessTarget.ownedBy`, jamais la requête), et un guichetier
+> n'arrête que sa caisse quand le chef d'agence arrête toute caisse de son agence — un objet sans
+> titulaire est refusé aux rôles limités.
 
 Le cloisonnement par entité est appliqué **deux fois** : dans la politique et par Row Level Security
 PostgreSQL. La seconde barrière protège contre le cas réel le plus fréquent — une requête de
@@ -204,7 +207,7 @@ un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servi
 > **Implémenté.** `Operation` compte désormais une opération par point d'entrée de service qui
 > change l'état de la banque : crédit (`LOAN_CONTRACT_CREATE`, `LOAN_DISBURSE`, `LOAN_RESCHEDULE`,
 > `LOAN_PREPAY`, `LOAN_REPAYMENT`, `COLLATERAL_MANAGE`, `LOAN_READ`), paramétrage
-> (`RISK_PARAMETER_*`, `ACCOUNTING_SCHEMA_*`, `CALENDAR_MANAGE`, `BRANCH_MANAGE`, `FEE_EXEMPTION_GRANT`,
+> (`RISK_PARAMETER_*`, `ACCOUNTING_SCHEMA_*`, `CALENDAR_MANAGE`, `BRANCH_MANAGE`, `TILL_MANAGE`, `TILL_CLOSE`, `FEE_EXEMPTION_GRANT`,
 > `ACCOUNT_PRODUCT_ASSIGN`), comptabilité (`JOURNAL_ENTRY_MANUAL`, `PERIOD_CLOSE`). Deux rôles
 > de crédit les portent : `credit_officer` (chargé de crédit, agence) et `credit_manager`
 > (responsable des engagements, siège) — la seconde main sur tout ce qui engage la banque.

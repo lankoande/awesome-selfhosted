@@ -95,6 +95,13 @@ public enum Operation {
     CALENDAR_MANAGE,
     /** Creation d'une agence ou d'une region, avec ses comptes de liaison. */
     BRANCH_MANAGE,
+    /** Creation d'une caisse : compte de caisse, guichetier titulaire, compte d'ecart. */
+    TILL_MANAGE,
+    /**
+     * Arrete de caisse : comptage, ecart constate et comptabilise, journee de caisse close. Un
+     * guichetier n'arrete que sa caisse ; le chef d'agence arrete toute caisse de son agence.
+     */
+    TILL_CLOSE,
     /** Exoneration d'une commission pour un compte. */
     FEE_EXEMPTION_GRANT,
     /** Declaration d'une retenue a la source ou d'une taxe, par entite et periode de validite. */

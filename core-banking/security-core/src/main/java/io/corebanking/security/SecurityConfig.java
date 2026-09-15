@@ -112,6 +112,18 @@ public final class SecurityConfig {
                                    BRANCH_MANAGER, Money.of("5000000", XOF)))
                 .build());
 
+        // Une caisse se cree dans l'agence du chef qui la demande, et un second chef la valide :
+        // elle affecte un compte de caisse a un guichetier, et nomme le compte des ecarts.
+        policy.put(Operation.TILL_MANAGE,
+            AccessRule.allow(BRANCH_MANAGER).within(Scope.OWN_BRANCH)
+                .requiringSecondPerson().build());
+
+        // L'arrete de caisse : le guichetier arrete la sienne, le chef d'agence toute caisse de
+        // son agence. L'ecart constate est comptabilise, jamais ajuste en silence.
+        policy.put(Operation.TILL_CLOSE,
+            AccessRule.allow(TELLER, BRANCH_MANAGER).within(Scope.OWN_BRANCH)
+                .ownOnlyFor(TELLER).build());
+
         policy.put(Operation.TRANSFER,
             AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER)
                 .within(Scope.OWN_ENTITY)

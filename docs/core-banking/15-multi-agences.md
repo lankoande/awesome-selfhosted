@@ -82,9 +82,12 @@ ALTER TABLE legal_entity ADD COLUMN interbranch_scheme TEXT NOT NULL DEFAULT 'VI
 La migration crée un siège par entité existante et y rattache tout ce qui existe : une base
 mono-agence est une base dont toutes les agences sont le siège, et rien ne change pour elle.
 
-La caisse par guichetier (`till`) est l'étape suivante : un compte interne par guichet, avec
-l'arrêté de caisse qui conditionne le TFJ ([05](05-batch-arrete.md), terminologie). Ce document
-n'en dépend pas : une caisse est un compte interne rattaché à une agence.
+La caisse par guichetier (`till`, V35) est faite : un compte interne d'agence affecté à un
+guichetier — qui ne la choisit pas, l'API la résout depuis son jeton —, avec un compte d'écarts ;
+l'arrêté de caisse confronte le comptage au solde comptable, comptabilise l'écart et clôt la
+journée de caisse, et `PRE_CHECKS` refuse l'arrêté de la banque tant qu'une caisse mouvementée
+n'est pas arrêtée ([05](05-batch-arrete.md), terminologie). Une caisse reste un compte interne
+rattaché à une agence : rien ici n'en dépend.
 
 ### 2.2 Les comptes : une agence gestionnaire, ou une dimension
 
@@ -303,5 +306,5 @@ le moteur.
 | 2 | À qui revient un produit ou une charge | Au client — donc à son agence — pour tout ce qui découle du compte (intérêts, commissions périodiques, agios, provisions) ; à l'agence qui sert pour les frais d'une opération déplacée |
 | 3 | Opérations déplacées | Autorisées pour les opérations de caisse et les virements, avec plafond déplacé par rôle ; interdites pour l'ouverture, la clôture, le blocage, le crédit |
 | 4 | Balance agence | Arrêtée chaque nuit (cliché), pas tenue en temps réel |
-| 5 | Caisses par guichetier et arrêté de caisse | Étape suivante, après ce chantier |
+| 5 | Caisses par guichetier et arrêté de caisse | **Fait** (V35, `Tills`, `TillService`, contrôle `PRE_CHECKS`, API `/tills`) |
 | 6 | Compensation interbancaire (SICA, STAR) | Hors de ce chantier — module de paiements |

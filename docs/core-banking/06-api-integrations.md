@@ -91,7 +91,7 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `GET /parties/{id}` | `PARTY_READ` | — |
 | `POST /accounts` | `ACCOUNT_OPEN` | numéro, titulaire, produit, devise — **202**, en attente d'un checker |
 | `GET /accounts/{id}/balance` | `ACCOUNT_BALANCE_READ` | — ; déplacée si le compte est d'une autre agence |
-| `POST /accounts/{id}/deposits`, `/withdrawals` | `CASH_OPERATION` | montant, caisse, canal ; `Idempotency-Key` |
+| `POST /accounts/{id}/deposits`, `/withdrawals` | `CASH_OPERATION` | montant, canal ; `Idempotency-Key` — la caisse est celle de l'appelant, résolue depuis son jeton (`409` s'il n'en a pas, ou si elle est arrêtée) |
 | `POST /transfers` | `TRANSFER` | émetteur, bénéficiaire, montant ; `Idempotency-Key` |
 | `POST /accounts/{id}/blocks`, `.../{blockId}/lift` | `ACCOUNT_BLOCK` | nature, motif — **202** |
 | `POST /accounts/{id}/holds`, `.../{holdId}/release` | `ACCOUNT_HOLD` | montant, nature, échéance — **202** |
@@ -110,6 +110,8 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `POST /calendar/value-date-rules` | `CALENDAR_MANAGE` | type d'opération, canal, sens, décalage, unité, convention, validité — **202** |
 | `POST /calendar/holidays` | `CALENDAR_MANAGE` | date, libellé — **202** ; l'arrêté du soir relit le calendrier |
 | `POST /branches` | `BRANCH_MANAGE` | code, nom, nature, rattachement, ouverture, comptes de liaison par devise — **202** |
+| `POST /tills` | `TILL_MANAGE` | code, compte de caisse, sujet du guichetier titulaire, compte d'écarts — **202**, un chef d'agence demande, un autre valide |
+| `POST /tills/{id}/closure` | `TILL_CLOSE` | especes comptées : solde comptable confronté, écart comptabilisé, journée de caisse close ; le guichetier n'arrête que la sienne |
 
 **Double validation.** Une opération que la politique soumet à un second regard n'est jamais
 exécutée par celui qui la saisit : la requête est gardée telle que reçue (`pending_operation`),
@@ -129,6 +131,15 @@ sans créance, rien n'est comptabilisé et le montant est rendu non affecté. Un
 anticipé est refusé tant qu'un impayé subsiste (`409`) ; il publie un nouvel échéancier, et un
 échéancier s'approuve à deux — la base l'exige, la politique aussi.
 
+**Caisses.** Le guichetier ne choisit pas sa caisse : elle lui est affectée (à deux) et l'API la
+résout depuis le sujet de son jeton ; sans caisse, pas d'opération de guichet. L'arrêté de caisse
+est le comptage des espèces : le système lit le solde comptable de la caisse, comptabilise l'écart
+sur le compte d'écarts de la caisse — excédent au crédit, manquant au débit, jamais ajusté — et
+clôt la journée de caisse : ni second arrêté, ni opération ce jour-là. Un guichetier n'arrête que
+sa caisse (règle « objet propre » de la politique, [07](07-securite-conformite.md)) ; le chef
+d'agence arrête toute caisse de son agence. Une caisse mouvementée non arrêtée fait échouer
+l'arrêté de la banque à `PRE_CHECKS`, qui la nomme ; l'exploitant reprend après l'arrêté de caisse.
+
 **Paramétrage et réseau.** Une version de produit se rédige seul et s'active à deux : le checker
 n'est jamais le rédacteur de la version (`409` s'il tente). Règles de date de valeur, jours
 fériés et agences suivent le même circuit ; le moteur d'arrêté relit le calendrier à chaque
@@ -142,8 +153,8 @@ règlement à l'approbation, sans réservation préalable.
 
 Le test `ApiIT` fait tout le parcours contre un vrai serveur, une vraie base et de vrais jetons
 signés, l'API connectée avec le rôle applicatif : du tiers au retrait, les refus un par un,
-l'arrêté lancé par l'exploitant, le crédit du produit au remboursement anticipé, les conditions
-de banque et une agence créées à deux.
+la caisse affectée à deux puis arrêtée avant la journée, l'arrêté lancé par l'exploitant, le
+crédit du produit au remboursement anticipé, les conditions de banque et une agence créées à deux.
 
 ---
 

@@ -24,7 +24,9 @@ Group (groupe bancaire, consolidation)
 > `branch_liaison` (compte de liaison par agence et par devise, celui de la devise de tenue de
 > compte obligatoire). Les comptes clients et internes portent leur agence gestionnaire ; les
 > comptes généraux n'en ont pas, leur solde se tient par agence sur chaque ligne. La caisse par
-> guichetier (`Till`) reste à faire.
+> guichetier est faite (V35, `till`, `till_closure`) : un compte interne d'agence affecté à un
+> guichetier, résolu depuis son jeton — il ne la choisit pas — et arrêté chaque jour de service
+> ([05](05-batch-arrete.md), [15](15-multi-agences.md)).
 
 `legal_entity_id` est porté par **toute** donnée métier. Le cloisonnement est appliqué à
 deux niveaux : filtre applicatif **et** Row Level Security PostgreSQL. Le second est ce qui

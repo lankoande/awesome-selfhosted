@@ -122,6 +122,7 @@ public final class OperationsService {
                                                      bookingDate);
             Account cash = requireInternal(c, command.legalEntityId(), command.cashAccountId(),
                                            command.amount().currency());
+            Tills.requireOpenOn(c, cash.id(), bookingDate);
             ValueDatePolicy policy = Calendars.load(database, command.legalEntityId());
             LocalDate valueDate = policy.valueDateFor(OperationSchemas.CASH_DEPOSIT,
                                                       command.channel(), Direction.CREDIT,
@@ -150,6 +151,7 @@ public final class OperationsService {
                                                      bookingDate);
             Account cash = requireInternal(c, command.legalEntityId(), command.cashAccountId(),
                                            command.amount().currency());
+            Tills.requireOpenOn(c, cash.id(), bookingDate);
             ProductVersion product = ProductCatalog.resolveForAccount(
                 c, command.legalEntityId(), account.id(), bookingDate);
             Charges charges = Charges.of(DepositCatalog.withdrawalFee(product, account.currency()),

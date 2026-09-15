@@ -142,6 +142,12 @@ public class PlatformConfiguration {
     }
 
     @Bean
+    io.corebanking.deposits.TillService tillService(Database database,
+                                                    PostingService postingService) {
+        return new io.corebanking.deposits.TillService(database, postingService);
+    }
+
+    @Bean
     io.corebanking.api.web.MakerChecker makerChecker(Database database,
                                                      AuthorizationService authorization,
                                                      tools.jackson.databind.ObjectMapper json,

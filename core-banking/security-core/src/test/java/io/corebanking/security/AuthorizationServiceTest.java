@@ -120,6 +120,26 @@ class AuthorizationServiceTest {
     }
 
     @Test
+    @DisplayName("un guichetier n'arrete que sa caisse ; le chef d'agence arrete toute caisse de son agence")
+    void own_only_roles_act_on_their_own_objects() {
+        UUID agence = UUID.randomUUID();
+        Caller guichetier = caller("t1", ENTITE_A, agence, Roles.TELLER);
+        Caller chef = caller("m1", ENTITE_A, agence, Roles.BRANCH_MANAGER);
+        AccessTarget saCaisse = AccessTarget.inBranch(ENTITE_A, agence).ownedBy("t1");
+        AccessTarget autreCaisse = AccessTarget.inBranch(ENTITE_A, agence).ownedBy("t2");
+        AccessTarget sansTitulaire = AccessTarget.inBranch(ENTITE_A, agence);
+
+        assertThat(service.decide(guichetier, Operation.TILL_CLOSE, saCaisse).allowed()).isTrue();
+        AccessDecision refus = service.decide(guichetier, Operation.TILL_CLOSE, autreCaisse);
+        assertThat(refus.allowed()).isFalse();
+        assertThat(refus.reason()).contains("objet propre");
+        assertThat(service.decide(guichetier, Operation.TILL_CLOSE, sansTitulaire).allowed())
+            .isFalse();
+        assertThat(service.decide(chef, Operation.TILL_CLOSE, autreCaisse).allowed()).isTrue();
+        assertThat(service.decide(chef, Operation.TILL_CLOSE, sansTitulaire).allowed()).isTrue();
+    }
+
+    @Test
     @DisplayName("l'auditeur est le seul profil transverse aux entites")
     void only_the_auditor_crosses_entities() {
         Caller auditeur = caller("aud", ENTITE_A, null, Roles.AUDITOR);

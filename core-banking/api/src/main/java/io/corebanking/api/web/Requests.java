@@ -30,8 +30,8 @@ public final class Requests {
         }
     }
 
-    public record CashOperation(String amount, String currency, UUID cashAccountId, String channel,
-                                String narrative) {
+    /** La caisse n'est pas dans la requete : c'est celle de l'appelant, resolue depuis son jeton. */
+    public record CashOperation(String amount, String currency, String channel, String narrative) {
         public Money on(Account account) {
             return new Amount(amount, currency).on(account);
         }
@@ -100,6 +100,11 @@ public final class Requests {
 
     public record CreateBranch(String code, String name, String kind, UUID parentId,
                                LocalDate openedOn, java.util.Map<String, UUID> liaisonAccounts) {}
+
+    public record CreateTill(String code, UUID cashAccountId, String tellerSubjectId,
+                             UUID differenceAccountId) {}
+
+    public record TillClosing(String counted, String currency) {}
 
     /** Reponse d'un ferie declare. */
     public record HolidayDeclared(UUID calendarId, LocalDate date, String label) {}

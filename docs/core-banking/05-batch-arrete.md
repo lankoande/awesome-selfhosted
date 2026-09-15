@@ -30,7 +30,7 @@ Notions associées, employées telles quelles dans la suite du dossier :
 |---|---|
 | **Journée comptable** | Période rattachée à une `booking_date`. Elle ne coïncide pas nécessairement avec la journée calendaire : un TFJ lancé à 22 h ou à 2 h du matin porte la date comptable de la journée qu'il clôture. |
 | **Bascule de journée** | Changement de date comptable de l'entité, opéré par la dernière étape du TFJ. C'est le seul mécanisme autorisé à modifier `legal_entity.current_business_date`. |
-| **Arrêté de caisse** | Contrôle et clôture des caisses par guichetier en agence. Il précède le TFJ et le conditionne : une caisse non arrêtée bloque le traitement. |
+| **Arrêté de caisse** | Contrôle et clôture des caisses par guichetier en agence. Il précède le TFJ et le conditionne : une caisse non arrêtée bloque le traitement. *Implémenté* : le guichetier compte, le système confronte au solde comptable, l'écart est comptabilisé sur le compte d'écarts de la caisse (jamais ajusté) ; `PRE_CHECKS` refuse la journée tant qu'une caisse mouvementée n'est pas arrêtée ; une caisse arrêtée ne sert plus ce jour-là. |
 | **TFJ à blanc** | Exécution complète du TFJ en simulation, sans comptabilisation. Produit tous les états et tous les contrôles, ne crée aucune écriture. |
 | **Chaîne de nuit** | Enchaînement TFJ → états → sauvegarde → alimentation du décisionnel → TDJ. |
 | **Comptes d'attente / suspens** | Comptes techniques dont le solde doit être justifié à chaque TFJ. Leur apurement est un contrôle bloquant. |

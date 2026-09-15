@@ -22,7 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>Le contrat de chaque methode est celui qui a ete valide : l'appelant vient du jeton, la cle
  * d'idempotence de l'en-tete, le compte du chemin, le reste du corps ; tout passe par
  * {@link UseCaseExecutor}, seul point ou l'habilitation s'applique. Une operation rejouee avec la
- * meme cle repond 200 avec son premier resultat ; une operation nouvelle repond 201.
+ * meme cle repond 200 avec son premier resultat ; une operation nouvelle repond 201. La caisse
+ * d'une operation de guichet est celle de l'appelant, resolue depuis son jeton — jamais choisie
+ * dans la requete.
  */
 @RestController
 @RequestMapping("/v1/entities/{legalEntityId}")
@@ -34,10 +36,14 @@ public class OperationController {
     private final OperationUseCases.Withdraw withdraw;
     private final OperationUseCases.Transfer transfer;
 
+    private final io.corebanking.ledger.store.Database database;
+
     public OperationController(UseCaseExecutor executor, OperationsService operations,
-                               AccountDirectory accounts) {
+                               AccountDirectory accounts,
+                               io.corebanking.ledger.store.Database database) {
         this.executor = executor;
         this.accounts = accounts;
+        this.database = database;
         this.deposit = new OperationUseCases.Deposit(operations, accounts);
         this.withdraw = new OperationUseCases.Withdraw(operations, accounts);
         this.transfer = new OperationUseCases.Transfer(operations);
@@ -50,8 +56,10 @@ public class OperationController {
                                                              IdempotencyKey key,
                                                              @RequestBody Requests.CashOperation body) {
         Account account = accounts.require(accountId);
+        UUID cash = io.corebanking.api.usecase.TillUseCases.ofCaller(database, caller)
+            .cashAccountId();
         OperationsService.Receipt receipt = executor.run(caller, deposit,
-            new OperationsService.Deposit(key, legalEntityId, accountId, body.cashAccountId(),
+            new OperationsService.Deposit(key, legalEntityId, accountId, cash,
                                           body.on(account), body.channel(), body.narrative(),
                                           Callers.actorId(caller)));
         return respond(receipt);
@@ -64,8 +72,10 @@ public class OperationController {
                                                               IdempotencyKey key,
                                                               @RequestBody Requests.CashOperation body) {
         Account account = accounts.require(accountId);
+        UUID cash = io.corebanking.api.usecase.TillUseCases.ofCaller(database, caller)
+            .cashAccountId();
         OperationsService.Receipt receipt = executor.run(caller, withdraw,
-            new OperationsService.Withdrawal(key, legalEntityId, accountId, body.cashAccountId(),
+            new OperationsService.Withdrawal(key, legalEntityId, accountId, cash,
                                              body.on(account), body.channel(), body.narrative(),
                                              Callers.actorId(caller)));
         return respond(receipt);

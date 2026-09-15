@@ -1,5 +1,6 @@
 package io.corebanking.tfj.steps;
 
+import io.corebanking.deposits.Tills;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.Entities;
 import io.corebanking.ledger.store.SchemaMigrator;
@@ -71,7 +72,17 @@ public final class PreChecksStep implements TfjStep {
                           + "conditionne la sincerite de l'arrete.");
         }
 
-        return new StepResult(2, 0, anomalies);
+        // L'arrete de caisse precede l'arrete de la banque : une caisse qui a servi dans la
+        // journee et n'est pas arretee laisse des especes non confrontees a leur solde.
+        List<String> caisses = database.inTransaction(
+            c -> Tills.movedAndUnclosed(c, context.legalEntityId(), context.businessDate()));
+        if (!caisses.isEmpty()) {
+            anomalies.add(caisses.size() + " caisse(s) mouvementee(s) le " + context.businessDate()
+                          + " et non arretee(s) : " + caisses + ". L'arrete de caisse precede "
+                          + "l'arrete de la banque.");
+        }
+
+        return new StepResult(3, 0, anomalies);
     }
 
     private long unbalancedSuspenseAccounts(java.sql.Connection c, TfjContext context) {

@@ -102,6 +102,17 @@ public final class AuthorizationService {
                 "separation des taches : l'auteur d'une operation ne peut pas la valider");
         }
 
+        // 6. Objet propre : un guichetier n'arrete que sa caisse. Le titulaire vient de l'objet,
+        //    jamais de la requete ; un objet sans titulaire n'est celui de personne.
+        if (rule.restrictedToOwnObjects(caller.roles())
+            && !caller.subjectId().equals(target.ownerSubjectId())) {
+            return AccessDecision.deny(operation,
+                "objet propre : les roles " + caller.roles() + " n'agissent que sur leurs "
+                + "propres objets, celui-ci est "
+                + (target.ownerSubjectId() == null ? "sans titulaire"
+                                                    : "celui de " + target.ownerSubjectId()));
+        }
+
         return AccessDecision.allow(operation);
     }
 

@@ -26,11 +26,19 @@ public record AccessRule(
     boolean dualControl,
     boolean auditEvenOnSuccess,
     boolean remoteAllowed,
-    Map<String, Money> remoteCeilings) {
+    Map<String, Money> remoteCeilings,
+    Set<String> ownOnlyRoles) {
 
     public AccessRule(Set<String> roles, Scope scope, Map<String, Money> ceilings,
                       boolean dualControl, boolean auditEvenOnSuccess) {
-        this(roles, scope, ceilings, dualControl, auditEvenOnSuccess, false, Map.of());
+        this(roles, scope, ceilings, dualControl, auditEvenOnSuccess, false, Map.of(), Set.of());
+    }
+
+    public AccessRule(Set<String> roles, Scope scope, Map<String, Money> ceilings,
+                      boolean dualControl, boolean auditEvenOnSuccess, boolean remoteAllowed,
+                      Map<String, Money> remoteCeilings) {
+        this(roles, scope, ceilings, dualControl, auditEvenOnSuccess, remoteAllowed,
+             remoteCeilings, Set.of());
     }
 
     public AccessRule {
@@ -38,10 +46,36 @@ public record AccessRule(
         Objects.requireNonNull(scope, "scope");
         ceilings = Map.copyOf(Objects.requireNonNull(ceilings, "ceilings"));
         remoteCeilings = Map.copyOf(remoteCeilings == null ? Map.of() : remoteCeilings);
+        ownOnlyRoles = Set.copyOf(ownOnlyRoles == null ? Set.of() : ownOnlyRoles);
         if (!remoteCeilings.isEmpty() && !remoteAllowed) {
             throw new IllegalArgumentException(
                 "Un plafond deplace sans operation deplacee autorisee n'a pas de sens");
         }
+        if (!roles.containsAll(ownOnlyRoles)) {
+            throw new IllegalArgumentException(
+                "Un role limite a ses propres objets doit d'abord etre autorise : "
+                + ownOnlyRoles + " hors de " + roles);
+        }
+    }
+
+    /**
+     * Vrai si l'appelant, avec ces roles, n'agit que sur ses propres objets : tous ses roles
+     * admis par la regle y sont limites. Un role plus large — le chef d'agence — leve la limite.
+     */
+    public boolean restrictedToOwnObjects(Set<String> callerRoles) {
+        if (ownOnlyRoles.isEmpty()) {
+            return false;
+        }
+        boolean admitted = false;
+        for (String role : callerRoles) {
+            if (roles.contains(role)) {
+                admitted = true;
+                if (!ownOnlyRoles.contains(role)) {
+                    return false;
+                }
+            }
+        }
+        return admitted;
     }
 
     public static Builder allow(String... roles) {
@@ -61,9 +95,20 @@ public record AccessRule(
         private boolean auditEvenOnSuccess;
         private boolean remoteAllowed;
         private Map<String, Money> remoteCeilings = Map.of();
+        private Set<String> ownOnlyRoles = Set.of();
 
         private Builder(Set<String> roles) {
             this.roles = roles;
+        }
+
+        /**
+         * Ces roles n'agissent que sur leurs propres objets — la caisse dont ils sont titulaires.
+         * L'objet doit nommer son titulaire ({@link AccessTarget#ownedBy}) ; un objet sans
+         * titulaire leur est refuse.
+         */
+        public Builder ownOnlyFor(String... roles) {
+            this.ownOnlyRoles = Set.of(roles);
+            return this;
         }
 
         /**
@@ -104,7 +149,7 @@ public record AccessRule(
 
         public AccessRule build() {
             return new AccessRule(roles, scope, ceilings, dualControl, auditEvenOnSuccess,
-                                  remoteAllowed, remoteCeilings);
+                                  remoteAllowed, remoteCeilings, ownOnlyRoles);
         }
     }
 }
