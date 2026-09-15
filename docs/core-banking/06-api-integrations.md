@@ -87,23 +87,34 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | Méthode et chemin (`/v1/entities/{entityId}` en préfixe) | Opération | Corps |
 |---|---|---|
 | `POST /parties` | `PARTY_CREATE` | référence, nature, nom, identifiants |
-| `POST /parties/{id}/kyc-verifications` | `KYC_VERIFY` | niveau de risque, date, approbateur |
+| `POST /parties/{id}/kyc-verifications` | `KYC_VERIFY` | niveau de risque, date — **202**, en attente d'un checker |
 | `GET /parties/{id}` | `PARTY_READ` | — |
-| `POST /accounts` | `ACCOUNT_OPEN` | numéro, titulaire, produit, devise, approbateur |
+| `POST /accounts` | `ACCOUNT_OPEN` | numéro, titulaire, produit, devise — **202**, en attente d'un checker |
 | `GET /accounts/{id}/balance` | `ACCOUNT_BALANCE_READ` | — ; déplacée si le compte est d'une autre agence |
 | `POST /accounts/{id}/deposits`, `/withdrawals` | `CASH_OPERATION` | montant, caisse, canal ; `Idempotency-Key` |
 | `POST /transfers` | `TRANSFER` | émetteur, bénéficiaire, montant ; `Idempotency-Key` |
-| `POST /accounts/{id}/blocks`, `.../{blockId}/lift` | `ACCOUNT_BLOCK` | nature, motif, approbateur |
-| `POST /accounts/{id}/holds`, `.../{holdId}/release` | `ACCOUNT_HOLD` | montant, nature, échéance |
-| `POST /accounts/{id}/closure` | `ACCOUNT_CLOSE` | compte de reversement, approbateur |
+| `POST /accounts/{id}/blocks`, `.../{blockId}/lift` | `ACCOUNT_BLOCK` | nature, motif — **202** |
+| `POST /accounts/{id}/holds`, `.../{holdId}/release` | `ACCOUNT_HOLD` | montant, nature, échéance — **202** |
+| `POST /accounts/{id}/closure` | `ACCOUNT_CLOSE` | compte de reversement — **202** |
+| `GET /pending-operations`, `GET .../{id}` | celle de l'opération en attente | — |
+| `POST /pending-operations/{id}/approve`, `.../reject` | celle de l'opération en attente, en tant que checker | motif pour un rejet |
 | `POST /eod/runs`, `GET /eod/runs/{id}`, `POST .../resume` | `TFJ_RUN` | journée, mode |
 | `POST /eod/runs/{id}/cancel` | `TFJ_CANCEL` | date de contre-passation, motif |
 
+**Double validation.** Une opération que la politique soumet à un second regard n'est jamais
+exécutée par celui qui la saisit : la requête est gardée telle que reçue (`pending_operation`),
+le maker reçoit `202` et un identifiant ; un checker habilité pour la même opération et la même
+cible, qui n'est pas le maker — la politique le refuse, et la base aussi — l'approuve, et c'est
+alors qu'elle s'exécute, avec le maker pour auteur et le checker pour approbateur, tous deux
+sujets de leur jeton. À l'approbation la requête est rejouée contre l'état du moment : un compte
+fermé entre-temps la refuse comme au guichet. Un rejet se motive ; une opération non décidée
+expire (48 h par défaut). Aucun approbateur ne figure jamais dans un corps de requête.
+
 Ce qui n'est pas encore exposé : le crédit (contrat, déblocage, remboursement), le paramétrage
-produit, le calendrier — les services existent, leurs cas d'usage suivent le même moule. La
-double validation passe aujourd'hui par un approbateur nommé dans le corps, distinct de
-l'appelant ; le circuit maker-checker (`pending_operation`) viendra le remplacer. Pas encore de
-contrat OpenAPI publié ni de pagination (aucune liste n'est exposée).
+produit, le calendrier — les services existent, leurs cas d'usage suivent le même moule. Pas
+encore de contrat OpenAPI publié ni de pagination (aucune liste longue n'est exposée). La
+réservation du disponible par une opération en attente qui déplacerait des fonds n'existe pas
+encore : aucune opération à double validation exposée n'en déplace.
 
 Le test `ApiIT` fait tout le parcours contre un vrai serveur, une vraie base et de vrais jetons
 signés : du tiers au retrait, les refus un par un, l'arrêté lancé par l'exploitant.

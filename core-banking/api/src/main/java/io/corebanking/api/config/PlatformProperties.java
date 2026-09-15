@@ -5,7 +5,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /** Reglages du socle : base de donnees, montee de version, client Keycloak. */
 @ConfigurationProperties(prefix = "corebanking")
 public record PlatformProperties(Datasource datasource, Schema schema, Security security,
-                                 Keycloak keycloak) {
+                                 Keycloak keycloak, MakerChecker makerChecker) {
+
+    /** Delai au-dela duquel une operation en attente de double validation n'est plus decidable. */
+    public record MakerChecker(int expiryHours) {
+        public int expiryHoursOrDefault() {
+            return expiryHours <= 0 ? 48 : expiryHours;
+        }
+    }
 
     public record Datasource(String url, String username, String password, int poolSize) {}
 

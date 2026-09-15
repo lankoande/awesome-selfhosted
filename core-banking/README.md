@@ -677,8 +677,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 - crédit : origination (demande, scoring, décision, conditions suspensives) — le déblocage par
   tranches, lui, est fait ; la commission d'engagement sur la fraction non tirée se paramètre comme
   une commission ordinaire et n'a pas encore de barème dédié ;
-- plafonds et limites paramétrés, et le maker-checker généralisé (la table `pending_operation`
-  existe, le workflow n'est pas écrit) ;
+- plafonds et limites paramétrés ; circuits de validation à trois yeux par montant et réservation
+  du disponible par une opération en attente (le maker-checker à deux, lui, est fait) ;
 - régime de frais de dormance et compte d'abandon (la détection et le réveil sont faits),
   commissions de découvert (mise en place, dépassement), base minimum ou moyenne pour l'épargne
   classique — la capitalisation et les agios, eux, sont faits ;
@@ -781,3 +781,6 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | L'appelant vient du jeton, jamais d'un paramètre | Un `actorId` fourni par le client est une identité déclarative ; le sujet d'un jeton signé est une identité établie |
 | L'agence d'un compte ouvert est celle du jeton | Un corps de requête qui choisirait l'agence permettrait d'ouvrir des comptes dans une agence dont on ne répond pas |
 | Un refus est une réponse au format problème, jamais une trace de pile | Le client sait ce qu'il doit corriger ; un `500` dit une seule chose, que rien n'a été comptabilisé |
+| Aucun approbateur dans un corps de requête : le checker est le sujet de son jeton | Un identifiant d'approbateur fourni par le maker est une double validation que le maker fait seul |
+| Une opération en attente garde la requête, pas une commande construite | À l'approbation, la requête est rejouée contre l'état du moment : un compte fermé entre-temps refuse l'opération comme il l'aurait refusée au guichet |
+| Le maker ne valide pas sa propre opération : refusé par la politique et par la base | Deux barrières indépendantes, parce que c'est la fraude interne la plus simple à commettre |

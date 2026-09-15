@@ -112,6 +112,7 @@ class ApiIT {
     private String teller;
     private String officer;
     private String manager;
+    private String manager2;
     private String operator;
     private UUID party;
     private UUID account;
@@ -163,6 +164,7 @@ class ApiIT {
         teller = token(UUID.randomUUID(), "guichetier", siege, Roles.TELLER);
         officer = token(UUID.randomUUID(), "charge.clientele", siege, Roles.CUSTOMER_OFFICER);
         manager = token(UUID.randomUUID(), "chef.agence", siege, Roles.BRANCH_MANAGER);
+        manager2 = token(UUID.randomUUID(), "chef.agence.adjoint", siege, Roles.BRANCH_MANAGER);
         operator = token(UUID.randomUUID(), "exploitant", null, Roles.OPERATOR);
     }
 
@@ -182,16 +184,41 @@ class ApiIT {
         assertThat(creation.status()).as(String.valueOf(creation.body())).isEqualTo(201);
         party = UUID.fromString((String) creation.body().get("id"));
 
+        // La verification de la connaissance client se fait a deux : soumise par le charge de
+        // clientele, approuvee par le chef d'agence — l'approbateur est le sujet de son jeton.
         Reponse kyc = post(officer, "/parties/" + party + "/kyc-verifications", null, Map.of(
-            "rating", "MEDIUM", "verifiedOn", J.toString(), "approverId", APPROVER.toString()));
-        assertThat(kyc.status()).as(String.valueOf(kyc.body())).isEqualTo(200);
-        assertThat(kyc.body().get("kycStatus")).isEqualTo("VERIFIED");
+            "rating", "MEDIUM", "verifiedOn", J.toString()));
+        assertThat(kyc.status()).as(String.valueOf(kyc.body())).isEqualTo(202);
+        assertThat(kyc.body().get("status")).isEqualTo("PENDING");
+        UUID attenteKyc = UUID.fromString((String) kyc.body().get("id"));
+        // Le maker ne valide pas sa propre operation : la politique le refuse.
+        Reponse soiMeme = post(officer, "/pending-operations/" + attenteKyc + "/approve", null,
+                               Map.of());
+        assertThat(soiMeme.status()).as(String.valueOf(soiMeme.body())).isEqualTo(403);
+        assertThat((String) soiMeme.body().get("detail")).contains("separation des taches");
+        Reponse approbation = post(manager, "/pending-operations/" + attenteKyc + "/approve", null,
+                                   Map.of());
+        assertThat(approbation.status()).as(String.valueOf(approbation.body())).isEqualTo(200);
+        assertThat(approbation.body().get("status")).isEqualTo("EXECUTED");
+        assertThat(resultat(approbation.body()).get("kycStatus")).isEqualTo("VERIFIED");
+        assertThat(get(officer, "/parties/" + party).body().get("kycStatus"))
+            .isEqualTo("VERIFIED");
 
         Reponse ouverture = post(officer, "/accounts", null, Map.of(
             "code", "CLI-API-1", "holderPartyId", party.toString(), "productCode", "EP-API",
-            "currency", "XOF", "approverId", APPROVER.toString()));
-        assertThat(ouverture.status()).as(String.valueOf(ouverture.body())).isEqualTo(201);
-        account = UUID.fromString((String) ouverture.body().get("id"));
+            "currency", "XOF"));
+        assertThat(ouverture.status()).as(String.valueOf(ouverture.body())).isEqualTo(202);
+        UUID attenteOuverture = UUID.fromString((String) ouverture.body().get("id"));
+        // Un guichetier n'est pas habilite a ouvrir un compte : il ne l'approuve pas non plus.
+        assertThat(post(teller, "/pending-operations/" + attenteOuverture + "/approve", null,
+                        Map.of()).status()).isEqualTo(403);
+        Reponse ouvert = post(manager, "/pending-operations/" + attenteOuverture + "/approve", null,
+                              Map.of());
+        assertThat(ouvert.status()).as(String.valueOf(ouvert.body())).isEqualTo(200);
+        account = UUID.fromString((String) resultat(ouvert.body()).get("id"));
+        // Une operation decidee ne se decide pas deux fois.
+        assertThat(post(manager2, "/pending-operations/" + attenteOuverture + "/approve", null,
+                        Map.of()).status()).isEqualTo(409);
 
         Reponse versement = post(teller, "/accounts/" + account + "/deposits", "dep-1", Map.of(
             "amount", "100000", "currency", "XOF", "cashAccountId", caisse.id().toString(),
@@ -233,12 +260,35 @@ class ApiIT {
         assertThat(sansCle.status()).as(String.valueOf(sansCle.body())).isEqualTo(400);
         assertThat(sansCle.body().get("title")).isEqualTo("Cle d'idempotence absente");
 
-        // Un guichetier n'ouvre pas de compte : la politique le dit, l'API le repete.
+        // Un guichetier n'ouvre pas de compte : la politique le dit des la soumission.
         Reponse interdit = post(teller, "/accounts", null, Map.of(
             "code", "CLI-API-2", "holderPartyId", party.toString(), "productCode", "EP-API",
-            "currency", "XOF", "approverId", APPROVER.toString()));
+            "currency", "XOF"));
         assertThat(interdit.status()).as(String.valueOf(interdit.body())).isEqualTo(403);
         assertThat((String) interdit.body().get("detail")).contains("roles");
+
+        // Un blocage soumis puis rejete, avec motif : rien ne bloque le compte.
+        Reponse blocage = post(manager, "/accounts/" + account + "/blocks", null, Map.of(
+            "kind", "DEBIT", "reason", "opposition"));
+        assertThat(blocage.status()).as(String.valueOf(blocage.body())).isEqualTo(202);
+        UUID attenteBlocage = UUID.fromString((String) blocage.body().get("id"));
+        assertThat(post(manager2, "/pending-operations/" + attenteBlocage + "/reject", null,
+                        Map.of()).status()).isEqualTo(422);          // un rejet se motive
+        Reponse rejet = post(manager2, "/pending-operations/" + attenteBlocage + "/reject", null,
+                             Map.of("reason", "opposition levee par le tribunal"));
+        assertThat(rejet.status()).as(String.valueOf(rejet.body())).isEqualTo(200);
+        assertThat(rejet.body().get("status")).isEqualTo("REJECTED");
+        assertThat(get(manager, "/pending-operations/" + attenteBlocage).body().get("decisionReason"))
+            .isEqualTo("opposition levee par le tribunal");
+        Reponse attentes = get(manager, "/pending-operations");
+        assertThat(attentes.status()).isEqualTo(200);
+        assertThat((List<?>) attentes.body().get("items")).isNotNull();
+        assertThat(post(teller, "/accounts/" + account + "/withdrawals", "ret-apres-rejet",
+                        Map.of("amount", "1000", "currency", "XOF",
+                               "cashAccountId", caisse.id().toString())).status()).isEqualTo(201);
+        assertThat(post(teller, "/accounts/" + account + "/deposits", "dep-apres-rejet",
+                        Map.of("amount", "1590", "currency", "XOF",
+                               "cashAccountId", caisse.id().toString())).status()).isEqualTo(201);
 
         // Au-dela du plafond du role, meme avec la caisse et le compte de son agence.
         Reponse plafond = post(teller, "/accounts/" + account + "/withdrawals", "ret-plafond",
@@ -314,14 +364,26 @@ class ApiIT {
     @SuppressWarnings("unchecked")
     private Reponse send(HttpRequest request) throws Exception {
         HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
-        Map<String, Object> body = response.body() == null || response.body().isBlank()
-            ? Map.of() : json.readValue(response.body(), Map.class);
+        String text = response.body();
+        Map<String, Object> body;
+        if (text == null || text.isBlank()) {
+            body = Map.of();
+        } else if (text.trim().startsWith("[")) {
+            body = Map.of("items", json.readValue(text, List.class));
+        } else {
+            body = json.readValue(text, Map.class);
+        }
         return new Reponse(response.statusCode(), body);
     }
 
     private URI uri(String path) {
         return URI.create("http://localhost:" + environment.getProperty("local.server.port")
                           + "/v1/entities/" + ENTITY + path);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> resultat(Map<String, Object> body) {
+        return (Map<String, Object>) body.get("result");
     }
 
     @SuppressWarnings("unchecked")

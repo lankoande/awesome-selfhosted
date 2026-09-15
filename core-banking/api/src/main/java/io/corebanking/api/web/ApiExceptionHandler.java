@@ -54,9 +54,12 @@ public class ApiExceptionHandler {
                        + "pas du JSON valide pour cette operation.");
     }
 
-    @ExceptionHandler(AccountDirectory.UnknownAccountException.class)
-    ProblemDetail unknownAccount(RuntimeException e) {
-        return problem(HttpStatus.NOT_FOUND, "Compte inconnu", e.getMessage());
+    @ExceptionHandler({AccountDirectory.UnknownAccountException.class,
+                       io.corebanking.api.usecase.EodUseCases.UnknownRunException.class,
+                       io.corebanking.security.store.PendingOperations
+                           .UnknownPendingOperationException.class})
+    ProblemDetail unknown(RuntimeException e) {
+        return problem(HttpStatus.NOT_FOUND, "Objet inconnu", e.getMessage());
     }
 
     @ExceptionHandler({AccountBlockedException.class, InsufficientFundsException.class,
@@ -64,7 +67,8 @@ public class ApiExceptionHandler {
                        PartyService.PartyNotOperableException.class,
                        PartyService.DuplicatePartyException.class,
                        AccountLifecycle.ClosureRefusedException.class,
-                       TfjEngine.TfjRefusedException.class, IllegalStateException.class})
+                       TfjEngine.TfjRefusedException.class, IllegalStateException.class,
+                       MakerChecker.NotDecidableException.class})
     ProblemDetail conflict(RuntimeException e) {
         return problem(HttpStatus.CONFLICT, "Operation refusee", e.getMessage());
     }

@@ -119,6 +119,21 @@ public class PlatformConfiguration {
     }
 
     @Bean
+    io.corebanking.api.web.MakerChecker makerChecker(Database database,
+                                                     AuthorizationService authorization,
+                                                     tools.jackson.databind.ObjectMapper json,
+                                                     PlatformProperties properties,
+                                                     AccountLifecycle lifecycle,
+                                                     PartyService parties,
+                                                     AccountDirectory accounts) {
+        int hours = properties.makerChecker() == null ? 48
+                    : properties.makerChecker().expiryHoursOrDefault();
+        return new io.corebanking.api.web.MakerChecker(
+            database, authorization, json, java.time.Duration.ofHours(hours),
+            io.corebanking.api.web.DualControlHandlers.all(database, lifecycle, parties, accounts));
+    }
+
+    @Bean
     EodEngines eodEngines(Database database, PostingService postingService) {
         LoanService loanService = new LoanService(database, postingService);
         return new EodEngines(database, postingService,

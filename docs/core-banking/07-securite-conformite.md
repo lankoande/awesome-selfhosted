@@ -324,6 +324,15 @@ Saisie (maker) → EN_ATTENTE → Validation (checker) → EXÉCUTÉ
 - Un délai d'expiration purge automatiquement les opérations non validées.
 - Le rejet exige un motif ; il est notifié au maker.
 
+> **Implémenté** — `pending_operation` et `operation_approval` (V25), déclencheur de ségrégation
+> en base ; dans l'API, `MakerChecker` : soumission par un maker habilité (`202`), approbation ou
+> rejet motivé par un checker habilité pour la même opération et la même cible et qui n'est pas le
+> maker (`AccessRule.dualControl` + `AccessTarget.madeBy`), exécution à l'approbation avec le
+> maker pour auteur et le checker pour approbateur — les deux sujets de jeton, jamais un champ de
+> requête ; expiration ; une décision est immuable. Soumis aujourd'hui : ouverture, clôture,
+> blocage et levée, blocage de montant et levée, vérification de la connaissance client. Non fait :
+> circuits à trois yeux par montant, réservation du disponible, notification du maker.
+
 ---
 
 ## 4. Piste d'audit

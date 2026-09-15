@@ -40,14 +40,14 @@ public final class Requests {
     public record Transfer(UUID sourceAccountId, UUID destinationAccountId, String amount,
                            String currency, String channel, String narrative) {}
 
-    public record OpenAccount(String code, UUID holderPartyId, String productCode, String currency,
-                              UUID approverId) {}
+    /** Les actes a double validation n'ont pas d'approbateur dans le corps : c'est le checker. */
+    public record OpenAccount(String code, UUID holderPartyId, String productCode, String currency) {}
 
-    public record CloseAccount(UUID payoutAccountId, UUID approverId) {}
+    public record CloseAccount(UUID payoutAccountId) {}
 
-    public record BlockAccount(String kind, String reason, String reference, UUID approverId) {}
+    public record BlockAccount(String kind, String reason, String reference) {}
 
-    public record LiftBlock(String reason, UUID approverId) {}
+    public record LiftBlock(String reason) {}
 
     public record PlaceHold(String amount, String currency, String type, String reference,
                             LocalDate expiresOn) {}
@@ -59,7 +59,7 @@ public final class Requests {
                               LocalDate birthOrRegistrationDate, String countryCode, String segment,
                               List<Identifier> identifiers) {}
 
-    public record VerifyKyc(String rating, LocalDate verifiedOn, UUID approverId) {}
+    public record VerifyKyc(String rating, LocalDate verifiedOn) {}
 
     public record RunEod(LocalDate businessDate, String mode) {}
 

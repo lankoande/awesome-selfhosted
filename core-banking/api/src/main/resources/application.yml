@@ -24,6 +24,9 @@ corebanking:
   security:
     # Client backend Keycloak dont les roles portent les habilitations.
     client-id: ${COREBANKING_CLIENT_ID:core-banking}
+  maker-checker:
+    # Une operation en attente non decidee dans ce delai expire.
+    expiry-hours: ${COREBANKING_MAKER_CHECKER_EXPIRY_HOURS:48}
   keycloak:
     # API d'administration : provisionne au demarrage les roles de roles.json. Vide : desactive.
     admin-url: ${COREBANKING_KEYCLOAK_ADMIN_URL:}

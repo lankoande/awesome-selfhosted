@@ -6,7 +6,6 @@ import io.corebanking.party.Party;
 import io.corebanking.party.PartyIdentifier;
 import io.corebanking.party.PartyKind;
 import io.corebanking.party.PartyService;
-import io.corebanking.party.RiskRating;
 import io.corebanking.security.Caller;
 import io.corebanking.security.UseCaseExecutor;
 import java.util.List;
@@ -26,14 +25,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class PartyController {
 
     private final UseCaseExecutor executor;
+    private final MakerChecker makerChecker;
     private final PartyUseCases.Create create;
-    private final PartyUseCases.VerifyKyc verify;
     private final PartyUseCases.Read read;
 
-    public PartyController(UseCaseExecutor executor, PartyService parties) {
+    public PartyController(UseCaseExecutor executor, PartyService parties,
+                           MakerChecker makerChecker) {
         this.executor = executor;
+        this.makerChecker = makerChecker;
         this.create = new PartyUseCases.Create(parties);
-        this.verify = new PartyUseCases.VerifyKyc(parties);
         this.read = new PartyUseCases.Read(parties);
     }
 
@@ -53,12 +53,19 @@ public class PartyController {
         return new Requests.Created(id);
     }
 
+    /** La verification de la connaissance client se fait a deux : soumise, puis approuvee. */
     @PostMapping("/{partyId}/kyc-verifications")
-    public Party verify(Caller caller, @PathVariable UUID legalEntityId, @PathVariable UUID partyId,
-                        @RequestBody Requests.VerifyKyc body) {
-        return executor.run(caller, verify, new PartyUseCases.Verification(
-            partyId, RiskRating.valueOf(body.rating()), body.verifiedOn(), Callers.actorId(caller),
-            body.approverId()));
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MakerChecker.View verify(Caller caller, @PathVariable UUID legalEntityId,
+                                    @PathVariable UUID partyId,
+                                    @RequestBody Requests.VerifyKyc body) {
+        java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("partyId", partyId.toString());
+        payload.put("rating", body.rating());
+        if (body.verifiedOn() != null) {
+            payload.put("verifiedOn", body.verifiedOn().toString());
+        }
+        return makerChecker.submit(caller, legalEntityId, "KYC_VERIFY", payload);
     }
 
     @GetMapping("/{partyId}")
