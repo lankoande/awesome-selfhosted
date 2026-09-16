@@ -329,8 +329,13 @@ public final class LoanSchemas {
                                       "Creances sorties de l'actif").onlyIf("creances > 0"))
             .line(TemplateLine.debit("PARAM:" + ROLE_RESERVED_INTEREST, "reserves",
                                      "Interets reserves imputes").onlyIf("reserves > 0"))
-            .line(TemplateLine.debit("PARAM:" + ROLE_PROVISION_ALLOWANCE, "provision",
-                                     "Provision utilisee").onlyIf("provision > 0"))
+            // La provision disparait en entier : la part utilisee absorbe la sortie, celle qui
+            // reste n'a plus d'objet et revient au resultat. Ne debiter que la part utilisee
+            // laisserait au bilan une provision sans creance, et desequilibrerait l'ecriture.
+            .derive("provision_totale", "provision + reprise")
+            .line(TemplateLine.debit("PARAM:" + ROLE_PROVISION_ALLOWANCE, "provision_totale",
+                                     "Provision utilisee et reprise")
+                      .onlyIf("provision_totale > 0"))
             .line(TemplateLine.debit("PARAM:" + ROLE_WRITE_OFF_LOSS, "perte",
                                      "Perte sur creance irrecouvrable").onlyIf("perte > 0"))
             .line(TemplateLine.credit("PARAM:" + ROLE_PROVISION_RELEASE, "reprise",

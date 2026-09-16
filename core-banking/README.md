@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 636 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 330 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 637 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 331 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -922,6 +922,12 @@ faite pour cela. Le reliquat seul est une perte. Un dossier sur-provisionné ren
 résultat : la provision n'a plus d'objet
 (`the_provision_and_the_reserved_interest_absorb_the_loss`).
 
+**Une provision disparaît en entier, ou elle survit à sa créance.** Ne débiter que la part qui
+absorbe la sortie laisserait au bilan une provision sans créance en face — et déséquilibrerait
+l'écriture, que le ledger refuserait, de nuit, sur la seule opération qui ne se rejoue pas. La
+provision est donc soldée en entier et la part devenue sans objet revient au résultat
+(`an_over_provisioned_file_releases_what_has_no_object`).
+
 **Ce qui rentre après est un produit, jamais un remboursement.** Il n'y a plus de créance à
 l'actif à diminuer : l'imputer sur un encours ferait réapparaître un crédit soldé et rendrait le
 capital négatif. C'est une récupération sur créance amortie, et elle sort du hors bilan d'autant —
@@ -1015,6 +1021,7 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Les intérêts réservés absorbent la sortie avant la provision | Ces produits ont déjà été sortis du résultat à la suspension ; les passer en perte une seconde fois doublerait le coût du dossier |
 | Un encaissement après la perte est un produit, jamais un remboursement | Il n'y a plus d'encours à diminuer : l'y imputer ferait réapparaître un crédit soldé et rendrait le capital négatif |
 | Le plafond du passage en perte porte sur l'encours qui sort | Un crédit largement remboursé ne mobilise pas la même délégation qu'un crédit intact |
+| Le passage en perte solde la provision en entier et rend le surplus au résultat | N'en débiter que la part utilisée laisserait une provision sans créance au bilan, et l'écriture serait déséquilibrée |
 | Une garantie exigée devient une condition suspensive, jamais un dépassement de politique | Sinon toute décision sur un produit garanti serait dérogatoire, et une dérogation écrite à chaque dossier ne se lit plus |
 | Les accords en vigueur non signés comptent dans la capacité du dossier suivant | Deux demandes instruites le même jour s'ignoreraient, et la banque accorderait deux fois la même capacité |
 | Un engagement en devise se convertit au cours de référence, ou l'instruction s'arrête | Additionner des dollars à des francs donne un taux d'endettement faux et silencieux ; le cours manquant se cote en une minute |

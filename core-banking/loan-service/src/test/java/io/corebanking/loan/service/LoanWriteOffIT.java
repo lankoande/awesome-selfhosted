@@ -163,6 +163,45 @@ class LoanWriteOffIT extends LoanTestBase {
             .isInstanceOf(IllegalStateException.class).hasMessageContaining("WRITTEN_OFF");
     }
 
+
+    @Test
+    @DisplayName("un dossier sur-provisionne rend l'excedent au resultat : la provision disparait en entier, et l'ecriture reste equilibree")
+    void an_over_provisioned_file_releases_what_has_no_object() {
+        // Une classe provisionnee a cent pour cent : tout encaissement ulterieur rend la
+        // provision superieure a ce qui reste du.
+        Perte decor = perte("WO4", "100");
+        UUID contrat = credit(decor, "REF-WO4", "CRED-WO4");
+        loanService.makeDue(decor.entityId(), PREMIERE_ECHEANCE, ACTOR, UUID.randomUUID());
+        LocalDate tresTard = PREMIERE_ECHEANCE.plusMonths(7);
+        classification().classify(decor.entityId(), tresTard, ACTOR, UUID.randomUUID());
+        Money provisionAvant = solde(decor.provisions());
+
+        // Le client verse une partie de sa dette : l'encours baisse, la provision reste — elle
+        // ne sera recalculee qu'a la prochaine classification, qui n'aura pas lieu.
+        alimenter(decor.decor(), "500000", tresTard, "wo4-caisse");
+        loanService.settle(contrat, xof("500000"), tresTard, "MANUAL",
+                           IdempotencyKey.of("WO4-REG"), ACTOR, null);
+        Money exposition = solde(decor.pret()).plus(solde(decor.creances()));
+        assertThat(provisionAvant.isGreaterThan(exposition))
+            .as("provision " + provisionAvant + " vs exposition " + exposition).isTrue();
+
+        LoanWriteOffService.WriteOff perte = writeOffs().writeOff(
+            contrat, tresTard, "solde compromis apres versement partiel", ACTOR, APPROVER);
+
+        // Ce qui sort est absorbe, et rien d'autre : la reprise n'est pas une sortie d'actif.
+        assertThat(perte.principalWritten().plus(perte.receivablesWritten()))
+            .isEqualTo(perte.provisionUsed().plus(perte.reservedUsed())
+                           .plus(perte.lossRecognised()));
+        assertThat(perte.provisionReleased().isPositive())
+            .as("la part de provision devenue sans objet revient au resultat").isTrue();
+        assertThat(perte.provisionUsed().plus(perte.provisionReleased()))
+            .isEqualTo(provisionAvant);
+
+        // La provision a disparu du bilan, en entier.
+        assertThat(solde(decor.provisions())).isEqualTo(xof("0"));
+        assertThat(solde(decor.pret())).isEqualTo(xof("0"));
+    }
+
     // ------------------------------------------------------------------ decor
 
     /** Decor de credit augmente des comptes de provision, de perte et de hors bilan. */
@@ -191,6 +230,10 @@ class LoanWriteOffIT extends LoanTestBase {
     }
 
     private static Perte perte(String code) {
+        return perte(code, "80");
+    }
+
+    private static Perte perte(String code, String tauxCompromis) {
         Decor decor = decor(code);
         Account dotations = account(decor.entityId(), code + "-DOT", AccountKind.GL,
                                     NormalBalance.DEBIT);
@@ -211,8 +254,8 @@ class LoanWriteOffIT extends LoanTestBase {
                     new RiskBucket(0, "SAIN", "SAIN", 0, 29, new BigDecimal("0"), true),
                     new RiskBucket(1, "IMPAYE", "IMPAYE", 30, 89, new BigDecimal("0"), true),
                     new RiskBucket(2, "DOUTEUX", "DOUTEUX", 90, 179, new BigDecimal("20"), false),
-                    new RiskBucket(3, "COMPROMIS", "COMPROMIS", 180, null, new BigDecimal("80"),
-                                   false)),
+                    new RiskBucket(3, "COMPROMIS", "COMPROMIS", 180, null,
+                                   new BigDecimal(tauxCompromis), false)),
                     Contagion.NONE, "DOUTEUX", 0), ACTOR));
             RiskProfiles.activate(c, profil, APPROVER);
             return null;

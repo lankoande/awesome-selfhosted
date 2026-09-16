@@ -97,6 +97,7 @@ public final class LoanWriteOffService {
                 + "actif des livres");
         }
         return database.inTransaction(c -> {
+            lockContract(c, contractId);
             LoanContract contract = LoanStore.requireContract(c, contractId);
             if (contract.status() != LoanContract.Status.ACTIVE) {
                 throw new WriteOffRefusedException("Le contrat " + contract.reference() + " est "
@@ -323,6 +324,24 @@ public final class LoanWriteOffService {
 
     private static Money money(BigDecimal amount, CurrencyRef currency) {
         return Money.of(amount, currency).roundToCurrency();
+    }
+
+    /**
+     * Verrouille le contrat le temps de la decision : l'encours qui sort est lu puis ecrit, et
+     * deux decisions concurrentes le liraient toutes deux entier.
+     */
+    private static void lockContract(Connection c, UUID contractId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id FROM loan_contract WHERE id = ? FOR UPDATE")) {
+            ps.setObject(1, contractId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new IllegalArgumentException("Contrat inconnu : " + contractId);
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Verrou du contrat " + contractId, e);
+        }
     }
 
     private WriteOff lockAndRequire(Connection c, UUID writeOffId) {

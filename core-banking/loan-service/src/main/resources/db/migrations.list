@@ -14,3 +14,4 @@ V23__loan_customer.sql
 V29__rls_loans.sql
 V48__origination.sql
 V49__perte_recouvrement.sql
+V50__perte_equilibre.sql

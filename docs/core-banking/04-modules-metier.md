@@ -480,12 +480,13 @@ Piloté par le profil réglementaire ([03](03-referentiel-parametrage.md#7-profi
 > et il vérifie aussi que l'échéancier applique **le taux et la durée accordés** — sans quoi la
 > décision du comité serait décorative. Le contrat naît du **montant accordé**, une seule fois.
 >
-> **La fin de vie est implémentée** (`LoanWriteOffService`, V49) : le **passage en perte** sort le
+> **La fin de vie est implémentée** (`LoanWriteOffService`, V49 et V50) : le **passage en perte** sort le
 > capital restant dû et les créances de l'actif, à deux et sous plafond de rôle. Ce qui sort est
 > absorbé d'abord par les **intérêts réservés** — ces produits ont déjà été sortis du résultat à la
 > suspension, et les passer en perte une seconde fois constaterait une charge pour un produit
-> jamais pris —, puis par la **provision** constituée ; le reliquat seul est une perte, et un
-> dossier sur-provisionné rend l'excédent au résultat. **La créance n'est pas éteinte** : elle
+> jamais pris —, puis par la **provision** constituée ; le reliquat seul est une perte. La provision est
+> soldée en entier et la part devenue sans objet revient au résultat — n'en débiter que la part
+> utilisée laisserait au bilan une provision sans créance, et déséquilibrerait l'écriture. **La créance n'est pas éteinte** : elle
 > entre au hors bilan pour son montant entier, dans une écriture séparée. Ce qui est encaissé
 > ensuite est un **produit de récupération**, jamais un remboursement — il n'y a plus d'encours à
 > diminuer —, et il sort du hors bilan d'autant ; on ne recouvre pas plus que ce qui est sorti. Le
