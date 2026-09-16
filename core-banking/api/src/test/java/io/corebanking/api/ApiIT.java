@@ -1099,15 +1099,18 @@ class ApiIT {
         Map<String, Object> contrat = json.readValue(response.body(), Map.class);
         assertThat(contrat.get("openapi")).isEqualTo("3.1.0");
         assertThat(contrat).doesNotContainKey("meta");
-        Map<?, ?> chemins = (Map<?, ?>) contrat.get("paths");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> chemins = (Map<String, Object>) contrat.get("paths");
         assertThat(chemins).containsKeys(
             "/v1/entities/{legalEntityId}/accounts/{accountId}/balance",
             "/v1/entities/{legalEntityId}/statements/balance-sheet",
             "/v1/entities/{legalEntityId}/fiscal-years/{fiscalYearId}/appropriation");
-        Map<?, ?> retrait = (Map<?, ?>) ((Map<?, ?>) chemins.get(
+        @SuppressWarnings("unchecked")
+        Map<String, Object> retrait = (Map<String, Object>) ((Map<?, ?>) chemins.get(
             "/v1/entities/{legalEntityId}/accounts/{accountId}/withdrawals")).get("post");
-        assertThat(((Map<?, ?>) retrait.get("responses")).keySet())
-            .contains("200", "201", "400", "401", "403", "404", "409", "422");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> reponses = (Map<String, Object>) retrait.get("responses");
+        assertThat(reponses).containsKeys("200", "201", "400", "401", "403", "404", "409", "422");
         assertThat(String.valueOf(retrait.get("parameters"))).contains("IdempotencyKey");
     }
 
