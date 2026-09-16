@@ -189,16 +189,21 @@ public final class FxRates {
      */
     public static void requireAppliedRates(Connection c, UUID legalEntityId, LocalDate bookingDate,
                                            List<ValidatedLine> lines, CurrencyRef functional) {
-        Map<String, BigDecimal> applied = new LinkedHashMap<>();
+        // Tous les cours distincts, pas seulement le premier de chaque devise : deux lignes
+        // d'une meme devise peuvent porter deux cours, et leurs contre-valeurs se compenser.
+        Map<String, java.util.Set<BigDecimal>> applied = new LinkedHashMap<>();
         for (ValidatedLine line : lines) {
             String currency = line.account().currency().code();
             if (currency.equals(functional.code()) || line.line().fxRate() == null) {
                 continue;
             }
-            applied.putIfAbsent(currency, line.line().fxRate());
+            applied.computeIfAbsent(currency, k -> new java.util.TreeSet<>())
+                .add(line.line().fxRate().stripTrailingZeros());
         }
-        for (Map.Entry<String, BigDecimal> entry : applied.entrySet()) {
-            check(c, legalEntityId, bookingDate, entry.getKey(), entry.getValue(), functional);
+        for (Map.Entry<String, java.util.Set<BigDecimal>> entry : applied.entrySet()) {
+            for (BigDecimal rate : entry.getValue()) {
+                check(c, legalEntityId, bookingDate, entry.getKey(), rate, functional);
+            }
         }
     }
 

@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 612 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 306 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 613 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 307 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -795,6 +795,11 @@ la comptabilisation. Trois refus nommés : une devise sans position déclarée �
 personne ne mesure —, un cours de référence absent — un cours appliqué sans référence ne se
 contrôle pas —, un écart au-delà de la marge déclarée. Une contre-passation, elle, garde le cours
 d'origine : c'est ce qu'on attend d'elle (`the_applied_rate_is_checked_against_the_reference`).
+Le référentiel voit même ce qui se compense : deux paires équilibrées à deux cours différents dans
+une seule écriture passent tous les contrôles d'équilibre, et sont refusées ici. Ce qui a pu
+entrer malgré tout se voit au rapprochement de chaque nuit : la contre-valeur portée doit égaler
+la contre-valeur historique de la position plus ses revalorisations, et une jambe oubliée y
+apparaît au centime (`the_counter_value_is_reconciled_with_the_position`).
 
 **Une position a deux comptes, et leur sens est imposé.** Le compte de position, tenu dans la
 devise, mesure l'exposition ; son compte de contre-valeur, tenu dans la devise de l'entité, porte

@@ -428,6 +428,7 @@ SELECT b.account_id, b.balance AS materialise, r.balance AS rejoue
 -- 5. Suspens non soldés au-delà du seuil d'ancienneté
 -- 6. Écarts d'arrondi cumulés dans les bornes paramétrées
 -- 7. Aucune écriture en période clôturée
+-- 8. Contre-valeur de chaque position de change = contre-valeur historique + revalorisations
 ```
 
 Un écart, même unitaire, bloque la bascule de journée et déclenche une alerte de

@@ -217,6 +217,74 @@ class FxIT extends LedgerTestBase {
     }
 
     @Test
+    @Order(5)
+    @DisplayName("la contre-valeur portee se rapproche de la contre-valeur historique de la position : une jambe oubliee ou deux cours differents se voient au rapprochement, la ou le ledger ne voit rien")
+    void the_counter_value_is_reconciled_with_the_position() {
+        LocalDate jour = BUSINESS_DATE.plusDays(3);
+        Account positionXaf = positionAccount("FX-POSITION-XAF-REC", Currencies.XAF,
+                                              NormalBalance.CREDIT);
+        Account contreValeurXaf = positionAccount("FX-CV-XAF-REC", Currencies.XOF,
+                                                  NormalBalance.DEBIT);
+        Account contrepartieXaf = newGlAccount("FX-CP-XAF-REC", Currencies.XAF,
+                                               NormalBalance.CREDIT, 1);
+        Account contrepartieXof = newGlAccount("FX-CP-XOF-REC", Currencies.XOF,
+                                               NormalBalance.CREDIT, 1);
+        database.inTransaction(c -> FxPositions.declare(c, new FxPositions.Draft(
+            ENTITY, "XAF", positionXaf.id(), contreValeurXaf.id(), gain.id(), perte.id(), 500,
+            ACTOR, UUID.randomUUID())));
+        coter("XAF", jour, "1");
+
+        // Deux cours differents dans une meme ecriture, chacun sur une paire equilibree : les
+        // contre-valeurs se compensent deux a deux, l'ecriture est equilibree par devise comme en
+        // contre-valeur — c'est le cas que le ledger ne voit pas, et que le referentiel refuse.
+        Money mille = Money.of("1000", Currencies.XAF);
+        Money cinqCents = Money.of("500", Currencies.XAF);
+        assertThatThrownBy(() -> postingService.post(PostingCommand.online(
+                IdempotencyKey.of("rec-deux-cours"), ENTITY, jour, "FX_TRADE", ACTOR,
+                List.of(PostingLine.debit(contrepartieXaf.id(), mille, jour, null)
+                            .withFxRate(BigDecimal.ONE),
+                        PostingLine.credit(positionXaf.id(), mille, jour, null)
+                            .withFxRate(BigDecimal.ONE),
+                        PostingLine.debit(positionXaf.id(), cinqCents, jour, null)
+                            .withFxRate(new BigDecimal("2")),
+                        PostingLine.credit(contrepartieXaf.id(), cinqCents, jour, null)
+                            .withFxRate(new BigDecimal("2"))))))
+            .isInstanceOf(InvalidPostingException.class)
+            .hasMessageContaining("depasse la marge de 500 points de base");
+
+        // L'operation reguliere : la position et sa contre-valeur bougent ensemble.
+        postingService.post(PostingCommand.online(IdempotencyKey.of("rec-1"), ENTITY, jour,
+            "FX_TRADE", ACTOR,
+            List.of(PostingLine.debit(contrepartieXaf.id(), mille, jour, "achat XAF")
+                        .withFxRate(BigDecimal.ONE),
+                    PostingLine.credit(positionXaf.id(), mille, jour, "position XAF")
+                        .withFxRate(BigDecimal.ONE),
+                    PostingLine.debit(contreValeurXaf.id(), Money.of("1000", Currencies.XOF), jour,
+                                      "contre-valeur"),
+                    PostingLine.credit(contrepartieXof.id(), Money.of("1000", Currencies.XOF), jour,
+                                       "contrepartie"))));
+        List<Reconciliation.Discrepancy> apresOperation = database.inTransaction(
+            c -> Reconciliation.fxCounterValueMatchesPosition(c, ENTITY));
+        assertThat(apresOperation).isEmpty();
+
+        // La jambe de contre-valeur oubliee : l'ecriture est equilibree par devise et en
+        // contre-valeur, le ledger l'accepte — et le rapprochement la denonce.
+        postingService.post(PostingCommand.online(IdempotencyKey.of("rec-2"), ENTITY, jour,
+            "FX_TRADE", ACTOR,
+            List.of(PostingLine.debit(contrepartieXaf.id(), mille, jour, "achat sans contre-valeur")
+                        .withFxRate(BigDecimal.ONE),
+                    PostingLine.credit(positionXaf.id(), mille, jour, "position XAF")
+                        .withFxRate(BigDecimal.ONE))));
+        List<Reconciliation.Discrepancy> ecarts = database.inTransaction(
+            c -> Reconciliation.fxCounterValueMatchesPosition(c, ENTITY));
+        assertThat(ecarts).singleElement().satisfies(ecart -> {
+            assertThat(ecart.check()).isEqualTo("POSITION_CHANGE");
+            assertThat(ecart.scope()).isEqualTo("XAF");
+            assertThat(ecart.gap()).isEqualByComparingTo("-1000");
+        });
+    }
+
+    @Test
     @Order(4)
     @DisplayName("la revalorisation porte l'ecart au resultat de change : rien quand le cours ne bouge pas, un gain quand la devise monte, une perte quand elle baisse ; rejouee sous le meme traitement, elle ne comptabilise pas deux fois")
     void revaluation() {

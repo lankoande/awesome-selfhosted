@@ -384,6 +384,54 @@ public final class Reconciliation {
         all.addAll(materializedMatchesReplay(c, entityId));
         all.addAll(stripesConsistent(c, entityId));
         all.addAll(interbranchMirrorReplayed(c, entityId));
+        all.addAll(fxCounterValueMatchesPosition(c, entityId));
         return all;
+    }
+
+    /**
+     * Contre-valeur portee = contre-valeur historique des lignes de position + revalorisations.
+     *
+     * <p>C'est le controle que le ledger seul ne peut pas faire. Une operation de change qui
+     * crediterait la position sans debiter sa contre-valeur, ou qui appliquerait deux cours
+     * differents aux deux jambes, laisse l'ecriture equilibree par devise et en contre-valeur —
+     * les montants se compensent — et la position fausse. Ici, les deux comptes du couple sont
+     * confrontes l'un a l'autre, et l'ecart se voit.
+     */
+    public static List<Discrepancy> fxCounterValueMatchesPosition(Connection c, UUID entityId) {
+        List<Discrepancy> gaps = new ArrayList<>();
+        for (FxPositions.Position position : FxPositions.all(c, entityId)) {
+            BigDecimal historical = signedFunctional(c, position.positionAccountId(), null);
+            BigDecimal revaluations = signedFunctional(c, position.counterValueAccountId(),
+                                                       FxRevaluation.TRANSACTION_TYPE);
+            BigDecimal expected = historical.add(revaluations);
+            BigDecimal carried = signedFunctional(c, position.counterValueAccountId(), null);
+            if (expected.compareTo(carried) != 0) {
+                gaps.add(new Discrepancy("POSITION_CHANGE", position.currency(), expected, carried));
+            }
+        }
+        return gaps;
+    }
+
+    /**
+     * Somme des contre-valeurs d'un compte, en sens normal ; d'un type d'ecriture s'il est donne.
+     */
+    private static BigDecimal signedFunctional(Connection c, UUID accountId, String transactionType) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT COALESCE(SUM(CASE WHEN l.direction = a.normal_balance THEN l.functional_amount"
+            + "                       ELSE -l.functional_amount END), 0)"
+            + "  FROM journal_line l JOIN account a ON a.id = l.account_id"
+            + "  JOIN journal_entry e ON e.id = l.entry_id AND e.booking_date = l.booking_date"
+            + " WHERE l.account_id = ? AND (?::text IS NULL OR e.transaction_type = ?)")) {
+            ps.setObject(1, accountId);
+            ps.setString(2, transactionType);
+            ps.setString(3, transactionType);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                BigDecimal value = rs.getBigDecimal(1);
+                return value == null ? BigDecimal.ZERO : value;
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Contre-valeur du compte " + accountId, e);
+        }
     }
 }

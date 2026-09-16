@@ -191,6 +191,10 @@ public final class FxPositions {
      * L'exposition d'une position a une date : le solde en devise, la contre-valeur portee, le
      * cours du jour, la contre-valeur revalorisee et l'ecart latent. Sans cours, l'ecart n'est
      * pas calcule — il n'est pas repute nul.
+     *
+     * <p>La lecture se contente du dernier cours connu, et dit lequel ({@code rateQuotedOn}) : une
+     * consultation de milieu de journee vaut mieux qu'un refus. La revalorisation, elle, exige le
+     * cours du jour : elle comptabilise.
      */
     public static Exposure exposure(Connection c, Position position, LocalDate on) {
         Money balance = Balances.current(c, position.positionAccountId());
