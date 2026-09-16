@@ -499,7 +499,12 @@ fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 > (`ops.cheque_collection_account`, tenu au siège), le client est crédité à la date de valeur des
 > conditions de banque, et un blocage tient le montant hors du disponible jusqu'au **règlement** par
 > le correspondant (le blocage tombe, la valeur passe au nostro) ; un **impayé** contre-passe le
-> crédit, et le blocage tombe avec lui. Les chèques ne consomment pas les plafonds du client :
+> crédit — à la date de valeur de la remise, que la contre-passation reprend : rien ne court sur
+> un chèque impayé —, et le blocage tombe avec lui. La numérotation des chéquiers et le paiement
+> d'un chèque se font sous verrou (du compte, du chèque) : deux chéquiers demandés ensemble se
+> suivent, un chèque présenté deux fois ne se paie qu'une fois, et de deux chèques présentés
+> ensemble sur une provision pour un seul, un est payé et l'autre rejeté avec son incident. Les
+> chèques ne consomment pas les plafonds du client :
 > l'instrument est celui d'un tiers porteur, et un refus de plafond ne serait pas un défaut de
 > provision. Restent : l'échange avec la compensation (SICA-UEMOA : présentation, cycles,
 > fichiers), la déclaration des incidents à la centrale et l'interdiction bancaire qui en découle,

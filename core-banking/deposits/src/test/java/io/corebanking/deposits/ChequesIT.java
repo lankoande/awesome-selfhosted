@@ -260,6 +260,18 @@ class ChequesIT extends DepositsTestBase {
         assertThat(agences.get(compte)).isEqualTo(agence);
         assertThat(agences).containsKey(liaison.id());
         assertThat(solde(compte)).isEqualTo(xof("447640"));
+
+        // La remise aussi : l'encaissement est tenu au siege, le client reste dans son agence.
+        Account encaissement = database.inTransaction(c -> io.corebanking.ledger.store.Accounts
+            .loadAll(c, java.util.Set.of(DepositCatalog.chequeCollection(
+                io.corebanking.product.ProductCatalog.resolveForAccount(c, decor.entityId(), compte, J))
+                .orElseThrow()))).values().iterator().next();
+        ChequeService.ChequeDeposit remise = cheques.deposit(remise(decor, compte, "10000", "0009",
+                                                                    "chb-3")).deposit();
+        agences = agences(remise.entryId());
+        assertThat(agences.get(encaissement.id())).as("l'encaissement au siege").isEqualTo(siege);
+        assertThat(agences.get(compte)).isEqualTo(agence);
+        assertThat(agences).containsKey(liaison.id());
         List<Reconciliation.Discrepancy> ecarts = database.inTransaction(
             c -> Reconciliation.allBlockingChecks(c, decor.entityId()));
         assertThat(ecarts).isEmpty();
@@ -358,6 +370,74 @@ class ChequesIT extends DepositsTestBase {
         List<Reconciliation.Discrepancy> ecarts = database.inTransaction(
             c -> Reconciliation.allBlockingChecks(c, decor.entityId()));
         assertThat(ecarts).isEmpty();
+    }
+
+    @Test
+    @DisplayName("deux chequiers demandes en meme temps se suivent ; un cheque presente deux fois en meme temps se paie une fois ; deux cheques sur une provision pour un seul : un paye, un rejete avec son incident")
+    void concurrency() throws Exception {
+        Decor decor = decor("CHC");
+        produit(decor, "CC-CHC", "CURRENT_ACCOUNT", chequier(decor, encaissement(decor, "CHC")));
+        UUID compte = ouvrir(decor, "CLI-CHC", "CC-CHC", client(decor.entityId(), "T-CHC"));
+        verser(decor, compte, "104720", "chc-0");
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            // Deux chequiers en meme temps : 1 a 25 et 26 a 50, dans un ordre ou l'autre.
+            List<Object> chequiers = enMemeTemps(executor, () -> chequier(decor, compte, 25),
+                                                 () -> chequier(decor, compte, 25));
+            assertThat(chequiers).allMatch(o -> o instanceof ChequeService.Book);
+            assertThat(chequiers).map(o -> ((ChequeService.Book) o).firstNumber())
+                .containsExactlyInAnyOrder(1L, 26L);
+            assertThat(solde(compte)).as("deux frais de 2360").isEqualTo(xof("100000"));
+
+            // Le meme cheque presente deux fois, sous deux cles : un seul paiement.
+            List<Object> presentations = enMemeTemps(executor,
+                () -> cheques.pay(guichet(decor, compte, 1, "10000", "chc-1")),
+                () -> cheques.pay(guichet(decor, compte, 1, "10000", "chc-2")));
+            assertThat(presentations).filteredOn(o -> o instanceof ChequeService.Paid).hasSize(1);
+            assertThat(presentations).filteredOn(o -> o instanceof ChequeService.ChequeStateException)
+                .hasSize(1);
+            assertThat(solde(compte)).isEqualTo(xof("90000"));
+
+            // Deux cheques de 80 000 sur 90 000 de provision : un paye, l'autre rejete — et
+            // l'incident constate, bien que le ledger ait refuse sous son verrou, apres le controle.
+            List<Object> concurrents = enMemeTemps(executor,
+                () -> cheques.pay(guichet(decor, compte, 2, "80000", "chc-3")),
+                () -> cheques.pay(guichet(decor, compte, 3, "80000", "chc-4")));
+            assertThat(concurrents).filteredOn(o -> o instanceof ChequeService.Paid).hasSize(1);
+            assertThat(concurrents).filteredOn(o -> o instanceof ChequeService.ChequeRejectedException)
+                .hasSize(1);
+            assertThat(solde(compte)).isEqualTo(xof("10000"));
+            List<ChequeService.Incident> incidents = database.inTransaction(
+                c -> ChequeService.incidents(c, compte));
+            assertThat(incidents).hasSize(1);
+            List<ChequeService.Cheque> rejetes = database.inTransaction(
+                c -> ChequeService.cheques(c, compte, "REJECTED"));
+            assertThat(rejetes).hasSize(1);
+            assertThat(rejetes.get(0).number()).isEqualTo(incidents.get(0).number());
+        } finally {
+            executor.shutdown();
+        }
+    }
+
+    /** Deux actes lances ensemble ; chacun rend son resultat ou son exception. */
+    private static List<Object> enMemeTemps(java.util.concurrent.ExecutorService executor,
+                                            java.util.concurrent.Callable<?> premier,
+                                            java.util.concurrent.Callable<?> second)
+            throws Exception {
+        var depart = new java.util.concurrent.CountDownLatch(1);
+        java.util.function.Function<java.util.concurrent.Callable<?>, java.util.concurrent.Callable<Object>>
+            tentative = acte -> () -> {
+                depart.await();
+                try {
+                    return acte.call();
+                } catch (RuntimeException e) {
+                    return e;
+                }
+            };
+        var a = executor.submit(tentative.apply(premier));
+        var b = executor.submit(tentative.apply(second));
+        depart.countDown();
+        return List.of(a.get(), b.get());
     }
 
     /** L'agence comptable de chaque compte dans une ecriture. */

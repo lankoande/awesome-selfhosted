@@ -156,6 +156,9 @@ public final class ChequeService {
                 c, issue.legalEntityId(), issue.accountId(), Money.of(1, currencyOf(c, issue.accountId())), on);
             ProductVersion product = ProductCatalog.resolveForAccount(
                 c, issue.legalEntityId(), account.id(), on);
+            // La numerotation se fait sous le verrou du compte : deux chequiers delivres en meme
+            // temps se suivent, au lieu de se disputer les memes numeros devant l'exclusion.
+            lockAccount(c, account.id());
             long first = nextNumber(c, account.id());
             long last = first + issue.count() - 1;
             UUID id = Ids.newId();
@@ -189,6 +192,10 @@ public final class ChequeService {
                 ps.setObject(10, issue.approvedBy());
                 ps.executeUpdate();
             } catch (SQLException e) {
+                if ("23P01".equals(e.getSQLState())) {
+                    throw new IllegalStateException("Les numeros " + first + " a " + last
+                        + " sont deja ceux d'un chequier du compte " + account.code(), e);
+                }
                 throw new LedgerStoreException("Delivrance du chequier", e);
             }
             try (PreparedStatement ps = c.prepareStatement(
@@ -206,6 +213,19 @@ public final class ChequeService {
             }
             return book(c, id).orElseThrow();
         });
+    }
+
+    private static void lockAccount(Connection c, UUID accountId) {
+        try (PreparedStatement ps = c.prepareStatement("SELECT id FROM account WHERE id = ? FOR UPDATE")) {
+            ps.setObject(1, accountId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new IllegalArgumentException("Compte inconnu : " + accountId);
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Verrou du compte " + accountId, e);
+        }
     }
 
     /** Le numero qui suit le dernier chequier du compte ; un premier chequier commence a 1. */
