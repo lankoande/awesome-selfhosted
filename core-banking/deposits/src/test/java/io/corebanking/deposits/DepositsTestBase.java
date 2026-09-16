@@ -54,6 +54,7 @@ abstract class DepositsTestBase {
     protected static OperationsService operations;
     protected static AccountLifecycle lifecycle;
     protected static PartyService parties;
+    protected static PaymentService payments;
 
     protected static final UUID ACTOR = UUID.fromString("00000000-0000-0000-0000-0000000000ac");
     protected static final UUID APPROVER = UUID.fromString("00000000-0000-0000-0000-0000000000af");
@@ -77,6 +78,7 @@ abstract class DepositsTestBase {
         operations = new OperationsService(database, postingService);
         lifecycle = new AccountLifecycle(database, postingService);
         parties = new PartyService(database, Screening.NONE);
+        payments = new PaymentService(database, postingService);
     }
 
     @AfterAll
@@ -110,7 +112,8 @@ abstract class DepositsTestBase {
                     regle(c, entityId, type, null, Direction.CREDIT, 0, OffsetUnit.CALENDAR_DAYS);
                 }
                 for (String type : List.of(OperationSchemas.CASH_WITHDRAWAL,
-                                           OperationSchemas.TRANSFER)) {
+                                           OperationSchemas.TRANSFER,
+                                           OperationSchemas.PAYMENT_ORDER)) {
                     regle(c, entityId, type, null, Direction.DEBIT, 0, OffsetUnit.CALENDAR_DAYS);
                 }
                 // Au guichet, un versement d'especes prend valeur le jour ouvre suivant.

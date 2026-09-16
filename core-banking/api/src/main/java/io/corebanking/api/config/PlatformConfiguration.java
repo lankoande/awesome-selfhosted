@@ -142,6 +142,12 @@ public class PlatformConfiguration {
     }
 
     @Bean
+    io.corebanking.deposits.PaymentService paymentService(Database database,
+                                                          PostingService postingService) {
+        return new io.corebanking.deposits.PaymentService(database, postingService);
+    }
+
+    @Bean
     io.corebanking.deposits.TillService tillService(Database database,
                                                     PostingService postingService) {
         return new io.corebanking.deposits.TillService(database, postingService);

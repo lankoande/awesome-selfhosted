@@ -138,6 +138,28 @@ public final class SecurityConfig {
                              BRANCH_MANAGER,   Money.of("100000000", XOF)))
                 .build());
 
+        // Un paiement sortant fait sortir de l'argent de la banque : memes porteurs et memes
+        // plafonds qu'un virement, hors guichet. Son suivi est un acte de back-office ; sa
+        // lecture est tracee comme toute consultation.
+        policy.put(Operation.PAYMENT_ORDER,
+            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_ENTITY)
+                .upTo(Map.of(CUSTOMER_OFFICER, Money.of("50000000", XOF),
+                             BRANCH_MANAGER,   Money.of("100000000", XOF)))
+                .build());
+
+        policy.put(Operation.PAYMENT_PROCESS,
+            AccessRule.allow(OPERATOR, ACCOUNTANT).within(Scope.OWN_ENTITY).build());
+
+        policy.put(Operation.PAYMENT_READ,
+            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER, OPERATOR, ACCOUNTANT, AUDITOR)
+                .within(Scope.OWN_ENTITY).tracedOnRead().build());
+
+        // Un plafond negocie se pose a deux, dans l'agence du compte.
+        policy.put(Operation.ACCOUNT_LIMIT_MANAGE,
+            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_BRANCH).requiringSecondPerson().build());
+
         // Une correction se valide par un tiers : c'est le geste par lequel une fraude se dissimule.
         policy.put(Operation.ENTRY_REVERSAL,
             AccessRule.allow(BRANCH_MANAGER, ACCOUNTANT)

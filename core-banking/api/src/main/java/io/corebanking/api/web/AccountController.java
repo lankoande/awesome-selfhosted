@@ -25,6 +25,7 @@ public class AccountController {
     private final AccountUseCases.ReadBalance readBalance;
     private final AccountUseCases.ReadJournal readJournal;
     private final AccountUseCases.ReadLedger readLedger;
+    private final io.corebanking.api.usecase.PaymentUseCases.ReadLimits readLimits;
 
     public AccountController(UseCaseExecutor executor, Database database,
                              AccountDirectory accounts, MakerChecker makerChecker) {
@@ -33,6 +34,7 @@ public class AccountController {
         this.readBalance = new AccountUseCases.ReadBalance(database, accounts);
         this.readJournal = new AccountUseCases.ReadJournal(database, accounts);
         this.readLedger = new AccountUseCases.ReadLedger(database, accounts);
+        this.readLimits = new io.corebanking.api.usecase.PaymentUseCases.ReadLimits(database, accounts);
     }
 
     /**
@@ -87,6 +89,28 @@ public class AccountController {
                    io.corebanking.api.usecase.Paging.CursorRequest cursor) {
         return executor.run(caller, readLedger,
                             new AccountUseCases.LedgerQuery(accountId, from, to, cursor));
+    }
+
+    /** Un plafond propre au compte, a deux : demande par l'un, valide par un autre de l'agence. */
+    @PostMapping("/{accountId}/limits")
+    @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.ACCEPTED)
+    public MakerChecker.View limit(Caller caller, @PathVariable UUID legalEntityId,
+                                   @PathVariable UUID accountId,
+                                   @RequestBody Requests.AccountLimitRequest body) {
+        if (body.validFrom() == null) {
+            throw new IllegalArgumentException("Champ obligatoire absent : validFrom");
+        }
+        return makerChecker.submit(caller, legalEntityId, "ACCOUNT_LIMIT_SET", Payloads.of(
+            "accountId", accountId, "kind", nz(body.kind()), "amount", nz(body.amount()),
+            "currency", nz(body.currency()), "validFrom", body.validFrom(),
+            "validTo", body.validTo()));
+    }
+
+    @GetMapping("/{accountId}/limits")
+    public java.util.List<io.corebanking.deposits.Limits.AccountLimit> limits(
+            Caller caller, @PathVariable UUID legalEntityId, @PathVariable UUID accountId) {
+        return executor.run(caller, readLimits,
+                            new io.corebanking.api.usecase.PaymentUseCases.LimitsQuery(accountId));
     }
 
     @PostMapping("/{accountId}/closure")

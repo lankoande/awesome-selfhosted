@@ -16,9 +16,13 @@ public final class OperationSchemas {
     public static final String CASH_DEPOSIT = "CASH_DEPOSIT";
     public static final String CASH_WITHDRAWAL = "CASH_WITHDRAWAL";
     public static final String TRANSFER = "TRANSFER";
+    public static final String PAYMENT_ORDER = "PAYMENT_ORDER";
+    public static final String PAYMENT_SETTLEMENT = "PAYMENT_SETTLEMENT";
+    public static final String PAYMENT_RETURN = "PAYMENT_RETURN";
 
     public static final String ROLE_CASH = "cash";
     public static final String ROLE_DESTINATION = "destination";
+    public static final String ROLE_CLEARING = "clearing";
     public static final String ROLE_FEE_INCOME = "fee_income";
     public static final String ROLE_TAX = "tax";
 
@@ -44,6 +48,25 @@ public final class OperationSchemas {
             .line(TemplateLine.debit("CONTRACT", "total", "Retrait especes"))
             .line(TemplateLine.credit("PARAM:" + ROLE_CASH, "amt", "Retrait especes"))
             .line(TemplateLine.credit("PARAM:" + ROLE_FEE_INCOME, "f", "Frais de retrait")
+                      .onlyIf("f > 0"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_TAX, "t", "Taxe sur frais").onlyIf("t > 0"))
+            .build();
+    }
+
+    /**
+     * Paiement sortant : le donneur d'ordre paie le montant, le frais et la taxe ; le montant va
+     * au compte de reglement sortant, ou il attend le correspondant.
+     */
+    public static EventTemplate paymentOrder(CurrencyRef currency) {
+        int scale = currency.scale();
+        return EventTemplate.of(PAYMENT_ORDER)
+            .derive("amt", "round(amount, " + scale + ")")
+            .derive("f", "round(fee, " + scale + ")")
+            .derive("t", "round(tax, " + scale + ")")
+            .derive("total", "amt + f + t")
+            .line(TemplateLine.debit("CONTRACT", "total", "Paiement emis"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_CLEARING, "amt", "Paiement a regler"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_FEE_INCOME, "f", "Frais de paiement")
                       .onlyIf("f > 0"))
             .line(TemplateLine.credit("PARAM:" + ROLE_TAX, "t", "Taxe sur frais").onlyIf("t > 0"))
             .build();

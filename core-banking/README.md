@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 579 tests verts** — 305 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 274 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 584 tests verts** — 305 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 279 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -709,14 +709,28 @@ hors bilan s'équilibre par lui-même, le ledger a gagné un invariant : une éc
 le bilan et le hors bilan, et un engagement s'équilibre dans son agence sans ligne de liaison
 (`an_entry_keeps_to_one_world`).
 
+### 23. Des plafonds lus dans le journal, et des paiements qui attendent le correspondant
+
+**Un plafond ne se compte pas, il se lit.** Par opération, par jour, par mois, du produit ou du
+compte — posé à deux, et qui l'emporte —, l'usage est la somme des débits du client dans le
+journal, frais compris, hors écritures contre-passées : un retrait annulé ne consomme plus rien,
+sans compteur à corriger (`product_and_account_limits`).
+
+**Un paiement sortant débite à l'ordre, sur un compte qui dit ce qu'il attend.** Le client est
+débité tout de suite, le montant va au compte de règlement sortant du produit ; les fonds ne sont
+pas encore chez le correspondant et le bilan le montre. Envoyé, réglé sur le nostro, ou retourné
+— les frais restent acquis, le service a été rendu —, l'ordre s'annule avant envoi par
+contre-passation et jamais autrement (`order_send_settle`, `cancel_and_refusals`). Un ordre
+rejoué avec sa clé rend le même ordre, et rien n'est débité deux fois.
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
 - API : le contrat OpenAPI est généré et publié ; reste sa vérification de compatibilité
   d'une version à l'autre (le test tient l'égalité au code, pas la non-régression du contrat) ;
-- chèques (remise, compensation, opposition), paiements sortants, plafonds par produit et par
-  client ;
+- chèques (remise, compensation, opposition) et prélèvements — les paiements sortants et les
+  plafonds par produit et par compte, eux, sont faits ;
 - multi-agences : schémas de liaison bilatéral et via la région (le schéma via le siège est
   fait, les caisses par guichetier et l'arrêté de caisse aussi) ;
 - référentiel client : documents et leurs échéances, bénéficiaires effectifs, relations entre
@@ -724,8 +738,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 - crédit : origination (demande, scoring, décision, conditions suspensives) — le déblocage par
   tranches, lui, est fait ; la commission d'engagement sur la fraction non tirée se paramètre comme
   une commission ordinaire et n'a pas encore de barème dédié ;
-- plafonds et limites paramétrés ; circuits de validation à trois yeux par montant et réservation
-  du disponible par une opération en attente (le maker-checker à deux, lui, est fait) ;
+- circuits de validation à trois yeux par montant et réservation du disponible par une
+  opération en attente (le maker-checker à deux et les plafonds, eux, sont faits) ;
 - régime de frais de dormance et compte d'abandon (la détection et le réveil sont faits),
   commissions de découvert (mise en place, dépassement), base minimum ou moyenne pour l'épargne
   classique — la capitalisation et les agios, eux, sont faits ;
@@ -824,6 +838,10 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Le résultat au bilan est calculé par le socle, jamais par une règle | Une règle sur les comptes de résultat le compterait une seconde fois après la clôture, quand il est déjà au compte de résultat de l'exercice |
 | Un état anomal reste produit, avec ses anomalies nommées | Forcer un total masquerait le compte oublié ; refuser l'état priverait le comptable de ce qui lui permet de le corriger |
 | Une écriture ne mélange pas le bilan et le hors bilan | Un engagement contre un compte de bilan fausserait les deux états à la fois, et aucun ne s'équilibrerait |
+| L'usage d'un plafond se lit dans le journal, jamais dans un compteur | Un compteur se désynchronise à la première annulation ; le journal est exact par construction, et l'exclusion des contre-passations est une clause |
+| Le plafond du compte remplace celui du produit, dans les deux sens | Un plafond négocié est une décision sur ce client ; prendre le plus strict des deux la rendrait inopérante |
+| Un paiement sortant débite le client à l'ordre | Réserver sans débiter laisserait le client disposer de fonds déjà engagés ; le compte de règlement montre ce que la banque doit encore livrer |
+| Les frais d'un paiement retourné restent acquis | Le service a été rendu ; seule l'annulation avant envoi, où rien n'est parti, rend tout par contre-passation |
 | Le contrat OpenAPI est généré depuis les contrôleurs, versé et comparé par un test | Un contrat écrit à la main ment dès la deuxième route ; généré à la volée, il ne se relit pas en revue. Versé et tenu égal au code, il se voit changer |
 | Un paramètre que le contrat ne sait pas décrire fait échouer la génération | Une route exposée sans être décrite est un contrat faux ; l'erreur nomme le paramètre au lieu de l'omettre |
 | Sans entité posée, le rôle applicatif ne voit rien | Le défaut est l'absence d'accès : une requête écrite sans filtre renvoie zéro ligne, pas toutes les entités |

@@ -145,6 +145,10 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `POST /statement-layouts`, `.../{id}/activation`, `GET .../{id}` | `STATEMENT_LAYOUT_DRAFT`, `STATEMENT_LAYOUT_ACTIVATE` | nature d'état, code, validité, rubriques (rang, code, libellé, niveau, nature, sens, `plus`, `minus`), règles (rang, rubrique, nature de compte, préfixe, sens du solde) ; vérifiée avant d'entrer en base (`422`), activation **202**, jamais par le rédacteur ; lecture par `LEDGER_READ` |
 | `POST /accounts/{id}/deposits`, `/withdrawals` | `CASH_OPERATION` | montant, canal ; `Idempotency-Key` — la caisse est celle de l'appelant, résolue depuis son jeton (`409` s'il n'en a pas, ou si elle est arrêtée) |
 | `POST /transfers` | `TRANSFER` | émetteur, bénéficiaire, montant ; `Idempotency-Key` |
+| `POST /accounts/{id}/payment-orders` | `PAYMENT_ORDER` | montant, bénéficiaire (nom, banque, compte), référence ; `Idempotency-Key` — le client est débité à l'ordre, plafonds du produit et du compte appliqués (`409`) |
+| `POST /payment-orders/{id}/send`, `.../settlement`, `.../return`, `.../cancellation` | `PAYMENT_PROCESS` | envoi ; règlement (compte nostro) ; retour (motif) ; annulation avant envoi (motif) — un état qui ne s'y prête pas est un `409` |
+| `GET /payment-orders/{id}`, `GET /payment-orders?status=&page=&size=` | `PAYMENT_READ` | — ; lecture tracée |
+| `POST /accounts/{id}/limits`, `GET /accounts/{id}/limits` | `ACCOUNT_LIMIT_MANAGE` | nature (`TRANSACTION`, `DAILY`, `MONTHLY`), montant, validité — **202**, à deux dans l'agence du compte ; le plafond du compte l'emporte sur celui du produit |
 | `POST /accounts/{id}/blocks`, `.../{blockId}/lift` | `ACCOUNT_BLOCK` | nature, motif — **202** |
 | `POST /accounts/{id}/holds`, `.../{holdId}/release` | `ACCOUNT_HOLD` | montant, nature, échéance — **202** |
 | `POST /accounts/{id}/closure` | `ACCOUNT_CLOSE` | compte de reversement — **202** |

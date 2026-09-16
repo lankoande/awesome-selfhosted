@@ -113,6 +113,20 @@ public final class Requests {
 
     public record TillClosing(String counted, String currency) {}
 
+    // ------------------------------------------------------------------ paiements et plafonds
+
+    public record PaymentOrderRequest(String amount, String currency, String beneficiaryName,
+                                      String beneficiaryBank, String beneficiaryAccount,
+                                      String reference, String channel) {}
+
+    public record Settlement(UUID nostroAccountId) {}
+
+    public record Reason(String reason) {}
+
+    /** Un plafond de compte : nature (TRANSACTION, DAILY, MONTHLY), montant, validite. */
+    public record AccountLimitRequest(String kind, String amount, String currency,
+                                      LocalDate validFrom, LocalDate validTo) {}
+
     // ------------------------------------------------------------------ arretes et exercices
 
     public record OpenFiscalYear(LocalDate start, LocalDate end, UUID resultAccountId) {}

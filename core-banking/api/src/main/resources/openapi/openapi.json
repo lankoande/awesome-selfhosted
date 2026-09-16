@@ -1,9 +1,9 @@
 {
   "openapi" : "3.1.0",
   "info" : {
-    "description" : "Socle core banking : comptes, operations, credit, parametrage, arretes, restitutions et etats financiers. Toute reponse porte l'enveloppe data / page / error / meta ; les montants sont des chaines avec leur devise ; les actes a double validation repondent 202 puis s'approuvent par un second porteur.",
+    "version" : "1.0.0",
     "title" : "Core banking",
-    "version" : "1.0.0"
+    "description" : "Socle core banking : comptes, operations, credit, parametrage, arretes, restitutions et etats financiers. Toute reponse porte l'enveloppe data / page / error / meta ; les montants sont des chaines avec leur devise ; les actes a double validation repondent 202 puis s'approuvent par un second porteur."
   },
   "servers" : [ {
     "url" : "/"
@@ -23,8 +23,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -98,16 +98,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "schemaId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -171,8 +171,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -246,16 +246,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -319,16 +319,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -402,24 +402,24 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "blockId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -493,16 +493,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -576,16 +576,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/IdempotencyKey"
@@ -686,16 +686,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -769,24 +769,24 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "holdId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -850,32 +850,32 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "from",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "to",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "$ref" : "#/components/parameters/Page"
@@ -891,10 +891,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/Journal.StatementLine"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -946,32 +946,32 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "from",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "to",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "$ref" : "#/components/parameters/After"
@@ -987,13 +987,280 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/Journal.StatementLine"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/accounts/{accountId}/limits" : {
+      "get" : {
+        "operationId" : "Account.limits",
+        "tags" : [ "Account" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "type" : "array",
+                      "items" : {
+                        "$ref" : "#/components/schemas/Limits.AccountLimit"
+                      }
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      },
+      "post" : {
+        "operationId" : "Account.limit",
+        "tags" : [ "Account" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.AccountLimitRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/accounts/{accountId}/payment-orders" : {
+      "post" : {
+        "operationId" : "Payment.order",
+        "tags" : [ "Payment" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "$ref" : "#/components/parameters/IdempotencyKey"
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.PaymentOrderRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/PaymentService.PaymentOrder"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "201" : {
+            "description" : "Operation comptabilisee : le recu",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/PaymentService.PaymentOrder"
+                    },
+                    "page" : {
+                      "type" : "null"
                     },
                     "error" : {
                       "type" : "null"
@@ -1042,16 +1309,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/IdempotencyKey"
@@ -1152,8 +1419,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -1227,8 +1494,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -1302,8 +1569,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -1377,8 +1644,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -1452,16 +1719,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "policyId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -1525,8 +1792,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -1600,16 +1867,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "collateralId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -1683,16 +1950,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "collateralId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -1766,8 +2033,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -1841,16 +2108,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -1914,16 +2181,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -1997,16 +2264,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -2070,8 +2337,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2145,16 +2412,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -2218,16 +2485,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2301,16 +2568,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -2374,8 +2641,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2449,16 +2716,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -2522,16 +2789,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2605,16 +2872,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -2678,8 +2945,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/Page"
@@ -2695,10 +2962,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/FiscalYears.FiscalYear"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -2748,8 +3015,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2823,16 +3090,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "fiscalYearId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -2896,16 +3163,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "fiscalYearId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2979,24 +3246,24 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "from",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "to",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "$ref" : "#/components/parameters/After"
@@ -3012,10 +3279,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/Journal.StatementLine"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -3067,24 +3334,24 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "from",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "to",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "kind",
@@ -3099,8 +3366,8 @@
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/Page"
@@ -3116,10 +3383,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/LedgerUseCases.BalanceLine"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -3171,24 +3438,24 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "from",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "to",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "kind",
@@ -3203,8 +3470,8 @@
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -3216,10 +3483,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/LedgerUseCases.BalanceTotals"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "type" : "null"
@@ -3271,8 +3538,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "status",
@@ -3295,10 +3562,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/LoanContract"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -3348,8 +3615,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -3423,16 +3690,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "contractId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -3496,16 +3763,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "contractId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -3579,16 +3846,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "contractId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/IdempotencyKey"
@@ -3664,16 +3931,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "contractId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/IdempotencyKey"
@@ -3749,16 +4016,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "contractId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -3832,8 +4099,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "q",
@@ -3856,10 +4123,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/Party"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -3909,8 +4176,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -3984,16 +4251,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "partyId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -4057,16 +4324,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "partyId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -4129,10 +4396,10 @@
         }
       }
     },
-    "/v1/entities/{legalEntityId}/pending-operations" : {
+    "/v1/entities/{legalEntityId}/payment-orders" : {
       "get" : {
-        "operationId" : "PendingOperation.pending",
-        "tags" : [ "PendingOperation" ],
+        "operationId" : "Payment.list",
+        "tags" : [ "Payment" ],
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
@@ -4140,7 +4407,14 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
             "type" : "string"
           }
         }, {
@@ -4157,10 +4431,477 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
+                      "items" : {
+                        "$ref" : "#/components/schemas/PaymentService.PaymentOrder"
+                      }
+                    },
+                    "page" : {
+                      "$ref" : "#/components/schemas/Page"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/payment-orders/{orderId}" : {
+      "get" : {
+        "operationId" : "Payment.read",
+        "tags" : [ "Payment" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/PaymentService.PaymentOrder"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/payment-orders/{orderId}/cancellation" : {
+      "post" : {
+        "operationId" : "Payment.cancel",
+        "tags" : [ "Payment" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.Reason"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/PaymentService.PaymentOrder"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/payment-orders/{orderId}/return" : {
+      "post" : {
+        "operationId" : "Payment.returnOrder",
+        "tags" : [ "Payment" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.Reason"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/PaymentService.PaymentOrder"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/payment-orders/{orderId}/send" : {
+      "post" : {
+        "operationId" : "Payment.send",
+        "tags" : [ "Payment" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/PaymentService.PaymentOrder"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/payment-orders/{orderId}/settlement" : {
+      "post" : {
+        "operationId" : "Payment.settle",
+        "tags" : [ "Payment" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.Settlement"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/PaymentService.PaymentOrder"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/pending-operations" : {
+      "get" : {
+        "operationId" : "PendingOperation.pending",
+        "tags" : [ "PendingOperation" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "$ref" : "#/components/parameters/Page"
+        }, {
+          "$ref" : "#/components/parameters/PageSize"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/MakerChecker.View"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -4212,16 +4953,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "id",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -4285,16 +5026,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "id",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -4358,16 +5099,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "id",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -4375,8 +5116,8 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "additionalProperties" : { },
-                "type" : "object"
+                "type" : "object",
+                "additionalProperties" : { }
               }
             }
           }
@@ -4442,8 +5183,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -4517,16 +5258,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "versionId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -4590,8 +5331,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -4665,16 +5406,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "profileId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -4738,8 +5479,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -4813,16 +5554,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "layoutId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -4886,16 +5627,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "layoutId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -4959,16 +5700,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "asOf",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         } ],
         "responses" : {
@@ -5032,24 +5773,24 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "from",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "to",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         } ],
         "responses" : {
@@ -5113,16 +5854,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "asOf",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         } ],
         "responses" : {
@@ -5186,8 +5927,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -5261,16 +6002,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "tillId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -5344,8 +6085,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/IdempotencyKey"
@@ -5460,9 +6201,9 @@
   "components" : {
     "securitySchemes" : {
       "bearerAuth" : {
-        "bearerFormat" : "JWT",
-        "scheme" : "bearer",
         "description" : "Jeton d'acces Keycloak : l'entite, l'agence et les roles de l'appelant en sont derives, jamais d'un parametre.",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT",
         "type" : "http"
       }
     },
@@ -5490,9 +6231,9 @@
         "in" : "query",
         "required" : false,
         "schema" : {
-          "minimum" : 0,
+          "default" : 0,
           "type" : "integer",
-          "default" : 0
+          "minimum" : 0
         },
         "description" : "Numero de page, a partir de zero"
       },
@@ -5501,9 +6242,9 @@
         "in" : "query",
         "required" : false,
         "schema" : {
-          "default" : 50,
-          "maximum" : 200,
           "minimum" : 1,
+          "maximum" : 200,
+          "default" : 50,
           "type" : "integer"
         },
         "description" : "Taille de page ; au-dela du maximum, 400"
@@ -5513,8 +6254,8 @@
         "in" : "header",
         "required" : false,
         "schema" : {
-          "pattern" : "^[A-Za-z0-9._:-]{1,64}$",
-          "type" : "string"
+          "type" : "string",
+          "pattern" : "^[A-Za-z0-9._:-]{1,64}$"
         },
         "description" : "Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme"
       }
@@ -5596,8 +6337,8 @@
         "type" : "object",
         "properties" : {
           "accountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "code" : {
             "type" : "string"
@@ -5612,12 +6353,12 @@
             "$ref" : "#/components/schemas/Money"
           },
           "asOf" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "branchId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "status" : {
             "type" : "string"
@@ -5645,8 +6386,8 @@
             "type" : "string"
           },
           "scale" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "roundingMode" : {
             "type" : "string",
@@ -5697,24 +6438,24 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "fiscalYearId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "entryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "bookingDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "decidedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "reference" : {
             "type" : "string"
@@ -5723,12 +6464,12 @@
             "$ref" : "#/components/schemas/Money"
           },
           "createdBy" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "approvedBy" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "reversed" : {
             "type" : "boolean"
@@ -5739,31 +6480,31 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "start" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "end" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "resultAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "status" : {
             "type" : "string"
           },
           "closedByRunId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -5771,32 +6512,32 @@
         "type" : "object",
         "properties" : {
           "entryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "entryNumber" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "lineNumber" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "bookingDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "knowledgeTime" : {
-            "format" : "date-time",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date-time"
           },
           "valueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "accountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "accountCode" : {
             "type" : "string"
@@ -5818,12 +6559,12 @@
             "type" : "string"
           },
           "reversalOf" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "branchId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -5831,8 +6572,8 @@
         "type" : "object",
         "properties" : {
           "accountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "code" : {
             "type" : "string"
@@ -5879,8 +6620,8 @@
             "type" : "string"
           },
           "accounts" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "openingDebit" : {
             "$ref" : "#/components/schemas/Money"
@@ -5905,16 +6646,52 @@
           }
         }
       },
+      "Limits.AccountLimit" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "accountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "TRANSACTION", "DAILY", "MONTHLY" ]
+          },
+          "amount" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "validFrom" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "validTo" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "createdBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "approvedBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
       "LoanContract" : {
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "reference" : {
             "type" : "string"
@@ -5926,19 +6703,19 @@
             "$ref" : "#/components/schemas/CurrencyRef"
           },
           "loanAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "settlementAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "principal" : {
             "$ref" : "#/components/schemas/Money"
           },
           "disbursedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "status" : {
             "type" : "string",
@@ -5948,8 +6725,8 @@
             "$ref" : "#/components/schemas/LoanTerms"
           },
           "branchId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -5957,8 +6734,8 @@
         "type" : "object",
         "properties" : {
           "paymentId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "paid" : {
             "$ref" : "#/components/schemas/Money"
@@ -5970,10 +6747,10 @@
             "$ref" : "#/components/schemas/Money"
           },
           "allocations" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Allocation"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -5981,16 +6758,16 @@
         "type" : "object",
         "properties" : {
           "scheduleId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "number" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "dueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "principal" : {
             "$ref" : "#/components/schemas/Money"
@@ -6029,20 +6806,20 @@
             "enum" : [ "DAILY", "MONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL" ]
           },
           "instalmentCount" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "graceInstalments" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "disbursedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "firstDueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "method" : {
             "type" : "string",
@@ -6071,12 +6848,12 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "reference" : {
             "type" : "string"
@@ -6088,49 +6865,49 @@
             "type" : "string"
           },
           "loanAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "settlementAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "principal" : {
             "$ref" : "#/components/schemas/Money"
           },
           "disbursedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "status" : {
             "type" : "string"
           },
           "branchId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "terms" : {
             "$ref" : "#/components/schemas/LoanTerms"
           },
           "schedule" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/LoanStore.DueLine"
-            },
-            "type" : "array"
+            }
           },
           "receivables" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Receivable"
-            },
-            "type" : "array"
+            }
           },
           "daysPastDue" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "asOf" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -6138,8 +6915,8 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "operation" : {
             "type" : "string"
@@ -6157,26 +6934,26 @@
             "type" : "string"
           },
           "madeAt" : {
-            "format" : "date-time",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date-time"
           },
           "expiresAt" : {
-            "format" : "date-time",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date-time"
           },
           "decidedBy" : {
             "type" : "string"
           },
           "decidedAt" : {
-            "format" : "date-time",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date-time"
           },
           "decisionReason" : {
             "type" : "string"
           },
           "payload" : {
-            "additionalProperties" : { },
-            "type" : "object"
+            "type" : "object",
+            "additionalProperties" : { }
           },
           "result" : { },
           "error" : {
@@ -6187,11 +6964,11 @@
       "Meta" : {
         "type" : "object",
         "properties" : {
-          "requestId" : {
-            "type" : "string"
-          },
           "timestamp" : {
-            "format" : "date-time",
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "requestId" : {
             "type" : "string"
           }
         },
@@ -6201,12 +6978,12 @@
         "type" : "object",
         "properties" : {
           "amount" : {
-            "description" : "Montant en chaine, a l'echelle de la devise ; jamais un flottant",
-            "type" : "string"
+            "type" : "string",
+            "description" : "Montant en chaine, a l'echelle de la devise ; jamais un flottant"
           },
           "currency" : {
-            "description" : "Code ISO 4217",
-            "type" : "string"
+            "type" : "string",
+            "description" : "Code ISO 4217"
           }
         },
         "required" : [ "amount", "currency" ]
@@ -6215,20 +6992,20 @@
         "type" : "object",
         "properties" : {
           "entryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "entryNumber" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "bookingDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "valueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "amount" : {
             "$ref" : "#/components/schemas/Money"
@@ -6246,8 +7023,8 @@
             "type" : "boolean"
           },
           "branchId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "remote" : {
             "type" : "boolean"
@@ -6285,12 +7062,12 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "reference" : {
             "type" : "string"
@@ -6303,8 +7080,8 @@
             "type" : "string"
           },
           "birthOrRegistrationDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "countryCode" : {
             "type" : "string"
@@ -6321,12 +7098,12 @@
             "enum" : [ "PENDING", "VERIFIED", "EXPIRED", "BLOCKED" ]
           },
           "kycVerifiedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "kycReviewDue" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "riskRating" : {
             "type" : "string",
@@ -6341,35 +7118,133 @@
           }
         }
       },
-      "PeriodEndUseCases.FiscalYearView" : {
+      "PaymentService.PaymentOrder" : {
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "accountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "amount" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "fee" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "tax" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "beneficiaryName" : {
             "type" : "string"
           },
-          "start" : {
-            "format" : "date",
+          "beneficiaryBank" : {
             "type" : "string"
           },
-          "end" : {
-            "format" : "date",
+          "beneficiaryAccount" : {
             "type" : "string"
           },
-          "resultAccountId" : {
-            "format" : "uuid",
+          "reference" : {
+            "type" : "string"
+          },
+          "channel" : {
             "type" : "string"
           },
           "status" : {
             "type" : "string"
           },
-          "closedByRunId" : {
-            "format" : "uuid",
+          "orderedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "entryId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "clearingAccountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sentOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "settledOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "settlementAccountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "settlementEntryId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "returnedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "returnEntryId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "returnReason" : {
             "type" : "string"
+          },
+          "cancelledOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "cancelEntryId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "cancelReason" : {
+            "type" : "string"
+          },
+          "createdBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "PeriodEndUseCases.FiscalYearView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "legalEntityId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "start" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "end" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "resultAccountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "closedByRunId" : {
+            "type" : "string",
+            "format" : "uuid"
           },
           "netResult" : {
             "$ref" : "#/components/schemas/Money"
@@ -6378,10 +7253,10 @@
             "$ref" : "#/components/schemas/FiscalYears.AppropriationRecord"
           },
           "appropriations" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/FiscalYears.AppropriationRecord"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -6389,23 +7264,45 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "instalmentNumber" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "category" : {
             "type" : "string",
             "enum" : [ "RECOVERY_FEES", "PENALTIES", "FEES_AND_INSURANCE", "LATE_INTEREST", "INTEREST", "PRINCIPAL", "FUTURE_PRINCIPAL" ]
           },
           "dueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "outstanding" : {
             "$ref" : "#/components/schemas/Money"
+          }
+        }
+      },
+      "Requests.AccountLimitRequest" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "amount" : {
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "validFrom" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "validTo" : {
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -6422,22 +7319,22 @@
             "type" : "string"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "version" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "events" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.SchemaEvent"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -6445,8 +7342,8 @@
         "type" : "object",
         "properties" : {
           "contractId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "sharePercent" : {
             "type" : "string"
@@ -6457,8 +7354,8 @@
         "type" : "object",
         "properties" : {
           "accountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "amount" : {
             "type" : "string"
@@ -6472,21 +7369,21 @@
         "type" : "object",
         "properties" : {
           "bookingDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "decidedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "reference" : {
             "type" : "string"
           },
           "allocations" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.Allocation"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -6508,8 +7405,8 @@
         "type" : "object",
         "properties" : {
           "reversalBookingDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "reason" : {
             "type" : "string"
@@ -6537,8 +7434,8 @@
         "type" : "object",
         "properties" : {
           "payoutAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -6555,16 +7452,16 @@
             "type" : "string"
           },
           "maxValuationAgeMonths" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -6581,19 +7478,19 @@
             "type" : "string"
           },
           "parentId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "openedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "liaisonAccounts" : {
+            "type" : "object",
             "additionalProperties" : {
-              "format" : "uuid",
-              "type" : "string"
-            },
-            "type" : "object"
+              "type" : "string",
+              "format" : "uuid"
+            }
           }
         }
       },
@@ -6610,23 +7507,23 @@
             "type" : "string"
           },
           "loanAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "settlementAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "principal" : {
             "type" : "string"
           },
           "disbursedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "customerPartyId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -6643,8 +7540,8 @@
             "type" : "string"
           },
           "birthOrRegistrationDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "countryCode" : {
             "type" : "string"
@@ -6653,10 +7550,10 @@
             "type" : "string"
           },
           "identifiers" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.Identifier"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -6667,15 +7564,15 @@
             "type" : "string"
           },
           "cashAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "tellerSubjectId" : {
             "type" : "string"
           },
           "differenceAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -6683,8 +7580,8 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -6698,16 +7595,16 @@
             "type" : "string"
           },
           "instalments" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "graceInstalments" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "firstDueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "method" : {
             "type" : "string"
@@ -6736,8 +7633,8 @@
         "type" : "object",
         "properties" : {
           "date" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "label" : {
             "type" : "string"
@@ -6754,12 +7651,12 @@
             "type" : "string"
           },
           "issuedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "expiresOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "issuer" : {
             "type" : "string"
@@ -6798,8 +7695,8 @@
             "type" : "string"
           },
           "valueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -6810,8 +7707,8 @@
             "type" : "string"
           },
           "holderPartyId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "productCode" : {
             "type" : "string"
@@ -6825,15 +7722,41 @@
         "type" : "object",
         "properties" : {
           "start" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "end" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "resultAccountId" : {
-            "format" : "uuid",
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "Requests.PaymentOrderRequest" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "beneficiaryName" : {
+            "type" : "string"
+          },
+          "beneficiaryBank" : {
+            "type" : "string"
+          },
+          "beneficiaryAccount" : {
+            "type" : "string"
+          },
+          "reference" : {
+            "type" : "string"
+          },
+          "channel" : {
             "type" : "string"
           }
         }
@@ -6854,8 +7777,8 @@
             "type" : "string"
           },
           "expiresOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -6875,24 +7798,24 @@
             "type" : "string"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "parameters" : {
+            "type" : "object",
             "additionalProperties" : {
               "type" : "string"
-            },
-            "type" : "object"
+            }
           },
           "tiers" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.RateTier"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -6910,12 +7833,20 @@
           }
         }
       },
+      "Requests.Reason" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
       "Requests.RegisterCollateral" : {
         "type" : "object",
         "properties" : {
           "customerPartyId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "assetReference" : {
             "type" : "string"
@@ -6936,12 +7867,12 @@
             "type" : "string"
           },
           "rank" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "valuedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -6949,8 +7880,8 @@
         "type" : "object",
         "properties" : {
           "on" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -6958,16 +7889,16 @@
         "type" : "object",
         "properties" : {
           "instalments" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "firstDueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "effectiveFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "reason" : {
             "type" : "string"
@@ -6978,8 +7909,8 @@
         "type" : "object",
         "properties" : {
           "ordinal" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "code" : {
             "type" : "string"
@@ -6988,12 +7919,12 @@
             "type" : "string"
           },
           "fromDays" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "toDays" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "provisionRatePercent" : {
             "type" : "string"
@@ -7010,10 +7941,10 @@
             "type" : "string"
           },
           "buckets" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.RiskBucketRequest"
-            },
-            "type" : "array"
+            }
           },
           "contagion" : {
             "type" : "string"
@@ -7022,8 +7953,8 @@
             "type" : "string"
           },
           "cureDays" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -7034,12 +7965,12 @@
             "type" : "string"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "grid" : {
             "$ref" : "#/components/schemas/Requests.RiskGridRequest"
@@ -7050,8 +7981,8 @@
         "type" : "object",
         "properties" : {
           "businessDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "mode" : {
             "type" : "string"
@@ -7065,16 +7996,16 @@
             "type" : "string"
           },
           "derivations" : {
+            "type" : "object",
             "additionalProperties" : {
               "type" : "string"
-            },
-            "type" : "object"
+            }
           },
           "lines" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.SchemaLine"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -7098,6 +8029,15 @@
           }
         }
       },
+      "Requests.Settlement" : {
+        "type" : "object",
+        "properties" : {
+          "nostroAccountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
       "Requests.StatementLayoutDraft" : {
         "type" : "object",
         "properties" : {
@@ -7111,24 +8051,24 @@
             "type" : "string"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "lines" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.StatementLineRequest"
-            },
-            "type" : "array"
+            }
           },
           "rules" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.StatementRuleRequest"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -7136,8 +8076,8 @@
         "type" : "object",
         "properties" : {
           "ordinal" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "code" : {
             "type" : "string"
@@ -7146,8 +8086,8 @@
             "type" : "string"
           },
           "level" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "kind" : {
             "type" : "string"
@@ -7156,16 +8096,16 @@
             "type" : "string"
           },
           "plus" : {
+            "type" : "array",
             "items" : {
               "type" : "string"
-            },
-            "type" : "array"
+            }
           },
           "minus" : {
+            "type" : "array",
             "items" : {
               "type" : "string"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -7173,8 +8113,8 @@
         "type" : "object",
         "properties" : {
           "ordinal" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "lineCode" : {
             "type" : "string"
@@ -7205,12 +8145,12 @@
         "type" : "object",
         "properties" : {
           "sourceAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "destinationAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "amount" : {
             "type" : "string"
@@ -7239,8 +8179,8 @@
             "type" : "string"
           },
           "offset" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "unit" : {
             "type" : "string"
@@ -7249,12 +8189,12 @@
             "type" : "string"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -7265,8 +8205,8 @@
             "type" : "string"
           },
           "verifiedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -7274,12 +8214,12 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "kind" : {
             "type" : "string",
@@ -7292,35 +8232,35 @@
             "type" : "string"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "status" : {
             "type" : "string"
           },
           "createdBy" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "approvedBy" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "lines" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/StatementLayouts.Line"
-            },
-            "type" : "array"
+            }
           },
           "rules" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/StatementLayouts.Rule"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -7328,8 +8268,8 @@
         "type" : "object",
         "properties" : {
           "ordinal" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "code" : {
             "type" : "string"
@@ -7338,8 +8278,8 @@
             "type" : "string"
           },
           "level" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "kind" : {
             "type" : "string",
@@ -7350,16 +8290,16 @@
             "enum" : [ "DEBIT", "CREDIT" ]
           },
           "plus" : {
+            "type" : "array",
             "items" : {
               "type" : "string"
-            },
-            "type" : "array"
+            }
           },
           "minus" : {
+            "type" : "array",
             "items" : {
               "type" : "string"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -7367,8 +8307,8 @@
         "type" : "object",
         "properties" : {
           "ordinal" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "lineCode" : {
             "type" : "string"
@@ -7390,8 +8330,8 @@
         "type" : "object",
         "properties" : {
           "ordinal" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "code" : {
             "type" : "string"
@@ -7400,8 +8340,8 @@
             "type" : "string"
           },
           "level" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "kind" : {
             "type" : "string",
@@ -7424,8 +8364,8 @@
             "enum" : [ "BALANCE_SHEET", "INCOME_STATEMENT", "OFF_BALANCE_SHEET" ]
           },
           "layoutId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "layoutCode" : {
             "type" : "string"
@@ -7434,25 +8374,25 @@
             "type" : "string"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "currency" : {
             "type" : "string"
           },
           "from" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "to" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "lines" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Statements.LineAmount"
-            },
-            "type" : "array"
+            }
           },
           "totalDebit" : {
             "$ref" : "#/components/schemas/Money"
@@ -7467,10 +8407,10 @@
             "type" : "boolean"
           },
           "anomalies" : {
+            "type" : "array",
             "items" : {
               "type" : "string"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -7478,16 +8418,16 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "businessDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "mode" : {
             "type" : "string",
@@ -7498,18 +8438,18 @@
             "enum" : [ "RUNNING", "COMPLETED", "FAILED", "CANCELLED" ]
           },
           "steps" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/TfjRun.StepExecution"
-            },
-            "type" : "array"
+            }
           },
           "startedAt" : {
-            "format" : "date-time",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date-time"
           },
           "finishedAt" : {
-            "format" : "date-time",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
@@ -7517,8 +8457,8 @@
         "type" : "object",
         "properties" : {
           "order" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "name" : {
             "type" : "string"
@@ -7531,18 +8471,18 @@
             "enum" : [ "PENDING", "RUNNING", "COMPLETED", "FAILED" ]
           },
           "read" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "written" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "anomalies" : {
+            "type" : "array",
             "items" : {
               "type" : "string"
-            },
-            "type" : "array"
+            }
           },
           "error" : {
             "type" : "string"
@@ -7553,19 +8493,19 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "tillId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "tillCode" : {
             "type" : "string"
           },
           "businessDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "counted" : {
             "$ref" : "#/components/schemas/Money"
@@ -7577,8 +8517,8 @@
             "$ref" : "#/components/schemas/Money"
           },
           "entryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       }

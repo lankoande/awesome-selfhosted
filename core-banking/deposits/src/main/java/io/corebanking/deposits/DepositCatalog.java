@@ -21,6 +21,11 @@ public final class DepositCatalog {
     public static final String P_TAX_RATE          = "ops.tax_rate";
     public static final String P_TAX_ACCOUNT       = "ops.tax_account";
     public static final String P_DORMANCY_MONTHS   = "dormancy.months";
+    public static final String P_TRANSACTION_MAX   = "ops.transaction_max";
+    public static final String P_DAILY_DEBIT_MAX   = "ops.daily_debit_max";
+    public static final String P_MONTHLY_DEBIT_MAX = "ops.monthly_debit_max";
+    public static final String P_PAYMENT_FEE       = "ops.payment_fee";
+    public static final String P_PAYMENT_CLEARING  = "ops.payment_clearing_account";
 
     private DepositCatalog() {}
 
@@ -33,6 +38,26 @@ public final class DepositCatalog {
     }
 
     /** Compte de produit des frais d'operation, exige des qu'un frais est parametre. */
+    public static Money paymentFee(ProductVersion product, CurrencyRef currency) {
+        return flat(product.parameters(), P_PAYMENT_FEE, currency);
+    }
+
+    /** Compte de reglement sortant du produit ; vide, le produit n'admet pas de paiement sortant. */
+    public static Optional<UUID> paymentClearing(ProductVersion product) {
+        var parameters = product.parameters();
+        return parameters.has(P_PAYMENT_CLEARING)
+            ? Optional.of(parameters.requireUuid(P_PAYMENT_CLEARING)) : Optional.empty();
+    }
+
+    /** Un plafond du produit, dans la devise ; vide quand le produit n'en fixe pas. */
+    public static Optional<Money> limit(ProductVersion product, String parameter,
+                                        CurrencyRef currency) {
+        var parameters = product.parameters();
+        return parameters.has(parameter)
+            ? Optional.of(Money.of(parameters.requireDecimal(parameter), currency))
+            : Optional.empty();
+    }
+
     public static UUID feeIncome(ProductVersion product) {
         return product.parameters().requireUuid(P_FEE_INCOME);
     }

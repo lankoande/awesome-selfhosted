@@ -469,6 +469,20 @@ Chaque transition est horodatée, tracée, et produit son propre jeu d'écriture
 par un **compte de suspens** entre l'exécution et la compensation est obligatoire : les
 fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 
+> **Implémenté — paiements sortants** (`PaymentService`, V40, module `deposits`) : l'ordre
+> débite le client à l'ordre — montant, frais et taxe du produit — sur le **compte de règlement
+> sortant** du produit (`ops.payment_clearing_account`), où les fonds attendent le correspondant
+> ; puis `ORDERED → SENT → SETTLED` (règlement sur un nostro de l'entité, en devise) ou
+> `RETURNED` (les fonds reviennent au client, les frais restent acquis, depuis le compte de
+> règlement ou le nostro selon l'état), et `CANCELLED` avant envoi par contre-passation de
+> l'écriture d'ordre. Chaque état porte sa date et son écriture ; la clé d'idempotence de l'ordre
+> est celle de l'appelant. Les **plafonds** du produit (`ops.transaction_max`,
+> `ops.daily_debit_max`, `ops.monthly_debit_max`) et du compte (`account_limit`, à deux, par
+> nature et validité, qui l'emporte) s'appliquent à tout débit du client — retrait, virement,
+> paiement — frais compris, l'usage étant lu dans le journal hors écritures contre-passées
+> (`Limits`). Restent : chèques, prélèvements, cut-off par canal, suspens non soldés remontés à
+> l'arrêté.
+
 ### Points de conception
 
 - **Idempotence de bout en bout** : la référence de bout en bout (`end-to-end id`) est la

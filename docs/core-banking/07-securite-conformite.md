@@ -209,6 +209,8 @@ un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servi
 > `LOAN_PREPAY`, `LOAN_REPAYMENT`, `COLLATERAL_MANAGE`, `LOAN_READ`), paramétrage
 > (`RISK_PARAMETER_*`, `ACCOUNTING_SCHEMA_*`, `CALENDAR_MANAGE`, `BRANCH_MANAGE`, `TILL_MANAGE`, `TILL_CLOSE`, `FEE_EXEMPTION_GRANT`,
 > `ACCOUNT_PRODUCT_ASSIGN`), comptabilité (`JOURNAL_ENTRY_MANUAL`, `PERIOD_CLOSE`,
+> paiements (`PAYMENT_ORDER` plafonné par rôle comme un virement, `PAYMENT_PROCESS` pour le
+> back-office, `PAYMENT_READ` tracé, `ACCOUNT_LIMIT_MANAGE` à deux dans l'agence) ;
 > `RESULT_APPROPRIATION` — l'affectation du résultat, à deux ; `STATEMENT_LAYOUT_DRAFT` et
 > `STATEMENT_LAYOUT_ACTIVATE` — les maquettes d'états financiers, activées à deux) et
 > restitutions (`LEDGER_READ` : balance, grand livre, journal de l'entité, états financiers —

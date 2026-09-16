@@ -82,7 +82,7 @@ public final class DualControlHandlers {
                        new AllocateCollateral(database), new ReleaseCollateral(database),
                        new ActivateCollateralPolicy(database), new ActivateRiskProfile(database),
                        new ActivateAccountingSchema(database),
-                       new ActivateStatementLayout(database));
+                       new ActivateStatementLayout(database), new SetAccountLimit(database, accounts));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -1221,6 +1221,50 @@ public final class DualControlHandlers {
                 return null;
             });
             return Map.of("schemaId", schema.id(), "code", schema.code(), "status", "ACTIVE");
+        }
+    }
+
+    /** Un plafond propre au compte : demande par l'un, valide par un autre, dans l'agence du compte. */
+    static final class SetAccountLimit implements MakerChecker.Handler {
+        private final Database database;
+        private final AccountDirectory accounts;
+
+        SetAccountLimit(Database database, AccountDirectory accounts) {
+            this.database = database;
+            this.accounts = accounts;
+        }
+
+        @Override public String name() { return "ACCOUNT_LIMIT_SET"; }
+        @Override public Operation operation() { return Operation.ACCOUNT_LIMIT_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            var account = accounts.require(uuid(payload, "accountId"));
+            return AccessTarget.inBranch(account.legalEntityId(), account.branchId());
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            var account = accounts.require(uuid(payload, "accountId"));
+            io.corebanking.deposits.Limits.Kind kind;
+            try {
+                kind = io.corebanking.deposits.Limits.Kind.valueOf(
+                    required(payload, "kind").trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Nature de plafond inconnue : " + text(payload, "kind"));
+            }
+            LocalDate validFrom = date(payload, "validFrom");
+            if (validFrom == null) {
+                throw new IllegalArgumentException("Champ obligatoire absent : validFrom");
+            }
+            var amount = io.corebanking.api.usecase.Amounts.in(
+                required(payload, "amount"), text(payload, "currency"), account.currency(),
+                "le plafond");
+            UUID id = database.inTransaction(c -> io.corebanking.deposits.Limits.set(
+                c, new io.corebanking.deposits.Limits.Draft(
+                    account.legalEntityId(), account.id(), kind, amount, validFrom,
+                    date(payload, "validTo"), Callers.actorId(maker), Callers.actorId(checker))));
+            return new Requests.Created(id);
         }
     }
 

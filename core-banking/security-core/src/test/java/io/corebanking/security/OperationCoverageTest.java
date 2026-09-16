@@ -42,6 +42,9 @@ class OperationCoverageTest {
         Map.entry("Calendars.createCalendar / addHoliday / attachToEntity / addRule",
                   Operation.CALENDAR_MANAGE),
         Map.entry("Branches.create", Operation.BRANCH_MANAGE),
+        Map.entry("PaymentService.order", Operation.PAYMENT_ORDER),
+        Map.entry("PaymentService.settle", Operation.PAYMENT_PROCESS),
+        Map.entry("Limits.set", Operation.ACCOUNT_LIMIT_MANAGE),
         Map.entry("Tills.create", Operation.TILL_MANAGE),
         Map.entry("TillService.close", Operation.TILL_CLOSE),
         Map.entry("FeeLedger.grantExemption", Operation.FEE_EXEMPTION_GRANT),
@@ -69,7 +72,7 @@ class OperationCoverageTest {
     /** Operations sans point d'entree de service : consultations, ou pas encore construites. */
     private static final Set<Operation> WITHOUT_SERVICE = EnumSet.of(
         Operation.ACCOUNT_BALANCE_READ, Operation.ACCOUNT_JOURNAL_READ, Operation.LEDGER_READ,
-        Operation.PARTY_READ, Operation.LOAN_READ, Operation.AUDIT_READ);
+        Operation.PARTY_READ, Operation.LOAN_READ, Operation.PAYMENT_READ, Operation.AUDIT_READ);
 
     @Test
     @DisplayName("toute operation est reclamee par un point d'entree, ou est une consultation")
@@ -98,7 +101,8 @@ class OperationCoverageTest {
                                               Operation.FISCAL_YEAR_MANAGE, Operation.YEAR_CLOSE,
                                               Operation.YEAR_REOPEN,
                                               Operation.RESULT_APPROPRIATION,
-                                              Operation.STATEMENT_LAYOUT_ACTIVATE)) {
+                                              Operation.STATEMENT_LAYOUT_ACTIVATE,
+                                              Operation.ACCOUNT_LIMIT_MANAGE)) {
             assertThat(SecurityConfig.ruleFor(operation).dualControl())
                 .as(operation.name()).isTrue();
         }

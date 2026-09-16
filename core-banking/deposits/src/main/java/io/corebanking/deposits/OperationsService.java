@@ -53,9 +53,11 @@ import java.util.UUID;
  *   <li><b>Un compte dormant se reveille</b> a la premiere operation de son client.</li>
  * </ul>
  *
- * <p>Ce que le service ne fait pas : les cheques (remise, compensation, opposition), les
- * plafonds par produit ou par client, les paiements sortants de l'entite. Les plafonds par
- * <b>role</b> sont l'affaire de la politique d'habilitation, appliquee avant d'arriver ici.
+ * <p><b>Les plafonds du produit et du compte s'appliquent</b> a tout debit du client — retrait,
+ * virement, paiement sortant — par operation, par jour et par mois ({@link Limits}). Les
+ * plafonds par <b>role</b> sont l'affaire de la politique d'habilitation, appliquee avant
+ * d'arriver ici. Ce que le service ne fait pas : les cheques (remise, compensation,
+ * opposition) ; les paiements sortants sont l'affaire de {@link PaymentService}.
  */
 public final class OperationsService {
 
@@ -154,6 +156,7 @@ public final class OperationsService {
             Tills.requireOpenOn(c, cash.id(), bookingDate);
             ProductVersion product = ProductCatalog.resolveForAccount(
                 c, command.legalEntityId(), account.id(), bookingDate);
+            Limits.check(c, account, product, command.amount(), bookingDate);
             Charges charges = Charges.of(DepositCatalog.withdrawalFee(product, account.currency()),
                                          product);
             ValueDatePolicy policy = Calendars.load(database, command.legalEntityId());
@@ -191,6 +194,7 @@ public final class OperationsService {
                                                          command.amount(), bookingDate);
             ProductVersion product = ProductCatalog.resolveForAccount(
                 c, command.legalEntityId(), source.id(), bookingDate);
+            Limits.check(c, source, product, command.amount(), bookingDate);
             Charges charges = Charges.of(DepositCatalog.transferFee(product, source.currency()),
                                          product);
             ValueDatePolicy policy = Calendars.load(database, command.legalEntityId());
@@ -223,7 +227,7 @@ public final class OperationsService {
     // ------------------------------------------------------------------ frais
 
     /** Frais et taxe d'une operation, arrondis chacun pour soi. */
-    private record Charges(Money fee, Money tax) {
+    record Charges(Money fee, Money tax) {
 
         static Charges of(Money fee, ProductVersion product) {
             Money tax = fee.isPositive()
@@ -251,7 +255,7 @@ public final class OperationsService {
      * cours de cloture, et ses titulaires peuvent operer. Les blocages et le disponible sont
      * verifies par le ledger au moment d'ecrire.
      */
-    private static Account requireOperableAccount(Connection c, UUID legalEntityId, UUID accountId,
+    static Account requireOperableAccount(Connection c, UUID legalEntityId, UUID accountId,
                                                   Money amount, LocalDate at) {
         Account account = Accounts.loadAll(c, Set.of(accountId)).get(accountId);
         if (account == null) {
@@ -298,7 +302,7 @@ public final class OperationsService {
 
     // ------------------------------------------------------------------ interne
 
-    private static List<PostingLine> lines(EventTemplate template, EvaluationContext input,
+    static List<PostingLine> lines(EventTemplate template, EvaluationContext input,
                                            Account customer, Map<String, UUID> roles,
                                            LocalDate bookingDate) {
         AccountResolver resolver = reference -> switch (reference.kind()) {
@@ -318,7 +322,7 @@ public final class OperationsService {
     }
 
     /** La date de valeur des conditions de banque ne concerne que la ligne du client. */
-    private static List<PostingLine> withValueDate(List<PostingLine> lines, UUID accountId,
+    static List<PostingLine> withValueDate(List<PostingLine> lines, UUID accountId,
                                                    LocalDate valueDate) {
         List<PostingLine> adjusted = new ArrayList<>(lines.size());
         for (PostingLine line : lines) {
@@ -330,7 +334,7 @@ public final class OperationsService {
         return adjusted;
     }
 
-    private void wakeIfDormant(Connection c, Account account, LocalDate on, UUID actorId,
+    static void wakeIfDormant(Connection c, Account account, LocalDate on, UUID actorId,
                                PostingResult result) {
         if (account.status() == AccountStatus.DORMANT && !result.replayed()) {
             Dormancy.reactivate(c, account.id(), on, actorId);
@@ -368,7 +372,7 @@ public final class OperationsService {
         }
     }
 
-    private static void requireCommand(IdempotencyKey key, UUID legalEntityId, UUID accountId,
+    static void requireCommand(IdempotencyKey key, UUID legalEntityId, UUID accountId,
                                        Money amount, UUID actorId) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(legalEntityId, "legalEntityId");

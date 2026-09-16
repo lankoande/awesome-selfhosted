@@ -43,6 +43,14 @@ public enum Operation {
     CASH_OPERATION,
     /** Virement entre comptes. */
     TRANSFER,
+    /** Ordre de paiement sortant : le client est debite, les fonds attendent le correspondant. */
+    PAYMENT_ORDER,
+    /** Suivi d'un paiement sortant : envoi, reglement sur le nostro, retour, annulation avant envoi. */
+    PAYMENT_PROCESS,
+    /** Consultation des ordres de paiement. */
+    PAYMENT_READ,
+    /** Plafond propre a un compte : par operation, par jour, par mois. */
+    ACCOUNT_LIMIT_MANAGE,
     /** Contre-passation d'une ecriture. */
     ENTRY_REVERSAL,
     /** Pose ou levee d'un blocage de montant sur un compte. */

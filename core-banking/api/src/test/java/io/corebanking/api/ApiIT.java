@@ -143,6 +143,8 @@ class ApiIT {
     private Account resultat;
     private Account reserves;
     private Account report;
+    private Account reglementSortant;
+    private Account nostro;
     private java.math.BigDecimal resultatNet;
     private String accountant2;
     private UUID caisseId;
@@ -184,7 +186,7 @@ class ApiIT {
                     OffsetUnit.CALENDAR_DAYS, BusinessDayConvention.UNADJUSTED, J.minusYears(1),
                     null), APPROVER, UUID.randomUUID());
             }
-            for (String type : List.of("CASH_WITHDRAWAL", "TRANSFER")) {
+            for (String type : List.of("CASH_WITHDRAWAL", "TRANSFER", "PAYMENT_ORDER")) {
                 Calendars.addRule(c, ENTITY, new ValueDateRule(type, null, Direction.DEBIT, 0,
                     OffsetUnit.CALENDAR_DAYS, BusinessDayConvention.UNADJUSTED, J.minusYears(1),
                     null), APPROVER, UUID.randomUUID());
@@ -209,6 +211,10 @@ class ApiIT {
             parametres.put(DepositCatalog.P_FEE_INCOME, frais.id().toString());
             parametres.put(DepositCatalog.P_TAX_RATE, "18");
             parametres.put(DepositCatalog.P_TAX_ACCOUNT, taxe.id().toString());
+            reglementSortant = compte(c, "REGLEMENT-SORTANT", AccountKind.GL, NormalBalance.CREDIT, null);
+            nostro = compte(c, "NOSTRO", AccountKind.NOSTRO, NormalBalance.DEBIT, null);
+            parametres.put(DepositCatalog.P_PAYMENT_FEE, "1000");
+            parametres.put(DepositCatalog.P_PAYMENT_CLEARING, reglementSortant.id().toString());
             UUID version = ProductCatalog.createDraft(c, new ProductCatalog.Draft(
                 ENTITY, "EP-API", "SAVINGS_ACCOUNT", "Epargne", "XOF", J.minusMonths(1), null,
                 parametres, List.of(), APPROVER));
@@ -1112,6 +1118,91 @@ class ApiIT {
         Map<String, Object> reponses = (Map<String, Object>) retrait.get("responses");
         assertThat(reponses).containsKeys("200", "201", "400", "401", "403", "404", "409", "422");
         assertThat(String.valueOf(retrait.get("parameters"))).contains("IdempotencyKey");
+    }
+
+    @Test
+    @Order(12)
+    @DisplayName("paiements sortants et plafonds : plafond pose a deux, ordre debite puis envoye, regle et retourne ; un autre annule avant envoi")
+    void paiements_sortants() throws Exception {
+        Map<String, Object> ordre = Map.of("amount", "30000", "currency", "XOF",
+            "beneficiaryName", "Fournisseur SA", "beneficiaryBank", "BK-CI-001",
+            "beneficiaryAccount", "CI93CI0010001234567890123456", "reference", "Facture 42");
+        // Un guichetier n'ordonne pas de paiement sortant ; sans cle, rien ne part.
+        assertThat(post(teller, "/accounts/" + account + "/payment-orders", "pay-1", ordre).status())
+            .isEqualTo(403);
+        assertThat(post(officer, "/accounts/" + account + "/payment-orders", null, ordre).status())
+            .isEqualTo(400);
+
+        // Le plafond par operation, pose a deux dans l'agence du compte.
+        Reponse plafond = post(manager, "/accounts/" + account + "/limits", null, Map.of(
+            "kind", "TRANSACTION", "amount", "40000", "currency", "XOF",
+            "validFrom", J.toString()));
+        assertThat(plafond.status()).as(String.valueOf(plafond.envelope())).isEqualTo(202);
+        assertThat(post(manager2, "/pending-operations/" + attente(plafond) + "/approve", null,
+                        Map.of()).status()).isEqualTo(200);
+        Reponse plafonds = get(manager, "/accounts/" + account + "/limits");
+        assertThat(plafonds.status()).as(String.valueOf(plafonds.envelope())).isEqualTo(200);
+        assertThat(plafonds.items()).hasSize(1);
+        assertThat(plafonds.items().get(0).get("kind")).isEqualTo("TRANSACTION");
+        Reponse tropGros = post(officer, "/accounts/" + account + "/payment-orders", "pay-gros",
+            Map.of("amount", "40001", "currency", "XOF", "beneficiaryName", "X",
+                   "beneficiaryBank", "Y", "beneficiaryAccount", "Z"));
+        assertThat(tropGros.status()).as(String.valueOf(tropGros.envelope())).isEqualTo(409);
+        assertThat((String) tropGros.body().get("detail")).contains("plafond");
+
+        // L'ordre : le client est debite, montant, frais et taxe ; un rejeu rend le meme ordre.
+        String avant = montant(get(manager, "/accounts/" + account + "/balance").body(), "current");
+        Reponse emis = post(officer, "/accounts/" + account + "/payment-orders", "pay-1", ordre);
+        assertThat(emis.status()).as(String.valueOf(emis.envelope())).isEqualTo(201);
+        assertThat(emis.body().get("status")).isEqualTo("ORDERED");
+        assertThat(montant(emis.body(), "fee")).isEqualTo("1000");
+        UUID ordreId = UUID.fromString((String) emis.body().get("id"));
+        Reponse rejeu = post(officer, "/accounts/" + account + "/payment-orders", "pay-1", ordre);
+        assertThat(rejeu.status()).isEqualTo(200);
+        assertThat(rejeu.body().get("id")).isEqualTo(ordreId.toString());
+        String apres = montant(get(manager, "/accounts/" + account + "/balance").body(), "current");
+        assertThat(new java.math.BigDecimal(avant).subtract(new java.math.BigDecimal(apres)))
+            .isEqualByComparingTo("31180");
+
+        // Le suivi est un acte de back-office : l'officier ne regle pas, l'exploitant si.
+        assertThat(post(officer, "/payment-orders/" + ordreId + "/send", null, Map.of()).status())
+            .isEqualTo(403);
+        Reponse tropTot = post(operator, "/payment-orders/" + ordreId + "/settlement", null,
+                               Map.of("nostroAccountId", nostro.id().toString()));
+        assertThat(tropTot.status()).isEqualTo(409);
+        assertThat(post(operator, "/payment-orders/" + ordreId + "/send", null, Map.of())
+            .body().get("status")).isEqualTo("SENT");
+        Reponse regle = post(operator, "/payment-orders/" + ordreId + "/settlement", null,
+                             Map.of("nostroAccountId", nostro.id().toString()));
+        assertThat(regle.status()).as(String.valueOf(regle.envelope())).isEqualTo(200);
+        assertThat(regle.body().get("status")).isEqualTo("SETTLED");
+        Reponse retour = post(operator, "/payment-orders/" + ordreId + "/return", null,
+                              Map.of("reason", "compte beneficiaire clos"));
+        assertThat(retour.status()).as(String.valueOf(retour.envelope())).isEqualTo(200);
+        assertThat(retour.body().get("status")).isEqualTo("RETURNED");
+        String rendu = montant(get(manager, "/accounts/" + account + "/balance").body(), "current");
+        assertThat(new java.math.BigDecimal(avant).subtract(new java.math.BigDecimal(rendu)))
+            .as("les frais restent acquis").isEqualByComparingTo("1180");
+
+        // Un second ordre, annule avant envoi : tout revient, frais compris.
+        Reponse second = post(officer, "/accounts/" + account + "/payment-orders", "pay-2", ordre);
+        assertThat(second.status()).isEqualTo(201);
+        UUID secondId = UUID.fromString((String) second.body().get("id"));
+        Reponse annule = post(operator, "/payment-orders/" + secondId + "/cancellation", null,
+                              Map.of("reason", "erreur de saisie"));
+        assertThat(annule.status()).as(String.valueOf(annule.envelope())).isEqualTo(200);
+        assertThat(annule.body().get("status")).isEqualTo("CANCELLED");
+        assertThat(montant(get(manager, "/accounts/" + account + "/balance").body(), "current"))
+            .isEqualTo(rendu);
+
+        // La lecture, tracee ; la liste par statut ; un ordre inconnu n'existe pas.
+        Reponse liste = get(accountant, "/payment-orders?status=returned");
+        assertThat(liste.status()).as(String.valueOf(liste.envelope())).isEqualTo(200);
+        assertThat(liste.items()).extracting(o -> o.get("id")).containsExactly(ordreId.toString());
+        assertThat(get(officer, "/payment-orders/" + secondId).body().get("cancelReason"))
+            .isEqualTo("erreur de saisie");
+        assertThat(get(officer, "/payment-orders/" + UUID.randomUUID()).status()).isEqualTo(404);
+        assertThat(get(teller, "/payment-orders").status()).isEqualTo(403);
     }
 
     // ------------------------------------------------------------------ outillage

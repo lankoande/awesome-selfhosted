@@ -9,7 +9,6 @@
     "compte general imputable et actif. Une ecriture qui citerait un compte impropre serait refusee",
     "par le ledger, de nuit, sur une etape bloquante : le controle est deplace au deploiement."
   ],
-
   "blocks": {
     "interest": {
       "comment": [
@@ -25,16 +24,24 @@
         "interest.credit_account",
         "interest.capitalisation"
       ],
-      "optional": ["interest.tiering_mode", "interest.withholding"],
-      "accounts": ["interest.debit_account", "interest.credit_account"],
+      "optional": [
+        "interest.tiering_mode",
+        "interest.withholding"
+      ],
+      "accounts": [
+        "interest.debit_account",
+        "interest.credit_account"
+      ],
       "requireOneOf": [
         {
-          "of": ["interest.rate", "tier:INTEREST"],
+          "of": [
+            "interest.rate",
+            "tier:INTEREST"
+          ],
           "because": "sans taux ni bareme, aucun interet ne serait jamais calcule et le compte paraitrait remunere"
         }
       ]
     },
-
     "overdraft": {
       "comment": [
         "Agios : le cote debiteur d'un compte courant. Facultatif en bloc, exigeant des qu'il",
@@ -54,85 +61,130 @@
         "overdraft.tax_rate",
         "overdraft.tax_account"
       ],
-      "accounts": ["overdraft.debit_account", "overdraft.credit_account", "overdraft.tax_account"],
+      "accounts": [
+        "overdraft.debit_account",
+        "overdraft.credit_account",
+        "overdraft.tax_account"
+      ],
       "conditions": [
         {
           "when": "overdraft.rate",
           "present": true,
-          "require": ["overdraft.debit_account", "overdraft.credit_account", "overdraft.settlement"],
+          "require": [
+            "overdraft.debit_account",
+            "overdraft.credit_account",
+            "overdraft.settlement"
+          ],
           "because": "des agios sans comptes d'imputation ni arrete echoueraient a la premiere journee debitrice, ou courraient sans jamais etre preleves"
         },
         {
           "when": "overdraft.debit_account",
           "present": true,
-          "require": ["overdraft.rate"],
+          "require": [
+            "overdraft.rate"
+          ],
           "because": "un compte d'agios courus sans taux designe des agios jamais calcules"
         },
         {
           "when": "overdraft.excess_rate",
           "present": true,
-          "require": ["overdraft.rate"],
+          "require": [
+            "overdraft.rate"
+          ],
           "because": "un taux de depassement suppose un taux dans l'autorisation"
         },
         {
           "when": "overdraft.tax_rate",
           "present": true,
-          "require": ["overdraft.tax_account"],
+          "require": [
+            "overdraft.tax_account"
+          ],
           "because": "une taxe sur agios sans compte de collecte resterait dans le produit de la banque, et la declaration serait fausse"
         }
       ]
     },
-
     "operations": {
       "comment": [
         "Frais d'operation de guichet et de virement : forfait par operation, produit et taxe.",
         "Facultatifs ; un frais declare exige son compte de produit, une taxe son compte de",
-        "collecte. Absents, l'operation est gratuite — explicitement, puisque rien n'est saisi."
+        "collecte. Absents, l'operation est gratuite — explicitement, puisque rien n'est saisi.",
+        "Plafonds : par operation, par jour, par mois, sur les debits du client (retraits, virements,",
+        "paiements sortants), frais compris ; absents, aucun plafond. Un compte peut porter le sien.",
+        "Paiement sortant : un compte de reglement sortant recoit les fonds a l'ordre ; sans lui, le",
+        "produit n'admet pas de paiement sortant, en le disant."
       ],
       "optional": [
         "ops.withdrawal_fee",
         "ops.transfer_fee",
         "ops.fee_income_account",
         "ops.tax_rate",
-        "ops.tax_account"
+        "ops.tax_account",
+        "ops.transaction_max",
+        "ops.daily_debit_max",
+        "ops.monthly_debit_max",
+        "ops.payment_fee",
+        "ops.payment_clearing_account"
       ],
-      "accounts": ["ops.fee_income_account", "ops.tax_account"],
+      "accounts": [
+        "ops.fee_income_account",
+        "ops.tax_account",
+        "ops.payment_clearing_account"
+      ],
       "conditions": [
         {
           "when": "ops.withdrawal_fee",
           "present": true,
-          "require": ["ops.fee_income_account"],
+          "require": [
+            "ops.fee_income_account"
+          ],
           "because": "un frais de retrait sans compte de produit n'aurait nulle part ou aller"
         },
         {
           "when": "ops.transfer_fee",
           "present": true,
-          "require": ["ops.fee_income_account"],
+          "require": [
+            "ops.fee_income_account"
+          ],
           "because": "un frais de virement sans compte de produit n'aurait nulle part ou aller"
         },
         {
           "when": "ops.tax_rate",
           "present": true,
-          "require": ["ops.tax_account"],
+          "require": [
+            "ops.tax_account"
+          ],
           "because": "une taxe calculee et sans compte de collecte resterait dans le produit de la banque, et la declaration serait fausse"
+        },
+        {
+          "when": "ops.payment_fee",
+          "present": true,
+          "require": [
+            "ops.fee_income_account"
+          ],
+          "because": "un frais de paiement sortant sans compte de produit n'aurait nulle part ou aller"
         }
       ]
     },
-
     "dormancy": {
       "comment": [
         "Dormance : nombre de mois sans operation a l'initiative du client au-dela duquel le",
         "compte passe dormant. Absent, le produit ne connait pas la dormance."
       ],
-      "optional": ["dormancy.months"]
+      "optional": [
+        "dormancy.months"
+      ]
     },
-
     "fees": {
       "groups": [
         {
           "listParameter": "fee.codes",
-          "required": ["fee.{code}.income_account"],
-          "accounts": ["fee.{code}.income_account", "fee.{code}.tax_account"],
+          "required": [
+            "fee.{code}.income_account"
+          ],
+          "accounts": [
+            "fee.{code}.income_account",
+            "fee.{code}.tax_account"
+          ],
           "optional": [
             "fee.{code}.label",
             "fee.{code}.frequency",
@@ -153,26 +205,39 @@
             {
               "when": "fee.{code}.basis",
               "fallback": "FLAT",
-              "in": ["FLAT"],
-              "require": ["fee.{code}.amount"],
+              "in": [
+                "FLAT"
+              ],
+              "require": [
+                "fee.{code}.amount"
+              ],
               "because": "une commission forfaitaire sans montant se percevrait a zero, sans que rien ne le signale"
             },
             {
               "when": "fee.{code}.basis",
-              "in": ["RATE_ON_CLOSING_BALANCE", "RATE_ON_HIGHEST_DEBIT_BALANCE"],
-              "require": ["fee.{code}.rate"],
+              "in": [
+                "RATE_ON_CLOSING_BALANCE",
+                "RATE_ON_HIGHEST_DEBIT_BALANCE"
+              ],
+              "require": [
+                "fee.{code}.rate"
+              ],
               "because": "une commission au taux sans taux se percevrait a zero"
             },
             {
               "when": "fee.{code}.basis",
-              "in": ["TIERED_ON_CLOSING_BALANCE"],
+              "in": [
+                "TIERED_ON_CLOSING_BALANCE"
+              ],
               "requireTier": "FEE:{code}",
               "because": "le bareme par tranches de la commission n'existe pas, et la perception echouerait au premier arrete"
             },
             {
               "when": "fee.{code}.tax_rate",
               "present": true,
-              "require": ["fee.{code}.tax_account"],
+              "require": [
+                "fee.{code}.tax_account"
+              ],
               "because": "une taxe calculee et sans compte de collecte resterait dans le produit de la banque, et la declaration serait fausse"
             }
           ]
@@ -180,17 +245,27 @@
       ]
     }
   },
-
   "families": [
     {
       "code": "CURRENT_ACCOUNT",
       "label": "Compte courant",
-      "includes": ["interest", "overdraft", "fees", "operations", "dormancy"]
+      "includes": [
+        "interest",
+        "overdraft",
+        "fees",
+        "operations",
+        "dormancy"
+      ]
     },
     {
       "code": "SAVINGS_ACCOUNT",
       "label": "Compte d'epargne",
-      "includes": ["interest", "fees", "operations", "dormancy"]
+      "includes": [
+        "interest",
+        "fees",
+        "operations",
+        "dormancy"
+      ]
     },
     {
       "code": "TERM_LOAN",
@@ -237,32 +312,49 @@
         {
           "when": "loan.late_interest_rate",
           "present": true,
-          "require": ["loan.late_interest_income"],
+          "require": [
+            "loan.late_interest_income"
+          ],
           "because": "les produits sur creances en souffrance forment une ligne a part des etats reglementaires ; sans compte dedie, l'imputation echoue de nuit"
         },
         {
           "when": "loan.penalty_mode",
           "fallback": "NONE",
-          "in": ["FLAT_PER_INSTALMENT"],
-          "require": ["loan.penalty_amount"],
+          "in": [
+            "FLAT_PER_INSTALMENT"
+          ],
+          "require": [
+            "loan.penalty_amount"
+          ],
           "because": "une penalite forfaitaire sans montant se percevrait a zero sur tout le portefeuille"
         },
         {
           "when": "loan.penalty_mode",
-          "in": ["PERCENT_OF_OVERDUE"],
-          "require": ["loan.penalty_rate"],
+          "in": [
+            "PERCENT_OF_OVERDUE"
+          ],
+          "require": [
+            "loan.penalty_rate"
+          ],
           "because": "une penalite proportionnelle sans taux se percevrait a zero sur tout le portefeuille"
         },
         {
           "when": "loan.penalty_mode",
-          "in": ["FLAT_PER_INSTALMENT", "PERCENT_OF_OVERDUE"],
-          "require": ["loan.late_interest_income"],
+          "in": [
+            "FLAT_PER_INSTALMENT",
+            "PERCENT_OF_OVERDUE"
+          ],
+          "require": [
+            "loan.late_interest_income"
+          ],
           "because": "la penalite s'impute sur un produit sur creances en souffrance, a defaut de compte dedie"
         },
         {
           "when": "loan.penalty_income",
           "present": true,
-          "require": ["loan.penalty_mode"],
+          "require": [
+            "loan.penalty_mode"
+          ],
           "because": "un compte de penalites sans mode de penalite designe une penalite jamais percue"
         },
         {
@@ -278,7 +370,9 @@
         {
           "when": "loan.prepayment_indemnity_rate",
           "present": true,
-          "require": ["loan.prepayment_indemnity_account"],
+          "require": [
+            "loan.prepayment_indemnity_account"
+          ],
           "because": "une indemnite de remboursement anticipe n'est pas un interet : la crediter sur le produit d'interets fausserait la marge et le rendement du portefeuille"
         }
       ]

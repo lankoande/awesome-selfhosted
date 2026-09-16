@@ -67,6 +67,19 @@ Ce que cela débloque directement : **commissions et taxes deviennent des lignes
 qui change de taux est une nouvelle version datée, pas une livraison.
 
 
+### Plafonds et paiements sortants — bloc `operations`, `account_limit` ✅
+
+| Paramètre | Valeurs | Effet |
+|---|---|---|
+| `ops.transaction_max` | décimal | Débit maximal par opération du client (retrait, virement, paiement sortant) |
+| `ops.daily_debit_max` | décimal | Somme des débits du jour, frais compris, hors écritures contre-passées |
+| `ops.monthly_debit_max` | décimal | Même somme sur le mois civil |
+| `ops.payment_fee` | décimal | Frais forfaitaire d'un paiement sortant ; exige `ops.fee_income_account` |
+| `ops.payment_clearing_account` | UUID (compte général) | Compte de règlement sortant ; absent, le produit n'admet pas de paiement sortant |
+
+Un compte porte son propre plafond (`account_limit` : nature, montant, validité, à deux, sans
+chevauchement par nature) ; il remplace celui du produit, dans un sens comme dans l'autre.
+
 ### Maquettes d'états financiers — `statement_layout` ✅
 
 Bilan, compte de résultat et hors bilan sont des maquettes : des rubriques et des règles
