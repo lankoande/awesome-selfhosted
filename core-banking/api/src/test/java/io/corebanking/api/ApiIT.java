@@ -1823,6 +1823,146 @@ class ApiIT {
         assertThat(get(officer, "/parties/" + societeId + "/relationships").items()).isEmpty();
     }
 
+
+    @Test
+    @Order(18)
+    @DisplayName("origination : la demande instruite, la decision sous delegation, la condition suspensive qui retient le versement, et le contrat ne du montant accorde")
+    void origination() throws Exception {
+        // La politique d'octroi : ecrite par la conformite, a deux.
+        Map<String, Object> politique = Map.of("productCode", "CRED-API",
+            "maxDebtServiceRatioPercent", "40", "maxTermMonths", 60,
+            "decisionValidityDays", 45, "validFrom", J.minusYears(1).toString());
+        assertThat(post(creditOfficer, "/lending-policies", null, politique).status())
+            .as("la politique d'octroi est une decision de la conformite").isEqualTo(403);
+        Reponse proposee = post(riskOfficer, "/lending-policies", null, politique);
+        assertThat(proposee.status()).as(String.valueOf(proposee.envelope())).isEqualTo(202);
+        Reponse declaree = post(riskOfficer2, "/pending-operations/" + attente(proposee)
+                                + "/approve", null, Map.of());
+        assertThat(declaree.status()).as(String.valueOf(declaree.envelope())).isEqualTo(200);
+        assertThat(get(creditOfficer, "/lending-policies").items()).singleElement()
+            .satisfies(p -> assertThat(p.get("maxTermMonths")).isEqualTo(60));
+
+        // La demande, deposee en agence.
+        Map<String, Object> demande = new LinkedHashMap<>();
+        demande.put("reference", "DEM-API-1");
+        demande.put("customerId", party.toString());
+        demande.put("productCode", "CRED-API");
+        demande.put("requestedAmount", "40000000");
+        demande.put("currency", "XOF");
+        demande.put("requestedTermMonths", 36);
+        demande.put("purpose", "equipement professionnel");
+        demande.put("requestedOn", J.toString());
+        assertThat(post(operator, "/loan-applications", null, demande).status())
+            .as("le back-office ne monte pas les dossiers de credit").isEqualTo(403);
+        Reponse deposee = post(creditOfficer, "/loan-applications", null, demande);
+        assertThat(deposee.status()).as(String.valueOf(deposee.envelope())).isEqualTo(201);
+        UUID dossier = UUID.fromString((String) deposee.body().get("id"));
+        assertThat(deposee.body().get("status")).isEqualTo("SUBMITTED");
+
+        // On ne decide pas d'un dossier qu'on n'a pas instruit.
+        Reponse premature = post(manager, "/loan-applications/" + dossier + "/decision", null,
+            Map.of("outcome", "APPROVED", "grantedAmount", "12000000", "grantedTermMonths", 36,
+                   "grantedRatePercent", "12", "decidedOn", J.toString(), "reason", "au feeling"));
+        assertThat(premature.status()).isEqualTo(202);
+        Reponse refusPremature = post(creditManager, "/pending-operations/" + attente(premature)
+                                      + "/approve", null, Map.of());
+        assertThat(refusPremature.status()).as(String.valueOf(refusPremature.envelope()))
+            .isEqualTo(409);
+        assertThat((String) refusPremature.body().get("detail")).contains("n'est pas instruite");
+
+        // L'instruction : revenus declares, engagements lus, endettement calcule.
+        Reponse instruction = post(creditOfficer, "/loan-applications/" + dossier + "/assessment",
+            null, Map.of("monthlyIncome", "6000000", "monthlyCharges", "200000",
+                         "ratePercent", "12", "externalScore", 710,
+                         "scoreSource", "Bureau d'information sur le credit",
+                         "assessedOn", J.toString()));
+        assertThat(instruction.status()).as(String.valueOf(instruction.envelope())).isEqualTo(201);
+        assertThat(montant(instruction.body(), "existingCommitments"))
+            .as("le credit en cours du client pese sur sa capacite").isNotEqualTo("0");
+        assertThat((List<?>) instruction.body().get("breaches")).isEmpty();
+
+        // La delegation se mesure en francs : au-dela de son plafond, le chef d'agence ne decide pas.
+        assertThat(post(manager, "/loan-applications/" + dossier + "/decision", null,
+                        Map.of("outcome", "APPROVED", "grantedAmount", "40000000",
+                               "grantedTermMonths", 36, "grantedRatePercent", "12",
+                               "decidedOn", J.toString(), "reason", "dossier solide")).status())
+            .as("40 M au-dela du plafond du chef d'agence").isEqualTo(403);
+        assertThat(post(creditOfficer, "/loan-applications/" + dossier + "/decision", null,
+                        Map.of("outcome", "APPROVED", "grantedAmount", "5000000",
+                               "grantedTermMonths", 36, "grantedRatePercent", "12",
+                               "decidedOn", J.toString(), "reason", "dossier solide")).status())
+            .as("instruire n'est pas decider").isEqualTo(403);
+
+        Reponse decision = post(creditManager, "/loan-applications/" + dossier + "/decision", null,
+            Map.of("outcome", "APPROVED", "grantedAmount", "12000000", "grantedTermMonths", 36,
+                   "grantedRatePercent", "12", "decidedOn", J.toString(),
+                   "reason", "capacite de remboursement etablie"));
+        assertThat(decision.status()).as(String.valueOf(decision.envelope())).isEqualTo(202);
+        Reponse accordee = post(manager, "/pending-operations/" + attente(decision) + "/approve",
+                                null, Map.of());
+        assertThat(accordee.status()).as(String.valueOf(accordee.envelope())).isEqualTo(200);
+        assertThat(montant(resultat(accordee.body()), "grantedAmount")).isEqualTo("12000000");
+        assertThat(resultat(accordee.body()).get("validUntil"))
+            .as("la politique fixe la validite de l'offre").isEqualTo(J.plusDays(45).toString());
+
+        // Une condition suspensive, posee au dossier.
+        Reponse condition = post(creditOfficer, "/loan-applications/" + dossier + "/conditions",
+            null, Map.of("kind", "PRECEDENT", "description", "facture proforma du materiel",
+                         "dueOn", J.plusDays(20).toString()));
+        assertThat(condition.status()).as(String.valueOf(condition.envelope())).isEqualTo(201);
+        UUID aLever = UUID.fromString((String) condition.body().get("id"));
+
+        // Le contrat nait du montant accorde, pas du montant demande.
+        Reponse contractualisation = post(creditOfficer, "/loan-applications/" + dossier
+            + "/contract", null, Map.of("contractReference", "CRED-API-ORIG",
+                "loanAccountId", pret.id().toString(),
+                "settlementAccountId", courant.id().toString(),
+                "disbursementDate", J.toString()));
+        assertThat(contractualisation.status()).as(String.valueOf(contractualisation.envelope()))
+            .isEqualTo(201);
+        UUID contrat = UUID.fromString((String) contractualisation.body().get("contractId"));
+        assertThat(montant(get(creditOfficer, "/loans/" + contrat).body(), "principal"))
+            .isEqualTo("12000000");
+
+        // Le contrat est signe ; le versement, lui, attend la piece.
+        Reponse deblocage = post(manager, "/loans/" + contrat + "/disbursement", null, Map.of(
+            "annualRatePercent", "12", "instalments", 36,
+            "firstDueDate", J.plusMonths(1).toString()));
+        assertThat(deblocage.status()).isEqualTo(202);
+        Reponse retenu = post(creditManager, "/pending-operations/" + attente(deblocage)
+                              + "/approve", null, Map.of());
+        assertThat(retenu.status()).as(String.valueOf(retenu.envelope())).isEqualTo(409);
+        assertThat((String) retenu.body().get("detail")).contains("facture proforma")
+            .contains("retient le versement");
+
+        // La levee se constate a deux, elle aussi.
+        Reponse levee = post(creditOfficer, "/loan-conditions/" + aLever + "/clearance", null,
+            Map.of("clearedOn", J.toString(), "evidence", "facture PRO-2026-118"));
+        assertThat(levee.status()).as(String.valueOf(levee.envelope())).isEqualTo(202);
+        Reponse constatee = post(creditManager, "/pending-operations/" + attente(levee)
+                                 + "/approve", null, Map.of());
+        assertThat(constatee.status()).as(String.valueOf(constatee.envelope())).isEqualTo(200);
+        assertThat(resultat(constatee.body()).get("clearedOn")).isEqualTo(J.toString());
+
+        // Le dossier, tel que le controle interne le lit.
+        Reponse lecture = get(auditor, "/loan-applications/" + dossier);
+        assertThat(lecture.status()).as(String.valueOf(lecture.envelope())).isEqualTo(200);
+        Map<String, Object> vue = lecture.body();
+        assertThat(((Map<?, ?>) vue.get("application")).get("status")).isEqualTo("CONTRACTED");
+        assertThat((List<?>) vue.get("assessments")).hasSize(1);
+        assertThat(((Map<?, ?>) vue.get("decision")).get("outcome")).isEqualTo("APPROVED");
+        assertThat((List<?>) vue.get("conditions")).singleElement()
+            .satisfies(k -> assertThat(((Map<?, ?>) k).get("evidence"))
+                .isEqualTo("facture PRO-2026-118"));
+        assertThat((List<?>) vue.get("events")).hasSizeGreaterThanOrEqualTo(5);
+
+        Reponse contractualisees = get(creditOfficer, "/loan-applications?status=CONTRACTED");
+        assertThat(contractualisees.items()).extracting(a -> a.get("reference"))
+            .contains("DEM-API-1");
+        assertThat(get(creditOfficer, "/loan-applications?status=INCONNU").status())
+            .as("un statut inconnu se refuse au lieu de rendre une liste vide").isEqualTo(422);
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static UUID attente(Reponse reponse) {

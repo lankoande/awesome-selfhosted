@@ -180,6 +180,17 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `POST /beneficial-owners/{id}/termination` | `PARTY_RELATIONSHIP` | date de fin — **202**, à deux ; la part libérée peut être redéclarée |
 | `POST /kyc-policies` | `KYC_POLICY_MANAGE` | nature de tiers, niveau, pièces exigées, bénéficiaires effectifs requis, seuil de détention — **202**, à deux ; elle remplace la précédente |
 | `GET /kyc-policies` | `PARTY_FILE_READ` | les politiques déclarées : le guichetier doit savoir quelles pièces réclamer |
+| `POST /loan-applications` | `LOAN_APPLICATION` | client, produit, montant, durée, objet — **201** ; un dossier client incomplet refuse la demande ici, pas au versement |
+| `GET /loan-applications?status=` | `LOAN_READ` | les demandes de l'entité, filtrées par statut ; un statut inconnu est refusé (`422`) |
+| `GET /loan-applications/{id}` | `LOAN_READ` | le dossier entier : la demande, ses instructions, sa décision, ses conditions, son journal |
+| `POST /loan-applications/{id}/assessment` | `LOAN_APPLICATION` | revenus, charges, apport, taux proposé, score externe et sa source — **201** ; engagements existants lus dans les échéanciers, mensualité simulée, taux d'endettement et dépassements rendus |
+| `POST /loan-applications/{id}/decision` | `LOAN_APPLICATION_DECIDE` | sens, montant, durée et taux accordés, motif, dérogation — **202**, à deux ; **plafonné par rôle** (25 M XOF pour un chef d'agence, 250 M pour le responsable des engagements) ; un dossier non instruit (`409`) ou hors politique sans dérogation (`422`) est refusé |
+| `POST /loan-applications/{id}/conditions` | `LOAN_APPLICATION` | nature (`PRECEDENT` retient le versement, `SUBSEQUENT` non), description, échéance — **201** |
+| `POST /loan-conditions/{id}/clearance` | `LOAN_CONDITION_CLEAR` | date et pièce — **202**, à deux : la levée ouvre un versement |
+| `POST /loan-applications/{id}/contract` | `LOAN_CONTRACT_CREATE` | référence, comptes de prêt et de règlement, date — **201** ; le capital est le **montant accordé**, et une offre expirée ne produit plus de contrat (`409`) |
+| `POST /loan-applications/{id}/withdrawal` | `LOAN_APPLICATION` | date et motif ; un dossier devenu contrat ne se retire plus (`409`) |
+| `POST /lending-policies` | `LENDING_POLICY_MANAGE` | endettement, montant, durée, apport, garantie, validité de l'offre — **202**, à deux |
+| `GET /lending-policies` | `LOAN_READ` | les politiques d'octroi déclarées |
 | `POST /calendar/cutoffs` | `CALENDAR_MANAGE` | canal (vide : tous), heure limite `HH:mm` dans le fuseau de l'entité, `closesChannel`, validité — **202**, à deux ; l'heure se valide à la soumission (`422`) ; au-delà de l'heure, une opération du canal prend valeur depuis le jour ouvré suivant, ou est refusée (`409`) si le canal ferme |
 | `POST /suspense-policies`, `GET /suspense-policies` | `SUSPENSE_MANAGE` | nature (`SUSPENSE_ACCOUNT`, `PAYMENT_ORDER`, `CHEQUE_DEPOSIT`, `DIRECT_DEBIT`), ancienneté tolérée en jours ouvrés, responsable, validité — **202**, à deux ; nature, tolérance et responsable validés à la soumission (`422`) |
 | `GET /suspense` | `SUSPENSE_READ` | la revue à la date comptable : chaque suspens avec son compte, son montant, depuis quand, son ancienneté, la tolérance et le responsable de sa politique, `overdue` ; lecture tracée |

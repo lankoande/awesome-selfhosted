@@ -458,9 +458,27 @@ Piloté par le profil réglementaire ([03](03-referentiel-parametrage.md#7-profi
 > intérêts sur le montant accordé plutôt que sur le mobilisé coûte 130 192 XOF de trop à
 > l'emprunteur, et la comptabilité reste équilibrée. Voir plus bas.
 >
-> **Ce qui manque** : l'origination (demande, scoring, décision, comité, conditions suspensives).
-> L'opposabilité juridique d'une sûreté — inscription, publicité, délais de purge — reste hors du
-> socle : elle se constate au dossier, pas au calcul.
+> **L'origination est implémentée** (`LoanOrigination`, `LendingPolicies`, V48 ; étape
+> `OFFER_EXPIRY` du TFJ) : une **demande** porte le client, le produit, ce qu'il demande et
+> pourquoi ; l'**instruction** déclare les revenus et les charges, **lit les engagements dans les
+> échéanciers en vigueur** du client — un emprunteur oublie rarement ses revenus et souvent ses
+> dettes — et simule la mensualité avec le moteur qui éditera l'échéancier, d'où le taux
+> d'endettement ; la **politique d'octroi** (endettement, montant, durée, apport, garantie,
+> validité de l'offre) **ne refuse pas, elle nomme** les dépassements, et la décision d'un dossier
+> hors politique exige une **dérogation écrite** — refuser automatiquement produit des dossiers
+> montés juste sous le seuil et des dérogations prises hors du système. La **décision** se prend à
+> deux, sous une délégation mesurée en francs par rôle, et **se recalcule sur ce qu'elle
+> accorde** : un dossier instruit à 8 % et accordé à 14 % n'a pas le même taux d'endettement.
+> L'offre a une **durée de validité** ; passée, l'arrêté l'éteint et le dossier se réinstruit. Une
+> **condition suspensive** ne retient pas la signature mais le versement : le déblocage la vérifie,
+> et il vérifie aussi que l'échéancier applique **le taux et la durée accordés** — sans quoi la
+> décision du comité serait décorative. Le contrat naît du **montant accordé**, une seule fois.
+>
+> **Ce qui manque** : le scoring lui-même (le socle porte le score et sa source, il ne le calcule
+> pas — un moteur maison se démode et ne se défend pas devant un régulateur), le comité comme
+> circuit à plus de deux yeux (au-delà du plafond du responsable des engagements, aucun rôle ne
+> porte la décision et le refus le dit), et l'opposabilité juridique d'une sûreté — inscription,
+> publicité, délais de purge —, qui se constate au dossier, pas au calcul.
 
 1. Calcul du nombre de jours de retard du plus ancien impayé.
 2. Détermination du bucket selon la méthode du profil.

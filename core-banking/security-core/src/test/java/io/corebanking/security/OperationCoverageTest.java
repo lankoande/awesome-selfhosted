@@ -61,6 +61,10 @@ class OperationCoverageTest {
         Map.entry("Relationships.declare / BeneficialOwners.declare",
                   Operation.PARTY_RELATIONSHIP),
         Map.entry("KycPolicies.declare", Operation.KYC_POLICY_MANAGE),
+        Map.entry("LoanOrigination.submit / assess / addCondition", Operation.LOAN_APPLICATION),
+        Map.entry("LoanOrigination.decide", Operation.LOAN_APPLICATION_DECIDE),
+        Map.entry("LoanOrigination.clearCondition", Operation.LOAN_CONDITION_CLEAR),
+        Map.entry("LendingPolicies.declare", Operation.LENDING_POLICY_MANAGE),
         Map.entry("FxRates.quote", Operation.FX_RATE_QUOTE),
         Map.entry("FxPositions.declare", Operation.FX_POSITION_MANAGE),
         Map.entry("Tills.create", Operation.TILL_MANAGE),
@@ -128,6 +132,9 @@ class OperationCoverageTest {
                                               Operation.SUSPENSE_MANAGE,
                                               Operation.PARTY_RELATIONSHIP,
                                               Operation.KYC_POLICY_MANAGE,
+                                              Operation.LOAN_APPLICATION_DECIDE,
+                                              Operation.LOAN_CONDITION_CLEAR,
+                                              Operation.LENDING_POLICY_MANAGE,
                                               Operation.FX_RATE_QUOTE,
                                               Operation.FX_POSITION_MANAGE)) {
             assertThat(SecurityConfig.ruleFor(operation).dualControl())

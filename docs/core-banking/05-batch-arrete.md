@@ -114,7 +114,7 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > `DIRECT_DEBITS` → `FEE_CHARGING` → `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_INTEREST_ACCRUAL` →
 > `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` → `LOAN_CLOSURE` → `INTEREST_ACCRUAL` →
 > `INTEREST_SETTLEMENT` → `FX_REVALUATION` → `DORMANCY` → `KYC_REVIEW` → `DOCUMENT_EXPIRY` →
-> `SUSPENSE_REVIEW` → `BALANCE_SNAPSHOT` →
+> `OFFER_EXPIRY` → `SUSPENSE_REVIEW` → `BALANCE_SNAPSHOT` →
 > `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans toucher au moteur.
 >
 > `FX_RATES` vient avant tout calcul : une journée qui comptabiliserait des intérêts en devise,
@@ -143,6 +143,11 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > le compte continue de fonctionner, mais plus rien ne s'ouvre sur ce dossier tant que la pièce
 > n'est pas renouvelée — la restriction est progressive, et elle s'annonce. L'annulation de
 > l'arrêté efface ses constats, et la journée se rejoue à l'identique.
+>
+> `OFFER_EXPIRY` éteint les accords de crédit non contractualisés dont la validité est passée :
+> une décision prise sur une situation ancienne n'est plus une décision, et le dossier se
+> réinstruit. L'étape ne comptabilise rien — aucun engagement n'était porté — et ne bloque pas la
+> journée ; l'annulation de l'arrêté rend les offres à l'accord.
 >
 > `SUSPENSE_REVIEW` passe en revue ce qui attend le correspondant — ordres, remises,
 > prélèvements non réglés, comptes d'attente non soldés — avec l'ancienneté en jours ouvrés et le

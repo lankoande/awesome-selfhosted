@@ -89,6 +89,14 @@ public enum Operation {
     FX_POSITION_MANAGE,
     /** Consultation des cours et des positions de change. */
     FX_READ,
+    /** Demande de credit : depot, instruction, conditions — le travail d'agence sur un dossier. */
+    LOAN_APPLICATION,
+    /** Decision sur une demande de credit, a deux et sous delegation par montant. */
+    LOAN_APPLICATION_DECIDE,
+    /** Levee d'une condition suspensive : le geste qui ouvre le versement, a deux. */
+    LOAN_CONDITION_CLEAR,
+    /** Politique d'octroi d'un produit : endettement, montant, duree, apport, garantie, a deux. */
+    LENDING_POLICY_MANAGE,
     /** Politique de suspens : anciennete toleree et responsable par nature, a deux. */
     SUSPENSE_MANAGE,
     /** Revue des suspens : ce qui attend le correspondant, avec son anciennete. */

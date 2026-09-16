@@ -128,6 +128,23 @@ public final class Entities {
         return currencies;
     }
 
+    /** Une devise du referentiel, avec sa precision : une devise inconnue n'est pas une devise. */
+    public static CurrencyRef requireCurrency(Connection c, String code) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT code, scale, rounding_mode FROM currency WHERE code = ?")) {
+            ps.setString(1, code);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new IllegalArgumentException("Devise inconnue du referentiel : " + code);
+                }
+                return new CurrencyRef(rs.getString(1), rs.getInt(2),
+                                       RoundingMode.valueOf(rs.getString(3)));
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture de la devise " + code, e);
+        }
+    }
+
     public static CurrencyRef functionalCurrency(Connection c, UUID entityId) {
         try (PreparedStatement ps = c.prepareStatement(
             "SELECT cur.code, cur.scale, cur.rounding_mode "

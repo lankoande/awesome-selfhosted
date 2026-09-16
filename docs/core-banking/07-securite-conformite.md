@@ -233,7 +233,13 @@ un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servi
 > `PARTY_RELATIONSHIP` à deux pour les relations entre tiers et les bénéficiaires effectifs,
 > `KYC_POLICY_MANAGE` à deux pour la conformité seule, `PARTY_FILE_READ` tracé à l'échelle de
 > l'entité : le guichetier lit la politique pour savoir quelles pièces réclamer, la conformité et
-> l'audit lisent la liste des dossiers incomplets, qu'aucun périmètre d'agence ne doit tronquer) ;
+> l'audit lisent la liste des dossiers incomplets, qu'aucun périmètre d'agence ne doit tronquer),
+> origination (`LOAN_APPLICATION` en agence — monter et instruire un dossier est un travail
+> d'agence —, `LOAN_APPLICATION_DECIDE` à deux et **plafonné par rôle** : décider est une
+> délégation, et la délégation se mesure en francs ; au-delà du plafond du responsable des
+> engagements, aucun rôle ne porte la décision, elle relève d'un comité et le refus le dit au lieu
+> de laisser passer ; `LOAN_CONDITION_CLEAR` à deux, comme une mainlevée de sûreté : lever une
+> condition suspensive libère des fonds ; `LENDING_POLICY_MANAGE` à deux pour la conformité) ;
 > `RESULT_APPROPRIATION` — l'affectation du résultat, à deux ; `STATEMENT_LAYOUT_DRAFT` et
 > `STATEMENT_LAYOUT_ACTIVATE` — les maquettes d'états financiers, activées à deux) et
 > restitutions (`LEDGER_READ` : balance, grand livre, journal de l'entité, états financiers —
@@ -243,7 +249,8 @@ un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servi
 >
 > Tout ce qui fait sortir de l'argent ou modifie une dette se valide à deux ; le déblocage est
 > plafonné par rôle — 50 M XOF pour un chef d'agence, 500 M pour le responsable des engagements —,
-> au-delà la décision relève d'un comité, que l'origination portera.
+> au-delà la décision relève d'un comité ; l'origination porte la même délégation sur la
+> décision d'octroi, et le refus nomme le plafond franchi.
 >
 > Le rattachement point d'entrée → opération est tenu à la main dans `OperationCoverageTest`,
 > qui refuse une opération que rien ne réclame et vérifie qu'une règle plafonnée plafonne chacun de

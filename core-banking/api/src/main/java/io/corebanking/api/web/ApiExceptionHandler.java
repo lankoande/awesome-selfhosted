@@ -135,7 +135,8 @@ public class ApiExceptionHandler {
                        TillUseCases.NoTillException.class,
                        Tills.TillClosedException.class,
                        ValueDatePolicy.ChannelClosedException.class,
-                       TillService.UnjustifiedDifferenceException.class})
+                       TillService.UnjustifiedDifferenceException.class,
+                       io.corebanking.loan.service.LoanOrigination.ApplicationStateException.class})
     ResponseEntity<ApiResponse<Void>> conflict(RuntimeException e, HttpServletRequest request) {
         return respond(HttpStatus.CONFLICT, "Operation refusee", e.getMessage(), request);
     }

@@ -192,6 +192,45 @@ public final class Requests {
                                    Boolean beneficialOwnersRequired,
                                    BigDecimal ownershipThresholdPercent) {}
 
+    // ------------------------------------------------------------------ origination
+
+    /** Une demande de credit : le client, le produit, ce qu'il demande et pourquoi. */
+    public record LoanApplicationRequest(String reference, UUID customerId, String productCode,
+                                         BigDecimal requestedAmount, String currency,
+                                         Integer requestedTermMonths, String purpose,
+                                         LocalDate requestedOn) {}
+
+    /** L'instruction : ce qui se declare, le reste se lit ou se calcule. */
+    public record LoanAssessmentRequest(BigDecimal monthlyIncome, BigDecimal monthlyCharges,
+                                        BigDecimal downPayment, BigDecimal ratePercent,
+                                        Integer externalScore, String scoreSource,
+                                        LocalDate assessedOn) {}
+
+    /** La decision : sens, conditions accordees, motif — et la derogation quand il en faut une. */
+    public record LoanDecisionRequest(String outcome, BigDecimal grantedAmount,
+                                      Integer grantedTermMonths, BigDecimal grantedRatePercent,
+                                      LocalDate decidedOn, String reason, String waiverReason) {}
+
+    /** Une condition posee au dossier : PRECEDENT retient le versement, SUBSEQUENT non. */
+    public record LoanConditionRequest(String kind, String description, LocalDate dueOn) {}
+
+    /** La levee d'une condition, avec la piece qui l'etablit. */
+    public record LoanConditionClearance(LocalDate clearedOn, String evidence) {}
+
+    /** Le retrait d'une demande, motive. */
+    public record LoanApplicationWithdrawal(LocalDate on, String reason) {}
+
+    /** La transformation d'un accord en contrat : le montant vient de la decision. */
+    public record LoanContractingRequest(String contractReference, UUID loanAccountId,
+                                         UUID settlementAccountId, LocalDate disbursementDate) {}
+
+    /** La politique d'octroi d'un produit. */
+    public record LendingPolicyRequest(String productCode, BigDecimal maxDebtServiceRatioPercent,
+                                       BigDecimal maxAmount, Integer maxTermMonths,
+                                       BigDecimal minDownPaymentPercent, Boolean collateralRequired,
+                                       Integer decisionValidityDays, LocalDate validFrom,
+                                       LocalDate validTo) {}
+
     // ------------------------------------------------------------------ change
 
     /** Un cours de cloture : devise cotee, date, cours en unites de la devise de tenue, source. */

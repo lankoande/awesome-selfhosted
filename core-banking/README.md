@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 622 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 316 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 630 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 324 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -848,6 +848,48 @@ physique : une société ne signe pas, quelqu'un signe pour elle (`relationships
 `beneficial_owners`).
 
 
+### 29. Un crédit qui naît d'une décision, pas d'une saisie
+
+**Les engagements ne se déclarent pas, ils se lisent.** Le taux d'endettement se calcule sur les
+échéanciers en vigueur du client, pas sur ce qu'il veut bien dire : un emprunteur oublie rarement
+ses revenus et souvent ses dettes. La charge mensuelle d'un crédit est ce qu'il appelle sur les
+douze mois à venir, ramené au nombre de mois qu'il couvre — une formule qui vaut pour une
+mensualité comme pour une échéance trimestrielle ou un crédit qui s'éteint dans trois mois. La
+mensualité du crédit demandé, elle, est simulée par le moteur qui éditera l'échéancier, pas par
+une formule parallèle qui divergerait le jour où l'un des deux change
+(`existing_commitments_are_read_from_the_schedules`).
+
+**La politique d'octroi ne refuse pas, elle nomme.** Un dossier hors politique reste décidable,
+mais la dérogation doit être écrite — sans motif, la décision est refusée et le refus dit ce qui
+dépasse. Refuser automatiquement produit deux effets connus, et documentés partout où on l'a
+essayé : des dossiers montés juste sous le seuil, et des dérogations prises hors du système, donc
+invisibles au contrôle (`a_file_outside_policy_needs_a_written_waiver`).
+
+**La décision se recalcule sur ce qu'elle accorde.** L'instruction se fait au taux proposé ; si le
+décideur accorde autre chose — moins, plus longtemps, plus cher —, les dépassements sont
+recalculés sur les conditions accordées. Un dossier instruit à 8 % et accordé à 14 % n'a pas le
+même taux d'endettement, et c'est celui qu'on accorde qui engage l'emprunteur.
+
+**La délégation se mesure en francs.** Décider n'est pas instruire : au-delà de 25 M XOF un chef
+d'agence ne signe plus, au-delà de 250 M le responsable des engagements non plus — et là, aucun
+rôle ne porte la décision : elle relève d'un comité, et le refus le dit au lieu de laisser passer.
+
+**Une condition suspensive retient le versement, pas la signature.** Elle ne suspend pas le
+contrat : elle suspend l'obligation de la banque de verser. Le contrat se signe donc, et c'est le
+déblocage qui bute — en nommant la pièce qui manque. Sa levée se constate à deux, comme une
+mainlevée de sûreté, parce qu'elle libère des fonds.
+
+**Le déblocage applique ce qui a été décidé.** Le taux de l'échéancier doit être le taux accordé,
+et sa durée ne peut pas dépasser la durée accordée. Sans ces deux contrôles, la décision du comité
+serait décorative : rien n'empêcherait de débloquer à 18 % un crédit accordé à 9 %, ni sur dix ans
+un crédit accordé sur trois (`the_disbursement_applies_what_was_granted`).
+
+**Une offre a une fin.** Un accord donné sur une situation ancienne n'est plus un accord : les
+revenus ont changé, les engagements aussi. Passée sa validité, l'arrêté l'éteint — sans rien
+comptabiliser, puisque rien n'était engagé — et le dossier se réinstruit ; l'annulation de
+l'arrêté la rend à l'accord.
+
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
@@ -865,9 +907,11 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 - référentiel client : rescan périodique des listes de sanctions et matrice de restriction par
   opération — les pièces datées et leurs échéances, la politique de diligence, la complétude qui
   restreint l'ouverture, les bénéficiaires effectifs et les relations entre tiers, eux, sont faits ;
-- crédit : origination (demande, scoring, décision, conditions suspensives) — le déblocage par
-  tranches, lui, est fait ; la commission d'engagement sur la fraction non tirée se paramètre comme
-  une commission ordinaire et n'a pas encore de barème dédié ;
+- crédit : le moteur de score lui-même (le socle porte le score et sa source, il ne les calcule
+  pas) et le comité comme circuit à plus de deux yeux — la demande, l'instruction, la décision
+  sous délégation, les conditions suspensives et le déblocage par tranches, eux, sont faits ; la
+  commission d'engagement sur la fraction non tirée se paramètre comme une commission ordinaire et
+  n'a pas encore de barème dédié ;
 - circuits de validation à trois yeux par montant et réservation du disponible par une
   opération en attente (le maker-checker à deux et les plafonds, eux, sont faits) ;
 - régime de frais de dormance et compte d'abandon (la détection et le réveil sont faits),
@@ -910,6 +954,12 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Les déclarations de détention d'une entité se sérialisent entre elles | Un cycle peut naître de deux déclarations dont aucune, seule, n'en ferme un : aucune ligne ne les porte toutes deux, il n'y a donc rien à verrouiller par ligne |
 | La liste des dossiers incomplets est désignée par la base, détaillée ensuite | Confronter chaque client à sa politique coûte quatre requêtes par dossier : quelques centaines de milliers pour une banque ordinaire, sur une lecture d'écran |
 | L'inventaire des tables sans politique de sécurité est épinglé par un test | Une table ajoutée sans politique est visible d'une entité à l'autre, et personne ne s'en aperçoit avant l'audit ; la liste doit se lire et se justifier |
+| Les engagements d'un emprunteur sont lus dans ses échéanciers, jamais déclarés | Un emprunteur oublie rarement ses revenus et souvent ses dettes ; le taux d'endettement n'a de sens que sur ce que la banque sait déjà |
+| La mensualité d'une demande est simulée par le moteur qui éditera l'échéancier | Une formule parallèle diverge le jour où l'une des deux change, et c'est l'instruction qui aurait tort |
+| Une politique d'octroi nomme les dépassements, elle ne refuse pas | Le refus automatique produit des dossiers montés juste sous le seuil et des dérogations prises hors du système ; ici la dérogation s'écrit, donc elle se contrôle |
+| Les dépassements sont recalculés sur les conditions accordées | Un dossier instruit à 8 % et accordé à 14 % n'a pas le même taux d'endettement, et c'est ce qu'on accorde qui engage l'emprunteur |
+| Le déblocage confronte l'échéancier au taux et à la durée accordés | Sans ce contrôle, la décision du comité serait décorative : rien n'empêcherait de débloquer à 18 % un crédit accordé à 9 % |
+| Une condition suspensive retient le versement, pas la signature | Elle ne suspend pas le contrat mais l'obligation de verser ; le bloquer à la signature retarderait le dossier sans rien protéger |
 | Un blocage de compte est vérifié par le service avant tout prélèvement, dans les deux sens | Le ledger laisse entrer un crédit de lot sur un compte gelé, parce qu'il le tient pour un acte de la banque ; la remise d'un créancier n'en est pas un |
 | La présentation d'un créancier d'ailleurs est réservée à la compensation | Le mandat décide de l'opération : un chargé de clientèle ne présente que pour un créancier de la banque, sous son plafond ; l'appelant ne choisit pas |
 | Un seul instant de connaissance par écriture | `clock_timestamp()` avance dans une transaction ; par ligne, il placerait les lignes après leur propre écriture |

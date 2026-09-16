@@ -676,6 +676,7 @@ public final class TfjEngine {
         Dormancy.cancelRun(connection, runId);
         KycReviews.cancelRun(connection, runId);
         io.corebanking.party.PartyDocuments.cancelRun(connection, runId);
+        io.corebanking.loan.service.LoanOrigination.cancelRun(connection, runId);
         // Les prelevements executes par l'arrete redeviennent en attente ; leurs ecritures sont
         // deja contre-passees, leurs blocages tombent ici.
         io.corebanking.deposits.DirectDebitService.cancelRun(connection, runId, on, actorId);

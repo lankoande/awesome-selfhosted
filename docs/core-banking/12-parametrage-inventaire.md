@@ -97,6 +97,7 @@ chèques ne consomment pas ces plafonds.
 | `channel_cutoff` | Heure limite d'un canal (ou de tous), dans le fuseau de l'entité, `closes_channel`, validité sans chevauchement par canal, à deux |
 | `suspense_policy` | Par nature de suspens : ancienneté tolérée en jours ouvrés, responsable, validité sans chevauchement, à deux |
 | `kyc_policy` / `kyc_policy_document` | Politique de diligence par nature de tiers et niveau : pièces exigées, bénéficiaires effectifs requis, seuil de détention, à deux ; une seule par couple, elle se remplace (V46, V47) |
+| `lending_policy` | Politique d'octroi d'un produit : taux d'endettement maximal, montant et durée maximaux, apport minimal, garantie exigée, validité de l'offre en jours ; datée, sans chevauchement, à deux |
 | `direct_debit` | Prélèvement reçu ou émis : compte du client, mandat, montant, frais et taxe, échéance, tiers, état (`PENDING`, `COLLECTED`, `SETTLED`, `REJECTED`, `CANCELLED`, `RETURNED`, `REFUNDED`), exécution (date, traitement, écriture, blocage, compte de règlement ou d'encaissement, motif de rejet), règlement, clôture (date, écriture, motif) |
 
 ### Maquettes d'états financiers — `statement_layout` ✅

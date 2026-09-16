@@ -317,11 +317,35 @@ public final class SecurityConfig {
                              RISK_OFFICER, ACCOUNTANT, AUDITOR)
                 .within(Scope.OWN_ENTITY).tracedOnRead().build());
 
+        // L'origination : monter et instruire un dossier est un travail d'agence ; decider est
+        // une delegation, et la delegation se mesure en francs. Au-dela du plafond du responsable
+        // des engagements, aucun role ne porte la decision : elle releve d'un comite, et le refus
+        // le dit au lieu de laisser passer.
+        policy.put(Operation.LOAN_APPLICATION,
+            AccessRule.allow(CUSTOMER_OFFICER, CREDIT_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_BRANCH).build());
+
+        policy.put(Operation.LOAN_APPLICATION_DECIDE,
+            AccessRule.allow(BRANCH_MANAGER, CREDIT_MANAGER)
+                .within(Scope.OWN_ENTITY)
+                .upTo(Map.of(BRANCH_MANAGER, Money.of("25000000", XOF),
+                             CREDIT_MANAGER, Money.of("250000000", XOF)))
+                .requiringSecondPerson().build());
+
+        // Lever une condition suspensive libere des fonds, comme une mainlevee de surete.
+        policy.put(Operation.LOAN_CONDITION_CLEAR,
+            AccessRule.allow(CREDIT_OFFICER, CREDIT_MANAGER, BRANCH_MANAGER)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        policy.put(Operation.LENDING_POLICY_MANAGE,
+            AccessRule.allow(RISK_OFFICER).within(Scope.OWN_ENTITY)
+                .requiringSecondPerson().build());
+
         policy.put(Operation.LOAN_CONTRACT_CREATE,
             AccessRule.allow(CREDIT_OFFICER, BRANCH_MANAGER).within(Scope.OWN_BRANCH).build());
 
         // L'argent sort ici. Double validation sans exception, et un plafond par role : au-dela,
-        // la decision releve d'un comite, que l'origination portera.
+        // la decision releve d'un comite ; l'origination porte la meme delegation sur l'octroi.
         policy.put(Operation.LOAN_DISBURSE,
             AccessRule.allow(CREDIT_MANAGER, BRANCH_MANAGER)
                 .within(Scope.OWN_ENTITY)

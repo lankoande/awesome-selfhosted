@@ -36,6 +36,8 @@ import io.corebanking.tfj.RunType;
 import io.corebanking.tfj.TfjEngine;
 import io.corebanking.ledger.store.FiscalYears;
 import io.corebanking.loan.service.Collaterals;
+import io.corebanking.loan.service.LendingPolicies;
+import io.corebanking.loan.service.LoanOrigination;
 import io.corebanking.loan.service.RiskProfiles;
 import io.corebanking.product.SchemaCatalog;
 import io.corebanking.api.usecase.ParameterUseCases;
@@ -92,7 +94,9 @@ public final class DualControlHandlers {
                        new SetSuspensePolicy(database), new QuoteFxRate(database),
                        new DeclareFxPosition(database), new DeclareRelationship(database),
                        new EndRelationship(database), new DeclareBeneficialOwner(database),
-                       new EndBeneficialOwner(database), new SetKycPolicy(database));
+                       new EndBeneficialOwner(database), new SetKycPolicy(database),
+                       new DecideApplication(database), new ClearCondition(database),
+                       new SetLendingPolicy(database));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -101,6 +105,156 @@ public final class DualControlHandlers {
             return Integer.parseInt(value.trim());
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Entier attendu pour " + key + " : " + value);
+        }
+    }
+
+
+    /**
+     * Decision sur une demande de credit : le plafond du role decide qui peut la prendre, et la
+     * derogation, quand le dossier sort de la politique, s'ecrit dans la soumission.
+     */
+    static final class DecideApplication implements MakerChecker.Handler {
+        private final Database database;
+
+        DecideApplication(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "LOAN_APPLICATION_DECIDE"; }
+        @Override public Operation operation() { return Operation.LOAN_APPLICATION_DECIDE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            LoanOrigination.Application application = application(payload);
+            AccessTarget target = AccessTarget.inEntity(application.legalEntityId());
+            String granted = text(payload, "grantedAmount");
+            // Le plafond porte sur ce qu'on accorde ; a defaut, sur ce qui est demande — un refus
+            // ne libere rien, mais il se prend au meme niveau que l'accord qu'il remplace.
+            return target.withAmount(granted == null ? application.requestedAmount()
+                : Money.of(new java.math.BigDecimal(granted), application.currency()));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "applicationId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            LoanOrigination.Application application = application(payload);
+            String granted = text(payload, "grantedAmount");
+            LoanOrigination.Outcome outcome;
+            try {
+                outcome = LoanOrigination.Outcome.valueOf(
+                    required(payload, "outcome").trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Sens de decision inconnu : "
+                    + text(payload, "outcome") + " (APPROVED, REJECTED)");
+            }
+            String rate = text(payload, "grantedRatePercent");
+            String term = text(payload, "grantedTermMonths");
+            LoanOrigination.Verdict verdict = new LoanOrigination.Verdict(
+                application.id(), outcome,
+                granted == null ? null
+                    : Money.of(new java.math.BigDecimal(granted), application.currency()),
+                term == null ? null : integer(payload, "grantedTermMonths"),
+                rate == null ? null : new java.math.BigDecimal(rate),
+                date(payload, "decidedOn") == null ? businessDate(application) : date(payload, "decidedOn"),
+                required(payload, "reason"), text(payload, "waiverReason"),
+                Callers.actorId(maker), Callers.actorId(checker));
+            return database.inTransaction(c -> LoanOrigination.decide(c, verdict));
+        }
+
+        private LoanOrigination.Application application(Map<String, Object> payload) {
+            return database.inTransaction(
+                c -> LoanOrigination.require(c, uuid(payload, "applicationId")));
+        }
+
+        private LocalDate businessDate(LoanOrigination.Application application) {
+            return database.inTransaction(c -> io.corebanking.api.usecase.AccountUseCases
+                .businessDate(c, application.legalEntityId()));
+        }
+    }
+
+    /** Levee d'une condition suspensive : elle ouvre un versement, elle se constate a deux. */
+    static final class ClearCondition implements MakerChecker.Handler {
+        private final Database database;
+
+        ClearCondition(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "LOAN_CONDITION_CLEAR"; }
+        @Override public Operation operation() { return Operation.LOAN_CONDITION_CLEAR; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(application(payload).legalEntityId());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "conditionId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            LoanOrigination.Application application = application(payload);
+            LocalDate on = date(payload, "clearedOn") == null
+                ? database.inTransaction(c -> io.corebanking.api.usecase.AccountUseCases
+                      .businessDate(c, application.legalEntityId()))
+                : date(payload, "clearedOn");
+            return database.inTransaction(c -> LoanOrigination.clearCondition(
+                c, uuid(payload, "conditionId"), on, text(payload, "evidence"),
+                Callers.actorId(maker), Callers.actorId(checker)));
+        }
+
+        private LoanOrigination.Application application(Map<String, Object> payload) {
+            return database.inTransaction(c -> LoanOrigination.require(
+                c, LoanOrigination.requireCondition(c, uuid(payload, "conditionId"))
+                       .applicationId()));
+        }
+    }
+
+    /** Politique d'octroi : ce que la banque exige d'un dossier, ecrit a deux. */
+    static final class SetLendingPolicy implements MakerChecker.Handler {
+        private final Database database;
+
+        SetLendingPolicy(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "LENDING_POLICY_SET"; }
+        @Override public Operation operation() { return Operation.LENDING_POLICY_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "productCode");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            String ratio = text(payload, "maxDebtServiceRatioPercent");
+            String amount = text(payload, "maxAmount");
+            String term = text(payload, "maxTermMonths");
+            String downPayment = text(payload, "minDownPaymentPercent");
+            String validity = text(payload, "decisionValidityDays");
+            LendingPolicies.Draft draft = new LendingPolicies.Draft(
+                uuid(payload, "legalEntityId"), required(payload, "productCode"),
+                ratio == null ? null : new java.math.BigDecimal(ratio),
+                amount == null ? null : new java.math.BigDecimal(amount),
+                term == null ? null : integer(payload, "maxTermMonths"),
+                downPayment == null ? null : new java.math.BigDecimal(downPayment),
+                Boolean.parseBoolean(text(payload, "collateralRequired")),
+                validity == null ? null : integer(payload, "decisionValidityDays"),
+                date(payload, "validFrom"), date(payload, "validTo"),
+                Callers.actorId(maker), Callers.actorId(checker));
+            return database.inTransaction(c -> LendingPolicies.declare(c, draft));
         }
     }
 

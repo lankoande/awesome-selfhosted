@@ -18,6 +18,7 @@ import io.corebanking.loan.service.LoanService;
 import io.corebanking.tfj.steps.BalanceSnapshotStep;
 import io.corebanking.tfj.steps.DirectDebitsStep;
 import io.corebanking.tfj.steps.DocumentExpiryStep;
+import io.corebanking.tfj.steps.OfferExpiryStep;
 import io.corebanking.tfj.steps.DormancyStep;
 import io.corebanking.tfj.steps.FxRatesStep;
 import io.corebanking.tfj.steps.FxRevaluationStep;
@@ -143,6 +144,7 @@ public final class StandardTfj {
             new DormancyStep(database),
             new KycReviewStep(database),
             new DocumentExpiryStep(database),
+            new OfferExpiryStep(database),
             new SuspenseReviewStep(database, calendar),
             new BalanceSnapshotStep(database),
             new ReconciliationStep(database, subLedgerChecks()),

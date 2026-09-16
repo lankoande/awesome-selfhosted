@@ -37,7 +37,7 @@
     {
       "code": "credit_officer",
       "name": "Charge de credit",
-      "description": "Instruction et suivi des credits : contrats, garanties, remboursements anticipes, reglements au guichet.",
+      "description": "Instruction et suivi des credits : demandes et instruction des dossiers, conditions, contractualisation, garanties, remboursements anticipes, reglements au guichet.",
       "isSystem": true,
       "category": "RESEAU",
       "attributes": {
@@ -59,7 +59,7 @@
     {
       "code": "credit_manager",
       "name": "Responsable des engagements",
-      "description": "Mise a disposition des fonds, rechelonnements, mainlevees : la seconde main sur tout ce qui engage la banque.",
+      "description": "Mise a disposition des fonds, decision d'octroi sous delegation, levee des conditions suspensives, rechelonnements, mainlevees : la seconde main sur tout ce qui engage la banque.",
       "isSystem": true,
       "category": "SIEGE",
       "attributes": {
@@ -81,7 +81,7 @@
     {
       "code": "risk_officer",
       "name": "Responsable des risques",
-      "description": "Blocages de comptes, seconde validation du parametrage produit, politique de diligence client (pieces exigees, beneficiaires effectifs, seuil de detention) a deux.",
+      "description": "Blocages de comptes, seconde validation du parametrage produit, politiques de diligence client et d'octroi de credit (endettement, montant, duree, apport, garantie) a deux.",
       "isSystem": true,
       "category": "CONTROLE",
       "attributes": {

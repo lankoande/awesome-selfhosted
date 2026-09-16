@@ -120,6 +120,13 @@ public final class LoanService {
         return database.inTransaction(c -> {
             LoanContract contract = LoanStore.requireContract(c, contractId);
             requireConsistent(contract, schedule);
+            // Ce que l'origination a decide engage le deblocage : les conditions suspensives
+            // retiennent le versement, et l'echeancier applique le taux et la duree accordes.
+            // Sans ces deux controles, la decision du comite serait decorative.
+            LoanOrigination.requireConditionsCleared(c, contractId);
+            LoanOrigination.requireGrantedTerms(c, contractId,
+                                                schedule.terms().annualRatePercent(),
+                                                contract.disbursedOn(), schedule.last().dueDate());
             ProductVersion product = product(c, contract, contract.disbursedOn());
 
             Money fees = upfrontFees == null ? Money.zero(contract.currency()) : upfrontFees;
