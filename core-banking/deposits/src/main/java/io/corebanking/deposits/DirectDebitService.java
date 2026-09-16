@@ -313,6 +313,11 @@ public final class DirectDebitService {
             if (debtor == null) {
                 throw new LedgerStoreException("Compte du mandat introuvable : " + mandate.accountId());
             }
+            if (!debtor.currency().equals(presentation.amount().currency())) {
+                throw new IllegalArgumentException("Le prelevement est en "
+                    + presentation.amount().currency().code() + ", le compte " + debtor.code()
+                    + " en " + debtor.currency().code());
+            }
             if (!mandate.internal()) {
                 // Un creancier d'ailleurs est paye par la compensation : le produit doit savoir
                 // ou les fonds attendent le correspondant. Dit ici, pas au moment d'executer.
@@ -324,11 +329,20 @@ public final class DirectDebitService {
                         + "reglement sortant n'y est declare"));
             }
             UUID id = Ids.newId();
-            insert(c, id, presentation.legalEntityId(), DirectionKind.RECEIVED, debtor.id(),
-                   mandate.id(), presentation.key(), presentation.amount(), presentation.dueDate(),
-                   mandate.creditorName(), mandate.creditorBank(), mandate.creditorAccount(),
-                   mandate.reference(), presentation.reference(), presentation.channel(), on,
-                   presentation.actorId());
+            boolean created = insert(c, id, presentation.legalEntityId(), DirectionKind.RECEIVED,
+                                      debtor.id(), mandate.id(), presentation.key(),
+                                      presentation.amount(), presentation.dueDate(),
+                                      mandate.creditorName(), mandate.creditorBank(),
+                                      mandate.creditorAccount(), mandate.reference(),
+                                      presentation.reference(), presentation.channel(), on,
+                                      presentation.actorId());
+            if (!created) {
+                // Deux presentations concurrentes sous la meme cle : la seconde a attendu la
+                // premiere sur l'unicite de la cle, et la premiere est validee.
+                return new Inserted(byKey(c, presentation.legalEntityId(), presentation.key())
+                    .orElseThrow(() -> new LedgerStoreException(
+                        "Prelevement absent pour une cle d'idempotence deja traitee")).id(), true);
+            }
             return new Inserted(id, false);
         });
         if (inserted.replayed()) {
@@ -355,11 +369,17 @@ public final class DirectDebitService {
                     + " n'emet pas de prelevement : aucun compte de prelevements a l'encaissement "
                     + "n'y est declare"));
             UUID id = Ids.newId();
-            insert(c, id, issue.legalEntityId(), DirectionKind.ISSUED, creditor.id(), null,
-                   issue.key(), issue.amount(), issue.dueDate(), issue.debtorName().trim(),
-                   issue.debtorBank().trim(), issue.debtorAccount().trim(),
-                   issue.mandateReference().trim(), issue.reference(), issue.channel(), on,
-                   issue.actorId());
+            boolean created = insert(c, id, issue.legalEntityId(), DirectionKind.ISSUED,
+                                      creditor.id(), null, issue.key(), issue.amount(),
+                                      issue.dueDate(), issue.debtorName().trim(),
+                                      issue.debtorBank().trim(), issue.debtorAccount().trim(),
+                                      issue.mandateReference().trim(), issue.reference(),
+                                      issue.channel(), on, issue.actorId());
+            if (!created) {
+                return new Inserted(byKey(c, issue.legalEntityId(), issue.key())
+                    .orElseThrow(() -> new LedgerStoreException(
+                        "Prelevement absent pour une cle d'idempotence deja traitee")).id(), true);
+            }
             return new Inserted(id, false);
         });
         if (inserted.replayed()) {
@@ -392,16 +412,19 @@ public final class DirectDebitService {
         }
     }
 
-    private static void insert(Connection c, UUID id, UUID legalEntityId, DirectionKind direction,
-                               UUID accountId, UUID mandateId, IdempotencyKey key, Money amount,
-                               LocalDate dueDate, String counterpartyName, String counterpartyBank,
-                               String counterpartyAccount, String mandateReference,
-                               String reference, String channel, LocalDate on, UUID actorId) {
+    /** Vrai si le prelevement est ne ; faux si sa cle est deja prise — par une autre transaction, attendue ici. */
+    private static boolean insert(Connection c, UUID id, UUID legalEntityId,
+                                  DirectionKind direction, UUID accountId, UUID mandateId,
+                                  IdempotencyKey key, Money amount, LocalDate dueDate,
+                                  String counterpartyName, String counterpartyBank,
+                                  String counterpartyAccount, String mandateReference,
+                                  String reference, String channel, LocalDate on, UUID actorId) {
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO direct_debit(id, legal_entity_id, direction, account_id, mandate_id,"
             + " idempotency_key, amount, currency, due_date, counterparty_name, counterparty_bank,"
             + " counterparty_account, mandate_reference, reference, channel, presented_on,"
-            + " created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+            + " created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+            + " ON CONFLICT (legal_entity_id, idempotency_key) DO NOTHING")) {
             ps.setObject(1, id);
             ps.setObject(2, legalEntityId);
             ps.setString(3, direction.name());
@@ -419,7 +442,7 @@ public final class DirectDebitService {
             ps.setString(15, channel);
             ps.setObject(16, on);
             ps.setObject(17, actorId);
-            ps.executeUpdate();
+            return ps.executeUpdate() == 1;
         } catch (SQLException e) {
             throw new LedgerStoreException("Enregistrement du prelevement", e);
         }
@@ -479,13 +502,7 @@ public final class DirectDebitService {
         if (!"ACTIVE".equals(mandate.status())) {
             throw new Rejection("MANDAT_REVOQUE");
         }
-        Account debtor;
-        try {
-            debtor = OperationsService.requireOperableAccount(c, dd.legalEntityId(), dd.accountId(),
-                                                              dd.amount(), on);
-        } catch (OperationsService.AccountNotOperableException | IllegalArgumentException e) {
-            throw new Rejection("COMPTE_INOPERABLE");
-        }
+        Account debtor = requireOperable(c, dd, on);
         ProductVersion product = ProductCatalog.resolveForAccount(c, dd.legalEntityId(),
                                                                   debtor.id(), on);
         OperationsService.Charges charges = OperationsService.Charges.of(
@@ -556,13 +573,7 @@ public final class DirectDebitService {
 
     private DirectDebit collectIssued(Connection c, DirectDebit dd, LocalDate on, UUID runId,
                                       UUID actorId) {
-        Account creditor;
-        try {
-            creditor = OperationsService.requireOperableAccount(c, dd.legalEntityId(),
-                                                                dd.accountId(), dd.amount(), on);
-        } catch (OperationsService.AccountNotOperableException | IllegalArgumentException e) {
-            throw new Rejection("COMPTE_INOPERABLE");
-        }
+        Account creditor = requireOperable(c, dd, on);
         ProductVersion product = ProductCatalog.resolveForAccount(c, dd.legalEntityId(),
                                                                   creditor.id(), on);
         UUID collectionId = DepositCatalog.directDebitCollection(product)
@@ -623,6 +634,26 @@ public final class DirectDebitService {
             throw new LedgerStoreException("Execution du prelevement emis", e);
         }
         return require(c, dd.id());
+    }
+
+    /**
+     * Le compte du client peut operer, et n'est pas bloque : un blocage — opposition, saisie,
+     * gel — prime sur tout prelevement, recu comme emis, quelle que soit la source de l'ecriture.
+     * Le ledger le tiendrait pour le debit ; pour le credit d'une remise a l'arrete, il laisserait
+     * passer ce qu'il tient pour un acte de la banque, et la remise n'en est pas un.
+     */
+    private static Account requireOperable(Connection c, DirectDebit dd, LocalDate on) {
+        Account account;
+        try {
+            account = OperationsService.requireOperableAccount(c, dd.legalEntityId(),
+                                                               dd.accountId(), dd.amount(), on);
+        } catch (OperationsService.AccountNotOperableException | IllegalArgumentException e) {
+            throw new Rejection("COMPTE_INOPERABLE");
+        }
+        if (!AccountLifecycle.activeBlocks(c, account.id()).isEmpty()) {
+            throw new Rejection("COMPTE_BLOQUE");
+        }
+        return account;
     }
 
     /** En ligne, une cle par prelevement ; a l'arrete, une cle par traitement : un arrete annule puis rejoue comptabilise de nouveau. */

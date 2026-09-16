@@ -311,6 +311,77 @@ class DirectDebitsIT extends DepositsTestBase {
         assertThat(bloque.status()).isEqualTo("REJECTED");
         assertThat(bloque.rejectionReason()).isEqualTo("COMPTE_BLOQUE");
         assertThat(solde(compte)).isEqualTo(xof("100000"));
+
+        // Un gel du compte prime aussi sur la remise d'un creancier : le credit n'entre pas.
+        UUID creancier = ouvrir(decor, "CLI-PRX-CR", "CC-PRX", client(decor.entityId(), "T-PRX2"));
+        lifecycle.block(new AccountLifecycle.Block(creancier, BlockKind.TOTAL, "gel", null,
+                                                   ACTOR, APPROVER));
+        DirectDebitService.DirectDebit gele = directDebits.issue(
+            remise(decor, creancier, "1000", J, "prx-3")).directDebit();
+        assertThat(gele.status()).isEqualTo("REJECTED");
+        assertThat(gele.rejectionReason()).isEqualTo("COMPTE_BLOQUE");
+        assertThat(solde(creancier).isZero()).isTrue();
+        // Et un prelevement en devise etrangere ne se presente pas sur un compte en XOF.
+        assertThatThrownBy(() -> directDebits.present(new DirectDebitService.Presentation(
+                IdempotencyKey.of("prx-4"), decor.entityId(), mandat2,
+                io.corebanking.kernel.money.Money.of("10", Currencies.EUR), J, null, null, ACTOR)))
+            .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("en EUR");
+    }
+
+    @Test
+    @DisplayName("deux prelevements presentes ensemble sur une provision pour un seul : un debite, un rejete ; la meme presentation deux fois en meme temps : un seul prelevement")
+    void concurrency() throws Exception {
+        Decor decor = decor("PRC");
+        produit(decor, "CC-PRC", "CURRENT_ACCOUNT",
+                parametres(decor, reglement(decor, "PRC"), encaissement(decor, "PRC"), null));
+        UUID compte = ouvrir(decor, "CLI-PRC", "CC-PRC", client(decor.entityId(), "T-PRC"));
+        verser(decor, compte, "100000", "prc-0");
+        UUID mandat = directDebits.registerMandate(mandatExterne(decor, compte, "RUM-C")).id();
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            List<Object> issues = enMemeTemps(executor,
+                () -> directDebits.present(presentation(decor, mandat, "80000", J, "prc-1")),
+                () -> directDebits.present(presentation(decor, mandat, "80000", J, "prc-2")));
+            assertThat(issues).allMatch(o -> o instanceof DirectDebitService.Presented);
+            assertThat(issues).map(o -> ((DirectDebitService.Presented) o).directDebit().status())
+                .containsExactlyInAnyOrder("COLLECTED", "REJECTED");
+            assertThat(solde(compte)).isEqualTo(xof("20000"));
+
+            List<Object> memeCle = enMemeTemps(executor,
+                () -> directDebits.present(presentation(decor, mandat, "5000", J, "prc-3")),
+                () -> directDebits.present(presentation(decor, mandat, "5000", J, "prc-3")));
+            assertThat(memeCle).allMatch(o -> o instanceof DirectDebitService.Presented);
+            assertThat(memeCle).map(o -> ((DirectDebitService.Presented) o).directDebit().id())
+                .as("un seul prelevement sous la cle").hasSize(2)
+                .satisfies(ids -> assertThat(ids.get(0)).isEqualTo(ids.get(1)));
+        } finally {
+            executor.shutdown();
+        }
+        assertThat(solde(compte)).isEqualTo(xof("15000"));
+        long total = database.inTransaction(
+            c -> DirectDebitService.count(c, decor.entityId(), null, null));
+        assertThat(total).isEqualTo(3L);
+    }
+
+    /** Deux actes lances ensemble ; chacun rend son resultat ou son exception. */
+    private static List<Object> enMemeTemps(java.util.concurrent.ExecutorService executor,
+                                            java.util.concurrent.Callable<?> premier,
+                                            java.util.concurrent.Callable<?> second)
+            throws Exception {
+        var depart = new java.util.concurrent.CountDownLatch(1);
+        java.util.function.Function<java.util.concurrent.Callable<?>, java.util.concurrent.Callable<Object>>
+            tentative = acte -> () -> {
+                depart.await();
+                try {
+                    return acte.call();
+                } catch (RuntimeException e) {
+                    return e;
+                }
+            };
+        var a = executor.submit(tentative.apply(premier));
+        var b = executor.submit(tentative.apply(second));
+        depart.countDown();
+        return List.of(a.get(), b.get());
     }
 
     @Test

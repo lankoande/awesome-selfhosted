@@ -43,19 +43,31 @@ public final class DirectDebitUseCases {
         }
     }
 
+    /**
+     * Une presentation sur un mandat : venue de la compensation pour un creancier d'ailleurs
+     * ({@code DIRECT_DEBIT_PRESENT}, le back-office), remise d'un creancier de la banque sur un
+     * debiteur de la banque sinon ({@code DIRECT_DEBIT_ISSUE}, plafonnee par role comme une
+     * remise). Le mandat dit lequel ; l'appelant ne choisit pas.
+     */
     public static final class Present
             implements UseCase<DirectDebitService.Presentation, DirectDebitService.Presented> {
         private final DirectDebitService directDebits;
+        private final boolean internalCreditor;
 
-        public Present(DirectDebitService directDebits) {
+        public Present(DirectDebitService directDebits, boolean internalCreditor) {
             this.directDebits = directDebits;
+            this.internalCreditor = internalCreditor;
         }
 
-        @Override public Operation operation() { return Operation.DIRECT_DEBIT_PRESENT; }
+        @Override
+        public Operation operation() {
+            return internalCreditor ? Operation.DIRECT_DEBIT_ISSUE : Operation.DIRECT_DEBIT_PRESENT;
+        }
 
         @Override
         public AccessTarget targetOf(DirectDebitService.Presentation presentation) {
-            return AccessTarget.inEntity(presentation.legalEntityId());
+            return AccessTarget.inEntity(presentation.legalEntityId())
+                .withAmount(presentation.amount());
         }
 
         @Override

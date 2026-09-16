@@ -214,9 +214,10 @@ un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servi
 > (`CHEQUE_BOOK_ISSUE` à deux dans l'agence, `CHEQUE_PAY` plafonné par rôle comme une opération de
 > caisse, `CHEQUE_DEPOSIT` au guichet, `CHEQUE_PROCESS` pour le back-office, `CHEQUE_STOP` en
 > gestion du compte, `CHEQUE_READ` tracé), prélèvements (`MANDATE_REGISTER` à deux dans l'agence,
-> `MANDATE_REVOKE` en gestion du compte, `DIRECT_DEBIT_PRESENT` pour la compensation et les
-> créanciers de la banque, `DIRECT_DEBIT_ISSUE` plafonné par rôle, `DIRECT_DEBIT_PROCESS` pour le
-> back-office, `DIRECT_DEBIT_READ` tracé) ;
+> `MANDATE_REVOKE` en gestion du compte, `DIRECT_DEBIT_PRESENT` réservé à la compensation — le
+> back-office —, `DIRECT_DEBIT_ISSUE` plafonné par rôle pour les remises des créanciers de la
+> banque, `DIRECT_DEBIT_PROCESS` pour le back-office, `DIRECT_DEBIT_READ` tracé ; le mandat
+> décide de l'opération, pas l'appelant) ;
 > `RESULT_APPROPRIATION` — l'affectation du résultat, à deux ; `STATEMENT_LAYOUT_DRAFT` et
 > `STATEMENT_LAYOUT_ACTIVATE` — les maquettes d'états financiers, activées à deux) et
 > restitutions (`LEDGER_READ` : balance, grand livre, journal de l'entité, états financiers —

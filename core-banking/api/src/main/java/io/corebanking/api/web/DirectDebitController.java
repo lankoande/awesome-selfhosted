@@ -39,7 +39,8 @@ public class DirectDebitController {
     private final AccountDirectory accounts;
     private final MakerChecker makerChecker;
     private final DirectDebitUseCases.Revoke revoke;
-    private final DirectDebitUseCases.Present present;
+    private final DirectDebitUseCases.Present presentFromClearing;
+    private final DirectDebitUseCases.Present presentForCreditor;
     private final DirectDebitUseCases.Issue issue;
     private final DirectDebitUseCases.Process process;
     private final DirectDebitUseCases.ReadMandates readMandates;
@@ -55,7 +56,8 @@ public class DirectDebitController {
         this.accounts = accounts;
         this.makerChecker = makerChecker;
         this.revoke = new DirectDebitUseCases.Revoke(directDebits);
-        this.present = new DirectDebitUseCases.Present(directDebits);
+        this.presentFromClearing = new DirectDebitUseCases.Present(directDebits, false);
+        this.presentForCreditor = new DirectDebitUseCases.Present(directDebits, true);
         this.issue = new DirectDebitUseCases.Issue(directDebits);
         this.process = new DirectDebitUseCases.Process(directDebits, database);
         this.readMandates = new DirectDebitUseCases.ReadMandates(database, accounts);
@@ -99,7 +101,11 @@ public class DirectDebitController {
 
     // ------------------------------------------------------------------ presentation et remise
 
-    /** Un prelevement recu, presente sur le mandat ; execute tout de suite si l'echeance est arrivee. */
+    /**
+     * Un prelevement recu, presente sur le mandat ; execute tout de suite si l'echeance est
+     * arrivee. Sur un creancier d'ailleurs, c'est la compensation qui presente ; sur un creancier
+     * de la banque, c'est sa remise, plafonnee par role.
+     */
     @PostMapping("/mandates/{mandateId}/direct-debits")
     public ResponseEntity<DirectDebitService.DirectDebit> present(
             Caller caller, @PathVariable UUID legalEntityId, @PathVariable UUID mandateId,
@@ -109,7 +115,8 @@ public class DirectDebitController {
             .filter(m -> m.legalEntityId().equals(legalEntityId))
             .orElseThrow(() -> new DirectDebitService.UnknownMandateException(mandateId));
         Account debtor = accounts.require(mandate.accountId());
-        DirectDebitService.Presented presented = executor.run(caller, present,
+        DirectDebitService.Presented presented = executor.run(caller,
+            mandate.internal() ? presentForCreditor : presentFromClearing,
             new DirectDebitService.Presentation(key, legalEntityId, mandateId,
                 new Requests.Amount(body.amount(), body.currency()).on(debtor), body.dueDate(),
                 body.reference(), body.channel(), Callers.actorId(caller)));

@@ -67,9 +67,9 @@ public enum Operation {
     MANDATE_REGISTER,
     /** Revocation d'un mandat par le client. */
     MANDATE_REVOKE,
-    /** Presentation d'un prelevement recu sur un mandat : par la compensation ou un creancier de la banque. */
+    /** Presentation par la compensation d'un prelevement d'un creancier d'ailleurs, sur un mandat. */
     DIRECT_DEBIT_PRESENT,
-    /** Remise d'un prelevement emis par un client creancier, credite sauf bonne fin a l'echeance. */
+    /** Remise d'un client creancier : sur un debiteur d'ailleurs, credite sauf bonne fin a l'echeance ; sur un debiteur de la banque, par son mandat. */
     DIRECT_DEBIT_ISSUE,
     /** Suivi d'un prelevement : reglement, rappel, remboursement, retour. */
     DIRECT_DEBIT_PROCESS,

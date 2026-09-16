@@ -1414,6 +1414,9 @@ class ApiIT {
             "dueDate", J.plusDays(1).toString(), "reference", "FACT-1");
         assertThat(post(teller, "/mandates/" + mandatAId + "/direct-debits", "dd-1", presentation)
                        .status()).isEqualTo(403);
+        // Sur un creancier d'ailleurs, c'est la compensation qui presente : pas l'agence.
+        assertThat(post(officer, "/mandates/" + mandatAId + "/direct-debits", "dd-1", presentation)
+                       .status()).isEqualTo(403);
         assertThat(post(operator, "/mandates/" + mandatAId + "/direct-debits", null, presentation)
                        .status()).isEqualTo(400);
         Reponse tropGros = post(operator, "/mandates/" + mandatBId + "/direct-debits", "dd-0",

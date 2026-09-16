@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 597 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 294 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 598 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 295 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -809,6 +809,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | L'exécution d'un prélèvement tente la comptabilisation sous un point de sauvegarde | Un refus du ledger laisse une réservation de clé et une transaction à défaire ; le point de sauvegarde y ramène, et le rejet s'écrit avec la transaction qui l'a constaté — la même en ligne, à l'arrêté, et au TFJ à blanc, qu'une transaction indépendante trahirait en validant |
 | Un prélèvement reçu ne compte pas pour la dormance | L'acte est celui du créancier ; une assurance qui prélève un compte oublié ne prouve pas que son titulaire est là |
 | L'annulation d'un arrêté refuse si un prélèvement exécuté a été réglé, remboursé ou retourné depuis | La suite s'appuie sur l'exécution ; le refus vient avant la première contre-passation, pas au milieu |
+| Un blocage de compte est vérifié par le service avant tout prélèvement, dans les deux sens | Le ledger laisse entrer un crédit de lot sur un compte gelé, parce qu'il le tient pour un acte de la banque ; la remise d'un créancier n'en est pas un |
+| La présentation d'un créancier d'ailleurs est réservée à la compensation | Le mandat décide de l'opération : un chargé de clientèle ne présente que pour un créancier de la banque, sous son plafond ; l'appelant ne choisit pas |
 | Un seul instant de connaissance par écriture | `clock_timestamp()` avance dans une transaction ; par ligne, il placerait les lignes après leur propre écriture |
 | Compte à contrôle de disponible ⇒ une seule stripe | Vérifier un disponible exigerait de verrouiller toutes les stripes, ce qui annulerait la répartition |
 | La génération de recalcul entre dans la clé d'idempotence | Sans elle, une réémission après extourne porte la clé de l'écriture d'origine, passe pour un rejeu et n'impute rien |

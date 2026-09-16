@@ -522,17 +522,23 @@ fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 > tenu au siège, où il attend le correspondant ; puis **réglé** sur le nostro, **remboursé** au
 > débiteur qui conteste (le montant seul, depuis le nostro ou le créancier de la banque), ou
 > **rappelé** avant règlement par contre-passation ; en attente, il se **retire** sans écriture.
-> Sans provision, sur un mandat révoqué, sur un compte qui ne peut pas opérer, un compte bloqué,
-> le prélèvement est **rejeté** avec son motif — un résultat enregistré, pas une erreur —, et le
-> créancier peut représenter. Un **prélèvement émis** est la remise d'un client créancier sur un
+> Sans provision, sur un mandat révoqué, sur un compte qui ne peut pas opérer ou qui est bloqué
+> — un blocage prime sur tout prélèvement, reçu comme émis, à l'arrêté comme en ligne —, le
+> prélèvement est **rejeté** avec son motif — un résultat enregistré, pas une erreur —, et le
+> créancier peut représenter. La présentation d'un créancier d'ailleurs vient de la
+> compensation ; celle d'un créancier de la banque sur un débiteur de la banque est sa remise,
+> plafonnée par rôle. Un **prélèvement émis** est la remise d'un client créancier sur un
 > débiteur d'ailleurs : à l'échéance, le créancier est crédité **sauf bonne fin** — la valeur au
 > compte de prélèvements à l'encaissement (`ops.direct_debit_collection_account`), au siège —,
 > les frais dans leur propre écriture, le montant bloqué jusqu'au **règlement** par le
 > correspondant ; **retourné** avant règlement, la remise est contre-passée à sa date de valeur,
 > après, le montant est repris au créancier vers le nostro ; les frais restent acquis. Les
 > prélèvements ne consomment pas les plafonds du client — c'est le mandat qui les borne — et un
-> prélèvement reçu ne réveille pas un compte dormant ni ne compte pour sa dormance : l'acte est
-> celui du créancier, et il se poursuit sur un compte oublié. L'exécution tient dans une
+> prélèvement reçu ne réveille pas un compte dormant ni ne compte pour la dormance — ni celle du
+> débiteur, ni celle d'un créancier de la banque — : l'acte est celui du créancier, et il se
+> poursuit sur un compte oublié. Deux prélèvements présentés ensemble sur une provision pour un
+> seul : un débité, un rejeté ; la même présentation deux fois en même temps : un seul
+> prélèvement. L'exécution tient dans une
 > transaction : la comptabilisation se tente sous un point de sauvegarde, un refus du ledger y
 > ramène, et le rejet s'écrit avec la transaction qui l'a constaté — réelle ou à blanc. Restent :
 > l'échange avec la compensation (fichiers de présentation et de rejet, cycles), les prélèvements

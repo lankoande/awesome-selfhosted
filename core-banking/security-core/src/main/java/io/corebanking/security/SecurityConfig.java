@@ -192,10 +192,10 @@ public final class SecurityConfig {
                 .within(Scope.OWN_ENTITY).tracedOnRead().build());
 
         // Prelevements : le mandat s'enregistre a deux dans l'agence du compte et se revoque par
-        // le gestionnaire du compte ; un prelevement recu est presente par la compensation ou
-        // par un creancier de la banque ; la remise d'un prelevement emis credite le creancier
-        // sauf bonne fin, plafonnee par role comme un virement ; le suivi est du back-office ;
-        // la lecture est tracee.
+        // le gestionnaire du compte ; un prelevement d'un creancier d'ailleurs est presente par
+        // la compensation, donc par le back-office ; la remise d'un creancier de la banque — sur
+        // un debiteur d'ailleurs, ou de la banque par son mandat — est plafonnee par role comme
+        // un virement ; le suivi est du back-office ; la lecture est tracee.
         policy.put(Operation.MANDATE_REGISTER,
             AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER)
                 .within(Scope.OWN_BRANCH).requiringSecondPerson().build());
@@ -204,8 +204,7 @@ public final class SecurityConfig {
             AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER).within(Scope.OWN_ENTITY).build());
 
         policy.put(Operation.DIRECT_DEBIT_PRESENT,
-            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER, OPERATOR, ACCOUNTANT)
-                .within(Scope.OWN_ENTITY).build());
+            AccessRule.allow(OPERATOR, ACCOUNTANT).within(Scope.OWN_ENTITY).build());
 
         policy.put(Operation.DIRECT_DEBIT_ISSUE,
             AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER)
