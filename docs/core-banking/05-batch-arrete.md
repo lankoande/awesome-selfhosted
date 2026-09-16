@@ -100,6 +100,7 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | 12 | `DORMANCY` | Détection de dormance (délai du produit, sur l'absence d'opération du client) ; régime de frais : non fait | ✔ (non bloquante) |
 | 13 | `HOLD_EXPIRY` | Expiration des blocages de montant arrivés à terme, en date comptable | ✔ |
 | 13b | `DIRECT_DEBITS` | Prélèvements à l'échéance : débit du débiteur, crédit sauf bonne fin du créancier, rejets nommés (provision, mandat révoqué, compte inopérable) | ✔ |
+| 13c | `STANDING_ORDERS` | Ordres permanents à l'échéance : virement interne ou dépôt d'un ordre de paiement, rejets nommés retentés un nombre borné de fois | ✔ |
 | 14 | `KYC_REVIEW` | Échéances de revue périodique de la connaissance client ; expiration de documents : non fait | ✔ (non bloquante) |
 | 14b | `SUSPENSE_REVIEW` | Revue des suspens : ordres, remises, prélèvements non réglés, comptes d'attente non soldés, par ancienneté en jours ouvrés et responsable ; les retards en anomalies | ✔ (non bloquante) |
 | 15 | `BALANCE_SNAPSHOT` | Snapshot des soldes par date comptable et par date de valeur, et par agence | ✔ |
@@ -111,7 +112,7 @@ Une étape **bloquante** en échec arrête le run. Les autres consignent une ano
 laissent le run se poursuivre, avec restitution à la clôture.
 
 > **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `FX_RATES` → `HOLD_EXPIRY` →
-> `DIRECT_DEBITS` → `FEE_CHARGING` → `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_INTEREST_ACCRUAL` →
+> `DIRECT_DEBITS` → `STANDING_ORDERS` → `FEE_CHARGING` → `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_INTEREST_ACCRUAL` →
 > `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` → `LOAN_CLOSURE` → `INTEREST_ACCRUAL` →
 > `INTEREST_SETTLEMENT` → `FX_REVALUATION` → `DORMANCY` → `KYC_REVIEW` → `DOCUMENT_EXPIRY` →
 > `OFFER_EXPIRY` → `SUSPENSE_REVIEW` → `BALANCE_SNAPSHOT` →
@@ -136,6 +137,20 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > les écritures des prélèvements exécutés, lève leurs blocages et les rend à l'attente ; elle est
 > refusée, avant de rien défaire, si l'un d'eux a été réglé, remboursé ou retourné depuis. Le TFJ
 > à blanc les exécute et n'en laisse rien : l'exécution s'écrit avec la transaction qui la porte.
+>
+> `STANDING_ORDERS` vient juste après les prélèvements, et avant les commissions : un
+> prélèvement est l'engagement du client envers un créancier, dont le rejet lui est opposable ;
+> un ordre permanent est son propre ordre, qu'il peut révoquer. Quand la provision ne suffit pas
+> aux deux, c'est celui qu'il a donné qui cède. L'échéance rejetée — provision, plafond, compte
+> bloqué — se retente le jour ouvré suivant, un nombre borné de fois, puis est abandonnée ;
+> seul un défaut technique ou de paramétrage arrête la journée. Vers l'extérieur, l'étape dépose
+> un ordre de paiement plutôt que de comptabiliser elle-même. L'annulation de l'arrêté rend
+> chaque ordre à l'échéance qu'il a trouvée, sans tentative consommée, et solde l'ordre de
+> paiement déposé ; elle est refusée, avant de rien défaire, si celui-ci a été envoyé ou réglé
+> depuis. Les écritures de l'étape portent l'identifiant du traitement — un virement de lot non
+> rattaché à son arrêté survivrait à son annulation —, et leur clé d'idempotence aussi : rejoué,
+> l'arrêté annulé réécrit au lieu de croire avoir viré.
+>
 > `DOCUMENT_EXPIRY` suit `KYC_REVIEW` : les deux constatent la même chose — un dossier qui s'est
 > périmé pendant la nuit — et ne comptabilisent rien. La pièce expirée est constatée **une seule
 > fois** : le constat vit au dossier, et l'étape ne remonte que ce qui n'y figure pas déjà, sinon

@@ -2041,6 +2041,58 @@ class ApiIT {
         assertThat((String) trop.body().get("detail")).contains("pas plus que ce qui a ete passe");
     }
 
+
+    @Test
+    @Order(20)
+    @DisplayName("ordre permanent : mis en place a deux, execute a l'echeance, revoque par le client")
+    void ordre_permanent() throws Exception {
+        // La mise en place engage des virements a venir : elle se decide a deux.
+        Map<String, Object> demande = new LinkedHashMap<>();
+        demande.put("accountId", account.toString());
+        demande.put("reference", "SO-API-1");
+        demande.put("kind", "FIXED");
+        demande.put("amount", "5000");
+        demande.put("beneficiaryAccountId", courant.id().toString());
+        demande.put("frequency", "MONTHLY");
+        demande.put("startDate", J.toString());
+        demande.put("occurrences", 3);
+        demande.put("narrative", "loyer");
+        assertThat(post(operator, "/standing-orders", null, demande).status())
+            .as("le back-office ne met pas en place les ordres du client").isEqualTo(403);
+        assertThat(post(officer, "/standing-orders", null,
+                        Map.of("accountId", account.toString(), "reference", "SO-API-X",
+                               "kind", "HEBDO", "frequency", "MONTHLY",
+                               "startDate", J.toString())).status())
+            .as("une nature inconnue se refuse a la soumission").isEqualTo(422);
+
+        Reponse proposee = post(officer, "/standing-orders", null, demande);
+        assertThat(proposee.status()).as(String.valueOf(proposee.envelope())).isEqualTo(202);
+        assertThat(post(officer, "/pending-operations/" + attente(proposee) + "/approve", null,
+                        Map.of()).status()).isEqualTo(403);
+        Reponse miseEnPlace = post(manager, "/pending-operations/" + attente(proposee) + "/approve",
+                                   null, Map.of());
+        assertThat(miseEnPlace.status()).as(String.valueOf(miseEnPlace.envelope())).isEqualTo(200);
+        UUID ordre = UUID.fromString((String) resultat(miseEnPlace.body()).get("id"));
+        assertThat(resultat(miseEnPlace.body()).get("status")).isEqualTo("ACTIVE");
+
+        Reponse lecture = get(teller, "/standing-orders/" + ordre);
+        assertThat(lecture.status()).as(String.valueOf(lecture.envelope())).isEqualTo(200);
+        Map<?, ?> vue = (Map<?, ?>) lecture.body().get("order");
+        assertThat(vue.get("reference")).isEqualTo("SO-API-1");
+        assertThat((List<?>) lecture.body().get("executions")).isEmpty();
+
+        // La revocation est un droit du client : l'agent l'enregistre, il ne la decide pas.
+        Reponse revoque = post(teller, "/standing-orders/" + ordre + "/revocation", null,
+                               Map.of("reason", "le client a demenage", "on", J.toString()));
+        assertThat(revoque.status()).as(String.valueOf(revoque.envelope())).isEqualTo(200);
+        assertThat(revoque.body().get("status")).isEqualTo("CANCELLED");
+
+        Reponse actifs = get(officer, "/standing-orders?status=ACTIVE");
+        assertThat(actifs.items()).extracting(o -> o.get("reference")).doesNotContain("SO-API-1");
+        assertThat(get(officer, "/standing-orders?status=INCONNU").status())
+            .as("un statut inconnu se refuse au lieu de rendre une liste vide").isEqualTo(422);
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static UUID attente(Reponse reponse) {

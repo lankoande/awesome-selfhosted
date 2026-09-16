@@ -74,7 +74,7 @@ qui change de taux est une nouvelle version datée, pas une livraison.
 | `ops.transaction_max` | décimal | Débit maximal par opération du client (retrait, virement, paiement sortant) |
 | `ops.daily_debit_max` | décimal | Somme des débits du jour, frais compris, hors écritures contre-passées |
 | `ops.monthly_debit_max` | décimal | Même somme sur le mois civil |
-| `ops.payment_fee` | décimal | Frais forfaitaire d'un paiement sortant ; exige `ops.fee_income_account` |
+| `ops.payment_fee` | décimal | Frais forfaitaire d'un paiement sortant ; exige `ops.fee_income_account`. Un ordre permanent vers l'extérieur le paie : il dépose un ordre de paiement |
 | `ops.payment_clearing_account` | UUID (compte général) | Compte de règlement sortant ; absent, le produit n'admet pas de paiement sortant |
 | `ops.cheque_book_fee` | décimal | Frais de délivrance d'un chéquier, taxé au taux du produit ; absent, le chéquier est gratuit |
 | `ops.cheque_collection_account` | UUID (compte général) | Compte de chèques à l'encaissement ; absent, le produit n'admet pas de remise de chèque |
@@ -184,7 +184,7 @@ Frais d'opération d'un compte de dépôt et délai de dormance, sur les famille
 | Paramètre | Valeurs | Effet |
 |---|---|---|
 | `ops.withdrawal_fee` | décimal | Forfait par retrait d'espèces, dans la même écriture que le retrait |
-| `ops.transfer_fee` | décimal | Forfait par virement interne, à la charge de l'émetteur |
+| `ops.transfer_fee` | décimal | Forfait par virement interne, à la charge de l'émetteur. Un ordre permanent interne le paie ; un balayage vire ce qui dépasse le plancher **net de ce frais et de sa taxe**, pour que le plancher promis reste sur le compte |
 | `ops.fee_income_account` | UUID | Compte de produit des frais d'opération — exigé dès qu'un frais est paramétré |
 | `ops.tax_rate` / `ops.tax_account` | décimal, UUID | Taxe sur les frais d'opération et son compte de collecte, l'un exigeant l'autre |
 | `dormancy.months` | entier positif | Mois sans opération à l'initiative du client avant dormance ; absent : le produit ne connaît pas la dormance |

@@ -434,6 +434,8 @@ public final class TfjEngine {
             database.inTransaction(connection -> {
                 try {
                     io.corebanking.deposits.DirectDebitService.requireCancellable(connection, runId);
+                    io.corebanking.deposits.StandingOrderService.requireCancellable(connection,
+                                                                                    runId);
                 } catch (IllegalStateException e) {
                     throw new TfjRefusedException(e.getMessage());
                 }
@@ -677,6 +679,7 @@ public final class TfjEngine {
         KycReviews.cancelRun(connection, runId);
         io.corebanking.party.PartyDocuments.cancelRun(connection, runId);
         io.corebanking.loan.service.LoanOrigination.cancelRun(connection, runId);
+        io.corebanking.deposits.StandingOrderService.cancelRun(connection, runId, on);
         // Les prelevements executes par l'arrete redeviennent en attente ; leurs ecritures sont
         // deja contre-passees, leurs blocages tombent ici.
         io.corebanking.deposits.DirectDebitService.cancelRun(connection, runId, on, actorId);

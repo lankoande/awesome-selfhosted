@@ -225,7 +225,10 @@ un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servi
 > `MANDATE_REVOKE` en gestion du compte, `DIRECT_DEBIT_PRESENT` réservé à la compensation — le
 > back-office —, `DIRECT_DEBIT_ISSUE` plafonné par rôle pour les remises des créanciers de la
 > banque, `DIRECT_DEBIT_PROCESS` pour le back-office, `DIRECT_DEBIT_READ` tracé ; le mandat
-> décide de l'opération, pas l'appelant), suspens (`SUSPENSE_MANAGE` à deux pour le back-office,
+> décide de l'opération, pas l'appelant), ordres permanents (`STANDING_ORDER_REGISTER` à deux
+> dans l'agence — il engage des virements que personne ne redemandera —, `STANDING_ORDER_CANCEL`
+> en gestion du compte, `STANDING_ORDER_READ` tracé ; l'ordre est celui du client, et il consomme
+> ses plafonds), suspens (`SUSPENSE_MANAGE` à deux pour le back-office,
 > `SUSPENSE_READ` tracé pour l'exploitation et le contrôle), heures limites des canaux sous
 > `CALENDAR_MANAGE`, change (`FX_RATE_QUOTE` à deux — le coteur n'est pas le valideur —,
 > `FX_POSITION_MANAGE` à deux pour la comptabilité, `FX_READ` tracé), dossier client

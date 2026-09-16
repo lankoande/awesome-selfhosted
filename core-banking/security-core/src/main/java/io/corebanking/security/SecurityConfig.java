@@ -203,6 +203,22 @@ public final class SecurityConfig {
         policy.put(Operation.MANDATE_REVOKE,
             AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER).within(Scope.OWN_ENTITY).build());
 
+        // Un ordre permanent engage des virements que personne ne redemandera : il se met en
+        // place a deux, comme un mandat de prelevement. Sa revocation, elle, est un droit du
+        // client : l'agent l'enregistre, il ne la decide pas.
+        policy.put(Operation.STANDING_ORDER_REGISTER,
+            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_BRANCH).requiringSecondPerson().build());
+
+        policy.put(Operation.STANDING_ORDER_CANCEL,
+            AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_BRANCH).build());
+
+        policy.put(Operation.STANDING_ORDER_READ,
+            AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER, OPERATOR, ACCOUNTANT,
+                             AUDITOR)
+                .within(Scope.OWN_ENTITY).tracedOnRead().build());
+
         policy.put(Operation.DIRECT_DEBIT_PRESENT,
             AccessRule.allow(OPERATOR, ACCOUNTANT).within(Scope.OWN_ENTITY).build());
 

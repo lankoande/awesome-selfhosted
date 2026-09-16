@@ -945,6 +945,48 @@ nouveau plan est confronté au plafond d'usure : une révision peut le franchir 
 le respectait (`a_rate_revision_reprices_what_is_left`).
 
 
+### 31. Un ordre que le client a donné, et qui cède avant celui qu'il a subi
+
+**Un ordre permanent est l'ordre du client, et cela décide de tout le reste.** Il consomme donc
+ses plafonds — contrairement au chèque, qui est l'instrument d'un porteur, et au prélèvement, qui
+est l'engagement pris envers un créancier. C'est aussi pourquoi l'arrêté l'exécute **après** les
+prélèvements : quand la provision ne suffit pas aux deux, c'est celui que le client a donné qui
+cède, parce que lui seul peut le révoquer, et que le rejet de l'autre lui est opposable chez son
+créancier.
+
+**Les échéances se comptent par rang depuis la date de début, jamais de proche en proche.** Un
+ordre au 31 ramené au 28 en février resterait au 28 les mois suivants : l'ordre aurait changé de
+jour sans que personne ne l'ait décidé. Le rang est donc stocké, la date s'en déduit, et le jour
+férié décale la seule échéance concernée (`a_fixed_order_leaves_on_its_due_date`).
+
+**Un échec n'est pas une anomalie de la banque.** Sans provision, au-delà d'un plafond, sur un
+compte bloqué, l'échéance est rejetée avec son motif — un résultat enregistré — et se retente le
+jour ouvré suivant, un nombre borné de fois, puis est abandonnée. La reporter indéfiniment ferait
+partir deux loyers le même mois, ce qu'aucun client n'a demandé. Le motif se nomme avant la
+comptabilisation, sur le disponible : le refus du ledger, sous verrou, reste la seconde ligne,
+mais tout compte ne porte pas ce contrôle et le client a droit au motif exact
+(`a_failed_instalment_is_retried_then_abandoned`).
+
+**Un balayage laisse le plancher qu'il a promis.** Ce qui dépasse se calcule sur le disponible —
+virer un blocage ou un découvert autorisé viderait le compte de ce qui n'est pas au client — et
+**net des frais du virement** : un balayage qui creuserait le plancher de ses propres frais
+trahirait l'ordre qu'il exécute. Sans rien à balayer, l'échéance passe sans tentative consommée
+(`a_sweep_moves_what_is_above_the_floor`).
+
+**Vers l'extérieur, l'ordre permanent ne comptabilise pas lui-même** : il dépose un ordre de
+paiement, qui suivra son cycle. Deux chemins pour sortir de l'argent de la banque seraient deux
+vérités sur le même sujet, et la seconde se découvrirait au premier rapprochement.
+
+**Ce qu'un arrêté fait, son annulation le défait — en entier.** Les écritures de l'étape portent
+l'identifiant du traitement : un virement de lot non rattaché à son arrêté survivrait à son
+annulation, et l'argent serait parti pour de bon. Leur clé d'idempotence le porte aussi : sous une
+clé qui l'ignorerait, l'arrêté rejoué retrouverait l'écriture contre-passée, croirait avoir viré,
+et l'ordre avancerait d'une échéance sans que l'argent bouge. Chaque ordre revient à l'échéance
+que l'arrêté a trouvée, sans tentative consommée, et l'ordre de paiement déposé est soldé ; s'il
+est déjà parti, l'annulation refuse avant que rien ne soit défait
+(`standing_orders_follow_the_day`).
+
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
@@ -953,9 +995,10 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
   d'une version à l'autre (le test tient l'égalité au code, pas la non-régression du contrat) ;
 - pour les chèques et les prélèvements, l'échange avec la compensation (SICA-UEMOA : fichiers de
   présentation et de rejet, cycles), la déclaration des incidents à la centrale et l'interdiction
-  bancaire, les chèques de banque, les frais de rejet, les ordres permanents — les chéquiers, le
+  bancaire, les chèques de banque, les frais de rejet — les chéquiers, le
   paiement, l'opposition, l'incident, la remise sauf bonne fin, les mandats, les prélèvements
-  reçus à l'échéance et émis sauf bonne fin, comme les paiements sortants et les plafonds par
+  reçus à l'échéance et émis sauf bonne fin, les ordres permanents à montant fixe et en balayage,
+  comme les paiements sortants et les plafonds par
   produit et par compte, eux, sont faits ;
 - multi-agences : schémas de liaison bilatéral et via la région (le schéma via le siège est
   fait, les caisses par guichetier et l'arrêté de caisse aussi) ;

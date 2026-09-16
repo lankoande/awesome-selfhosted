@@ -4,7 +4,7 @@
     {
       "code": "teller",
       "name": "Guichetier",
-      "description": "Operations de caisse — versements, retraits, paiement de cheques au guichet, remises de cheques — depot des pieces au dossier client, et consultation des comptes de son agence.",
+      "description": "Operations de caisse — versements, retraits, paiement de cheques au guichet, remises de cheques — revocation des ordres permanents, depot des pieces au dossier client, et consultation des comptes de son agence.",
       "isSystem": true,
       "category": "RESEAU",
       "attributes": {
@@ -15,7 +15,7 @@
     {
       "code": "branch_manager",
       "name": "Chef d'agence",
-      "description": "Encadrement d'une agence : ouverture et cloture de comptes, blocages, plafonds de compte, chequiers et mandats de prelevement a deux, oppositions, relations entre tiers et beneficiaires effectifs a deux, validation des operations au-dela du plafond guichetier.",
+      "description": "Encadrement d'une agence : ouverture et cloture de comptes, blocages, plafonds de compte, chequiers, mandats de prelevement et ordres permanents a deux, oppositions, relations entre tiers et beneficiaires effectifs a deux, validation des operations au-dela du plafond guichetier.",
       "isSystem": true,
       "category": "RESEAU",
       "attributes": {
@@ -26,7 +26,7 @@
     {
       "code": "customer_officer",
       "name": "Charge de clientele",
-      "description": "Gestion du portefeuille clients : ouverture de comptes, virements, paiements sortants, chequiers et oppositions, remises de cheques, mandats de prelevement et remises de prelevements, dossier client (pieces, relations entre tiers et beneficiaires effectifs a deux), consultation du journal.",
+      "description": "Gestion du portefeuille clients : ouverture de comptes, virements, paiements sortants, chequiers et oppositions, remises de cheques, mandats de prelevement et remises de prelevements, ordres permanents a deux et leur revocation, dossier client (pieces, relations entre tiers et beneficiaires effectifs a deux), consultation du journal.",
       "isSystem": true,
       "category": "RESEAU",
       "attributes": {

@@ -55,15 +55,27 @@ public final class PaymentService {
         this.postingService = Objects.requireNonNull(postingService, "postingService");
     }
 
+    /**
+     * @param batchRunId l'arrete qui depose l'ordre, ou nul en ligne. C'est lui qui rend
+     *     l'ecriture annulable avec le traitement.
+     */
     public record Order(IdempotencyKey key, UUID legalEntityId, UUID accountId, Money amount,
                         String beneficiaryName, String beneficiaryBank, String beneficiaryAccount,
-                        String reference, String channel, UUID actorId) {
+                        String reference, String channel, UUID actorId, UUID batchRunId) {
         public Order {
             OperationsService.requireCommand(key, legalEntityId, accountId, amount, actorId);
             if (isBlank(beneficiaryName) || isBlank(beneficiaryBank) || isBlank(beneficiaryAccount)) {
                 throw new IllegalArgumentException(
                     "Un paiement sortant designe son beneficiaire : nom, banque, compte");
             }
+        }
+
+        /** Un ordre en ligne : il n'appartient a aucun arrete. */
+        public Order(IdempotencyKey key, UUID legalEntityId, UUID accountId, Money amount,
+                     String beneficiaryName, String beneficiaryBank, String beneficiaryAccount,
+                     String reference, String channel, UUID actorId) {
+            this(key, legalEntityId, accountId, amount, beneficiaryName, beneficiaryBank,
+                 beneficiaryAccount, reference, channel, actorId, null);
         }
 
         private static boolean isBlank(String value) {
@@ -122,10 +134,13 @@ public final class PaymentService {
             // banque doit encore livrer. Le frais reste a l'agence qui sert.
             UUID headOffice = Branches.headOffice(c, command.legalEntityId());
             lines = atBranch(lines, clearing.id(), headOffice);
-            PostingResult result = postingService.post(PostingCommand.online(
-                command.key(), command.legalEntityId(), bookingDate,
-                OperationSchemas.PAYMENT_ORDER, command.actorId(), lines)
-                .withBranch(account.branchId()));
+            PostingCommand posting = command.batchRunId() == null
+                ? PostingCommand.online(command.key(), command.legalEntityId(), bookingDate,
+                                        OperationSchemas.PAYMENT_ORDER, command.actorId(), lines)
+                : PostingCommand.batch(command.key(), command.legalEntityId(), bookingDate,
+                                       OperationSchemas.PAYMENT_ORDER, command.actorId(),
+                                       command.batchRunId(), lines);
+            PostingResult result = postingService.post(posting.withBranch(account.branchId()));
             if (result.replayed()) {
                 // Deux ordres concurrents sous la meme cle : le second a attendu le premier sur la
                 // cle d'idempotence, et le premier est valide — son ordre existe.

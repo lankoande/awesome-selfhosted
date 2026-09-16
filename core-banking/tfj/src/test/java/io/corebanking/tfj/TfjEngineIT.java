@@ -70,7 +70,8 @@ class TfjEngineIT extends TfjTestBase {
 
         assertThat(run.isCompleted()).as(run.summary()).isTrue();
         assertThat(run.steps()).extracting(TfjRun.StepExecution::name)
-            .containsExactly("PRE_CHECKS", "FX_RATES", "HOLD_EXPIRY", "DIRECT_DEBITS", "FEE_CHARGING",
+            .containsExactly("PRE_CHECKS", "FX_RATES", "HOLD_EXPIRY", "DIRECT_DEBITS",
+                             "STANDING_ORDERS", "FEE_CHARGING",
                              "LOAN_MOBILISATION",
                              "LOAN_SCHEDULE", "LOAN_INTEREST_ACCRUAL", "LOAN_LATE_CHARGES",
                              "LOAN_CLASSIFICATION", "LOAN_CLOSURE", "INTEREST_ACCRUAL",

@@ -179,14 +179,23 @@ public class PlatformConfiguration {
                                                      io.corebanking.deposits.DirectDebitService
                                                          directDebits,
                                                      io.corebanking.loan.service
-                                                         .LoanWriteOffService writeOffs) {
+                                                         .LoanWriteOffService writeOffs,
+                                                     io.corebanking.deposits.StandingOrderService
+                                                         standingOrders) {
         int hours = properties.makerChecker() == null ? 48
                     : properties.makerChecker().expiryHoursOrDefault();
         return new io.corebanking.api.web.MakerChecker(
             database, authorization, json, java.time.Duration.ofHours(hours),
             io.corebanking.api.web.DualControlHandlers.all(database, lifecycle, parties, accounts,
                                                            loans, engines, postingService,
-                                                           cheques, directDebits, writeOffs));
+                                                           cheques, directDebits, writeOffs,
+                                                           standingOrders));
+    }
+
+    @Bean
+    io.corebanking.deposits.StandingOrderService standingOrderService(
+            Database database, PostingService postingService) {
+        return new io.corebanking.deposits.StandingOrderService(database, postingService);
     }
 
     @Bean

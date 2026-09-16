@@ -90,15 +90,28 @@ public final class OperationsService {
     }
 
     /** Virement entre deux comptes de l'entite. */
+    /**
+     * @param batchRunId l'arrete qui vire, ou nul en ligne. C'est lui qui rend l'ecriture
+     *     annulable avec le traitement : une ecriture de lot non rattachee a son traitement
+     *     survivrait a son annulation, et l'argent serait parti pour de bon.
+     */
     public record Transfer(IdempotencyKey key, UUID legalEntityId, UUID sourceAccountId,
                            UUID destinationAccountId, Money amount, String channel,
-                           String narrative, UUID actorId) {
+                           String narrative, UUID actorId, UUID batchRunId) {
         public Transfer {
             requireCommand(key, legalEntityId, sourceAccountId, amount, actorId);
             Objects.requireNonNull(destinationAccountId, "destinationAccountId");
             if (sourceAccountId.equals(destinationAccountId)) {
                 throw new IllegalArgumentException("Un virement vers le compte emetteur ne vire rien");
             }
+        }
+
+        /** Un virement en ligne : il n'appartient a aucun arrete. */
+        public Transfer(IdempotencyKey key, UUID legalEntityId, UUID sourceAccountId,
+                        UUID destinationAccountId, Money amount, String channel, String narrative,
+                        UUID actorId) {
+            this(key, legalEntityId, sourceAccountId, destinationAccountId, amount, channel,
+                 narrative, actorId, null);
         }
     }
 
@@ -214,9 +227,13 @@ public final class OperationsService {
             lines = withValueDate(lines, destination.id(), creditValue);
 
             // Le frais d'un virement revient a l'agence du compte emetteur.
-            PostingResult result = postingService.post(PostingCommand.online(
-                command.key(), command.legalEntityId(), bookingDate, OperationSchemas.TRANSFER,
-                command.actorId(), lines).withBranch(source.branchId()));
+            PostingCommand posting = command.batchRunId() == null
+                ? PostingCommand.online(command.key(), command.legalEntityId(), bookingDate,
+                                        OperationSchemas.TRANSFER, command.actorId(), lines)
+                : PostingCommand.batch(command.key(), command.legalEntityId(), bookingDate,
+                                       OperationSchemas.TRANSFER, command.actorId(),
+                                       command.batchRunId(), lines);
+            PostingResult result = postingService.post(posting.withBranch(source.branchId()));
             wakeIfDormant(c, source, bookingDate, command.actorId(), result);
             wakeIfDormant(c, destination, bookingDate, command.actorId(), result);
             return receipt(c, result, source, debitValue, command.amount(), charges.fee(),

@@ -38,6 +38,7 @@ import io.corebanking.ledger.store.FiscalYears;
 import io.corebanking.loan.service.Collaterals;
 import io.corebanking.loan.service.LendingPolicies;
 import io.corebanking.loan.service.LoanOrigination;
+import io.corebanking.deposits.StandingOrderService;
 import io.corebanking.loan.service.LoanWriteOffService;
 import io.corebanking.loan.service.RiskProfiles;
 import io.corebanking.product.SchemaCatalog;
@@ -70,7 +71,8 @@ public final class DualControlHandlers {
                                                  io.corebanking.deposits.ChequeService cheques,
                                                  io.corebanking.deposits.DirectDebitService
                                                      directDebits,
-                                                 LoanWriteOffService writeOffs) {
+                                                 LoanWriteOffService writeOffs,
+                                                 StandingOrderService standingOrders) {
         return List.of(new OpenAccount(lifecycle), new CloseAccount(lifecycle, accounts),
                        new BlockAccount(lifecycle, accounts), new LiftBlock(lifecycle, accounts),
                        new PlaceHold(database, accounts), new ReleaseHold(database, accounts),
@@ -99,7 +101,8 @@ public final class DualControlHandlers {
                        new EndBeneficialOwner(database), new SetKycPolicy(database),
                        new DecideApplication(database), new ClearCondition(database),
                        new SetLendingPolicy(database), new WriteOffLoan(database, writeOffs),
-                       new ReviseLoanRate(database, loans));
+                       new ReviseLoanRate(database, loans),
+                       new RegisterStandingOrder(database, standingOrders, accounts));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -338,6 +341,82 @@ public final class DualControlHandlers {
                 Callers.actorId(maker), Callers.actorId(checker));
             return new LoanUseCases.Revised(contract.id(), scheduleId, from,
                                             required(payload, "annualRatePercent"));
+        }
+    }
+
+
+    /** Mise en place d'un ordre permanent, a deux : il engage des virements a venir. */
+    static final class RegisterStandingOrder implements MakerChecker.Handler {
+        private final Database database;
+        private final StandingOrderService standingOrders;
+        private final AccountDirectory accounts;
+
+        RegisterStandingOrder(Database database, StandingOrderService standingOrders,
+                              AccountDirectory accounts) {
+            this.database = database;
+            this.standingOrders = standingOrders;
+            this.accounts = accounts;
+        }
+
+        @Override public String name() { return "STANDING_ORDER_REGISTER"; }
+        @Override public Operation operation() { return Operation.STANDING_ORDER_REGISTER; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            UUID entity = uuid(payload, "legalEntityId");
+            io.corebanking.ledger.domain.account.Account account =
+                accounts.require(uuid(payload, "accountId"));
+            return account.branchId() == null ? AccessTarget.inEntity(entity)
+                                              : AccessTarget.inBranch(entity, account.branchId());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "reference");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            UUID entity = uuid(payload, "legalEntityId");
+            UUID accountId = uuid(payload, "accountId");
+            io.corebanking.kernel.money.CurrencyRef currency =
+                accounts.require(accountId).currency();
+            String amount = text(payload, "amount");
+            String floor = text(payload, "floorAmount");
+            StandingOrderService.Kind kind;
+            try {
+                kind = StandingOrderService.Kind.valueOf(
+                    required(payload, "kind").trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Nature d'ordre permanent inconnue : "
+                    + text(payload, "kind") + " (FIXED, SWEEP)");
+            }
+            io.corebanking.kernel.time.Periodicity frequency;
+            try {
+                frequency = io.corebanking.kernel.time.Periodicity.valueOf(
+                    required(payload, "frequency").trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Periodicite inconnue : "
+                    + text(payload, "frequency"));
+            }
+            String beneficiary = text(payload, "beneficiaryAccountId");
+            String occurrences = text(payload, "occurrences");
+            String maxAttempts = text(payload, "maxAttempts");
+            return standingOrders.register(new StandingOrderService.Draft(
+                entity, accountId, required(payload, "reference"), kind,
+                amount == null ? null
+                    : io.corebanking.kernel.money.Money.of(new java.math.BigDecimal(amount),
+                                                           currency),
+                floor == null ? null
+                    : io.corebanking.kernel.money.Money.of(new java.math.BigDecimal(floor),
+                                                           currency),
+                beneficiary == null ? null : UUID.fromString(beneficiary),
+                text(payload, "beneficiaryName"), text(payload, "beneficiaryBank"),
+                text(payload, "beneficiaryAccount"), frequency, date(payload, "startDate"),
+                date(payload, "endDate"),
+                occurrences == null ? null : integer(payload, "occurrences"),
+                maxAttempts == null ? null : integer(payload, "maxAttempts"),
+                text(payload, "narrative"), Callers.actorId(maker), Callers.actorId(checker)));
         }
     }
 

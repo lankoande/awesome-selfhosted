@@ -67,6 +67,12 @@ public enum Operation {
     MANDATE_REGISTER,
     /** Revocation d'un mandat par le client. */
     MANDATE_REVOKE,
+    /** Ordre permanent : le virement que le client programme une fois, mis en place a deux. */
+    STANDING_ORDER_REGISTER,
+    /** Revocation d'un ordre permanent par le client. */
+    STANDING_ORDER_CANCEL,
+    /** Consultation des ordres permanents et de leurs echeances. */
+    STANDING_ORDER_READ,
     /** Presentation par la compensation d'un prelevement d'un creancier d'ailleurs, sur un mandat. */
     DIRECT_DEBIT_PRESENT,
     /** Remise d'un client creancier : sur un debiteur d'ailleurs, credite sauf bonne fin a l'echeance ; sur un debiteur de la banque, par son mandat. */

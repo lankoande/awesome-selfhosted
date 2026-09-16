@@ -192,6 +192,20 @@ public final class Requests {
                                    Boolean beneficialOwnersRequired,
                                    BigDecimal ownershipThresholdPercent) {}
 
+    // ------------------------------------------------------------------ ordres permanents
+
+    /** Un ordre permanent : montant fixe, ou balayage de ce qui depasse un plancher. */
+    public record StandingOrderRequest(UUID accountId, String reference, String kind,
+                                       BigDecimal amount, BigDecimal floorAmount,
+                                       UUID beneficiaryAccountId, String beneficiaryName,
+                                       String beneficiaryBank, String beneficiaryAccount,
+                                       String frequency, LocalDate startDate, LocalDate endDate,
+                                       Integer occurrences, Integer maxAttempts,
+                                       String narrative) {}
+
+    /** La revocation d'un ordre permanent, motivee. */
+    public record StandingOrderRevocation(LocalDate on, String reason) {}
+
     // ------------------------------------------------------------------ fin de vie du credit
 
     /** Passage en perte : le motif est la piece que lira le controle. */

@@ -628,8 +628,34 @@ fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 > prélèvement. L'exécution tient dans une
 > transaction : la comptabilisation se tente sous un point de sauvegarde, un refus du ledger y
 > ramène, et le rejet s'écrit avec la transaction qui l'a constaté — réelle ou à blanc. Restent :
-> l'échange avec la compensation (fichiers de présentation et de rejet, cycles), les prélèvements
-> internes entre deux clients hors mandat domicilié (ordres permanents), les frais de rejet.
+> l'échange avec la compensation (fichiers de présentation et de rejet, cycles), les frais de
+> rejet.
+
+> **Implémenté — ordres permanents** (`StandingOrderService`, V51, module `deposits`, étape
+> `STANDING_ORDERS` du TFJ) : le virement que le client programme une fois — loyer, épargne,
+> pension. À **montant fixe**, ou en **balayage** : tout ce qui dépasse un plancher, net des
+> frais, pour que le plancher promis reste sur le compte. Le bénéficiaire est **un compte de la
+> banque, ou un tiers d'ailleurs**, jamais les deux. Mis en place **à deux** dans l'agence du
+> compte — il engage des virements que personne ne redemandera — et **révoqué** par le client :
+> ce qui est parti reste parti, rien de plus ne partira. Les échéances se calculent **depuis la
+> date de début**, par rang, jamais de proche en proche : un ordre au 31 ramené au 28 en février
+> resterait au 28 ensuite, et changerait de jour sans que personne ne l'ait décidé ; une échéance
+> tombant un jour férié se traite le jour ouvré suivant. À l'échéance, l'arrêté vire vers un
+> compte de la banque, ou **dépose un ordre de paiement** vers l'extérieur — il ne comptabilise
+> pas lui-même : deux chemins pour sortir de l'argent seraient deux vérités sur le même sujet.
+> L'ordre permanent est **l'ordre du client** : il consomme ses plafonds, contrairement au chèque
+> — l'instrument d'un porteur — et au prélèvement — l'engagement pris envers un créancier. Sans
+> provision, sur un compte bloqué ou au-delà d'un plafond, l'échéance est **rejetée** avec son
+> motif — un résultat enregistré, pas une anomalie : la journée de la banque ne s'arrête pas sur
+> un client à découvert — et se **retente** le jour ouvré suivant, un nombre borné de fois
+> (`max_attempts`), après quoi elle est abandonnée et le calendrier passe à la suivante : la
+> reporter indéfiniment ferait partir deux loyers le même mois. Un balayage sans rien à balayer
+> n'est pas un échec : l'échéance passe sans tentative consommée. L'exécution tient dans une
+> transaction, sous point de sauvegarde comme le prélèvement. **L'annulation de l'arrêté** rend
+> chaque ordre à l'échéance qu'il a trouvée, sans tentative consommée, contre-passe ses écritures
+> — elles portent son identifiant de traitement — et **solde l'ordre de paiement déposé** ; si
+> celui-ci est déjà envoyé ou réglé, l'arrêté ne s'annule plus, et il le dit avant que rien ne
+> soit défait. Restent : les ordres permanents en devise, et le virement programmé à date unique.
 
 ### Points de conception
 
