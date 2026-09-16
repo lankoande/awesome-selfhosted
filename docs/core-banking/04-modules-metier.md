@@ -62,7 +62,7 @@ brutal non annoncé.
 > tiers — voir juste après.
 
 > **Implémenté — dossier client** (`PartyDocuments`, `KycPolicies`, `BeneficialOwners`,
-> `Relationships`, `PartyFile`, V46 ; étape `DOCUMENT_EXPIRY` du TFJ) : une **pièce** se dépose au
+> `Relationships`, `PartyFile`, V46 et V47 ; étape `DOCUMENT_EXPIRY` du TFJ) : une **pièce** se dépose au
 > guichet avec son émetteur, sa date d'émission et son échéance ; celle de la même nature est
 > **remplacée sans être effacée** — le dossier garde ce qui a été présenté, et quand. La
 > **politique de diligence** dit, par nature de tiers et par niveau de diligence, quelles pièces
@@ -77,7 +77,12 @@ brutal non annoncé.
 > décident à deux. Les **relations entre tiers** (représentant légal, mandataire, conjoint,
 > société mère, membre du groupe) se déclarent à deux ; un représentant légal est une personne
 > physique, une détention ne boucle pas — le cycle est refusé à quelque rang que ce soit —, et le
-> groupe se lit en chaîne dans les deux sens. L'étape `DOCUMENT_EXPIRY` constate les pièces
+> groupe se lit en chaîne dans les deux sens. Ce qui se décide en lisant le dossier avant d'y
+> écrire se décide sous verrou : une seule pièce en vigueur par nature est garantie par un index
+> unique — l'ancienne est marquée avant l'insertion de la nouvelle, ce que permet une clé
+> étrangère différée —, la somme des parts se lit sous le verrou du dossier, et les déclarations
+> de détention d'une entité se sérialisent entre elles, faute d'une ligne qui porterait les deux
+> déclarations d'un cycle. L'étape `DOCUMENT_EXPIRY` constate les pièces
 > expirées **une seule fois**, sans bloquer la journée ; l'annulation de l'arrêté efface ses
 > constats. Restent : le rescan périodique du portefeuille, la matrice de restriction par
 > opération (aujourd'hui, l'incomplétude restreint l'ouverture et rien d'autre).

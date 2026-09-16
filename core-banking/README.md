@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 620 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 314 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 622 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 316 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -906,6 +906,10 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Une pièce remplacée est chaînée, jamais effacée | Ce qui a été présenté, et quand, est ce qu'un contrôle vérifie des années plus tard ; l'écraser rend le dossier propre et invérifiable |
 | Une pièce expirée n'est constatée qu'une fois | Rejouée chaque nuit jusqu'au renouvellement, l'alerte cesserait d'être lue ; le constat vit au dossier, et l'annulation de l'arrêté l'efface |
 | Le cycle de détention est refusé par une requête récursive, à quelque rang que ce soit | Une mère détenue par sa filiale rend la consolidation infinie et l'agrégation des risques fausse ; un contrôle au premier rang ne verrait rien |
+| Une seule pièce en vigueur par nature est garantie par un index unique, pas par le service | Deux dépôts simultanés remplacent chacun ce que l'autre n'a pas encore écrit, et le dossier en garde deux ; l'ancienne est donc marquée avant l'insertion, ce qu'une clé étrangère différée permet |
+| Les déclarations de détention d'une entité se sérialisent entre elles | Un cycle peut naître de deux déclarations dont aucune, seule, n'en ferme un : aucune ligne ne les porte toutes deux, il n'y a donc rien à verrouiller par ligne |
+| La liste des dossiers incomplets est désignée par la base, détaillée ensuite | Confronter chaque client à sa politique coûte quatre requêtes par dossier : quelques centaines de milliers pour une banque ordinaire, sur une lecture d'écran |
+| L'inventaire des tables sans politique de sécurité est épinglé par un test | Une table ajoutée sans politique est visible d'une entité à l'autre, et personne ne s'en aperçoit avant l'audit ; la liste doit se lire et se justifier |
 | Un blocage de compte est vérifié par le service avant tout prélèvement, dans les deux sens | Le ledger laisse entrer un crédit de lot sur un compte gelé, parce qu'il le tient pour un acte de la banque ; la remise d'un créancier n'en est pas un |
 | La présentation d'un créancier d'ailleurs est réservée à la compensation | Le mandat décide de l'opération : un chargé de clientèle ne présente que pour un créancier de la banque, sous son plafond ; l'appelant ne choisit pas |
 | Un seul instant de connaissance par écriture | `clock_timestamp()` avance dans une transaction ; par ligne, il placerait les lignes après leur propre écriture |

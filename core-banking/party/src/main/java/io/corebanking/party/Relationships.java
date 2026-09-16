@@ -61,6 +61,12 @@ public final class Relationships {
                 throw new IllegalArgumentException(
                     "Une societe mere et sa filiale sont deux personnes morales");
             }
+            // Un cycle peut naitre de deux declarations dont aucune, seule, n'en ferme un :
+            // A vers B et C vers A, posees en meme temps, ne se voient pas l'une l'autre. Aucune
+            // ligne ne les porte toutes deux — il n'y a donc rien a verrouiller par ligne : les
+            // declarations de detention d'une entite se serialisent entre elles, et elles seules.
+            // Elles sont rares, et validees a deux.
+            lockHoldings(c, draft.legalEntityId());
             if (reaches(c, draft.toPartyId(), draft.fromPartyId())) {
                 throw new IllegalArgumentException(to.reference() + " descend deja de "
                     + from.reference() + " : la detention formerait un cycle, et tout parcours de "
@@ -96,6 +102,17 @@ public final class Relationships {
                       draft.createdBy(), draft.approvedBy(),
                       draft.kind() + " vers " + to.reference(), null);
         return require(c, id);
+    }
+
+    /** Serialise les declarations de detention d'une entite, le temps de la transaction. */
+    private static void lockHoldings(Connection c, UUID legalEntityId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT pg_advisory_xact_lock(hashtext('party_relationship'), hashtext(?))")) {
+            ps.setString(1, legalEntityId.toString());
+            ps.executeQuery().close();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Verrou des declarations de detention", e);
+        }
     }
 
     /** Met fin a une relation : le pouvoir cesse, la trace reste. */

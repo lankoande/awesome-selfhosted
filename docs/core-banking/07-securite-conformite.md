@@ -108,6 +108,14 @@ reporting écrite sans le filtre d'entité.
 > et dire qu'elle existe serait déjà une fuite ; la politique tranche avant (`403`) quand le cas
 > d'usage n'a pas à la chercher. Prouvé par `RowLevelSecurityIT` (rôle applicatif réel) et par
 > `ApiIT`, qui démarre l'API avec ce rôle et migre avec le propriétaire.
+>
+> Ce qui reste hors politique est désormais **un inventaire épinglé** : `SchemaInvariantsIT`
+> applique toutes les migrations du déploiement — sans tolérance de trou, ce qui vérifie au
+> passage qu'aucun module ne manque au classpath — puis dresse la liste des tables sans politique
+> et la confronte à cette liste, écrite et justifiée famille par famille : l'outillage du schéma,
+> le référentiel partagé entre entités, et les tables tenues par une mère elle-même cloisonnée.
+> Une table ajoutée sans politique et sans décision fait échouer la construction, au lieu d'être
+> découverte à l'audit.
 
 ### Keycloak : ce que le jeton dit, et ce qu'il ne dit pas
 

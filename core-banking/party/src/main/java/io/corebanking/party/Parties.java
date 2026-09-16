@@ -37,6 +37,27 @@ public final class Parties {
             () -> new IllegalArgumentException("Tiers inconnu : " + partyId));
     }
 
+    /**
+     * Verrouille le dossier le temps de la transaction. Tout ce qui se decide en lisant le
+     * dossier avant d'y ecrire — la piece en vigueur qu'on remplace, la somme des parts deja
+     * declarees — se decide sous ce verrou : deux transactions qui se lisent l'une sans l'autre
+     * concluent chacune qu'elle a le droit, et laissent un dossier que ni l'une ni l'autre
+     * n'aurait accepte.
+     */
+    public static void lock(Connection c, UUID partyId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id FROM party WHERE id = ? FOR UPDATE")) {
+            ps.setObject(1, partyId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new IllegalArgumentException("Tiers inconnu : " + partyId);
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Verrou du tiers " + partyId, e);
+        }
+    }
+
     public static Optional<Party> findByReference(Connection c, UUID legalEntityId, String reference) {
         try (PreparedStatement ps = c.prepareStatement(
             SELECT + " WHERE legal_entity_id = ? AND reference = ?")) {

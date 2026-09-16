@@ -113,26 +113,55 @@ public final class PartyFile {
                                 missing, expired, ownersMissing, unverified);
     }
 
-    /** Les dossiers incomplets de l'entite : la liste de travail de la conformite. */
+    /**
+     * Les dossiers incomplets de l'entite : la liste de travail de la conformite.
+     *
+     * <p>La base designe les dossiers a examiner, le detail se construit ensuite pour eux seuls :
+     * le cout suit la liste de travail, pas le portefeuille. Confronter chaque client a sa
+     * politique demanderait quatre requetes par dossier — quelques centaines de milliers pour une
+     * banque de taille ordinaire, sur une lecture d'ecran.
+     */
+    private static final String INCOMPLETE_FILES =
+        "SELECT p.id FROM party p"
+        + "  JOIN kyc_policy k ON k.legal_entity_id = p.legal_entity_id"
+        + "                   AND k.party_kind = p.kind AND k.kyc_level = p.kyc_level"
+        + " WHERE p.legal_entity_id = ? AND p.status = 'ACTIVE'"
+        + "   AND (EXISTS (SELECT 1 FROM kyc_policy_document d"
+        + "                 WHERE d.policy_id = k.id"
+        + "                   AND NOT EXISTS (SELECT 1 FROM party_document pd"
+        + "                                    WHERE pd.party_id = p.id"
+        + "                                      AND pd.kind = d.document_kind"
+        + "                                      AND pd.superseded_by IS NULL"
+        + "                                      AND (pd.expires_on IS NULL OR pd.expires_on >= ?)))"
+        + "        OR (k.beneficial_owners_required AND p.kind = 'LEGAL_PERSON'"
+        + "            AND (NOT EXISTS (SELECT 1 FROM beneficial_owner b"
+        + "                              WHERE b.party_id = p.id AND b.valid_to IS NULL)"
+        + "                 OR EXISTS (SELECT 1 FROM beneficial_owner b"
+        + "                              JOIN party o ON o.id = b.owner_party_id"
+        + "                             WHERE b.party_id = p.id AND b.valid_to IS NULL"
+        + "                               AND b.ownership_percent >= k.ownership_threshold_percent"
+        + "                               AND o.kyc_status <> 'VERIFIED'))))"
+        + " ORDER BY p.reference";
+
     public static List<Completeness> incomplete(Connection c, UUID legalEntityId, LocalDate on) {
-        List<Completeness> incomplete = new ArrayList<>();
-        try (var ps = c.prepareStatement(
-            "SELECT id FROM party WHERE legal_entity_id = ? AND status = 'ACTIVE' ORDER BY reference")) {
+        List<UUID> candidates = new ArrayList<>();
+        try (var ps = c.prepareStatement(INCOMPLETE_FILES)) {
             ps.setObject(1, legalEntityId);
+            ps.setObject(2, on);
             try (var rs = ps.executeQuery()) {
-                List<UUID> ids = new ArrayList<>();
                 while (rs.next()) {
-                    ids.add(rs.getObject(1, UUID.class));
-                }
-                for (UUID id : ids) {
-                    Completeness completeness = completeness(c, id, on);
-                    if (completeness.policyDeclared() && !completeness.complete()) {
-                        incomplete.add(completeness);
-                    }
+                    candidates.add(rs.getObject(1, UUID.class));
                 }
             }
         } catch (java.sql.SQLException e) {
             throw new LedgerStoreException("Recensement des dossiers incomplets", e);
+        }
+        List<Completeness> incomplete = new ArrayList<>();
+        for (UUID id : candidates) {
+            Completeness completeness = completeness(c, id, on);
+            if (completeness.policyDeclared() && !completeness.complete()) {
+                incomplete.add(completeness);
+            }
         }
         return incomplete;
     }

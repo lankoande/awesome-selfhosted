@@ -71,6 +71,9 @@ public final class BeneficialOwners {
                 + " remonter la chaine de detention jusqu'a une personne, pas jusqu'a une societe "
                 + "ecran — " + owner.reference() + " est une personne morale");
         }
+        // La somme se lit puis s'ecrit : sans verrou, deux declarations concurrentes passent
+        // chacune sous cent pour cent et totalisent davantage.
+        Parties.lock(c, declaration.partyId());
         BigDecimal declared = totalDeclared(c, declaration.partyId());
         BigDecimal total = declared.add(declaration.ownershipPercent());
         if (total.compareTo(new BigDecimal("100")) > 0) {

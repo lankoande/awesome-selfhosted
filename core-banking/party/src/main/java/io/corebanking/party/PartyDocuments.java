@@ -49,14 +49,33 @@ public final class PartyDocuments {
         }
     }
 
-    /** Depose une piece et remplace celle de la meme nature, si elle existe. */
+    /**
+     * Depose une piece et remplace celle de la meme nature, si elle existe.
+     *
+     * <p>Le dossier est verrouille le temps du depot : deux depots concurrents de la meme nature
+     * laisseraient sinon deux pieces en vigueur, chacune ayant remplace ce que l'autre n'avait pas
+     * encore ecrit. L'ancienne est marquee <em>avant</em> que la nouvelle soit inseree — l'index
+     * unique n'admet qu'une piece en vigueur par nature —, ce que permet une cle etrangere
+     * differee : elle designe une ligne qui n'existe qu'a la fin de la transaction.
+     */
     public static Document deposit(Connection c, Deposit deposit) {
         Party party = Parties.require(c, deposit.partyId());
         if (!party.legalEntityId().equals(deposit.legalEntityId())) {
             throw new IllegalArgumentException("Le tiers " + party.reference()
                                                + " releve d'une autre entite juridique");
         }
+        Parties.lock(c, deposit.partyId());
         UUID id = Ids.newId();
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE party_document SET superseded_by = ?"
+            + " WHERE party_id = ? AND kind = ? AND superseded_by IS NULL")) {
+            ps.setObject(1, id);
+            ps.setObject(2, deposit.partyId());
+            ps.setString(3, deposit.kind().name());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Remplacement de la piece " + deposit.kind(), e);
+        }
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO party_document(id, legal_entity_id, party_id, kind, reference, issuer,"
             + " issued_on, expires_on, collected_on, created_by) VALUES (?,?,?,?,?,?,?,?,?,?)")) {
@@ -73,17 +92,6 @@ public final class PartyDocuments {
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new LedgerStoreException("Depot de la piece " + deposit.kind(), e);
-        }
-        try (PreparedStatement ps = c.prepareStatement(
-            "UPDATE party_document SET superseded_by = ?"
-            + " WHERE party_id = ? AND kind = ? AND id <> ? AND superseded_by IS NULL")) {
-            ps.setObject(1, id);
-            ps.setObject(2, deposit.partyId());
-            ps.setString(3, deposit.kind().name());
-            ps.setObject(4, id);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new LedgerStoreException("Remplacement de la piece " + deposit.kind(), e);
         }
         Parties.event(c, deposit.partyId(), "DOCUMENT_ADDED", deposit.collectedOn(),
                       deposit.actorId(), null, deposit.kind().name()

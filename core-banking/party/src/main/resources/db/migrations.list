@@ -4,3 +4,4 @@
 V22__party.sql
 V28__rls_party.sql
 V46__dossier_client.sql
+V47__dossier_client_verrous.sql

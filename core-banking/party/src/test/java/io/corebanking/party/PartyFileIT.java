@@ -315,6 +315,38 @@ class PartyFileIT {
             c -> PartyFile.incomplete(c, ENTITY, JOUR));
         assertThat(incomplets).extracting(PartyFile.Completeness::reference).contains("REC-001");
 
+        // Une piece perimee compte comme manquante dans la liste de travail, et un dossier
+        // complet n'y figure pas : la base designe les memes dossiers que la confrontation.
+        UUID perime = personne("REC-002");
+        deposer(perime, DocumentKind.IDENTITY, JOUR.minusDays(1));
+        deposer(perime, DocumentKind.INCOME_PROOF, null);
+        UUID complet = personne("REC-003");
+        deposer(complet, DocumentKind.IDENTITY, JOUR.plusYears(1));
+        deposer(complet, DocumentKind.INCOME_PROOF, null);
+        List<PartyFile.Completeness> avecPerimes = database.inTransaction(
+            c -> PartyFile.incomplete(c, ENTITY, JOUR));
+        assertThat(avecPerimes).extracting(PartyFile.Completeness::reference)
+            .contains("REC-001", "REC-002").doesNotContain("REC-003");
+        assertThat(avecPerimes).filteredOn(d -> d.reference().equals("REC-002")).singleElement()
+            .satisfies(d -> assertThat(d.expired()).containsExactly(DocumentKind.IDENTITY));
+
+        // Une personne morale dont les beneficiaires effectifs sont exiges et inconnus y figure
+        // aussi — la deuxieme branche de la meme requete.
+        UUID societe = societe("REC-SA");
+        database.inTransaction(c -> KycPolicies.replace(c, new KycPolicies.Draft(
+            ENTITY, PartyKind.LEGAL_PERSON, KycLevel.STANDARD, Set.of(), true, null, ACTOR,
+            APPROVER)));
+        List<PartyFile.Completeness> avecSociete = database.inTransaction(
+            c -> PartyFile.incomplete(c, ENTITY, JOUR));
+        assertThat(avecSociete).filteredOn(d -> d.reference().equals("REC-SA")).singleElement()
+            .satisfies(d -> assertThat(d.beneficialOwnersMissing()).isTrue());
+        database.inTransaction(c -> BeneficialOwners.declare(c, new BeneficialOwners.Declaration(
+            ENTITY, societe, personne("REC-BO"), new BigDecimal("100"), JOUR, ACTOR, APPROVER)));
+        List<PartyFile.Completeness> apresDeclaration = database.inTransaction(
+            c -> PartyFile.incomplete(c, ENTITY, JOUR));
+        assertThat(apresDeclaration).extracting(PartyFile.Completeness::reference)
+            .doesNotContain("REC-SA");
+
         // La politique se remplace : l'exigence retiree ne manque plus.
         database.inTransaction(c -> KycPolicies.replace(c, new KycPolicies.Draft(
             ENTITY, PartyKind.NATURAL_PERSON, KycLevel.STANDARD, Set.of(DocumentKind.IDENTITY),
@@ -333,5 +365,103 @@ class PartyFileIT {
                 KycLevel.STANDARD, Set.of(), true, null, ACTOR, APPROVER))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("exigence des personnes morales");
+    }
+
+    @Test
+    @DisplayName("a deux en meme temps : une seule piece en vigueur par nature, des parts qui ne depassent pas cent pour cent, et une detention qui ne boucle pas")
+    void concurrency() throws Exception {
+        UUID client = personne("CONC-001");
+        UUID mere = societe("CONC-MERE");
+        UUID fille = societe("CONC-FILLE");
+        UUID premier = personne("CONC-BO-1");
+        UUID second = personne("CONC-BO-2");
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            // Deux depots de la meme nature, en meme temps : une seule piece reste en vigueur,
+            // l'autre est chainee — sans l'index unique, les deux resteraient courantes.
+            List<Object> depots = enMemeTemps(executor,
+                () -> deposer(client, DocumentKind.IDENTITY, JOUR.plusYears(5)),
+                () -> deposer(client, DocumentKind.IDENTITY, JOUR.plusYears(6)));
+            assertThat(depots).allMatch(o -> o instanceof PartyDocuments.Document);
+            List<PartyDocuments.Document> courantes = database.inTransaction(
+                c -> PartyDocuments.of(c, client, false));
+            assertThat(courantes).hasSize(1);
+            List<PartyDocuments.Document> toutes = database.inTransaction(
+                c -> PartyDocuments.of(c, client, true));
+            assertThat(toutes).hasSize(2);
+
+            // Soixante et soixante : la seconde declaration voit la premiere et se refuse.
+            List<Object> parts = enMemeTemps(executor,
+                () -> database.inTransaction(c -> BeneficialOwners.declare(c,
+                    new BeneficialOwners.Declaration(ENTITY, mere, premier, new BigDecimal("60"),
+                                                     JOUR, ACTOR, APPROVER))),
+                () -> database.inTransaction(c -> BeneficialOwners.declare(c,
+                    new BeneficialOwners.Declaration(ENTITY, mere, second, new BigDecimal("60"),
+                                                     JOUR, ACTOR, APPROVER))));
+            assertThat(parts).filteredOn(o -> o instanceof BeneficialOwners.Owner).hasSize(1);
+            assertThat(parts).filteredOn(o -> o instanceof IllegalArgumentException).hasSize(1);
+            List<BeneficialOwners.Owner> detenteurs = database.inTransaction(
+                c -> BeneficialOwners.current(c, mere));
+            assertThat(detenteurs).hasSize(1);
+
+            // Les deux sens d'une meme detention : aucune des deux declarations, seule, ne ferme
+            // un cycle ; ensemble, elles le feraient. La seconde doit donc attendre la premiere,
+            // et la voir. Le scenario est deterministe : la premiere transaction declare puis
+            // retient sa validation jusqu'a ce que la seconde soit lancee.
+            var declaree = new java.util.concurrent.CountDownLatch(1);
+            var valider = new java.util.concurrent.CountDownLatch(1);
+            var premiere = executor.submit(() -> database.inTransaction(c -> {
+                Relationships.Relationship r = Relationships.declare(c, new Relationships.Draft(
+                    ENTITY, fille, mere, RelationshipKind.PARENT_COMPANY, JOUR, ACTOR, APPROVER));
+                declaree.countDown();
+                try {
+                    valider.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return r;
+            }));
+            declaree.await();
+            var seconde = executor.submit(() -> {
+                try {
+                    return database.inTransaction(c -> Relationships.declare(c,
+                        new Relationships.Draft(ENTITY, mere, fille,
+                                                RelationshipKind.PARENT_COMPANY, JOUR, ACTOR,
+                                                APPROVER)));
+                } catch (RuntimeException e) {
+                    return e;
+                }
+            });
+            Thread.sleep(300);                       // le temps que la seconde bute sur le verrou
+            valider.countDown();
+            assertThat(premiere.get()).isInstanceOf(Relationships.Relationship.class);
+            assertThat(seconde.get()).isInstanceOf(IllegalArgumentException.class)
+                .asString().contains("cycle");
+            List<UUID> groupe = database.inTransaction(c -> Relationships.group(c, mere));
+            assertThat(groupe).containsExactlyInAnyOrder(mere, fille);
+        } finally {
+            executor.shutdown();
+        }
+    }
+
+    private static List<Object> enMemeTemps(java.util.concurrent.ExecutorService executor,
+                                            java.util.concurrent.Callable<?> premier,
+                                            java.util.concurrent.Callable<?> second)
+            throws Exception {
+        var depart = new java.util.concurrent.CountDownLatch(1);
+        java.util.function.Function<java.util.concurrent.Callable<?>,
+                                    java.util.concurrent.Callable<Object>>
+            tentative = acte -> () -> {
+                depart.await();
+                try {
+                    return acte.call();
+                } catch (RuntimeException e) {
+                    return e;
+                }
+            };
+        var a = executor.submit(tentative.apply(premier));
+        var b = executor.submit(tentative.apply(second));
+        depart.countDown();
+        return List.of(a.get(), b.get());
     }
 }
