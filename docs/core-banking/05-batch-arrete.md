@@ -113,8 +113,8 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `FX_RATES` → `HOLD_EXPIRY` →
 > `DIRECT_DEBITS` → `FEE_CHARGING` → `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_INTEREST_ACCRUAL` →
 > `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` → `LOAN_CLOSURE` → `INTEREST_ACCRUAL` →
-> `INTEREST_SETTLEMENT` → `FX_REVALUATION` → `DORMANCY` → `KYC_REVIEW` → `SUSPENSE_REVIEW` →
-> `BALANCE_SNAPSHOT` →
+> `INTEREST_SETTLEMENT` → `FX_REVALUATION` → `DORMANCY` → `KYC_REVIEW` → `DOCUMENT_EXPIRY` →
+> `SUSPENSE_REVIEW` → `BALANCE_SNAPSHOT` →
 > `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans toucher au moteur.
 >
 > `FX_RATES` vient avant tout calcul : une journée qui comptabiliserait des intérêts en devise,
@@ -136,6 +136,14 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > les écritures des prélèvements exécutés, lève leurs blocages et les rend à l'attente ; elle est
 > refusée, avant de rien défaire, si l'un d'eux a été réglé, remboursé ou retourné depuis. Le TFJ
 > à blanc les exécute et n'en laisse rien : l'exécution s'écrit avec la transaction qui la porte.
+> `DOCUMENT_EXPIRY` suit `KYC_REVIEW` : les deux constatent la même chose — un dossier qui s'est
+> périmé pendant la nuit — et ne comptabilisent rien. La pièce expirée est constatée **une seule
+> fois** : le constat vit au dossier, et l'étape ne remonte que ce qui n'y figure pas déjà, sinon
+> chaque arrêté rejouerait la même alerte jusqu'au renouvellement. Elle ne bloque pas la journée :
+> le compte continue de fonctionner, mais plus rien ne s'ouvre sur ce dossier tant que la pièce
+> n'est pas renouvelée — la restriction est progressive, et elle s'annonce. L'annulation de
+> l'arrêté efface ses constats, et la journée se rejoue à l'identique.
+>
 > `SUSPENSE_REVIEW` passe en revue ce qui attend le correspondant — ordres, remises,
 > prélèvements non réglés, comptes d'attente non soldés — avec l'ancienneté en jours ouvrés et le
 > responsable de la politique, et rend les retards en anomalies non bloquantes, par nature, avec

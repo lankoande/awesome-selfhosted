@@ -168,6 +168,18 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `GET /fx-rates?currency=&limit=` | `FX_READ` | les cours cotés, du plus récent au plus ancien ; lecture tracée |
 | `POST /fx-positions` | `FX_POSITION_MANAGE` | devise, compte de position (créditeur, en devise), compte de contre-valeur (débiteur, en devise de tenue), comptes de gain et de perte, marge tolérée en points de base — **202**, à deux ; un couple de comptes mal orienté est refusé (`422`) |
 | `GET /fx-positions` | `FX_READ` | l'exposition du jour : solde en devise, contre-valeur portée, cours et sa date, contre-valeur revalorisée, écart latent ; lecture tracée |
+| `POST /parties/{id}/documents` | `PARTY_DOCUMENT` | nature, référence, émetteur, dates d'émission, d'expiration et de collecte — **201** ; la pièce de même nature est remplacée et reste au dossier |
+| `GET /parties/{id}/documents` | `PARTY_READ` | les pièces en vigueur du dossier ; lecture tracée |
+| `GET /parties/{id}/file` | `PARTY_READ` | la complétude : politique déclarée, pièces manquantes, pièces expirées, bénéficiaires effectifs manquants ou non vérifiés, verdict et sa phrase — celle que l'agence lit au refus d'ouverture |
+| `GET /parties/incomplete-files` | `PARTY_FILE_READ` | la liste de travail de la conformité : les dossiers incomplets de l'entité ; lecture tracée |
+| `POST /parties/{id}/relationships` | `PARTY_RELATIONSHIP` | tiers lié, nature, date d'effet — **202**, à deux ; un cycle de détention (`422`) et un représentant légal personne morale (`422`) sont refusés |
+| `GET /parties/{id}/relationships` | `PARTY_READ` | les relations du tiers, portées comme subies |
+| `POST /relationships/{id}/termination` | `PARTY_RELATIONSHIP` | date de fin — **202**, à deux |
+| `POST /parties/{id}/beneficial-owners` | `PARTY_RELATIONSHIP` | personne physique, part détenue, date — **202**, à deux ; au-delà de cent pour cent cumulés, refus nommé (`422`) |
+| `GET /parties/{id}/beneficial-owners` | `PARTY_READ` | les bénéficiaires effectifs en vigueur, avec leur part et l'état de leur propre dossier |
+| `POST /beneficial-owners/{id}/termination` | `PARTY_RELATIONSHIP` | date de fin — **202**, à deux ; la part libérée peut être redéclarée |
+| `POST /kyc-policies` | `KYC_POLICY_MANAGE` | nature de tiers, niveau, pièces exigées, bénéficiaires effectifs requis, seuil de détention — **202**, à deux ; elle remplace la précédente |
+| `GET /kyc-policies` | `PARTY_FILE_READ` | les politiques déclarées : le guichetier doit savoir quelles pièces réclamer |
 | `POST /calendar/cutoffs` | `CALENDAR_MANAGE` | canal (vide : tous), heure limite `HH:mm` dans le fuseau de l'entité, `closesChannel`, validité — **202**, à deux ; l'heure se valide à la soumission (`422`) ; au-delà de l'heure, une opération du canal prend valeur depuis le jour ouvré suivant, ou est refusée (`409`) si le canal ferme |
 | `POST /suspense-policies`, `GET /suspense-policies` | `SUSPENSE_MANAGE` | nature (`SUSPENSE_ACCOUNT`, `PAYMENT_ORDER`, `CHEQUE_DEPOSIT`, `DIRECT_DEBIT`), ancienneté tolérée en jours ouvrés, responsable, validité — **202**, à deux ; nature, tolérance et responsable validés à la soumission (`422`) |
 | `GET /suspense` | `SUSPENSE_READ` | la revue à la date comptable : chaque suspens avec son compte, son montant, depuis quand, son ancienneté, la tolérance et le responsable de sa politique, `overdue` ; lecture tracée |

@@ -4,7 +4,7 @@
     {
       "code": "teller",
       "name": "Guichetier",
-      "description": "Operations de caisse — versements, retraits, paiement de cheques au guichet, remises de cheques — et consultation des comptes de son agence.",
+      "description": "Operations de caisse — versements, retraits, paiement de cheques au guichet, remises de cheques — depot des pieces au dossier client, et consultation des comptes de son agence.",
       "isSystem": true,
       "category": "RESEAU",
       "attributes": {
@@ -15,7 +15,7 @@
     {
       "code": "branch_manager",
       "name": "Chef d'agence",
-      "description": "Encadrement d'une agence : ouverture et cloture de comptes, blocages, plafonds de compte, chequiers et mandats de prelevement a deux, oppositions, validation des operations au-dela du plafond guichetier.",
+      "description": "Encadrement d'une agence : ouverture et cloture de comptes, blocages, plafonds de compte, chequiers et mandats de prelevement a deux, oppositions, relations entre tiers et beneficiaires effectifs a deux, validation des operations au-dela du plafond guichetier.",
       "isSystem": true,
       "category": "RESEAU",
       "attributes": {
@@ -26,7 +26,7 @@
     {
       "code": "customer_officer",
       "name": "Charge de clientele",
-      "description": "Gestion du portefeuille clients : ouverture de comptes, virements, paiements sortants, chequiers et oppositions, remises de cheques, mandats de prelevement et remises de prelevements, consultation du journal.",
+      "description": "Gestion du portefeuille clients : ouverture de comptes, virements, paiements sortants, chequiers et oppositions, remises de cheques, mandats de prelevement et remises de prelevements, dossier client (pieces, relations entre tiers et beneficiaires effectifs a deux), consultation du journal.",
       "isSystem": true,
       "category": "RESEAU",
       "attributes": {
@@ -81,7 +81,7 @@
     {
       "code": "risk_officer",
       "name": "Responsable des risques",
-      "description": "Blocages de comptes et seconde validation du parametrage produit.",
+      "description": "Blocages de comptes, seconde validation du parametrage produit, politique de diligence client (pieces exigees, beneficiaires effectifs, seuil de detention) a deux.",
       "isSystem": true,
       "category": "CONTROLE",
       "attributes": {
@@ -103,7 +103,7 @@
     {
       "code": "auditor",
       "name": "Auditeur",
-      "description": "Consultation transverse aux entites, acces a la piste d'audit, balance, grand livre, journal, etats financiers, revue des suspens et positions de change de son entite. Profil exclusif : ne se cumule avec aucun role operationnel.",
+      "description": "Consultation transverse aux entites, acces a la piste d'audit, balance, grand livre, journal, etats financiers, revue des suspens, positions de change et dossiers clients incomplets de son entite. Profil exclusif : ne se cumule avec aucun role operationnel.",
       "isSystem": true,
       "category": "CONTROLE",
       "attributes": {

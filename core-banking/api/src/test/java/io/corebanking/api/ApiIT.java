@@ -157,6 +157,7 @@ class ApiIT {
     private String creditManager;
     private String productManager;
     private String riskOfficer;
+    private String riskOfficer2;
     private String accountant;
     private String auditor;
     private Account pret;
@@ -260,6 +261,7 @@ class ApiIT {
         creditManager = token(UUID.randomUUID(), "resp.credit", null, Roles.CREDIT_MANAGER);
         productManager = token(UUID.randomUUID(), "resp.produits", null, Roles.PRODUCT_MANAGER);
         riskOfficer = token(UUID.randomUUID(), "risques", null, Roles.RISK_OFFICER);
+        riskOfficer2 = token(UUID.randomUUID(), "conformite", null, Roles.RISK_OFFICER);
         accountant = token(UUID.randomUUID(), "comptable", null, Roles.ACCOUNTANT);
         accountant2 = token(UUID.randomUUID(), "chef.comptable", null, Roles.ACCOUNTANT);
         auditor = token(UUID.randomUUID(), "auditeur", null, Roles.AUDITOR);
@@ -1685,6 +1687,140 @@ class ApiIT {
         assertThat(get(teller, "/fx-positions").status()).as("la lecture est du siege")
             .isEqualTo(403);
         assertThat(get(auditor, "/fx-rates").status()).isEqualTo(200);
+    }
+
+
+    @Test
+    @Order(17)
+    @SuppressWarnings("unchecked")
+    @DisplayName("dossier client : les pieces datees, la politique de diligence qui dit ce qu'il faut, la complétude qui restreint l'ouverture, les beneficiaires effectifs et les relations")
+    void dossier_client() throws Exception {
+        // Sans politique declaree, rien n'est exige : le dossier est complet par construction.
+        Reponse vierge = get(officer, "/parties/" + party + "/file");
+        assertThat(vierge.status()).as(String.valueOf(vierge.envelope())).isEqualTo(200);
+        assertThat(vierge.body().get("complete")).isEqualTo(true);
+
+        // La piece d'identite, datee : elle porte son emetteur et son echeance.
+        Reponse piece = post(officer, "/parties/" + party + "/documents", null, Map.of(
+            "kind", "IDENTITY", "reference", "CI-123456", "issuer", "ONECI",
+            "issuedOn", J.minusYears(3).toString(), "expiresOn", J.plusYears(7).toString(),
+            "collectedOn", J.toString()));
+        assertThat(piece.status()).as(String.valueOf(piece.envelope())).isEqualTo(201);
+        assertThat(piece.body().get("kind")).isEqualTo("IDENTITY");
+        assertThat(post(operator, "/parties/" + party + "/documents", null, Map.of(
+                        "kind", "IDENTITY", "collectedOn", J.toString())).status())
+            .as("le back-office ne monte pas les dossiers").isEqualTo(403);
+        assertThat(post(officer, "/parties/" + party + "/documents", null, Map.of(
+                        "kind", "CARTE-GRISE", "collectedOn", J.toString())).status())
+            .as("une nature de piece inconnue se refuse a la soumission").isEqualTo(422);
+
+        // La politique : declaree a deux par la conformite, jamais par le charge de clientele.
+        Map<String, Object> exigence = Map.of("partyKind", "NATURAL_PERSON",
+            "kycLevel", "STANDARD",
+            "requiredDocuments", List.of("IDENTITY", "ADDRESS_PROOF"));
+        assertThat(post(officer, "/kyc-policies", null, exigence).status()).isEqualTo(403);
+        Reponse demandee = post(riskOfficer, "/kyc-policies", null, exigence);
+        assertThat(demandee.status()).as(String.valueOf(demandee.envelope())).isEqualTo(202);
+        assertThat(post(riskOfficer, "/pending-operations/" + attente(demandee) + "/approve", null,
+                        Map.of()).status()).isEqualTo(403);
+        Reponse declaree = post(riskOfficer2, "/pending-operations/" + attente(demandee)
+                                + "/approve", null, Map.of());
+        assertThat(declaree.status()).as(String.valueOf(declaree.envelope())).isEqualTo(200);
+        assertThat(resultat(declaree.body()).get("kycLevel")).isEqualTo("STANDARD");
+        // Le guichetier lit la politique : il doit savoir quelles pieces reclamer.
+        assertThat(get(teller, "/kyc-policies").items()).singleElement()
+            .satisfies(p -> assertThat((List<String>) p.get("requiredDocuments"))
+                .contains("IDENTITY", "ADDRESS_PROOF"));
+
+        // Le justificatif de domicile manque : le dossier est incomplet, et plus rien ne s'y ouvre.
+        Reponse incomplet = get(officer, "/parties/" + party + "/file");
+        assertThat(incomplet.body().get("complete")).isEqualTo(false);
+        assertThat((List<String>) incomplet.body().get("missing"))
+            .containsExactly("ADDRESS_PROOF");
+        Reponse aTraiter = get(auditor, "/parties/incomplete-files");
+        assertThat(aTraiter.status()).as(String.valueOf(aTraiter.envelope())).isEqualTo(200);
+        assertThat(aTraiter.items())
+            .extracting(dossier -> dossier.get("reference")).contains("T-API-1");
+
+        Reponse ouverture = post(officer, "/accounts", null, Map.of(
+            "code", "CLI-API-DOSSIER", "holderPartyId", party.toString(),
+            "productCode", "EP-API", "currency", "XOF"));
+        assertThat(ouverture.status()).isEqualTo(202);
+        Reponse refus = post(manager, "/pending-operations/" + attente(ouverture) + "/approve",
+                             null, Map.of());
+        assertThat(refus.status()).as(String.valueOf(refus.envelope())).isEqualTo(409);
+        assertThat((String) refus.body().get("detail")).contains("dossier incomplet")
+            .contains("ADDRESS_PROOF");
+
+        // La piece deposee, le dossier est complet et l'ouverture reprend son cours.
+        assertThat(post(officer, "/parties/" + party + "/documents", null, Map.of(
+                        "kind", "ADDRESS_PROOF", "reference", "FACTURE-CIE-2026",
+                        "issuer", "CIE", "collectedOn", J.toString())).status()).isEqualTo(201);
+        Reponse complet = get(officer, "/parties/" + party + "/file");
+        assertThat(complet.body().get("complete")).as(String.valueOf(complet.body()))
+            .isEqualTo(true);
+        Reponse reprise = post(officer, "/accounts", null, Map.of(
+            "code", "CLI-API-DOSSIER", "holderPartyId", party.toString(),
+            "productCode", "EP-API", "currency", "XOF"));
+        assertThat(post(manager, "/pending-operations/" + attente(reprise) + "/approve", null,
+                        Map.of()).status()).isEqualTo(200);
+        // La piece remplacee reste au dossier : deux pieces en vigueur, l'historique en dessous.
+        Reponse pieces = get(officer, "/parties/" + party + "/documents");
+        assertThat(pieces.status()).as(String.valueOf(pieces.envelope())).isEqualTo(200);
+        assertThat(pieces.items()).extracting(d -> d.get("kind"))
+            .containsExactlyInAnyOrder("IDENTITY", "ADDRESS_PROOF");
+
+        // Une personne morale : son representant legal et son beneficiaire effectif, a deux.
+        Reponse societe = post(officer, "/parties", null, Map.of(
+            "reference", "T-API-SA", "kind", "LEGAL_PERSON", "displayName", "Kola Trading SA",
+            "countryCode", "CI",
+            "identifiers", List.of(Map.of("kind", "TRADE_REGISTRY", "value", "CI-ABJ-2019-B-777"))));
+        assertThat(societe.status()).as(String.valueOf(societe.envelope())).isEqualTo(201);
+        UUID societeId = UUID.fromString((String) societe.body().get("id"));
+
+        Map<String, Object> mandat = Map.of("toPartyId", party.toString(),
+            "kind", "LEGAL_REPRESENTATIVE", "validFrom", J.toString());
+        assertThat(post(teller, "/parties/" + societeId + "/relationships", null, mandat).status())
+            .as("le guichetier ne declare pas les relations").isEqualTo(403);
+        Reponse relation = post(officer, "/parties/" + societeId + "/relationships", null, mandat);
+        assertThat(relation.status()).as(String.valueOf(relation.envelope())).isEqualTo(202);
+        Reponse liee = post(manager, "/pending-operations/" + attente(relation) + "/approve", null,
+                            Map.of());
+        assertThat(liee.status()).as(String.valueOf(liee.envelope())).isEqualTo(200);
+        assertThat(resultat(liee.body()).get("toReference")).isEqualTo("T-API-1");
+
+        Reponse detention = post(officer, "/parties/" + societeId + "/beneficial-owners", null,
+            Map.of("ownerPartyId", party.toString(), "ownershipPercent", "60",
+                   "declaredOn", J.toString()));
+        assertThat(detention.status()).as(String.valueOf(detention.envelope())).isEqualTo(202);
+        Reponse detenue = post(manager, "/pending-operations/" + attente(detention) + "/approve",
+                               null, Map.of());
+        assertThat(detenue.status()).as(String.valueOf(detenue.envelope())).isEqualTo(200);
+        assertThat(new java.math.BigDecimal(
+            String.valueOf(resultat(detenue.body()).get("ownershipPercent"))))
+            .isEqualByComparingTo("60");
+
+        Reponse beneficiaires = get(officer, "/parties/" + societeId + "/beneficial-owners");
+        assertThat(beneficiaires.items()).singleElement()
+            .satisfies(o -> assertThat(o.get("ownerReference")).isEqualTo("T-API-1"));
+
+        // La detention totale ne depasse pas cent pour cent : l'exces se refuse a l'approbation.
+        Reponse trop = post(officer, "/parties/" + societeId + "/beneficial-owners", null,
+            Map.of("ownerPartyId", party.toString(), "ownershipPercent", "50",
+                   "declaredOn", J.toString()));
+        Reponse refusee = post(manager, "/pending-operations/" + attente(trop) + "/approve", null,
+                               Map.of());
+        assertThat(refusee.status()).as(String.valueOf(refusee.envelope())).isEqualTo(422);
+        assertThat((String) refusee.body().get("detail")).contains("110 %");
+
+        // La fin d'une relation se decide a deux, elle aussi.
+        UUID relationId = UUID.fromString((String) resultat(liee.body()).get("id"));
+        Reponse fin = post(officer, "/relationships/" + relationId + "/termination", null,
+                           Map.of("endedOn", J.toString()));
+        assertThat(fin.status()).isEqualTo(202);
+        assertThat(post(manager, "/pending-operations/" + attente(fin) + "/approve", null,
+                        Map.of()).status()).isEqualTo(200);
+        assertThat(get(officer, "/parties/" + societeId + "/relationships").items()).isEmpty();
     }
 
     // ------------------------------------------------------------------ outillage

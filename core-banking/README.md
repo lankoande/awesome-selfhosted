@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 613 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 307 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 620 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 314 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -812,6 +812,42 @@ bouge pas — c'est sa valeur qui a bougé (`revaluation`,
 `the_day_needs_its_rates_and_revalues_positions`).
 
 
+### 28. Un dossier qui dit ce qui lui manque, et qui restreint sans bloquer
+
+**Sans règle déclarée, rien n'est exigé.** Une politique de diligence dit, par nature de tiers et
+par niveau, quelles pièces sont exigées, si les bénéficiaires effectifs le sont et à partir de
+quelle part on en est un. Tant qu'aucune n'est déclarée, un dossier est complet : la restriction
+n'apparaît qu'avec la règle, comme pour les plafonds, les suspens et les dates de valeur. Une
+banque qui démarre n'est pas arrêtée par un paramétrage qu'elle n'a pas encore écrit, et celle qui
+écrit la règle sait exactement ce qu'elle vient d'exiger.
+
+**L'incomplétude restreint l'ouverture, elle n'arrête pas les comptes.** Un dossier auquel il
+manque une pièce ne laisse plus rien s'ouvrir — ni compte, ni crédit — mais ses comptes existants
+continuent de fonctionner : le client n'est pas puni d'un justificatif périmé, et l'agence a une
+raison de le rappeler. Le refus n'est pas un code : il nomme ce qui manque, ce qui est expiré et
+qui n'est pas vérifié, dans la phrase même que l'agence lira
+(`an_incomplete_file_stops_onboarding_not_operations`).
+
+**Une pièce expirée se constate une seule fois.** L'étape `DOCUMENT_EXPIRY` de l'arrêté ne remonte
+que ce que le dossier ne porte pas déjà : sinon, chaque nuit rejouerait la même alerte jusqu'au
+renouvellement, et l'alerte cesserait d'être lue. Elle ne bloque pas la journée, et l'annulation
+de l'arrêté efface ses constats — la journée se rejoue à l'identique
+(`the_day_end_notices_expired_documents_once_without_blocking`).
+
+**Une pièce remplacée reste au dossier.** Déposer une carte d'identité renouvelée ne supprime pas
+la précédente : elle est chaînée à celle qui la remplace. Ce qui a été présenté, et quand, est
+ce qu'un contrôle vient vérifier des années plus tard ; l'écraser rendrait le dossier propre et
+invérifiable.
+
+**La détention ne boucle pas, et le représentant légal est une personne.** Une société mère qui
+se retrouverait, de rang en rang, détenue par sa filiale rendrait la consolidation infinie et
+l'agrégation des risques fausse : le cycle est refusé à quelque rang que ce soit, par une requête
+récursive, pas par une convention. Les parts déclarées ne dépassent jamais cent pour cent — une de
+plus est une déclaration fausse, pas un arrondi —, et un représentant légal est une personne
+physique : une société ne signe pas, quelqu'un signe pour elle (`relationships`,
+`beneficial_owners`).
+
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
@@ -826,8 +862,9 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
   produit et par compte, eux, sont faits ;
 - multi-agences : schémas de liaison bilatéral et via la région (le schéma via le siège est
   fait, les caisses par guichetier et l'arrêté de caisse aussi) ;
-- référentiel client : documents et leurs échéances, bénéficiaires effectifs, relations entre
-  tiers, rescan périodique des listes ;
+- référentiel client : rescan périodique des listes de sanctions et matrice de restriction par
+  opération — les pièces datées et leurs échéances, la politique de diligence, la complétude qui
+  restreint l'ouverture, les bénéficiaires effectifs et les relations entre tiers, eux, sont faits ;
 - crédit : origination (demande, scoring, décision, conditions suspensives) — le déblocage par
   tranches, lui, est fait ; la commission d'engagement sur la fraction non tirée se paramètre comme
   une commission ordinaire et n'a pas encore de barème dédié ;
@@ -840,8 +877,9 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 - clôture annuelle : les modèles de liasse réglementaire à livrer comme maquettes — la
   détermination du résultat, la clôture, l'affectation du résultat et les états financiers
   (bilan, compte de résultat, hors bilan, maquettes à deux), eux, sont faits ;
-- contrôle du cours appliqué contre la table de référence — le ledger valide la cohérence des
-  contre-valeurs, pas la justesse d'un cours uniforme.
+- change : cours acheteur et vendeur distincts du cours de référence, positions par agence,
+  position de liquidité, rapprochement `camt.053` — le cours de référence, le contrôle du cours
+  appliqué et la revalorisation à l'arrêté, eux, sont faits.
 
 ## Décisions techniques notables
 
@@ -863,6 +901,11 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Une devise sans position déclarée ne se comptabilise pas | Une exposition que personne ne mesure n'est revalorisée par personne ; le refus arrive à la première écriture, pas au premier arrêté |
 | Le sens des deux comptes d'une position est imposé, pas déduit | Un couple inversé rend un gain là où il y a une perte, et aucun contrôle d'équilibre ne le voit |
 | L'arrêté exige les cours avant tout calcul | Découvrir à la revalorisation qu'un cours manque coûte l'annulation de la journée entière ; le coter coûte une minute |
+| Sans politique de diligence déclarée, un dossier est complet | La restriction n'apparaît qu'avec la règle : une banque qui démarre n'est pas arrêtée par un paramétrage qu'elle n'a pas écrit, et celle qui l'écrit sait ce qu'elle vient d'exiger |
+| Un dossier incomplet restreint l'ouverture, pas les comptes existants | Le client n'est pas puni d'un justificatif périmé ; l'agence a une raison de le rappeler, et le refus nomme ce qui manque |
+| Une pièce remplacée est chaînée, jamais effacée | Ce qui a été présenté, et quand, est ce qu'un contrôle vérifie des années plus tard ; l'écraser rend le dossier propre et invérifiable |
+| Une pièce expirée n'est constatée qu'une fois | Rejouée chaque nuit jusqu'au renouvellement, l'alerte cesserait d'être lue ; le constat vit au dossier, et l'annulation de l'arrêté l'efface |
+| Le cycle de détention est refusé par une requête récursive, à quelque rang que ce soit | Une mère détenue par sa filiale rend la consolidation infinie et l'agrégation des risques fausse ; un contrôle au premier rang ne verrait rien |
 | Un blocage de compte est vérifié par le service avant tout prélèvement, dans les deux sens | Le ledger laisse entrer un crédit de lot sur un compte gelé, parce qu'il le tient pour un acte de la banque ; la remise d'un créancier n'en est pas un |
 | La présentation d'un créancier d'ailleurs est réservée à la compensation | Le mandat décide de l'opération : un chargé de clientèle ne présente que pour un créancier de la banque, sous son plafond ; l'appelant ne choisit pas |
 | Un seul instant de connaissance par écriture | `clock_timestamp()` avance dans une transaction ; par ligne, il placerait les lignes après leur propre écriture |

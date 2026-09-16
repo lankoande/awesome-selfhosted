@@ -90,7 +90,9 @@ public final class DualControlHandlers {
                        new IssueChequeBook(cheques, accounts),
                        new RegisterMandate(directDebits, accounts),
                        new SetSuspensePolicy(database), new QuoteFxRate(database),
-                       new DeclareFxPosition(database));
+                       new DeclareFxPosition(database), new DeclareRelationship(database),
+                       new EndRelationship(database), new DeclareBeneficialOwner(database),
+                       new EndBeneficialOwner(database), new SetKycPolicy(database));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -1344,6 +1346,207 @@ public final class DualControlHandlers {
                               LocalDate.parse(required(payload, "validFrom")),
                               date(payload, "validTo"), max, Callers.actorId(maker),
                               Callers.actorId(checker)));
+        }
+    }
+
+    /** Relation entre tiers : elle donne un pouvoir ou engage un groupe, donc a deux. */
+    static final class DeclareRelationship implements MakerChecker.Handler {
+        private final Database database;
+
+        DeclareRelationship(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "RELATIONSHIP_DECLARE"; }
+        @Override public Operation operation() { return Operation.PARTY_RELATIONSHIP; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "kind");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            io.corebanking.party.RelationshipKind kind;
+            try {
+                kind = io.corebanking.party.RelationshipKind.valueOf(
+                    required(payload, "kind").trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Nature de relation inconnue : "
+                                                   + text(payload, "kind"));
+            }
+            LocalDate validFrom = date(payload, "validFrom");
+            if (validFrom == null) {
+                throw new IllegalArgumentException("Champ obligatoire absent : validFrom");
+            }
+            return database.inTransaction(c -> io.corebanking.party.Relationships.declare(
+                c, new io.corebanking.party.Relationships.Draft(
+                    uuid(payload, "legalEntityId"), uuid(payload, "fromPartyId"),
+                    uuid(payload, "toPartyId"), kind, validFrom, Callers.actorId(maker),
+                    Callers.actorId(checker))));
+        }
+    }
+
+    /** Fin d'une relation : le pouvoir cesse, et cela se decide a deux comme il s'est donne. */
+    static final class EndRelationship implements MakerChecker.Handler {
+        private final Database database;
+
+        EndRelationship(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "RELATIONSHIP_END"; }
+        @Override public Operation operation() { return Operation.PARTY_RELATIONSHIP; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            UUID id = uuid(payload, "relationshipId");
+            LocalDate on = date(payload, "endedOn");
+            return database.inTransaction(c -> {
+                var relationship = io.corebanking.party.Relationships.require(c, id);
+                if (!relationship.legalEntityId().equals(uuid(payload, "legalEntityId"))) {
+                    throw new IllegalArgumentException("Relation inconnue : " + id);
+                }
+                io.corebanking.party.Relationships.end(c, id,
+                    on == null ? AccountUseCases.businessDate(c, relationship.legalEntityId()) : on,
+                    Callers.actorId(maker), Callers.actorId(checker));
+                return io.corebanking.party.Relationships.require(c, id);
+            });
+        }
+    }
+
+    /** Beneficiaire effectif : une declaration reglementaire, donc a deux. */
+    static final class DeclareBeneficialOwner implements MakerChecker.Handler {
+        private final Database database;
+
+        DeclareBeneficialOwner(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "BENEFICIAL_OWNER_DECLARE"; }
+        @Override public Operation operation() { return Operation.PARTY_RELATIONSHIP; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            java.math.BigDecimal percent;
+            try {
+                percent = new java.math.BigDecimal(required(payload, "ownershipPercent"));
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Part detenue attendue : "
+                                                   + text(payload, "ownershipPercent"));
+            }
+            UUID entity = uuid(payload, "legalEntityId");
+            LocalDate declaredOn = date(payload, "declaredOn");
+            return database.inTransaction(c -> io.corebanking.party.BeneficialOwners.declare(
+                c, new io.corebanking.party.BeneficialOwners.Declaration(
+                    entity, uuid(payload, "partyId"), uuid(payload, "ownerPartyId"), percent,
+                    declaredOn == null ? AccountUseCases.businessDate(c, entity) : declaredOn,
+                    Callers.actorId(maker), Callers.actorId(checker))));
+        }
+    }
+
+    /** Fin d'une declaration de detention : la part a change de main. */
+    static final class EndBeneficialOwner implements MakerChecker.Handler {
+        private final Database database;
+
+        EndBeneficialOwner(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "BENEFICIAL_OWNER_END"; }
+        @Override public Operation operation() { return Operation.PARTY_RELATIONSHIP; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            UUID entity = uuid(payload, "legalEntityId");
+            UUID id = uuid(payload, "ownerId");
+            LocalDate on = date(payload, "endedOn");
+            database.inTransaction(c -> {
+                io.corebanking.party.BeneficialOwners.end(c, id,
+                    on == null ? AccountUseCases.businessDate(c, entity) : on,
+                    Callers.actorId(maker), Callers.actorId(checker));
+                return null;
+            });
+            return new Requests.Created(id);
+        }
+    }
+
+    /** Politique de diligence : ce que la banque exige d'un dossier, a deux. */
+    static final class SetKycPolicy implements MakerChecker.Handler {
+        private final Database database;
+
+        SetKycPolicy(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "KYC_POLICY_SET"; }
+        @Override public Operation operation() { return Operation.KYC_POLICY_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "partyKind") + "/" + text(payload, "kycLevel");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            io.corebanking.party.PartyKind partyKind;
+            io.corebanking.party.KycLevel level;
+            try {
+                partyKind = io.corebanking.party.PartyKind.valueOf(
+                    required(payload, "partyKind").trim().toUpperCase(java.util.Locale.ROOT));
+                level = io.corebanking.party.KycLevel.valueOf(
+                    required(payload, "kycLevel").trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Nature de tiers ou niveau de diligence inconnu :"
+                    + " " + text(payload, "partyKind") + " / " + text(payload, "kycLevel"));
+            }
+            java.util.Set<io.corebanking.party.DocumentKind> documents =
+                new java.util.LinkedHashSet<>();
+            String declared = text(payload, "requiredDocuments");
+            if (declared != null && !declared.isBlank()) {
+                for (String kind : declared.split(",")) {
+                    try {
+                        documents.add(io.corebanking.party.DocumentKind.valueOf(
+                            kind.trim().toUpperCase(java.util.Locale.ROOT)));
+                    } catch (IllegalArgumentException e) {
+                        throw new IllegalArgumentException("Nature de piece inconnue : " + kind);
+                    }
+                }
+            }
+            String threshold = text(payload, "ownershipThresholdPercent");
+            return database.inTransaction(c -> io.corebanking.party.KycPolicies.replace(
+                c, new io.corebanking.party.KycPolicies.Draft(
+                    uuid(payload, "legalEntityId"), partyKind, level, documents,
+                    Boolean.parseBoolean(String.valueOf(payload.getOrDefault(
+                        "beneficialOwnersRequired", "false"))),
+                    threshold == null || threshold.isBlank() ? null
+                        : new java.math.BigDecimal(threshold),
+                    Callers.actorId(maker), Callers.actorId(checker))));
         }
     }
 

@@ -58,8 +58,29 @@ brutal non annoncé.
 > niveau de risque (12 / 24 / 36 mois) ; l'étape `KYC_REVIEW` du TFJ constate les dépassements et
 > l'annulation de l'arrêté les défait. Le filtrage est une interface (`Screening`) : une
 > correspondance à la création bloque le dossier, la levée de doute est une décision à deux.
-> Non fait : documents et leurs échéances, bénéficiaires effectifs, relations entre tiers,
-> rescan périodique.
+> Non fait à ce stade : documents et leurs échéances, bénéficiaires effectifs, relations entre
+> tiers — voir juste après.
+
+> **Implémenté — dossier client** (`PartyDocuments`, `KycPolicies`, `BeneficialOwners`,
+> `Relationships`, `PartyFile`, V46 ; étape `DOCUMENT_EXPIRY` du TFJ) : une **pièce** se dépose au
+> guichet avec son émetteur, sa date d'émission et son échéance ; celle de la même nature est
+> **remplacée sans être effacée** — le dossier garde ce qui a été présenté, et quand. La
+> **politique de diligence** dit, par nature de tiers et par niveau de diligence, quelles pièces
+> sont exigées, si les bénéficiaires effectifs le sont, et à partir de quelle part on en est un ;
+> elle se déclare à deux par la conformité. Tant qu'aucune politique n'est déclarée, rien n'est
+> exigé : la restriction n'apparaît qu'avec la règle, comme pour les plafonds, les suspens et les
+> dates de valeur. La **complétude** confronte le dossier à sa politique et rend ce qui manque,
+> ce qui est expiré et les bénéficiaires non vérifiés ; un dossier incomplet **restreint
+> l'ouverture** — plus rien ne s'ouvre sur ce client — sans toucher aux comptes existants, et le
+> refus dit ce qui manque. Les **bénéficiaires effectifs** sont des personnes physiques : la
+> somme des parts déclarées ne dépasse jamais cent pour cent, et la déclaration comme sa fin se
+> décident à deux. Les **relations entre tiers** (représentant légal, mandataire, conjoint,
+> société mère, membre du groupe) se déclarent à deux ; un représentant légal est une personne
+> physique, une détention ne boucle pas — le cycle est refusé à quelque rang que ce soit —, et le
+> groupe se lit en chaîne dans les deux sens. L'étape `DOCUMENT_EXPIRY` constate les pièces
+> expirées **une seule fois**, sans bloquer la journée ; l'annulation de l'arrêté efface ses
+> constats. Restent : le rescan périodique du portefeuille, la matrice de restriction par
+> opération (aujourd'hui, l'incomplétude restreint l'ouverture et rien d'autre).
 
 ### Filtrage (screening)
 

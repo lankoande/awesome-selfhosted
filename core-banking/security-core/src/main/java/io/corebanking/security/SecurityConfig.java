@@ -220,6 +220,28 @@ public final class SecurityConfig {
             AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER, OPERATOR, ACCOUNTANT, AUDITOR)
                 .within(Scope.OWN_ENTITY).tracedOnRead().build());
 
+        // Dossier client : une piece se depose au guichet, dans l'agence du tiers ; une relation
+        // ou un beneficiaire effectif se declare a deux — l'un donne un pouvoir sur des comptes,
+        // l'autre est une declaration reglementaire ; la politique de diligence est du controle.
+        policy.put(Operation.PARTY_DOCUMENT,
+            AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_ENTITY).build());
+
+        policy.put(Operation.PARTY_RELATIONSHIP,
+            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        policy.put(Operation.KYC_POLICY_MANAGE,
+            AccessRule.allow(RISK_OFFICER).within(Scope.OWN_ENTITY)
+                .requiringSecondPerson().build());
+
+        // La politique declaree et la liste des dossiers incomplets se lisent a l'echelle de
+        // l'entite : le guichetier doit savoir quelles pieces reclamer, la conformite et l'audit
+        // ont besoin de la liste de travail — qu'aucun perimetre d'agence ne doit tronquer.
+        policy.put(Operation.PARTY_FILE_READ,
+            AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER, RISK_OFFICER, AUDITOR)
+                .within(Scope.OWN_ENTITY).tracedOnRead().build());
+
         // Change : un cours de reference controle tout cours applique, et une position dit ou
         // l'exposition se mesure — les deux se posent a deux, au siege ; leur lecture est tracee.
         policy.put(Operation.FX_RATE_QUOTE,

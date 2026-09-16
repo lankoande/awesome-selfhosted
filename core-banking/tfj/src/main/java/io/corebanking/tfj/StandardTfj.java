@@ -17,6 +17,7 @@ import io.corebanking.loan.service.LoanReconciliation;
 import io.corebanking.loan.service.LoanService;
 import io.corebanking.tfj.steps.BalanceSnapshotStep;
 import io.corebanking.tfj.steps.DirectDebitsStep;
+import io.corebanking.tfj.steps.DocumentExpiryStep;
 import io.corebanking.tfj.steps.DormancyStep;
 import io.corebanking.tfj.steps.FxRatesStep;
 import io.corebanking.tfj.steps.FxRevaluationStep;
@@ -85,6 +86,9 @@ import java.util.List;
  *       expires compris ; le prelevement est un engagement du client envers un tiers, pris a
  *       date, et son rejet lui est opposable chez le creancier, quand commission et echeance de
  *       credit ont leur regime de report et de retard.</li>
+ *   <li><b>Les pieces expirees avec la revue de connaissance client.</b> Une piece qui expire
+ *       n'arrete rien ce soir-la : elle est constatee, et le dossier cesse d'etre ouvrable
+ *       demain. Comme la revue, elle ne comptabilise rien et se defait avec l'arrete.</li>
  *   <li><b>La revue des suspens avec la dormance et la revue de connaissance client.</b> Elle
  *       ne comptabilise rien et ne bloque pas : elle rend la liste de travail du lendemain, par
  *       nature, avec le plus ancien et son responsable. Ce qui bloque — un compte d'attente en
@@ -138,6 +142,7 @@ public final class StandardTfj {
                                                                                   postingService)),
             new DormancyStep(database),
             new KycReviewStep(database),
+            new DocumentExpiryStep(database),
             new SuspenseReviewStep(database, calendar),
             new BalanceSnapshotStep(database),
             new ReconciliationStep(database, subLedgerChecks()),

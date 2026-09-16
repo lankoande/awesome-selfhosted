@@ -170,6 +170,28 @@ public final class Requests {
                                    String debtorName, String debtorBank, String debtorAccount,
                                    String mandateReference, String reference, String channel) {}
 
+    // ------------------------------------------------------------------ dossier client
+
+    /** Une piece du dossier : nature, reference, emetteur, dates d'emission et d'expiration. */
+    public record PartyDocumentRequest(String kind, String reference, String issuer,
+                                       LocalDate issuedOn, LocalDate expiresOn,
+                                       LocalDate collectedOn) {}
+
+    /** Une relation vers un autre tiers : LEGAL_REPRESENTATIVE, MANDATE, SPOUSE, PARENT_COMPANY, GROUP_MEMBER. */
+    public record RelationshipRequest(UUID toPartyId, String kind, LocalDate validFrom) {}
+
+    /** Un beneficiaire effectif : la personne physique et la part qu'elle detient. */
+    public record BeneficialOwnerRequest(UUID ownerPartyId, BigDecimal ownershipPercent,
+                                         LocalDate declaredOn) {}
+
+    /** Fin d'une relation ou d'une declaration de detention. */
+    public record Termination(LocalDate endedOn) {}
+
+    /** La politique de diligence d'une nature de tiers et d'un niveau. */
+    public record KycPolicyRequest(String partyKind, String kycLevel, List<String> requiredDocuments,
+                                   Boolean beneficialOwnersRequired,
+                                   BigDecimal ownershipThresholdPercent) {}
+
     // ------------------------------------------------------------------ change
 
     /** Un cours de cloture : devise cotee, date, cours en unites de la devise de tenue, source. */

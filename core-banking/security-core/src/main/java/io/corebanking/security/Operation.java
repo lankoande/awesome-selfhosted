@@ -75,6 +75,14 @@ public enum Operation {
     DIRECT_DEBIT_PROCESS,
     /** Consultation des mandats et des prelevements. */
     DIRECT_DEBIT_READ,
+    /** Depot d'une piece au dossier d'un tiers : un acte d'agence, date. */
+    PARTY_DOCUMENT,
+    /** Relations entre tiers et beneficiaires effectifs : elles donnent un pouvoir ou engagent un groupe. */
+    PARTY_RELATIONSHIP,
+    /** Politique de diligence : pieces exigees, beneficiaires effectifs, seuil de detention. */
+    KYC_POLICY_MANAGE,
+    /** Lecture du dossier a l'echelle de l'entite : politique declaree, dossiers incomplets. */
+    PARTY_FILE_READ,
     /** Cotation d'un cours de reference, a deux : il controle tout cours applique. */
     FX_RATE_QUOTE,
     /** Position de change : comptes de position et de contre-valeur, resultat, marge toleree, a deux. */

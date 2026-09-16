@@ -57,6 +57,10 @@ class OperationCoverageTest {
         Map.entry("DirectDebitService.settle / cancel / refund / returnIssued",
                   Operation.DIRECT_DEBIT_PROCESS),
         Map.entry("Suspense.setPolicy", Operation.SUSPENSE_MANAGE),
+        Map.entry("PartyDocuments.deposit", Operation.PARTY_DOCUMENT),
+        Map.entry("Relationships.declare / BeneficialOwners.declare",
+                  Operation.PARTY_RELATIONSHIP),
+        Map.entry("KycPolicies.declare", Operation.KYC_POLICY_MANAGE),
         Map.entry("FxRates.quote", Operation.FX_RATE_QUOTE),
         Map.entry("FxPositions.declare", Operation.FX_POSITION_MANAGE),
         Map.entry("Tills.create", Operation.TILL_MANAGE),
@@ -88,7 +92,7 @@ class OperationCoverageTest {
         Operation.ACCOUNT_BALANCE_READ, Operation.ACCOUNT_JOURNAL_READ, Operation.LEDGER_READ,
         Operation.PARTY_READ, Operation.LOAN_READ, Operation.PAYMENT_READ, Operation.CHEQUE_READ,
         Operation.DIRECT_DEBIT_READ, Operation.SUSPENSE_READ, Operation.FX_READ,
-        Operation.AUDIT_READ);
+        Operation.PARTY_FILE_READ, Operation.AUDIT_READ);
 
     @Test
     @DisplayName("toute operation est reclamee par un point d'entree, ou est une consultation")
@@ -122,6 +126,8 @@ class OperationCoverageTest {
                                               Operation.CHEQUE_BOOK_ISSUE,
                                               Operation.MANDATE_REGISTER,
                                               Operation.SUSPENSE_MANAGE,
+                                              Operation.PARTY_RELATIONSHIP,
+                                              Operation.KYC_POLICY_MANAGE,
                                               Operation.FX_RATE_QUOTE,
                                               Operation.FX_POSITION_MANAGE)) {
             assertThat(SecurityConfig.ruleFor(operation).dualControl())

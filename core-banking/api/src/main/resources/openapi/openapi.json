@@ -1,9 +1,9 @@
 {
   "openapi" : "3.1.0",
   "info" : {
-    "version" : "1.0.0",
+    "title" : "Core banking",
     "description" : "Socle core banking : comptes, operations, credit, parametrage, arretes, restitutions et etats financiers. Toute reponse porte l'enveloppe data / page / error / meta ; les montants sont des chaines avec leur devise ; les actes a double validation repondent 202 puis s'approuvent par un second porteur.",
-    "title" : "Core banking"
+    "version" : "1.0.0"
   },
   "servers" : [ {
     "url" : "/"
@@ -28,17 +28,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.AccountingSchemaDraft"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "201" : {
+            "description" : "Cree",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -60,8 +61,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Cree"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -112,6 +112,7 @@
         } ],
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -133,8 +134,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -176,17 +176,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.OpenAccount"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -208,8 +209,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -260,6 +260,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -281,8 +282,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -332,17 +332,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.BlockAccount"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -364,8 +365,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -423,17 +423,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.LiftBlock"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -455,8 +456,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -507,6 +507,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -531,8 +532,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -580,17 +580,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.ChequeBookRequest"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -612,8 +613,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -665,17 +665,18 @@
           "$ref" : "#/components/parameters/IdempotencyKey"
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.ChequeDepositRequest"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -697,10 +698,10 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois"
+            }
           },
           "201" : {
+            "description" : "Operation comptabilisee : le recu",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -722,8 +723,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Operation comptabilisee : le recu"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -774,6 +774,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -798,8 +799,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -857,6 +857,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -881,8 +882,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -942,17 +942,18 @@
           "$ref" : "#/components/parameters/IdempotencyKey"
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.ChequePaymentRequest"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -974,10 +975,10 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois"
+            }
           },
           "201" : {
+            "description" : "Operation comptabilisee : le recu",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -999,8 +1000,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Operation comptabilisee : le recu"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -1058,17 +1058,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.ChequeStop"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -1090,8 +1091,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -1141,17 +1141,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.CloseAccount"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -1173,8 +1174,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -1226,17 +1226,18 @@
           "$ref" : "#/components/parameters/IdempotencyKey"
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.CashOperation"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -1258,10 +1259,10 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois"
+            }
           },
           "201" : {
+            "description" : "Operation comptabilisee : le recu",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -1283,8 +1284,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Operation comptabilisee : le recu"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -1335,6 +1335,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -1359,8 +1360,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -1410,17 +1410,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.PlaceHold"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -1442,8 +1443,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -1502,6 +1502,7 @@
         } ],
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -1523,8 +1524,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -1576,17 +1576,18 @@
           "$ref" : "#/components/parameters/IdempotencyKey"
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.DirectDebitIssue"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -1608,10 +1609,10 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois"
+            }
           },
           "201" : {
+            "description" : "Operation comptabilisee : le recu",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -1633,8 +1634,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Operation comptabilisee : le recu"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -1705,6 +1705,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -1729,8 +1730,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -1801,6 +1801,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -1825,8 +1826,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -1877,6 +1877,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -1901,8 +1902,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -1950,17 +1950,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.AccountLimitRequest"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -1982,8 +1983,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -2034,6 +2034,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -2058,8 +2059,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -2107,17 +2107,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.MandateRequest"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -2139,8 +2140,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -2192,17 +2192,18 @@
           "$ref" : "#/components/parameters/IdempotencyKey"
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.PaymentOrderRequest"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -2224,10 +2225,10 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois"
+            }
           },
           "201" : {
+            "description" : "Operation comptabilisee : le recu",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -2249,8 +2250,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Operation comptabilisee : le recu"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -2302,17 +2302,18 @@
           "$ref" : "#/components/parameters/IdempotencyKey"
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.CashOperation"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -2334,10 +2335,10 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois"
+            }
           },
           "201" : {
+            "description" : "Operation comptabilisee : le recu",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -2359,8 +2360,90 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Operation comptabilisee : le recu"
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/beneficial-owners/{ownerId}/termination" : {
+      "post" : {
+        "operationId" : "PartyFile.endOwner",
+        "tags" : [ "PartyFile" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "ownerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.Termination"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -2402,17 +2485,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.CreateBranch"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -2434,8 +2518,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -2477,17 +2560,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.ChannelCutoffRequest"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -2509,8 +2593,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -2552,17 +2635,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Holiday"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -2584,8 +2668,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -2627,17 +2710,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.ValueDateRuleRequest"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -2659,8 +2743,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -2714,6 +2797,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -2738,8 +2822,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -2790,6 +2873,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -2811,8 +2895,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -2862,17 +2945,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Reason"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -2894,8 +2978,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -2945,17 +3028,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Settlement"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -2977,8 +3061,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -3020,17 +3103,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.CollateralPolicyDraft"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "201" : {
+            "description" : "Cree",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -3052,8 +3136,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Cree"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -3104,6 +3187,7 @@
         } ],
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -3125,8 +3209,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -3168,17 +3251,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.RegisterCollateral"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -3200,8 +3284,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -3251,17 +3334,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.AllocateCollateral"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -3283,8 +3367,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -3334,17 +3417,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.ReleaseCollateral"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -3366,8 +3450,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -3428,6 +3511,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -3452,8 +3536,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -3504,6 +3587,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -3525,8 +3609,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -3576,17 +3659,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Reason"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -3608,8 +3692,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -3659,17 +3742,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Reason"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -3691,8 +3775,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -3742,17 +3825,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Reason"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -3774,8 +3858,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -3825,17 +3908,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Settlement"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -3857,8 +3941,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -3900,17 +3983,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.RunEod"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "201" : {
+            "description" : "Cree",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -3932,8 +4016,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Cree"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -3984,6 +4067,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -4005,8 +4089,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -4056,17 +4139,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.CancelEod"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -4088,8 +4172,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -4140,6 +4223,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -4161,8 +4245,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -4204,17 +4287,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.RunEod"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -4236,8 +4320,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -4288,6 +4371,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -4309,8 +4393,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -4360,17 +4443,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.CancelEod"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -4392,8 +4476,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -4444,6 +4527,7 @@
         } ],
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -4465,8 +4549,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -4508,17 +4591,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.RunEod"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -4540,8 +4624,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -4592,6 +4675,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -4613,8 +4697,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -4664,17 +4747,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.CancelEod"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -4696,8 +4780,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -4748,6 +4831,7 @@
         } ],
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -4769,8 +4853,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -4817,6 +4900,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -4841,8 +4925,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -4882,17 +4965,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.OpenFiscalYear"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -4914,8 +4998,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -4966,6 +5049,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -4987,8 +5071,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -5038,17 +5121,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Appropriation"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -5070,8 +5154,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -5114,6 +5197,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -5138,8 +5222,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -5179,17 +5262,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.FxPositionRequest"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -5211,8 +5295,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -5270,6 +5353,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -5294,8 +5378,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -5335,17 +5418,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.FxRateRequest"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -5367,8 +5451,148 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/kyc-policies" : {
+      "get" : {
+        "operationId" : "PartyFile.policies",
+        "tags" : [ "PartyFile" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "type" : "array",
+                      "items" : {
+                        "$ref" : "#/components/schemas/KycPolicies.Policy"
+                      }
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      },
+      "post" : {
+        "operationId" : "PartyFile.setPolicy",
+        "tags" : [ "PartyFile" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.KycPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -5431,6 +5655,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -5455,8 +5680,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -5535,6 +5759,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -5559,8 +5784,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -5635,6 +5859,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -5659,8 +5884,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -5714,6 +5938,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -5738,8 +5963,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -5779,17 +6003,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.CreateLoan"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "201" : {
+            "description" : "Cree",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -5811,8 +6036,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Cree"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -5863,6 +6087,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -5884,8 +6109,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -5935,17 +6159,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Disbursement"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -5967,8 +6192,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -6020,17 +6244,18 @@
           "$ref" : "#/components/parameters/IdempotencyKey"
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.LoanPrepayment"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -6052,8 +6277,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -6105,17 +6329,18 @@
           "$ref" : "#/components/parameters/IdempotencyKey"
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.LoanRepayment"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "201" : {
+            "description" : "Cree",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -6137,8 +6362,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Cree"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -6188,17 +6412,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Rescheduling"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -6220,8 +6445,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -6273,17 +6497,18 @@
           "$ref" : "#/components/parameters/IdempotencyKey"
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.DirectDebitPresentation"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -6305,10 +6530,10 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois"
+            }
           },
           "201" : {
+            "description" : "Operation comptabilisee : le recu",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -6330,8 +6555,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Operation comptabilisee : le recu"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -6381,17 +6605,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Reason"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -6413,8 +6638,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -6468,6 +6692,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -6492,8 +6717,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -6533,17 +6757,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.CreateParty"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "201" : {
+            "description" : "Cree",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -6565,8 +6790,75 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Cree"
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/parties/incomplete-files" : {
+      "get" : {
+        "operationId" : "PartyFile.incomplete",
+        "tags" : [ "PartyFile" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "type" : "array",
+                      "items" : {
+                        "$ref" : "#/components/schemas/PartyFileController.Dossier"
+                      }
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -6617,6 +6909,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -6638,8 +6931,394 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/parties/{partyId}/beneficial-owners" : {
+      "get" : {
+        "operationId" : "PartyFile.owners",
+        "tags" : [ "PartyFile" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "partyId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "type" : "array",
+                      "items" : {
+                        "$ref" : "#/components/schemas/BeneficialOwners.Owner"
+                      }
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      },
+      "post" : {
+        "operationId" : "PartyFile.declareOwner",
+        "tags" : [ "PartyFile" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "partyId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.BeneficialOwnerRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/parties/{partyId}/documents" : {
+      "get" : {
+        "operationId" : "PartyFile.documents",
+        "tags" : [ "PartyFile" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "partyId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "type" : "array",
+                      "items" : {
+                        "$ref" : "#/components/schemas/PartyDocuments.Document"
+                      }
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      },
+      "post" : {
+        "operationId" : "PartyFile.deposit",
+        "tags" : [ "PartyFile" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "partyId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.PartyDocumentRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Cree",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/PartyDocuments.Document"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/parties/{partyId}/file" : {
+      "get" : {
+        "operationId" : "PartyFile.file",
+        "tags" : [ "PartyFile" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "partyId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/PartyFileController.Dossier"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -6689,17 +7368,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.VerifyKyc"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -6721,8 +7401,164 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/parties/{partyId}/relationships" : {
+      "get" : {
+        "operationId" : "PartyFile.relationships",
+        "tags" : [ "PartyFile" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "partyId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "type" : "array",
+                      "items" : {
+                        "$ref" : "#/components/schemas/Relationships.Relationship"
+                      }
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      },
+      "post" : {
+        "operationId" : "PartyFile.declareRelationship",
+        "tags" : [ "PartyFile" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "partyId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.RelationshipRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -6776,6 +7612,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -6800,8 +7637,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -6852,6 +7688,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -6873,8 +7710,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -6924,17 +7760,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Reason"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -6956,8 +7793,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -7007,17 +7843,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Reason"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -7039,8 +7876,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -7091,6 +7927,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -7112,8 +7949,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -7163,17 +7999,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Settlement"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -7195,8 +8032,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -7243,6 +8079,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -7267,8 +8104,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -7319,6 +8155,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -7340,8 +8177,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -7392,6 +8228,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -7413,8 +8250,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -7464,6 +8300,7 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
@@ -7471,11 +8308,11 @@
                 "additionalProperties" : { }
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -7497,8 +8334,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -7540,17 +8376,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.ProductDraft"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "201" : {
+            "description" : "Cree",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -7572,8 +8409,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Cree"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -7624,6 +8460,7 @@
         } ],
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -7645,8 +8482,90 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/relationships/{relationshipId}/termination" : {
+      "post" : {
+        "operationId" : "PartyFile.endRelationship",
+        "tags" : [ "PartyFile" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "relationshipId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.Termination"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -7688,17 +8607,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.RiskProfileDraft"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "201" : {
+            "description" : "Cree",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -7720,8 +8640,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Cree"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -7772,6 +8691,7 @@
         } ],
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -7793,8 +8713,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -7836,17 +8755,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.StatementLayoutDraft"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "201" : {
+            "description" : "Cree",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -7868,8 +8788,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Cree"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -7920,6 +8839,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -7941,8 +8861,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -7993,6 +8912,7 @@
         } ],
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -8014,8 +8934,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -8066,6 +8985,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -8087,8 +9007,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -8147,6 +9066,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -8168,8 +9088,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -8220,6 +9139,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -8241,8 +9161,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -8285,6 +9204,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -8309,8 +9229,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -8353,6 +9272,7 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Succes",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -8377,8 +9297,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Succes"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -8418,17 +9337,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.SuspensePolicyRequest"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -8450,8 +9370,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -8493,17 +9412,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.CreateTill"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -8525,8 +9445,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -8576,17 +9495,18 @@
           }
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.TillClosing"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "201" : {
+            "description" : "Cree",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -8608,8 +9528,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Cree"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -8653,17 +9572,18 @@
           "$ref" : "#/components/parameters/IdempotencyKey"
         } ],
         "requestBody" : {
+          "required" : true,
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Transfer"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
+            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -8685,10 +9605,10 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois"
+            }
           },
           "201" : {
+            "description" : "Operation comptabilisee : le recu",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -8710,8 +9630,7 @@
                   "required" : [ "data", "page", "error", "meta" ]
                 }
               }
-            },
-            "description" : "Operation comptabilisee : le recu"
+            }
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -8746,14 +9665,14 @@
         } ],
         "responses" : {
           "200" : {
+            "description" : "Le document, tel quel, hors enveloppe",
             "content" : {
               "application/json" : {
                 "schema" : {
                   "type" : "object"
                 }
               }
-            },
-            "description" : "Le document, tel quel, hors enveloppe"
+            }
           }
         }
       }
@@ -8762,10 +9681,10 @@
   "components" : {
     "securitySchemes" : {
       "bearerAuth" : {
-        "scheme" : "bearer",
         "description" : "Jeton d'acces Keycloak : l'entite, l'agence et les roles de l'appelant en sont derives, jamais d'un parametre.",
-        "type" : "http",
-        "bearerFormat" : "JWT"
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT",
+        "type" : "http"
       }
     },
     "parameters" : {
@@ -8793,8 +9712,8 @@
         "required" : false,
         "schema" : {
           "default" : 0,
-          "minimum" : 0,
-          "type" : "integer"
+          "type" : "integer",
+          "minimum" : 0
         },
         "description" : "Numero de page, a partir de zero"
       },
@@ -8804,9 +9723,9 @@
         "required" : false,
         "schema" : {
           "minimum" : 1,
-          "type" : "integer",
+          "maximum" : 200,
           "default" : 50,
-          "maximum" : 200
+          "type" : "integer"
         },
         "description" : "Taille de page ; au-dela du maximum, 400"
       },
@@ -8823,74 +9742,74 @@
     },
     "responses" : {
       "400" : {
+        "description" : "Requete invalide : page hors bornes, parametre mal forme, cle d'idempotence absente, corps illisible, curseur invalide",
         "content" : {
           "application/json" : {
             "schema" : {
               "$ref" : "#/components/schemas/ErrorEnvelope"
             }
           }
-        },
-        "description" : "Requete invalide : page hors bornes, parametre mal forme, cle d'idempotence absente, corps illisible, curseur invalide"
+        }
       },
       "401" : {
+        "description" : "Aucun jeton valide",
         "content" : {
           "application/json" : {
             "schema" : {
               "$ref" : "#/components/schemas/ErrorEnvelope"
             }
           }
-        },
-        "description" : "Aucun jeton valide"
+        }
       },
       "403" : {
+        "description" : "Habilitation refusee, ou jeton insuffisant",
         "content" : {
           "application/json" : {
             "schema" : {
               "$ref" : "#/components/schemas/ErrorEnvelope"
             }
           }
-        },
-        "description" : "Habilitation refusee, ou jeton insuffisant"
+        }
       },
       "404" : {
+        "description" : "Ressource inconnue — ou d'une autre entite, que le cloisonnement ne montre pas",
         "content" : {
           "application/json" : {
             "schema" : {
               "$ref" : "#/components/schemas/ErrorEnvelope"
             }
           }
-        },
-        "description" : "Ressource inconnue — ou d'une autre entite, que le cloisonnement ne montre pas"
+        }
       },
       "409" : {
+        "description" : "Conflit d'etat : compte bloque, disponible insuffisant, traitement refuse, exercice ou maquette dans un autre etat",
         "content" : {
           "application/json" : {
             "schema" : {
               "$ref" : "#/components/schemas/ErrorEnvelope"
             }
           }
-        },
-        "description" : "Conflit d'etat : compte bloque, disponible insuffisant, traitement refuse, exercice ou maquette dans un autre etat"
+        }
       },
       "422" : {
+        "description" : "Requete que le socle ne peut pas honorer : devise, montant, parametrage incomplet ou invalide",
         "content" : {
           "application/json" : {
             "schema" : {
               "$ref" : "#/components/schemas/ErrorEnvelope"
             }
           }
-        },
-        "description" : "Requete que le socle ne peut pas honorer : devise, montant, parametrage incomplet ou invalide"
+        }
       },
       "500" : {
+        "description" : "Erreur non prevue : rien n'a ete comptabilise",
         "content" : {
           "application/json" : {
             "schema" : {
               "$ref" : "#/components/schemas/ErrorEnvelope"
             }
           }
-        },
-        "description" : "Erreur non prevue : rien n'a ete comptabilise"
+        }
       }
     },
     "schemas" : {
@@ -8937,6 +9856,52 @@
           },
           "remaining" : {
             "$ref" : "#/components/schemas/Money"
+          }
+        }
+      },
+      "BeneficialOwners.Owner" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "legalEntityId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "partyId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "ownerPartyId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "ownerReference" : {
+            "type" : "string"
+          },
+          "ownerName" : {
+            "type" : "string"
+          },
+          "ownershipPercent" : {
+            "type" : "number"
+          },
+          "declaredOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "validTo" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "createdBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "approvedBy" : {
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -9643,6 +10608,48 @@
           }
         }
       },
+      "KycPolicies.Policy" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "legalEntityId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "partyKind" : {
+            "type" : "string",
+            "enum" : [ "NATURAL_PERSON", "LEGAL_PERSON" ]
+          },
+          "kycLevel" : {
+            "type" : "string",
+            "enum" : [ "SIMPLIFIED", "STANDARD", "ENHANCED" ]
+          },
+          "requiredDocuments" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "IDENTITY", "ADDRESS_PROOF", "INCOME_PROOF", "ARTICLES", "TRADE_REGISTRY_EXTRACT", "TAX_CERTIFICATE", "SIGNATURE_SPECIMEN", "PHOTO", "OTHER" ]
+            }
+          },
+          "beneficialOwnersRequired" : {
+            "type" : "boolean"
+          },
+          "ownershipThresholdPercent" : {
+            "type" : "number"
+          },
+          "createdBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "approvedBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
       "LedgerUseCases.BalanceLine" : {
         "type" : "object",
         "properties" : {
@@ -10193,6 +11200,105 @@
           }
         }
       },
+      "PartyDocuments.Document" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "legalEntityId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "partyId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "IDENTITY", "ADDRESS_PROOF", "INCOME_PROOF", "ARTICLES", "TRADE_REGISTRY_EXTRACT", "TAX_CERTIFICATE", "SIGNATURE_SPECIMEN", "PHOTO", "OTHER" ]
+          },
+          "reference" : {
+            "type" : "string"
+          },
+          "issuer" : {
+            "type" : "string"
+          },
+          "issuedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "expiresOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "collectedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "supersededBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "createdBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "PartyFileController.Dossier" : {
+        "type" : "object",
+        "properties" : {
+          "partyId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "reference" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "NATURAL_PERSON", "LEGAL_PERSON" ]
+          },
+          "level" : {
+            "type" : "string",
+            "enum" : [ "SIMPLIFIED", "STANDARD", "ENHANCED" ]
+          },
+          "policyDeclared" : {
+            "type" : "boolean"
+          },
+          "missing" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "IDENTITY", "ADDRESS_PROOF", "INCOME_PROOF", "ARTICLES", "TRADE_REGISTRY_EXTRACT", "TAX_CERTIFICATE", "SIGNATURE_SPECIMEN", "PHOTO", "OTHER" ]
+            }
+          },
+          "expired" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "IDENTITY", "ADDRESS_PROOF", "INCOME_PROOF", "ARTICLES", "TRADE_REGISTRY_EXTRACT", "TAX_CERTIFICATE", "SIGNATURE_SPECIMEN", "PHOTO", "OTHER" ]
+            }
+          },
+          "beneficialOwnersMissing" : {
+            "type" : "boolean"
+          },
+          "unverifiedOwners" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "complete" : {
+            "type" : "boolean"
+          },
+          "summary" : {
+            "type" : "string"
+          }
+        }
+      },
       "PaymentService.PaymentOrder" : {
         "type" : "object",
         "properties" : {
@@ -10359,6 +11465,56 @@
           }
         }
       },
+      "Relationships.Relationship" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "legalEntityId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "fromPartyId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "fromReference" : {
+            "type" : "string"
+          },
+          "toPartyId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "toReference" : {
+            "type" : "string"
+          },
+          "toName" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "LEGAL_REPRESENTATIVE", "MANDATE", "SPOUSE", "PARENT_COMPANY", "GROUP_MEMBER" ]
+          },
+          "validFrom" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "validTo" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "createdBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "approvedBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
       "Requests.AccountLimitRequest" : {
         "type" : "object",
         "properties" : {
@@ -10459,6 +11615,22 @@
             "items" : {
               "$ref" : "#/components/schemas/Requests.Allocation"
             }
+          }
+        }
+      },
+      "Requests.BeneficialOwnerRequest" : {
+        "type" : "object",
+        "properties" : {
+          "ownerPartyId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "ownershipPercent" : {
+            "type" : "number"
+          },
+          "declaredOn" : {
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -10924,6 +12096,29 @@
           }
         }
       },
+      "Requests.KycPolicyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "partyKind" : {
+            "type" : "string"
+          },
+          "kycLevel" : {
+            "type" : "string"
+          },
+          "requiredDocuments" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "beneficialOwnersRequired" : {
+            "type" : "boolean"
+          },
+          "ownershipThresholdPercent" : {
+            "type" : "number"
+          }
+        }
+      },
       "Requests.LiftBlock" : {
         "type" : "object",
         "properties" : {
@@ -11035,6 +12230,32 @@
           "resultAccountId" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }
+      },
+      "Requests.PartyDocumentRequest" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "reference" : {
+            "type" : "string"
+          },
+          "issuer" : {
+            "type" : "string"
+          },
+          "issuedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "expiresOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "collectedOn" : {
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -11174,6 +12395,22 @@
             "format" : "int32"
           },
           "valuedOn" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }
+      },
+      "Requests.RelationshipRequest" : {
+        "type" : "object",
+        "properties" : {
+          "toPartyId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "validFrom" : {
             "type" : "string",
             "format" : "date"
           }
@@ -11451,6 +12688,15 @@
             "format" : "date"
           },
           "validTo" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }
+      },
+      "Requests.Termination" : {
+        "type" : "object",
+        "properties" : {
+          "endedOn" : {
             "type" : "string",
             "format" : "date"
           }

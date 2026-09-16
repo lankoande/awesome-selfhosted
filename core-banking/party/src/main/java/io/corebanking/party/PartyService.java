@@ -171,7 +171,14 @@ public final class PartyService {
         return party;
     }
 
-    /** Le tiers existe, et un compte ou un credit peut lui etre ouvert. */
+    /**
+     * Le tiers existe, et un compte ou un credit peut lui etre ouvert.
+     *
+     * <p>Deux conditions, et la meme consequence : la connaissance client est a jour, et le
+     * dossier est complet au regard de la politique de diligence declaree. Un dossier incomplet
+     * — une piece manquante ou expiree, un beneficiaire effectif inconnu — n'arrete pas les
+     * comptes existants ; il arrete ce qu'on allait ouvrir.
+     */
     public static Party requireOnboardable(Connection c, UUID partyId) {
         Party party = requireOperable(c, partyId);
         if (!party.onboardable()) {
@@ -179,6 +186,12 @@ public final class PartyService {
                 "connaissance client " + party.kycStatus() + " : rien ne s'ouvre sur un dossier "
                 + "non verifie ou dont la revue est depassee. Ses comptes existants continuent de "
                 + "fonctionner.");
+        }
+        PartyFile.Completeness completeness = PartyFile.completeness(
+            c, partyId, businessDate(c, party.legalEntityId()));
+        if (!completeness.complete()) {
+            throw new PartyNotOperableException(party, "dossier incomplet — "
+                + completeness.summary() + ". Ses comptes existants continuent de fonctionner.");
         }
         return party;
     }

@@ -75,7 +75,7 @@ class TfjEngineIT extends TfjTestBase {
                              "LOAN_SCHEDULE", "LOAN_INTEREST_ACCRUAL", "LOAN_LATE_CHARGES",
                              "LOAN_CLASSIFICATION", "LOAN_CLOSURE", "INTEREST_ACCRUAL",
                              "INTEREST_SETTLEMENT", "FX_REVALUATION", "DORMANCY", "KYC_REVIEW",
-                             "SUSPENSE_REVIEW",
+                             "DOCUMENT_EXPIRY", "SUSPENSE_REVIEW",
                              "BALANCE_SNAPSHOT",
                              "RECONCILIATION", "OPEN_NEXT_DAY");
         assertThat(run.steps()).allMatch(

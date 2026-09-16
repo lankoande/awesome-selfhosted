@@ -220,7 +220,12 @@ un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servi
 > décide de l'opération, pas l'appelant), suspens (`SUSPENSE_MANAGE` à deux pour le back-office,
 > `SUSPENSE_READ` tracé pour l'exploitation et le contrôle), heures limites des canaux sous
 > `CALENDAR_MANAGE`, change (`FX_RATE_QUOTE` à deux — le coteur n'est pas le valideur —,
-> `FX_POSITION_MANAGE` à deux pour la comptabilité, `FX_READ` tracé) ;
+> `FX_POSITION_MANAGE` à deux pour la comptabilité, `FX_READ` tracé), dossier client
+> (`PARTY_DOCUMENT` au guichet — déposer une pièce est un acte d'agence —,
+> `PARTY_RELATIONSHIP` à deux pour les relations entre tiers et les bénéficiaires effectifs,
+> `KYC_POLICY_MANAGE` à deux pour la conformité seule, `PARTY_FILE_READ` tracé à l'échelle de
+> l'entité : le guichetier lit la politique pour savoir quelles pièces réclamer, la conformité et
+> l'audit lisent la liste des dossiers incomplets, qu'aucun périmètre d'agence ne doit tronquer) ;
 > `RESULT_APPROPRIATION` — l'affectation du résultat, à deux ; `STATEMENT_LAYOUT_DRAFT` et
 > `STATEMENT_LAYOUT_ACTIVATE` — les maquettes d'états financiers, activées à deux) et
 > restitutions (`LEDGER_READ` : balance, grand livre, journal de l'entité, états financiers —
