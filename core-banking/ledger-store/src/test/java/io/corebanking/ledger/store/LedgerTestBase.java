@@ -44,6 +44,7 @@ abstract class LedgerTestBase {
             Entities.insertCurrency(c, Currencies.XOF, "Franc CFA BCEAO");
             Entities.insertCurrency(c, Currencies.XAF, "Franc CFA BEAC");
             Entities.insertCurrency(c, Currencies.EUR, "Euro");
+            Entities.insertCurrency(c, Currencies.USD, "Dollar des Etats-Unis");
             Entities.insertLegalEntity(c, ENTITY, "BANK-CI", "Banque de test", "CI",
                                        Currencies.XOF, BUSINESS_DATE);
             Entities.openPeriod(c, ENTITY, BUSINESS_DATE.withDayOfMonth(1),

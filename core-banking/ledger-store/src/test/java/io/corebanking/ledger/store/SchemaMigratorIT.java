@@ -34,13 +34,13 @@ class SchemaMigratorIT extends LedgerTestBase {
         assertThatThrownBy(() -> SchemaMigrator.migrate(database))
             .isInstanceOf(SchemaMigrator.MigrationException.class)
             .hasMessageContaining("versions absentes du classpath")
-            .hasMessageContaining("[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 19, 20, 22, 23, 25, 27, 28, 29, 30, 31, 32, 33, 34, 35]");
+            .hasMessageContaining("[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 19, 20, 22, 23, 25, 27, 28, 29, 30, 31, 32, 33, 34, 35, 40, 41, 42, 43, 44]");
 
         SchemaMigrator.Report report = SchemaMigrator.migrate(database,
                                                               SchemaMigrator.Gaps.TOLERATED);
         assertThat(report.applied()).isEmpty();        // la base de test est deja a niveau
-        assertThat(report.alreadyApplied()).isEqualTo(10);
-        assertThat(report.highest()).isEqualTo(39);
+        assertThat(report.alreadyApplied()).isEqualTo(11);
+        assertThat(report.highest()).isEqualTo(45);
     }
 
     @Test

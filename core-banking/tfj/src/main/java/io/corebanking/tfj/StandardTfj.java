@@ -18,6 +18,8 @@ import io.corebanking.loan.service.LoanService;
 import io.corebanking.tfj.steps.BalanceSnapshotStep;
 import io.corebanking.tfj.steps.DirectDebitsStep;
 import io.corebanking.tfj.steps.DormancyStep;
+import io.corebanking.tfj.steps.FxRatesStep;
+import io.corebanking.tfj.steps.FxRevaluationStep;
 import io.corebanking.tfj.steps.SuspenseReviewStep;
 import io.corebanking.tfj.steps.FeeChargingStep;
 import io.corebanking.tfj.steps.HoldExpiryStep;
@@ -72,6 +74,12 @@ import java.util.List;
  *       ce qui a ete calcule jusqu'a la fin de periode ; le calcul du jour doit etre fait.</li>
  *   <li><b>Les interets avant le cliche des soldes.</b> Le cliche doit refleter la journee arretee,
  *       interets compris — sinon le solde fige et le solde rejoue divergeront des le lendemain.</li>
+ *   <li><b>Les cours de cloture avant tout calcul.</b> Une journee qui comptabiliserait des
+ *       interets en devise, puis decouvrirait a la revalorisation qu'il lui manque un cours,
+ *       aurait a etre annulee en entier ; le cours manquant se cote en une minute.</li>
+ *   <li><b>La revalorisation apres tous les traitements comptables et avant le cliche.</b> Elle
+ *       revalorise ce que la journee a laisse — une ecriture posterieure vaudrait a son cours
+ *       propre —, et le cliche doit refleter la journee arretee, revalorisation comprise.</li>
  *   <li><b>Les prelevements a l'echeance apres l'expiration des blocages, avant les commissions
  *       et les echeances de credit.</b> Ils s'executent sur le disponible de la journee, blocages
  *       expires compris ; le prelevement est un engagement du client envers un tiers, pris a
@@ -111,6 +119,7 @@ public final class StandardTfj {
                                       BusinessCalendar calendar) {
         return List.of(
             new PreChecksStep(database, calendar),
+            new FxRatesStep(database),
             new HoldExpiryStep(database),
             new DirectDebitsStep(database,
                                  new io.corebanking.deposits.DirectDebitService(database,
@@ -125,6 +134,8 @@ public final class StandardTfj {
             new InterestAccrualStep(database, interestService),
             new InterestSettlementStep(database,
                                        new InterestSettlementService(database, postingService)),
+            new FxRevaluationStep(new io.corebanking.ledger.store.FxRevaluation(database,
+                                                                                  postingService)),
             new DormancyStep(database),
             new KycReviewStep(database),
             new SuspenseReviewStep(database, calendar),

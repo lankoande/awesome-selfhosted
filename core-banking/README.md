@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 606 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 300 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 612 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 306 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -785,6 +785,28 @@ L'ancienneté d'un compte d'attente part de son premier mouvement après le dern
 un compte d'attente non soldé bloque : le paramétrage dit ce qu'il tolère, le système ne le
 présume pas (`items_age_in_business_days`, `a_suspense_account_blocks_the_day_beyond_its_tolerance`).
 
+### 27. Un cours qui se contrôle, et une position qui se revalorise
+
+**Le ledger ne voit pas un cours faux.** Une fois l'équilibre par devise acquis, le contrôle en
+contre-valeur attrape un cours incohérent entre deux lignes, mais pas un cours faux appliqué
+uniformément : les contre-valeurs se compensent alors deux à deux, quel que soit le cours. Le
+seul contrôle qui le voie est la confrontation au cours de référence, et il est désormais fait à
+la comptabilisation. Trois refus nommés : une devise sans position déclarée — une exposition que
+personne ne mesure —, un cours de référence absent — un cours appliqué sans référence ne se
+contrôle pas —, un écart au-delà de la marge déclarée. Une contre-passation, elle, garde le cours
+d'origine : c'est ce qu'on attend d'elle (`the_applied_rate_is_checked_against_the_reference`).
+
+**Une position a deux comptes, et leur sens est imposé.** Le compte de position, tenu dans la
+devise, mesure l'exposition ; son compte de contre-valeur, tenu dans la devise de l'entité, porte
+ce qu'elle a coûté. Position créditrice, contre-valeur débitrice : le couple inverse rendrait un
+gain là où il y a une perte, à chaque arrêté, sans qu'aucune écriture ne soit déséquilibrée et
+sans qu'aucun contrôle de réconciliation ne bronche. Le système refuse donc de l'enregistrer.
+L'arrêté exige le cours du jour **avant tout calcul**, puis porte la contre-valeur à ce que la
+position vaut au cours de clôture ; l'écart va au résultat de change, et la quantité en devise ne
+bouge pas — c'est sa valeur qui a bougé (`revaluation`,
+`the_day_needs_its_rates_and_revalues_positions`).
+
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
@@ -832,6 +854,10 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | L'heure limite d'un canal ne s'applique qu'aux opérations en ligne | Un arrêté qui exécute des prélèvements à 23 h leur donnerait la valeur du lendemain ; l'échéance, elle, est la bonne date |
 | L'horloge des heures limites est une horloge unique, fixable | Les services ne prennent pas d'heure en paramètre — un appelant qui la fournirait choisirait sa date de valeur ; une horloge fixée sert les tests et les simulations |
 | Un compte d'attente non soldé bloque sans politique, et au-delà de la tolérance avec | La justification des comptes d'attente conditionne la sincérité de l'arrêté ; la tolérance est une décision de la banque, écrite à deux, pas un défaut du système |
+| Le cours appliqué se confronte au référentiel, pas au bon sens | Un cours faux appliqué uniformément laisse l'écriture équilibrée et la comptabilité juste ; seuls les agios, la position et le résultat de change sont faux, et cela se découvre à la réclamation |
+| Une devise sans position déclarée ne se comptabilise pas | Une exposition que personne ne mesure n'est revalorisée par personne ; le refus arrive à la première écriture, pas au premier arrêté |
+| Le sens des deux comptes d'une position est imposé, pas déduit | Un couple inversé rend un gain là où il y a une perte, et aucun contrôle d'équilibre ne le voit |
+| L'arrêté exige les cours avant tout calcul | Découvrir à la revalorisation qu'un cours manque coûte l'annulation de la journée entière ; le coter coûte une minute |
 | Un blocage de compte est vérifié par le service avant tout prélèvement, dans les deux sens | Le ledger laisse entrer un crédit de lot sur un compte gelé, parce qu'il le tient pour un acte de la banque ; la remise d'un créancier n'en est pas un |
 | La présentation d'un créancier d'ailleurs est réservée à la compensation | Le mandat décide de l'opération : un chargé de clientèle ne présente que pour un créancier de la banque, sous son plafond ; l'appelant ne choisit pas |
 | Un seul instant de connaissance par écriture | `clock_timestamp()` avance dans une transaction ; par ligne, il placerait les lignes après leur propre écriture |

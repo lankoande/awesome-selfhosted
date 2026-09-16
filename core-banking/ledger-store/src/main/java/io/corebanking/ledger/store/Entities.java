@@ -109,6 +109,25 @@ public final class Entities {
         }
     }
 
+    /** Les devises dans lesquelles l'entite detient un solde non nul, devise de tenue comprise. */
+    public static java.util.List<String> currenciesHeld(Connection c, UUID entityId) {
+        java.util.List<String> currencies = new java.util.ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT a.currency FROM account a JOIN account_balance b ON b.account_id = a.id"
+            + " WHERE a.legal_entity_id = ? GROUP BY a.currency"
+            + " HAVING SUM(b.balance) <> 0 ORDER BY a.currency")) {
+            ps.setObject(1, entityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    currencies.add(rs.getString(1));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Recensement des devises detenues", e);
+        }
+        return currencies;
+    }
+
     public static CurrencyRef functionalCurrency(Connection c, UUID entityId) {
         try (PreparedStatement ps = c.prepareStatement(
             "SELECT cur.code, cur.scale, cur.rounding_mode "

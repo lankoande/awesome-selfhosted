@@ -89,7 +89,8 @@ public final class DualControlHandlers {
                        new ActivateStatementLayout(database), new SetAccountLimit(database, accounts),
                        new IssueChequeBook(cheques, accounts),
                        new RegisterMandate(directDebits, accounts),
-                       new SetSuspensePolicy(database));
+                       new SetSuspensePolicy(database), new QuoteFxRate(database),
+                       new DeclareFxPosition(database));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -1343,6 +1344,82 @@ public final class DualControlHandlers {
                               LocalDate.parse(required(payload, "validFrom")),
                               date(payload, "validTo"), max, Callers.actorId(maker),
                               Callers.actorId(checker)));
+        }
+    }
+
+    /** Cours de cloture : cote par l'un, valide par un second — il controle tout cours applique. */
+    static final class QuoteFxRate implements MakerChecker.Handler {
+        private final Database database;
+
+        QuoteFxRate(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "FX_RATE_QUOTE"; }
+        @Override public Operation operation() { return Operation.FX_RATE_QUOTE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "currency");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            LocalDate quotedOn = date(payload, "quotedOn");
+            if (quotedOn == null) {
+                throw new IllegalArgumentException("Champ obligatoire absent : quotedOn");
+            }
+            java.math.BigDecimal rate;
+            try {
+                rate = new java.math.BigDecimal(required(payload, "rate"));
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Cours attendu : " + text(payload, "rate"));
+            }
+            return database.inTransaction(c -> io.corebanking.ledger.store.FxRates.quote(
+                c, new io.corebanking.ledger.store.FxRates.Quote(
+                    uuid(payload, "legalEntityId"),
+                    required(payload, "currency").trim().toUpperCase(java.util.Locale.ROOT),
+                    quotedOn, rate, required(payload, "source"), Callers.actorId(maker),
+                    Callers.actorId(checker))));
+        }
+    }
+
+    /** Position de change : ses comptes et sa marge, a deux. */
+    static final class DeclareFxPosition implements MakerChecker.Handler {
+        private final Database database;
+
+        DeclareFxPosition(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "FX_POSITION_DECLARE"; }
+        @Override public Operation operation() { return Operation.FX_POSITION_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "currency");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            return database.inTransaction(c -> io.corebanking.ledger.store.FxPositions.declare(
+                c, new io.corebanking.ledger.store.FxPositions.Draft(
+                    uuid(payload, "legalEntityId"),
+                    required(payload, "currency").trim().toUpperCase(java.util.Locale.ROOT),
+                    uuid(payload, "positionAccountId"), uuid(payload, "counterValueAccountId"),
+                    uuid(payload, "gainAccountId"), uuid(payload, "lossAccountId"),
+                    integer(payload, "toleranceBps"), Callers.actorId(maker),
+                    Callers.actorId(checker))));
         }
     }
 

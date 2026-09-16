@@ -132,6 +132,15 @@ public final class JdbcPostingService implements PostingService {
                 (branch, currency) -> liaisonAccount(c, network, branch, currency));
         }
 
+        // Le cours applique se confronte au referentiel — apres que l'ecriture est structurellement
+        // complete, liaisons comprises : ce qu'elle a de mal forme se dit d'abord. Hors
+        // contre-passation, qui reprend le cours d'origine, et hors reprise de donnees.
+        if (reversalOf == null && command.source() != PostingSource.MIGRATION
+            && command.source() != PostingSource.CORRECTION) {
+            FxRates.requireAppliedRates(c, command.legalEntityId(), command.bookingDate(),
+                                        entry.lines(), functional);
+        }
+
         List<AccountDelta> deltas = aggregateDeltas(entry);
         refuseBlocked(c, deltas, command.source());
         lockAndCheck(c, deltas, command.bookingDate());

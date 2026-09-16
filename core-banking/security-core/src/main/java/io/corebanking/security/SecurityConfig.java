@@ -220,6 +220,20 @@ public final class SecurityConfig {
             AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER, OPERATOR, ACCOUNTANT, AUDITOR)
                 .within(Scope.OWN_ENTITY).tracedOnRead().build());
 
+        // Change : un cours de reference controle tout cours applique, et une position dit ou
+        // l'exposition se mesure — les deux se posent a deux, au siege ; leur lecture est tracee.
+        policy.put(Operation.FX_RATE_QUOTE,
+            AccessRule.allow(OPERATOR, ACCOUNTANT).within(Scope.OWN_ENTITY)
+                .requiringSecondPerson().build());
+
+        policy.put(Operation.FX_POSITION_MANAGE,
+            AccessRule.allow(ACCOUNTANT).within(Scope.OWN_ENTITY)
+                .requiringSecondPerson().build());
+
+        policy.put(Operation.FX_READ,
+            AccessRule.allow(OPERATOR, ACCOUNTANT, AUDITOR).within(Scope.OWN_ENTITY)
+                .tracedOnRead().build());
+
         // Suspens : la politique — anciennete toleree, responsable — se fixe a deux par le
         // back-office ; la revue est une consultation d'exploitation et de controle, tracee.
         policy.put(Operation.SUSPENSE_MANAGE,

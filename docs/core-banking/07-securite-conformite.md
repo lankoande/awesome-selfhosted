@@ -219,7 +219,8 @@ un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servi
 > banque, `DIRECT_DEBIT_PROCESS` pour le back-office, `DIRECT_DEBIT_READ` tracé ; le mandat
 > décide de l'opération, pas l'appelant), suspens (`SUSPENSE_MANAGE` à deux pour le back-office,
 > `SUSPENSE_READ` tracé pour l'exploitation et le contrôle), heures limites des canaux sous
-> `CALENDAR_MANAGE` ;
+> `CALENDAR_MANAGE`, change (`FX_RATE_QUOTE` à deux — le coteur n'est pas le valideur —,
+> `FX_POSITION_MANAGE` à deux pour la comptabilité, `FX_READ` tracé) ;
 > `RESULT_APPROPRIATION` — l'affectation du résultat, à deux ; `STATEMENT_LAYOUT_DRAFT` et
 > `STATEMENT_LAYOUT_ACTIVATE` — les maquettes d'états financiers, activées à deux) et
 > restitutions (`LEDGER_READ` : balance, grand livre, journal de l'entité, états financiers —

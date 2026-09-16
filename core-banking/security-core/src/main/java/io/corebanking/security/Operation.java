@@ -75,6 +75,12 @@ public enum Operation {
     DIRECT_DEBIT_PROCESS,
     /** Consultation des mandats et des prelevements. */
     DIRECT_DEBIT_READ,
+    /** Cotation d'un cours de reference, a deux : il controle tout cours applique. */
+    FX_RATE_QUOTE,
+    /** Position de change : comptes de position et de contre-valeur, resultat, marge toleree, a deux. */
+    FX_POSITION_MANAGE,
+    /** Consultation des cours et des positions de change. */
+    FX_READ,
     /** Politique de suspens : anciennete toleree et responsable par nature, a deux. */
     SUSPENSE_MANAGE,
     /** Revue des suspens : ce qui attend le correspondant, avec son anciennete. */

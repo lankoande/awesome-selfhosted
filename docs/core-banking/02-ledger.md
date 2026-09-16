@@ -240,6 +240,15 @@ cours. Seule la confrontation au cours de référence — table des cours, tolé
 détecte. C'est un contrôle du référentiel des cours, pas du ledger, et il doit être prévu comme
 tel.
 
+> **Implémenté** (`fx_rate`, `fx_position`, V45) : le service d'imputation confronte le cours
+> appliqué par chaque ligne en devise au **cours de référence** coté à la date comptable, et
+> refuse au-delà de la **marge** déclarée avec la position de la devise. Une devise sans position
+> déclarée est refusée d'emblée — une exposition que personne ne mesure ni ne revalorise —, et un
+> cours de référence absent aussi : un cours appliqué sans référence ne se contrôle pas. Le
+> contrôle vient après que l'écriture est structurellement complète, liaisons comprises, et ne
+> s'applique ni à une contre-passation, qui reprend le cours d'origine, ni à une reprise de
+> données.
+
 ---
 
 ## 6. API de comptabilisation

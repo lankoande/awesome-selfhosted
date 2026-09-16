@@ -170,6 +170,17 @@ public final class Requests {
                                    String debtorName, String debtorBank, String debtorAccount,
                                    String mandateReference, String reference, String channel) {}
 
+    // ------------------------------------------------------------------ change
+
+    /** Un cours de cloture : devise cotee, date, cours en unites de la devise de tenue, source. */
+    public record FxRateRequest(String currency, LocalDate quotedOn, BigDecimal rate,
+                                String source) {}
+
+    /** Une position de change : ses deux comptes, ses comptes de resultat, sa marge toleree. */
+    public record FxPositionRequest(String currency, UUID positionAccountId,
+                                    UUID counterValueAccountId, UUID gainAccountId,
+                                    UUID lossAccountId, Integer toleranceBps) {}
+
     // ------------------------------------------------------------------ suspens
 
     /** Politique de suspens : nature (SUSPENSE_ACCOUNT, PAYMENT_ORDER, CHEQUE_DEPOSIT, DIRECT_DEBIT), anciennete toleree, responsable. */

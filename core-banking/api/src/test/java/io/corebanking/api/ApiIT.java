@@ -158,6 +158,7 @@ class ApiIT {
     private String productManager;
     private String riskOfficer;
     private String accountant;
+    private String auditor;
     private Account pret;
     private Account courant;
     private Account liaison;
@@ -175,6 +176,7 @@ class ApiIT {
         owner = new Database(url(), "postgres", "", 2);
         owner.inTransaction(c -> {
             Entities.insertCurrency(c, Currencies.XOF, "Franc CFA BCEAO");
+            Entities.insertCurrency(c, Currencies.USD, "Dollar des Etats-Unis");
             Entities.insertLegalEntity(c, ENTITY, "API", "Banque API", "CI", Currencies.XOF, J);
             Entities.insertLegalEntity(c, AUTRE_ENTITE, "AUTRE", "Autre banque", "SN",
                                        Currencies.XOF, J);
@@ -260,6 +262,7 @@ class ApiIT {
         riskOfficer = token(UUID.randomUUID(), "risques", null, Roles.RISK_OFFICER);
         accountant = token(UUID.randomUUID(), "comptable", null, Roles.ACCOUNTANT);
         accountant2 = token(UUID.randomUUID(), "chef.comptable", null, Roles.ACCOUNTANT);
+        auditor = token(UUID.randomUUID(), "auditeur", null, Roles.AUDITOR);
     }
 
     @AfterAll
@@ -1607,6 +1610,83 @@ class ApiIT {
             .isEqualTo(403);
     }
 
+    @Test
+    @Order(16)
+    @DisplayName("change : un cours se cote a deux, une position apparie ses comptes, et la lecture rend l'exposition du jour")
+    void change() throws Exception {
+        // Les comptes de la position : position en devise, contre-valeur en devise de tenue,
+        // resultat de change.
+        Account position = owner.inTransaction(c -> compteDeChange(c, "POSITION-USD",
+            io.corebanking.kernel.money.Currencies.USD, NormalBalance.CREDIT));
+        Account contreValeur = owner.inTransaction(c -> compteDeChange(c, "CONTRE-VALEUR-USD",
+            Currencies.XOF, NormalBalance.DEBIT));
+        Account gainChange = owner.inTransaction(c -> compteDeResultat(c, "GAIN-CHANGE",
+                                                                       NormalBalance.CREDIT));
+        Account perteChange = owner.inTransaction(c -> compteDeResultat(c, "PERTE-CHANGE",
+                                                                         NormalBalance.DEBIT));
+
+        // Le cours : cote par l'exploitant, valide par la comptabilite — jamais par le coteur.
+        Map<String, Object> cours = Map.of("currency", "USD", "quotedOn", J.toString(),
+                                          "rate", "600.5", "source", "BCEAO");
+        assertThat(post(officer, "/fx-rates", null, cours).status()).isEqualTo(403);
+        assertThat(post(operator, "/fx-rates", null, Map.of("currency", "USD",
+                        "quotedOn", J.toString(), "rate", "-1", "source", "BCEAO")).status())
+            .as("un cours negatif se refuse a la soumission").isEqualTo(422);
+        Reponse demande = post(operator, "/fx-rates", null, cours);
+        assertThat(demande.status()).as(String.valueOf(demande.envelope())).isEqualTo(202);
+        assertThat(post(operator, "/pending-operations/" + attente(demande) + "/approve", null,
+                        Map.of()).status()).isEqualTo(403);
+        Reponse cote = post(accountant, "/pending-operations/" + attente(demande) + "/approve",
+                            null, Map.of());
+        assertThat(cote.status()).as(String.valueOf(cote.envelope())).isEqualTo(200);
+        assertThat(resultat(cote.body()).get("currency")).isEqualTo("USD");
+        assertThat(resultat(cote.body()).get("source")).isEqualTo("BCEAO");
+        Reponse lecture = get(accountant, "/fx-rates?currency=usd");
+        assertThat(lecture.status()).as(String.valueOf(lecture.envelope())).isEqualTo(200);
+        assertThat(lecture.items()).singleElement()
+            .satisfies(r -> assertThat(r.get("quotedOn")).isEqualTo(J.toString()));
+
+        // La position : declaree a deux par la comptabilite ; le sens des comptes est impose.
+        Map<String, Object> inverse = Map.of("currency", "USD",
+            "positionAccountId", contreValeur.id().toString(),
+            "counterValueAccountId", position.id().toString(),
+            "gainAccountId", gainChange.id().toString(),
+            "lossAccountId", perteChange.id().toString(), "toleranceBps", 100);
+        Reponse mauvaise = post(accountant, "/fx-positions", null, inverse);
+        assertThat(mauvaise.status()).isEqualTo(202);
+        Reponse refusee = post(accountant2, "/pending-operations/" + attente(mauvaise) + "/approve",
+                               null, Map.of());
+        assertThat(refusee.status()).as(String.valueOf(refusee.envelope())).isEqualTo(422);
+        assertThat((String) refusee.body().get("detail")).contains("tenu en XOF");
+
+        Map<String, Object> declaration = Map.of("currency", "USD",
+            "positionAccountId", position.id().toString(),
+            "counterValueAccountId", contreValeur.id().toString(),
+            "gainAccountId", gainChange.id().toString(),
+            "lossAccountId", perteChange.id().toString(), "toleranceBps", 100);
+        assertThat(post(operator, "/fx-positions", null, declaration).status())
+            .as("la position est une decision comptable").isEqualTo(403);
+        Reponse proposee = post(accountant, "/fx-positions", null, declaration);
+        assertThat(proposee.status()).as(String.valueOf(proposee.envelope())).isEqualTo(202);
+        Reponse declaree = post(accountant2, "/pending-operations/" + attente(proposee) + "/approve",
+                                null, Map.of());
+        assertThat(declaree.status()).as(String.valueOf(declaree.envelope())).isEqualTo(200);
+        assertThat(resultat(declaree.body()).get("toleranceBps")).isEqualTo(100);
+
+        // L'exposition : rien detenu, donc rien a revaloriser — mais le cours est la.
+        Reponse positions = get(accountant, "/fx-positions");
+        assertThat(positions.status()).as(String.valueOf(positions.envelope())).isEqualTo(200);
+        assertThat(positions.items()).singleElement().satisfies(item -> {
+            assertThat(montant(item, "balance")).as("en dollars, deux decimales").isEqualTo("0.00");
+            assertThat(montant(item, "carriedValue")).isEqualTo("0");
+            assertThat(item.get("rate")).isNotNull();
+            assertThat(montant(item, "unrealised")).isEqualTo("0");
+        });
+        assertThat(get(teller, "/fx-positions").status()).as("la lecture est du siege")
+            .isEqualTo(403);
+        assertThat(get(auditor, "/fx-rates").status()).isEqualTo(200);
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static UUID attente(Reponse reponse) {
@@ -1709,6 +1789,15 @@ class ApiIT {
         Account account = new Account(UUID.randomUUID(), ENTITY, code, AccountKind.GL, normal,
                                       Currencies.XOF, true, false, 1, AccountStatus.ACTIVE, null)
             .withNature(io.corebanking.ledger.domain.account.AccountNature.PROFIT_AND_LOSS);
+        Accounts.create(c, account, J.minusMonths(1));
+        return account;
+    }
+
+    private static Account compteDeChange(java.sql.Connection c, String code,
+                                          io.corebanking.kernel.money.CurrencyRef currency,
+                                          NormalBalance normal) {
+        Account account = new Account(UUID.randomUUID(), ENTITY, code, AccountKind.POSITION, normal,
+                                      currency, true, false, 1, AccountStatus.ACTIVE);
         Accounts.create(c, account, J.minusMonths(1));
         return account;
     }

@@ -110,11 +110,21 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 Une étape **bloquante** en échec arrête le run. Les autres consignent une anomalie et
 laissent le run se poursuivre, avec restitution à la clôture.
 
-> **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `HOLD_EXPIRY` →
+> **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `FX_RATES` → `HOLD_EXPIRY` →
 > `DIRECT_DEBITS` → `FEE_CHARGING` → `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_INTEREST_ACCRUAL` →
 > `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` → `LOAN_CLOSURE` → `INTEREST_ACCRUAL` →
-> `INTEREST_SETTLEMENT` → `DORMANCY` → `KYC_REVIEW` → `SUSPENSE_REVIEW` → `BALANCE_SNAPSHOT` →
+> `INTEREST_SETTLEMENT` → `FX_REVALUATION` → `DORMANCY` → `KYC_REVIEW` → `SUSPENSE_REVIEW` →
+> `BALANCE_SNAPSHOT` →
 > `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans toucher au moteur.
+>
+> `FX_RATES` vient avant tout calcul : une journée qui comptabiliserait des intérêts en devise,
+> puis découvrirait à la revalorisation qu'il lui manque un cours, aurait à être annulée en
+> entier, quand le cours manquant se cote en une minute. Elle bloque sur une position sans cours
+> du jour — la revalorisation ne se fait pas au cours de la veille — et sur une devise détenue
+> sans position déclarée, que personne ne revaloriserait. `FX_REVALUATION` vient après tous les
+> traitements comptables et avant le cliché : elle revalorise ce que la journée a laissé, et le
+> cliché doit refléter la journée arrêtée, revalorisation comprise ; son écart va au résultat de
+> change, et l'annulation de l'arrêté le contre-passe.
 >
 > `HOLD_EXPIRY` vient avant tout prélèvement : commissions et échéances se prélèvent sur le
 > disponible de la journée arrêtée, blocages expirés compris. `DIRECT_DEBITS` vient juste après,

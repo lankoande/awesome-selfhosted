@@ -60,6 +60,8 @@ abstract class TfjTestBase {
 
         database.inTransaction(c -> {
             Entities.insertCurrency(c, Currencies.XOF, "Franc CFA BCEAO");
+            Entities.insertCurrency(c, Currencies.USD, "Dollar des Etats-Unis");
+            Entities.insertCurrency(c, Currencies.EUR, "Euro");
             Entities.insertLegalEntity(c, ENTITY, "BANK-CI", "Banque de test", "CI",
                                        Currencies.XOF, J1);
             Entities.openPeriod(c, ENTITY, J1.withDayOfMonth(1),

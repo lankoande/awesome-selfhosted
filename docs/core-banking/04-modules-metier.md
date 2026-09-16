@@ -585,6 +585,23 @@ fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 - **Positions de change** par devise et par entité, alimentées par les écritures de change.
 - **Revalorisation** à chaque arrêté au cours officiel de clôture ; écart porté en résultat
   de change.
+
+> **Implémenté — cours et positions** (`FxRates`, `FxPositions`, `FxRevaluation`, V45, module
+> `ledger-store` ; étapes `FX_RATES` et `FX_REVALUATION` du TFJ) : un **cours de référence** est
+> coté par devise et par jour, à deux, avec sa source ; il ne se réécrit pas — une erreur se
+> corrige par la cotation du jour suivant — et vaut jusqu'au cours suivant, sept jours au plus.
+> Une **position de change** apparie, pour une devise, le compte de position — tenu dans la
+> devise, il mesure l'exposition — et son compte de contre-valeur — tenu dans la devise de
+> l'entité, il porte ce que l'exposition a coûté —, avec les comptes de gain et de perte et la
+> marge tolérée sur le cours appliqué. Le sens des deux comptes est imposé : position créditrice,
+> contre-valeur débitrice ; le couple inverse rendrait un gain là où il y a une perte, sans
+> qu'aucune écriture ne soit déséquilibrée. L'arrêté exige le cours du jour de chaque position
+> **avant tout calcul** — une journée qui découvrirait le manque à la revalorisation serait à
+> annuler en entier — puis **revalorise** chaque position après tous les traitements comptables et
+> avant le cliché : la contre-valeur est portée à ce que la position vaut au cours de clôture, et
+> l'écart va au résultat de change. La quantité en devise ne bouge pas : c'est sa valeur qui a
+> bougé. Restent : les cours acheteur et vendeur distincts du cours de référence, les positions
+> par agence, la position de liquidité, le rapprochement `camt.053`.
 - **Placements et emprunts interbancaires** : contrats, intérêts courus, échéances.
 - **Nostro / Vostro** : comptes de correspondants, rapprochement automatique des relevés
   `camt.053`, gestion des suspens de rapprochement.
