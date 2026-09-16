@@ -481,8 +481,29 @@ fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 > `ops.daily_debit_max`, `ops.monthly_debit_max`) et du compte (`account_limit`, à deux, par
 > nature et validité, qui l'emporte) s'appliquent à tout débit du client — retrait, virement,
 > paiement — frais compris, l'usage étant lu dans le journal hors écritures contre-passées
-> (`Limits`). Restent : chèques, prélèvements, cut-off par canal, suspens non soldés remontés à
-> l'arrêté.
+> (`Limits`). Restent : prélèvements, cut-off par canal, suspens non soldés remontés à l'arrêté.
+
+> **Implémenté — chèques** (`ChequeService`, V41, module `deposits`) : le **chéquier** se délivre
+> à deux dans l'agence du compte, aux frais du produit (`ops.cheque_book_fee`, taxe comprise,
+> prélevés à la délivrance) ; ses numéros suivent ceux du chéquier précédent, et le schéma interdit
+> à deux chéquiers d'un compte de partager un numéro. Chaque chèque a son état — `UNUSED`, `PAID`,
+> `STOPPED`, `REJECTED`. Un chèque émis **se paie une fois**, au guichet (sur la caisse de
+> l'appelant, dans l'agence de la caisse) ou par compensation (sur un nostro de l'entité, au
+> siège), dans la limite du disponible ; rejoué avec sa clé, il rend le même reçu ; présenté sans
+> provision, il est **rejeté** et l'**incident de paiement** est enregistré dans sa propre
+> transaction, après celle du refus — il fonde l'interdiction bancaire et la déclaration à la
+> centrale des incidents —, et le chèque peut être représenté. L'**opposition** n'a que les motifs
+> que la loi admet (perte, vol, utilisation frauduleuse, procédure collective du porteur) et
+> n'atteint pas un chèque payé. Une **remise** de chèque tiré sur une autre banque crédite le
+> client **sauf bonne fin** : la valeur va au compte de chèques à l'encaissement du produit
+> (`ops.cheque_collection_account`, tenu au siège), le client est crédité à la date de valeur des
+> conditions de banque, et un blocage tient le montant hors du disponible jusqu'au **règlement** par
+> le correspondant (le blocage tombe, la valeur passe au nostro) ; un **impayé** contre-passe le
+> crédit, et le blocage tombe avec lui. Les chèques ne consomment pas les plafonds du client :
+> l'instrument est celui d'un tiers porteur, et un refus de plafond ne serait pas un défaut de
+> provision. Restent : l'échange avec la compensation (SICA-UEMOA : présentation, cycles,
+> fichiers), la déclaration des incidents à la centrale et l'interdiction bancaire qui en découle,
+> les chèques de banque.
 
 ### Points de conception
 

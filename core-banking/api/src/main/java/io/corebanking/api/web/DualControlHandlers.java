@@ -63,7 +63,8 @@ public final class DualControlHandlers {
                                                  LoanService loans,
                                                  io.corebanking.api.config.EodEngines engines,
                                                  io.corebanking.ledger.domain.posting.PostingService
-                                                     posting) {
+                                                     posting,
+                                                 io.corebanking.deposits.ChequeService cheques) {
         return List.of(new OpenAccount(lifecycle), new CloseAccount(lifecycle, accounts),
                        new BlockAccount(lifecycle, accounts), new LiftBlock(lifecycle, accounts),
                        new PlaceHold(database, accounts), new ReleaseHold(database, accounts),
@@ -82,7 +83,8 @@ public final class DualControlHandlers {
                        new AllocateCollateral(database), new ReleaseCollateral(database),
                        new ActivateCollateralPolicy(database), new ActivateRiskProfile(database),
                        new ActivateAccountingSchema(database),
-                       new ActivateStatementLayout(database), new SetAccountLimit(database, accounts));
+                       new ActivateStatementLayout(database), new SetAccountLimit(database, accounts),
+                       new IssueChequeBook(cheques, accounts));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -1225,6 +1227,34 @@ public final class DualControlHandlers {
     }
 
     /** Un plafond propre au compte : demande par l'un, valide par un autre, dans l'agence du compte. */
+    /** Chequier : demande par l'un, valide par un autre de l'agence du compte, aux frais du produit. */
+    static final class IssueChequeBook implements MakerChecker.Handler {
+        private final io.corebanking.deposits.ChequeService cheques;
+        private final AccountDirectory accounts;
+
+        IssueChequeBook(io.corebanking.deposits.ChequeService cheques, AccountDirectory accounts) {
+            this.cheques = cheques;
+            this.accounts = accounts;
+        }
+
+        @Override public String name() { return "CHEQUE_BOOK_ISSUE"; }
+        @Override public Operation operation() { return Operation.CHEQUE_BOOK_ISSUE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            var account = accounts.require(uuid(payload, "accountId"));
+            return AccessTarget.inBranch(account.legalEntityId(), account.branchId());
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            var account = accounts.require(uuid(payload, "accountId"));
+            return cheques.issueBook(new io.corebanking.deposits.ChequeService.BookIssue(
+                account.legalEntityId(), account.id(), integer(payload, "count"),
+                Callers.actorId(maker), Callers.actorId(checker)));
+        }
+    }
+
     static final class SetAccountLimit implements MakerChecker.Handler {
         private final Database database;
         private final AccountDirectory accounts;

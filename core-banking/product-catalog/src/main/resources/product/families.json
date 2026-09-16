@@ -111,7 +111,9 @@
         "Plafonds : par operation, par jour, par mois, sur les debits du client (retraits, virements,",
         "paiements sortants), frais compris ; absents, aucun plafond. Un compte peut porter le sien.",
         "Paiement sortant : un compte de reglement sortant recoit les fonds a l'ordre ; sans lui, le",
-        "produit n'admet pas de paiement sortant, en le disant."
+        "produit n'admet pas de paiement sortant, en le disant.",
+        "Cheques : le chequier se delivre aux frais du produit ; une remise de cheque exige un compte",
+        "de cheques a l'encaissement, sans lequel le produit n'admet pas de remise, en le disant."
       ],
       "optional": [
         "ops.withdrawal_fee",
@@ -123,12 +125,15 @@
         "ops.daily_debit_max",
         "ops.monthly_debit_max",
         "ops.payment_fee",
-        "ops.payment_clearing_account"
+        "ops.payment_clearing_account",
+        "ops.cheque_book_fee",
+        "ops.cheque_collection_account"
       ],
       "accounts": [
         "ops.fee_income_account",
         "ops.tax_account",
-        "ops.payment_clearing_account"
+        "ops.payment_clearing_account",
+        "ops.cheque_collection_account"
       ],
       "conditions": [
         {
@@ -162,6 +167,14 @@
             "ops.fee_income_account"
           ],
           "because": "un frais de paiement sortant sans compte de produit n'aurait nulle part ou aller"
+        },
+        {
+          "when": "ops.cheque_book_fee",
+          "present": true,
+          "require": [
+            "ops.fee_income_account"
+          ],
+          "because": "un frais de chequier sans compte de produit n'aurait nulle part ou aller"
         }
       ]
     },

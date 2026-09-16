@@ -45,6 +45,11 @@ class OperationCoverageTest {
         Map.entry("PaymentService.order", Operation.PAYMENT_ORDER),
         Map.entry("PaymentService.settle", Operation.PAYMENT_PROCESS),
         Map.entry("Limits.set", Operation.ACCOUNT_LIMIT_MANAGE),
+        Map.entry("ChequeService.issueBook", Operation.CHEQUE_BOOK_ISSUE),
+        Map.entry("ChequeService.pay", Operation.CHEQUE_PAY),
+        Map.entry("ChequeService.deposit", Operation.CHEQUE_DEPOSIT),
+        Map.entry("ChequeService.settleDeposit", Operation.CHEQUE_PROCESS),
+        Map.entry("ChequeService.stop", Operation.CHEQUE_STOP),
         Map.entry("Tills.create", Operation.TILL_MANAGE),
         Map.entry("TillService.close", Operation.TILL_CLOSE),
         Map.entry("FeeLedger.grantExemption", Operation.FEE_EXEMPTION_GRANT),
@@ -72,7 +77,8 @@ class OperationCoverageTest {
     /** Operations sans point d'entree de service : consultations, ou pas encore construites. */
     private static final Set<Operation> WITHOUT_SERVICE = EnumSet.of(
         Operation.ACCOUNT_BALANCE_READ, Operation.ACCOUNT_JOURNAL_READ, Operation.LEDGER_READ,
-        Operation.PARTY_READ, Operation.LOAN_READ, Operation.PAYMENT_READ, Operation.AUDIT_READ);
+        Operation.PARTY_READ, Operation.LOAN_READ, Operation.PAYMENT_READ, Operation.CHEQUE_READ,
+        Operation.AUDIT_READ);
 
     @Test
     @DisplayName("toute operation est reclamee par un point d'entree, ou est une consultation")
@@ -102,7 +108,8 @@ class OperationCoverageTest {
                                               Operation.YEAR_REOPEN,
                                               Operation.RESULT_APPROPRIATION,
                                               Operation.STATEMENT_LAYOUT_ACTIVATE,
-                                              Operation.ACCOUNT_LIMIT_MANAGE)) {
+                                              Operation.ACCOUNT_LIMIT_MANAGE,
+                                              Operation.CHEQUE_BOOK_ISSUE)) {
             assertThat(SecurityConfig.ruleFor(operation).dualControl())
                 .as(operation.name()).isTrue();
         }

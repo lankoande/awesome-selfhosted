@@ -148,6 +148,13 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `POST /accounts/{id}/payment-orders` | `PAYMENT_ORDER` | montant, bénéficiaire (nom, banque, compte), référence ; `Idempotency-Key` — le client est débité à l'ordre, plafonds du produit et du compte appliqués (`409`) |
 | `POST /payment-orders/{id}/send`, `.../settlement`, `.../return`, `.../cancellation` | `PAYMENT_PROCESS` | envoi ; règlement (compte nostro) ; retour (motif) ; annulation avant envoi (motif) — un état qui ne s'y prête pas est un `409` |
 | `GET /payment-orders/{id}`, `GET /payment-orders?status=&page=&size=` | `PAYMENT_READ` | — ; lecture tracée |
+| `POST /accounts/{id}/cheque-books`, `GET /accounts/{id}/cheque-books` | `CHEQUE_BOOK_ISSUE`, `CHEQUE_READ` | nombre de chèques (1 à 200) — **202**, à deux dans l'agence du compte, aux frais du produit ; les numéros suivent le chéquier précédent |
+| `POST /accounts/{id}/cheques/{number}/payment` | `CHEQUE_PAY` | montant, porteur, `mode` (`CASH` par défaut : la caisse de l'appelant ; `CLEARING` : `nostroAccountId`) ; `Idempotency-Key` — payé une fois (`201`, rejeu `200`, déjà payé `409`), refusé sur opposition (`409`), rejeté sans provision avec l'incident enregistré (`409`) ; plafonné par rôle comme une opération de caisse |
+| `POST /accounts/{id}/cheques/{number}/stop` | `CHEQUE_STOP` | motif (`LOSS`, `THEFT`, `FRAUDULENT_USE`, `BEARER_INSOLVENCY`) ; jamais sur un chèque payé (`409`) |
+| `GET /accounts/{id}/cheques?status=`, `GET /accounts/{id}/cheque-incidents` | `CHEQUE_READ` | — ; lecture tracée |
+| `POST /accounts/{id}/cheque-deposits` | `CHEQUE_DEPOSIT` | montant, banque tirée, numéro, tireur ; `Idempotency-Key` — crédité sauf bonne fin à la date de valeur des conditions, bloqué jusqu'au règlement ; `409` si le produit n'a pas de compte d'encaissement |
+| `POST /cheque-deposits/{id}/settlement`, `.../return` | `CHEQUE_PROCESS` | règlement (compte nostro) ; impayé (motif) : contre-passation du crédit — un état qui ne s'y prête pas est un `409` |
+| `GET /cheque-deposits/{id}`, `GET /cheque-deposits?status=&page=&size=` | `CHEQUE_READ` | — ; lecture tracée |
 | `POST /accounts/{id}/limits`, `GET /accounts/{id}/limits` | `ACCOUNT_LIMIT_MANAGE` | nature (`TRANSACTION`, `DAILY`, `MONTHLY`), montant, validité — **202**, à deux dans l'agence du compte ; le plafond du compte l'emporte sur celui du produit |
 | `POST /accounts/{id}/blocks`, `.../{blockId}/lift` | `ACCOUNT_BLOCK` | nature, motif — **202** |
 | `POST /accounts/{id}/holds`, `.../{holdId}/release` | `ACCOUNT_HOLD` | montant, nature, échéance — **202** |

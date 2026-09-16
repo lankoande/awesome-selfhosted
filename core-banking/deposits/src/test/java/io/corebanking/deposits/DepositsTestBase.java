@@ -55,6 +55,7 @@ abstract class DepositsTestBase {
     protected static AccountLifecycle lifecycle;
     protected static PartyService parties;
     protected static PaymentService payments;
+    protected static ChequeService cheques;
 
     protected static final UUID ACTOR = UUID.fromString("00000000-0000-0000-0000-0000000000ac");
     protected static final UUID APPROVER = UUID.fromString("00000000-0000-0000-0000-0000000000af");
@@ -79,6 +80,7 @@ abstract class DepositsTestBase {
         lifecycle = new AccountLifecycle(database, postingService);
         parties = new PartyService(database, Screening.NONE);
         payments = new PaymentService(database, postingService);
+        cheques = new ChequeService(database, postingService);
     }
 
     @AfterAll
@@ -113,9 +115,13 @@ abstract class DepositsTestBase {
                 }
                 for (String type : List.of(OperationSchemas.CASH_WITHDRAWAL,
                                            OperationSchemas.TRANSFER,
-                                           OperationSchemas.PAYMENT_ORDER)) {
+                                           OperationSchemas.PAYMENT_ORDER,
+                                           OperationSchemas.CHEQUE_PAYMENT)) {
                     regle(c, entityId, type, null, Direction.DEBIT, 0, OffsetUnit.CALENDAR_DAYS);
                 }
+                // Une remise de cheque prend valeur deux jours ouvres apres : sauf bonne fin.
+                regle(c, entityId, OperationSchemas.CHEQUE_DEPOSIT, null, Direction.CREDIT, 2,
+                      OffsetUnit.BUSINESS_DAYS);
                 // Au guichet, un versement d'especes prend valeur le jour ouvre suivant.
                 regle(c, entityId, OperationSchemas.CASH_DEPOSIT, "GUICHET", Direction.CREDIT, 1,
                       OffsetUnit.BUSINESS_DAYS);

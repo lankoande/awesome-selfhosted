@@ -4,7 +4,7 @@
     {
       "code": "teller",
       "name": "Guichetier",
-      "description": "Operations de caisse et consultation des comptes de son agence.",
+      "description": "Operations de caisse — versements, retraits, paiement de cheques au guichet, remises de cheques — et consultation des comptes de son agence.",
       "isSystem": true,
       "category": "RESEAU",
       "attributes": {
@@ -15,7 +15,7 @@
     {
       "code": "branch_manager",
       "name": "Chef d'agence",
-      "description": "Encadrement d'une agence : ouverture et cloture de comptes, blocages, validation des operations au-dela du plafond guichetier.",
+      "description": "Encadrement d'une agence : ouverture et cloture de comptes, blocages, plafonds de compte et chequiers a deux, oppositions, validation des operations au-dela du plafond guichetier.",
       "isSystem": true,
       "category": "RESEAU",
       "attributes": {
@@ -26,7 +26,7 @@
     {
       "code": "customer_officer",
       "name": "Charge de clientele",
-      "description": "Gestion du portefeuille clients : ouverture de comptes, virements, consultation du journal.",
+      "description": "Gestion du portefeuille clients : ouverture de comptes, virements, paiements sortants, chequiers et oppositions, remises de cheques, consultation du journal.",
       "isSystem": true,
       "category": "RESEAU",
       "attributes": {
@@ -48,7 +48,7 @@
     {
       "code": "accountant",
       "name": "Comptable",
-      "description": "Comptabilite generale : contre-passation, arretes mensuel et annuel, exercices et affectation du resultat a deux, maquettes d'etats financiers, balance, grand livre, journal et etats financiers de l'entite.",
+      "description": "Comptabilite generale : contre-passation, arretes mensuel et annuel, exercices et affectation du resultat a deux, maquettes d'etats financiers, balance, grand livre, journal et etats financiers de l'entite ; suivi des paiements sortants et des remises de cheques.",
       "isSystem": true,
       "category": "SIEGE",
       "attributes": {
@@ -92,7 +92,7 @@
     {
       "code": "operator",
       "name": "Exploitant",
-      "description": "Lancement et annulation des traitements de fin de journee.",
+      "description": "Lancement et annulation des traitements de fin de journee ; suivi des paiements sortants et des remises de cheques (envoi, reglement, retour).",
       "isSystem": true,
       "category": "EXPLOITATION",
       "attributes": {

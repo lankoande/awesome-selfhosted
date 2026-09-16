@@ -160,6 +160,37 @@ public final class SecurityConfig {
             AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER)
                 .within(Scope.OWN_BRANCH).requiringSecondPerson().build());
 
+        // Cheques : le chequier se delivre a deux dans l'agence ; le paiement d'un cheque est un
+        // acte de guichet ou de compensation, plafonne comme une operation de caisse ; la remise
+        // est un acte de guichet ; son suivi est du back-office ; l'opposition, un acte de
+        // gestion du compte ; la lecture est tracee.
+        policy.put(Operation.CHEQUE_BOOK_ISSUE,
+            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_BRANCH).requiringSecondPerson().build());
+
+        policy.put(Operation.CHEQUE_PAY,
+            AccessRule.allow(TELLER, BRANCH_MANAGER, OPERATOR)
+                .within(Scope.OWN_ENTITY)
+                .upTo(Map.of(TELLER,         Money.of("2000000", XOF),
+                             BRANCH_MANAGER, Money.of("25000000", XOF),
+                             OPERATOR,       Money.of("100000000", XOF)))
+                .build());
+
+        policy.put(Operation.CHEQUE_DEPOSIT,
+            AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_ENTITY).build());
+
+        policy.put(Operation.CHEQUE_PROCESS,
+            AccessRule.allow(OPERATOR, ACCOUNTANT).within(Scope.OWN_ENTITY).build());
+
+        policy.put(Operation.CHEQUE_STOP,
+            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER).within(Scope.OWN_ENTITY).build());
+
+        policy.put(Operation.CHEQUE_READ,
+            AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER, OPERATOR, ACCOUNTANT,
+                             AUDITOR)
+                .within(Scope.OWN_ENTITY).tracedOnRead().build());
+
         // Une correction se valide par un tiers : c'est le geste par lequel une fraude se dissimule.
         policy.put(Operation.ENTRY_REVERSAL,
             AccessRule.allow(BRANCH_MANAGER, ACCOUNTANT)

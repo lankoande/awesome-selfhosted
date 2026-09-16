@@ -113,6 +113,8 @@ public class ApiExceptionHandler {
                        ParameterUseCases.UnknownParameterException.class,
                        io.corebanking.ledger.store.FiscalYears.UnknownFiscalYearException.class,
                        io.corebanking.deposits.PaymentService.UnknownPaymentOrderException.class,
+                       io.corebanking.deposits.ChequeService.UnknownChequeException.class,
+                       io.corebanking.deposits.ChequeService.UnknownChequeDepositException.class,
                        PendingOperations.UnknownPendingOperationException.class})
     ResponseEntity<ApiResponse<Void>> unknown(RuntimeException e, HttpServletRequest request) {
         return respond(HttpStatus.NOT_FOUND, "Objet inconnu", e.getMessage(), request);

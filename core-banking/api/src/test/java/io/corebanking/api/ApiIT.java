@@ -145,6 +145,7 @@ class ApiIT {
     private Account report;
     private Account reglementSortant;
     private Account nostro;
+    private Account encaissement;
     private java.math.BigDecimal resultatNet;
     private String accountant2;
     private UUID caisseId;
@@ -186,7 +187,8 @@ class ApiIT {
                     OffsetUnit.CALENDAR_DAYS, BusinessDayConvention.UNADJUSTED, J.minusYears(1),
                     null), APPROVER, UUID.randomUUID());
             }
-            for (String type : List.of("CASH_WITHDRAWAL", "TRANSFER", "PAYMENT_ORDER")) {
+            for (String type : List.of("CASH_WITHDRAWAL", "TRANSFER", "PAYMENT_ORDER",
+                                       "CHEQUE_PAYMENT")) {
                 Calendars.addRule(c, ENTITY, new ValueDateRule(type, null, Direction.DEBIT, 0,
                     OffsetUnit.CALENDAR_DAYS, BusinessDayConvention.UNADJUSTED, J.minusYears(1),
                     null), APPROVER, UUID.randomUUID());
@@ -215,6 +217,9 @@ class ApiIT {
             nostro = compte(c, "NOSTRO", AccountKind.NOSTRO, NormalBalance.DEBIT, null);
             parametres.put(DepositCatalog.P_PAYMENT_FEE, "1000");
             parametres.put(DepositCatalog.P_PAYMENT_CLEARING, reglementSortant.id().toString());
+            encaissement = compte(c, "ENCAISSEMENT", AccountKind.GL, NormalBalance.DEBIT, null);
+            parametres.put(DepositCatalog.P_CHEQUE_BOOK_FEE, "2000");
+            parametres.put(DepositCatalog.P_CHEQUE_COLLECTION, encaissement.id().toString());
             UUID version = ProductCatalog.createDraft(c, new ProductCatalog.Draft(
                 ENTITY, "EP-API", "SAVINGS_ACCOUNT", "Epargne", "XOF", J.minusMonths(1), null,
                 parametres, List.of(), APPROVER));
@@ -1203,6 +1208,164 @@ class ApiIT {
             .isEqualTo("erreur de saisie");
         assertThat(get(officer, "/payment-orders/" + UUID.randomUUID()).status()).isEqualTo(404);
         assertThat(get(teller, "/payment-orders").status()).isEqualTo(403);
+    }
+
+    @Test
+    @Order(13)
+    @DisplayName("cheques : chequier delivre a deux, cheque paye au guichet une fois, opposition, rejet sans provision avec incident, remise creditee sauf bonne fin puis reglee, une autre impayee")
+    @SuppressWarnings("unchecked")
+    void cheques() throws Exception {
+        // Le chequier se delivre a deux, dans l'agence du compte ; un guichetier ne le demande pas.
+        assertThat(post(teller, "/accounts/" + account + "/cheque-books", null, Map.of("count", 25))
+                       .status()).isEqualTo(403);
+        Reponse demande = post(officer, "/accounts/" + account + "/cheque-books", null,
+                               Map.of("count", 25));
+        assertThat(demande.status()).as(String.valueOf(demande.envelope())).isEqualTo(202);
+        Reponse delivre = post(manager, "/pending-operations/" + attente(demande) + "/approve", null,
+                               Map.of());
+        assertThat(delivre.status()).as(String.valueOf(delivre.envelope())).isEqualTo(200);
+        Map<String, Object> chequier = resultat(delivre.body());
+        assertThat(chequier.get("firstNumber")).isEqualTo(1);
+        assertThat(chequier.get("lastNumber")).isEqualTo(25);
+        assertThat(montant(chequier, "fee")).as("frais 2000 et taxe 18 %").isEqualTo("2360");
+        Reponse chequiers = get(officer, "/accounts/" + account + "/cheque-books");
+        assertThat(chequiers.status()).as(String.valueOf(chequiers.envelope())).isEqualTo(200);
+        assertThat(chequiers.items()).extracting(b -> b.get("id"))
+            .containsExactly(chequier.get("id"));
+        assertThat(get(creditOfficer, "/accounts/" + account + "/cheque-books").status())
+            .isEqualTo(403);
+
+        // Au guichet : le guichetier paie sur sa caisse ; rejoue, la meme ecriture ; sous une
+        // autre cle, le cheque est deja paye ; sans cle, rien ne part.
+        Map<String, Object> paiement = Map.of("amount", "20000", "currency", "XOF",
+                                              "beneficiary", "Porteur");
+        String avant = montant(get(manager, "/accounts/" + account + "/balance").body(), "current");
+        Reponse paye = post(teller, "/accounts/" + account + "/cheques/1/payment", "chq-1", paiement);
+        assertThat(paye.status()).as(String.valueOf(paye.envelope())).isEqualTo(201);
+        assertThat(((Map<String, Object>) paye.body().get("cheque")).get("status")).isEqualTo("PAID");
+        assertThat(((Map<String, Object>) paye.body().get("receipt")).get("valueDate"))
+            .isEqualTo(J.plusDays(1).toString());
+        Reponse rejeu = post(teller, "/accounts/" + account + "/cheques/1/payment", "chq-1", paiement);
+        assertThat(rejeu.status()).isEqualTo(200);
+        assertThat(((Map<String, Object>) rejeu.body().get("receipt")).get("entryId"))
+            .isEqualTo(((Map<String, Object>) paye.body().get("receipt")).get("entryId"));
+        assertThat(post(teller, "/accounts/" + account + "/cheques/1/payment", "chq-2", paiement)
+                       .status()).isEqualTo(409);
+        String apres = montant(get(manager, "/accounts/" + account + "/balance").body(), "current");
+        assertThat(new java.math.BigDecimal(avant).subtract(new java.math.BigDecimal(apres)))
+            .isEqualByComparingTo("20000");
+        assertThat(post(teller, "/accounts/" + account + "/cheques/2/payment", null, paiement)
+                       .status()).isEqualTo(400);
+        // Un cheque inconnu n'existe pas ; au-dela du plafond du guichetier, refuse ; par
+        // compensation, un nostro est requis, et le chef d'agence n'a pas de caisse.
+        assertThat(post(teller, "/accounts/" + account + "/cheques/99/payment", "chq-3", paiement)
+                       .status()).isEqualTo(404);
+        assertThat(post(teller, "/accounts/" + account + "/cheques/2/payment", "chq-4",
+                        Map.of("amount", "2000001", "currency", "XOF")).status()).isEqualTo(403);
+        assertThat(post(operator, "/accounts/" + account + "/cheques/2/payment", "chq-5",
+                        Map.of("amount", "1000", "currency", "XOF", "mode", "CLEARING")).status())
+            .isEqualTo(422);
+        assertThat(post(manager, "/accounts/" + account + "/cheques/2/payment", "chq-6", paiement)
+                       .status()).isEqualTo(409);
+        Reponse compense = post(operator, "/accounts/" + account + "/cheques/4/payment", "chq-7",
+            Map.of("amount", "1000", "currency", "XOF", "mode", "CLEARING",
+                   "nostroAccountId", nostro.id().toString(), "beneficiary", "Banque X"));
+        assertThat(compense.status()).as(String.valueOf(compense.envelope())).isEqualTo(201);
+
+        // L'opposition, motivee, par le charge de clientele : le cheque ne se paie plus.
+        assertThat(post(teller, "/accounts/" + account + "/cheques/2/stop", null,
+                        Map.of("reason", "LOSS")).status()).isEqualTo(403);
+        assertThat(post(officer, "/accounts/" + account + "/cheques/2/stop", null,
+                        Map.of("reason", "PARCE_QUE")).status()).isEqualTo(422);
+        Reponse oppose = post(officer, "/accounts/" + account + "/cheques/2/stop", null,
+                              Map.of("reason", "LOSS"));
+        assertThat(oppose.status()).as(String.valueOf(oppose.envelope())).isEqualTo(200);
+        assertThat(oppose.body().get("status")).isEqualTo("STOPPED");
+        assertThat(oppose.body().get("stopReason")).isEqualTo("LOSS");
+        Reponse refuse = post(teller, "/accounts/" + account + "/cheques/2/payment", "chq-8", paiement);
+        assertThat(refuse.status()).isEqualTo(409);
+        assertThat((String) refuse.body().get("detail")).contains("opposition");
+
+        // Sans provision : rejete, l'incident est enregistre ; le cheque peut etre represente.
+        assertThat(new java.math.BigDecimal(apres)).as("le decor tient sous le plafond du guichetier")
+            .isLessThan(new java.math.BigDecimal("1900000"));
+        Reponse rejete = post(teller, "/accounts/" + account + "/cheques/3/payment", "chq-9",
+            Map.of("amount", "1900000", "currency", "XOF", "beneficiary", "Porteur"));
+        assertThat(rejete.status()).as(String.valueOf(rejete.envelope())).isEqualTo(409);
+        assertThat((String) rejete.body().get("detail")).contains("incident");
+        Reponse incidents = get(officer, "/accounts/" + account + "/cheque-incidents");
+        assertThat(incidents.status()).as(String.valueOf(incidents.envelope())).isEqualTo(200);
+        assertThat(incidents.items()).singleElement()
+            .satisfies(i -> assertThat(i.get("reason")).isEqualTo("SANS_PROVISION"));
+        Reponse rejetes = get(teller, "/accounts/" + account + "/cheques?status=rejected");
+        assertThat(rejetes.items()).extracting(q -> q.get("number")).containsExactly(3);
+        assertThat(montant(get(manager, "/accounts/" + account + "/balance").body(), "current"))
+            .isEqualTo(new java.math.BigDecimal(apres).subtract(new java.math.BigDecimal("1000"))
+                           .toPlainString());
+
+        // La remise credite le client sauf bonne fin, a deux jours ouvres de valeur, bloquee
+        // jusqu'au reglement ; rejouee, la meme remise.
+        Map<String, Object> soldeAvant = get(manager, "/accounts/" + account + "/balance").body();
+        java.math.BigDecimal bloqueAvant = new java.math.BigDecimal(montant(soldeAvant, "current"))
+            .subtract(new java.math.BigDecimal(montant(soldeAvant, "available")));
+        Map<String, Object> remise = Map.of("amount", "50000", "currency", "XOF",
+            "draweeBank", "BK-CI-002", "chequeNumber", "0001234", "drawerName", "Tireur SARL");
+        Reponse deposee = post(teller, "/accounts/" + account + "/cheque-deposits", "rem-1", remise);
+        assertThat(deposee.status()).as(String.valueOf(deposee.envelope())).isEqualTo(201);
+        assertThat(deposee.body().get("status")).isEqualTo("DEPOSITED");
+        assertThat(deposee.body().get("valueDate")).as("mercredi + 2 jours ouvres")
+            .isEqualTo(J.plusDays(3).toString());
+        UUID remiseId = UUID.fromString((String) deposee.body().get("id"));
+        assertThat(post(teller, "/accounts/" + account + "/cheque-deposits", "rem-1", remise)
+                       .status()).isEqualTo(200);
+        Map<String, Object> soldeRemise = get(manager, "/accounts/" + account + "/balance").body();
+        assertThat(new java.math.BigDecimal(montant(soldeRemise, "current"))
+                       .subtract(new java.math.BigDecimal(montant(soldeAvant, "current"))))
+            .isEqualByComparingTo("50000");
+        assertThat(new java.math.BigDecimal(montant(soldeRemise, "current"))
+                       .subtract(new java.math.BigDecimal(montant(soldeRemise, "available"))))
+            .as("le montant remis est bloque").isEqualByComparingTo(bloqueAvant.add(
+                new java.math.BigDecimal("50000")));
+
+        // Le reglement est un acte de back-office, sur un nostro : le blocage tombe.
+        assertThat(post(teller, "/cheque-deposits/" + remiseId + "/settlement", null,
+                        Map.of("nostroAccountId", nostro.id().toString())).status()).isEqualTo(403);
+        assertThat(post(operator, "/cheque-deposits/" + remiseId + "/settlement", null,
+                        Map.of("nostroAccountId", caisse.id().toString())).status()).isEqualTo(422);
+        Reponse reglee = post(operator, "/cheque-deposits/" + remiseId + "/settlement", null,
+                              Map.of("nostroAccountId", nostro.id().toString()));
+        assertThat(reglee.status()).as(String.valueOf(reglee.envelope())).isEqualTo(200);
+        assertThat(reglee.body().get("status")).isEqualTo("SETTLED");
+        Map<String, Object> soldeRegle = get(manager, "/accounts/" + account + "/balance").body();
+        assertThat(new java.math.BigDecimal(montant(soldeRegle, "current"))
+                       .subtract(new java.math.BigDecimal(montant(soldeRegle, "available"))))
+            .isEqualByComparingTo(bloqueAvant);
+        assertThat(post(operator, "/cheque-deposits/" + remiseId + "/return", null,
+                        Map.of("reason", "trop tard")).status()).isEqualTo(409);
+
+        // Une seconde remise revient impayee : le credit est contre-passe, le blocage avec lui.
+        Reponse seconde = post(teller, "/accounts/" + account + "/cheque-deposits", "rem-2",
+            Map.of("amount", "30000", "currency", "XOF", "draweeBank", "BK-CI-002",
+                   "chequeNumber", "0001235", "drawerName", "Tireur SARL"));
+        assertThat(seconde.status()).as(String.valueOf(seconde.envelope())).isEqualTo(201);
+        UUID secondeId = UUID.fromString((String) seconde.body().get("id"));
+        Reponse impayee = post(operator, "/cheque-deposits/" + secondeId + "/return", null,
+                               Map.of("reason", "provision insuffisante"));
+        assertThat(impayee.status()).as(String.valueOf(impayee.envelope())).isEqualTo(200);
+        assertThat(impayee.body().get("status")).isEqualTo("RETURNED");
+        assertThat(impayee.body().get("returnReason")).isEqualTo("provision insuffisante");
+        Map<String, Object> soldeFinal = get(manager, "/accounts/" + account + "/balance").body();
+        assertThat(montant(soldeFinal, "current")).isEqualTo(montant(soldeRegle, "current"));
+        assertThat(montant(soldeFinal, "available")).isEqualTo(montant(soldeRegle, "available"));
+
+        // La lecture, tracee ; la liste par statut ; une remise inconnue n'existe pas.
+        Reponse liste = get(accountant, "/cheque-deposits?status=settled");
+        assertThat(liste.status()).as(String.valueOf(liste.envelope())).isEqualTo(200);
+        assertThat(liste.items()).extracting(d -> d.get("id")).containsExactly(remiseId.toString());
+        assertThat(get(teller, "/cheque-deposits/" + remiseId).body().get("settlementAccountId"))
+            .isEqualTo(nostro.id().toString());
+        assertThat(get(teller, "/cheque-deposits/" + UUID.randomUUID()).status()).isEqualTo(404);
+        assertThat(get(creditOfficer, "/cheque-deposits").status()).isEqualTo(403);
     }
 
     // ------------------------------------------------------------------ outillage

@@ -3,3 +3,4 @@
 # les tests du module le refusent.
 V35__tills.sql
 V40__plafonds_paiements.sql
+V41__cheques.sql

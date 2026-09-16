@@ -26,6 +26,8 @@ public final class DepositCatalog {
     public static final String P_MONTHLY_DEBIT_MAX = "ops.monthly_debit_max";
     public static final String P_PAYMENT_FEE       = "ops.payment_fee";
     public static final String P_PAYMENT_CLEARING  = "ops.payment_clearing_account";
+    public static final String P_CHEQUE_BOOK_FEE   = "ops.cheque_book_fee";
+    public static final String P_CHEQUE_COLLECTION = "ops.cheque_collection_account";
 
     private DepositCatalog() {}
 
@@ -40,6 +42,17 @@ public final class DepositCatalog {
     /** Compte de produit des frais d'operation, exige des qu'un frais est parametre. */
     public static Money paymentFee(ProductVersion product, CurrencyRef currency) {
         return flat(product.parameters(), P_PAYMENT_FEE, currency);
+    }
+
+    public static Money chequeBookFee(ProductVersion product, CurrencyRef currency) {
+        return flat(product.parameters(), P_CHEQUE_BOOK_FEE, currency);
+    }
+
+    /** Compte de cheques a l'encaissement ; vide, le produit n'admet pas de remise de cheque. */
+    public static Optional<UUID> chequeCollection(ProductVersion product) {
+        var parameters = product.parameters();
+        return parameters.has(P_CHEQUE_COLLECTION)
+            ? Optional.of(parameters.requireUuid(P_CHEQUE_COLLECTION)) : Optional.empty();
     }
 
     /** Compte de reglement sortant du produit ; vide, le produit n'admet pas de paiement sortant. */

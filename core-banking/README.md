@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 586 tests verts** — 305 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 281 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 589 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 286 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -723,14 +723,37 @@ pas encore chez le correspondant et le bilan le montre. Envoyé, réglé sur le 
 contre-passation et jamais autrement (`order_send_settle`, `cancel_and_refusals`). Un ordre
 rejoué avec sa clé rend le même ordre, et rien n'est débité deux fois.
 
+### 24. Des chèques qui se paient une fois, et des remises créditées sauf bonne fin
+
+**Un chèque émis se paie une fois, et l'incident survit au refus.** Le chéquier se délivre à
+deux, aux frais du produit ; ses numéros suivent ceux du chéquier précédent, et le schéma interdit
+à deux chéquiers d'un compte de partager un numéro. Présenté au guichet — sur la caisse de
+l'appelant — ou par compensation, un chèque se paie une fois, dans la limite du disponible ;
+rejoué avec sa clé, il rend le même reçu. Présenté sans provision, il est rejeté et l'incident est
+enregistré dans sa propre transaction, après celle du refus : parce qu'il fonde l'interdiction
+bancaire et la déclaration à la centrale, il doit survivre au refus ; et parce que la transaction
+refusée tient encore le chèque tant qu'elle n'est pas défaite, il ne peut pas s'écrire avant
+(`pay_stop_reject`). L'opposition n'a que les motifs que la loi admet et n'atteint pas un chèque
+payé.
+
+**Une remise crédite le client, mais ne lui donne rien avant la bonne fin.** La valeur va au
+compte de chèques à l'encaissement du produit, tenu au siège ; le client est crédité à la date de
+valeur des conditions de banque, et un blocage tient le montant hors du disponible jusqu'au
+règlement par le correspondant — le blocage tombe, la valeur passe au nostro ; impayée, la remise
+est contre-passée et le blocage tombe avec elle (`deposits`). Les chèques ne consomment pas les
+plafonds du client : l'instrument est celui d'un tiers porteur, et un refus de plafond ne serait
+pas un défaut de provision.
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
 - API : le contrat OpenAPI est généré et publié ; reste sa vérification de compatibilité
   d'une version à l'autre (le test tient l'égalité au code, pas la non-régression du contrat) ;
-- chèques (remise, compensation, opposition) et prélèvements — les paiements sortants et les
-  plafonds par produit et par compte, eux, sont faits ;
+- prélèvements ; pour les chèques, l'échange avec la compensation (SICA-UEMOA), la déclaration
+  des incidents à la centrale et l'interdiction bancaire, les chèques de banque — les chéquiers,
+  le paiement, l'opposition, l'incident et la remise sauf bonne fin, comme les paiements sortants
+  et les plafonds par produit et par compte, eux, sont faits ;
 - multi-agences : schémas de liaison bilatéral et via la région (le schéma via le siège est
   fait, les caisses par guichetier et l'arrêté de caisse aussi) ;
 - référentiel client : documents et leurs échéances, bénéficiaires effectifs, relations entre
@@ -758,6 +781,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Numérotation par séquence PostgreSQL, trous acceptés | Un compteur en table poserait un verrou de ligne par entité jusqu'au commit ; la numérotation continue du journal officiel est attribuée au TFJ |
 | Contrainte d'équilibre sur les partitions, pas sur la table mère | PostgreSQL n'accepte pas de déclencheur de contrainte différé sur une table partitionnée |
 | Idempotence dans une table satellite | Toute contrainte unique d'une table partitionnée doit contenir la clé de partitionnement ; l'unicité doit être globale |
+| L'incident de paiement d'un chèque se constate dans sa propre transaction, après celle du refus | La transaction refusée est défaite avec ses verrous, et l'incident doit lui survivre ; écrit pendant elle, il attendrait le verrou du chèque qu'elle tient — un interblocage que le premier test a trouvé |
+| Les chèques ne consomment pas les plafonds du client | L'instrument est celui d'un tiers porteur ; un refus de plafond ne serait pas un défaut de provision, et fausserait l'incident |
 | Un seul instant de connaissance par écriture | `clock_timestamp()` avance dans une transaction ; par ligne, il placerait les lignes après leur propre écriture |
 | Compte à contrôle de disponible ⇒ une seule stripe | Vérifier un disponible exigerait de verrouiller toutes les stripes, ce qui annulerait la répartition |
 | La génération de recalcul entre dans la clé d'idempotence | Sans elle, une réémission après extourne porte la clé de l'écriture d'origine, passe pour un rejeu et n'impute rien |

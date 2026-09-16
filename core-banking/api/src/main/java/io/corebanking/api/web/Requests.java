@@ -127,6 +127,25 @@ public final class Requests {
     public record AccountLimitRequest(String kind, String amount, String currency,
                                       LocalDate validFrom, LocalDate validTo) {}
 
+    // ------------------------------------------------------------------ cheques
+
+    /** Un chequier : son nombre de cheques ; les numeros suivent le chequier precedent. */
+    public record ChequeBookRequest(Integer count) {}
+
+    /**
+     * Paiement d'un cheque emis : {@code CASH} (par defaut) sur la caisse de l'appelant,
+     * {@code CLEARING} sur le nostro donne ; le porteur tel que le cheque le nomme.
+     */
+    public record ChequePaymentRequest(String amount, String currency, String mode,
+                                       UUID nostroAccountId, String beneficiary, String channel) {}
+
+    /** Opposition : LOSS, THEFT, FRAUDULENT_USE ou BEARER_INSOLVENCY. */
+    public record ChequeStop(String reason) {}
+
+    /** Remise d'un cheque tire sur une autre banque : banque tiree, numero, tireur. */
+    public record ChequeDepositRequest(String amount, String currency, String draweeBank,
+                                       String chequeNumber, String drawerName, String channel) {}
+
     // ------------------------------------------------------------------ arretes et exercices
 
     public record OpenFiscalYear(LocalDate start, LocalDate end, UUID resultAccountId) {}

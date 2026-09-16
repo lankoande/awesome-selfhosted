@@ -51,6 +51,18 @@ public enum Operation {
     PAYMENT_READ,
     /** Plafond propre a un compte : par operation, par jour, par mois. */
     ACCOUNT_LIMIT_MANAGE,
+    /** Delivrance d'un chequier a un compte, aux frais du produit. */
+    CHEQUE_BOOK_ISSUE,
+    /** Paiement d'un cheque emis : au guichet, ou par compensation sur le nostro. */
+    CHEQUE_PAY,
+    /** Remise d'un cheque tire sur une autre banque, creditee sauf bonne fin. */
+    CHEQUE_DEPOSIT,
+    /** Suivi d'une remise : reglement par le correspondant, ou impaye. */
+    CHEQUE_PROCESS,
+    /** Opposition sur un cheque, pour un motif que la loi admet. */
+    CHEQUE_STOP,
+    /** Consultation des chequiers, cheques, incidents et remises. */
+    CHEQUE_READ,
     /** Contre-passation d'une ecriture. */
     ENTRY_REVERSAL,
     /** Pose ou levee d'un blocage de montant sur un compte. */

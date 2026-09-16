@@ -87,7 +87,7 @@ public final class OperationUseCases {
         }
     }
 
-    private static AccessTarget cashTarget(AccountDirectory accounts, java.util.UUID entity,
+    static AccessTarget cashTarget(AccountDirectory accounts, java.util.UUID entity,
                                            java.util.UUID cashAccountId, java.util.UUID accountId,
                                            io.corebanking.kernel.money.Money amount) {
         Account till = accounts.require(cashAccountId);
