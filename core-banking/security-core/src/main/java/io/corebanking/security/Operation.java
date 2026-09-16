@@ -63,6 +63,18 @@ public enum Operation {
     CHEQUE_STOP,
     /** Consultation des chequiers, cheques, incidents et remises. */
     CHEQUE_READ,
+    /** Enregistrement d'un mandat de prelevement sur un compte, a deux. */
+    MANDATE_REGISTER,
+    /** Revocation d'un mandat par le client. */
+    MANDATE_REVOKE,
+    /** Presentation d'un prelevement recu sur un mandat : par la compensation ou un creancier de la banque. */
+    DIRECT_DEBIT_PRESENT,
+    /** Remise d'un prelevement emis par un client creancier, credite sauf bonne fin a l'echeance. */
+    DIRECT_DEBIT_ISSUE,
+    /** Suivi d'un prelevement : reglement, rappel, remboursement, retour. */
+    DIRECT_DEBIT_PROCESS,
+    /** Consultation des mandats et des prelevements. */
+    DIRECT_DEBIT_READ,
     /** Contre-passation d'une ecriture. */
     ENTRY_REVERSAL,
     /** Pose ou levee d'un blocage de montant sur un compte. */

@@ -16,6 +16,7 @@ import io.corebanking.loan.service.LoanMobilisationService;
 import io.corebanking.loan.service.LoanReconciliation;
 import io.corebanking.loan.service.LoanService;
 import io.corebanking.tfj.steps.BalanceSnapshotStep;
+import io.corebanking.tfj.steps.DirectDebitsStep;
 import io.corebanking.tfj.steps.DormancyStep;
 import io.corebanking.tfj.steps.FeeChargingStep;
 import io.corebanking.tfj.steps.HoldExpiryStep;
@@ -70,6 +71,11 @@ import java.util.List;
  *       ce qui a ete calcule jusqu'a la fin de periode ; le calcul du jour doit etre fait.</li>
  *   <li><b>Les interets avant le cliche des soldes.</b> Le cliche doit refleter la journee arretee,
  *       interets compris — sinon le solde fige et le solde rejoue divergeront des le lendemain.</li>
+ *   <li><b>Les prelevements a l'echeance apres l'expiration des blocages, avant les commissions
+ *       et les echeances de credit.</b> Ils s'executent sur le disponible de la journee, blocages
+ *       expires compris ; le prelevement est un engagement du client envers un tiers, pris a
+ *       date, et son rejet lui est opposable chez le creancier, quand commission et echeance de
+ *       credit ont leur regime de report et de retard.</li>
  *   <li><b>Dormance et revue de connaissance client apres les traitements comptables.</b> Elles ne
  *       comptabilisent rien et ne bloquent pas la journee : un dossier de revue en retard ne doit
  *       pas empecher la banque d'arreter ses comptes. Elles sont defaites avec l'arrete.</li>
@@ -101,6 +107,9 @@ public final class StandardTfj {
         return List.of(
             new PreChecksStep(database),
             new HoldExpiryStep(database),
+            new DirectDebitsStep(database,
+                                 new io.corebanking.deposits.DirectDebitService(database,
+                                                                                 postingService)),
             new FeeChargingStep(database, feeService),
             new LoanMobilisationStep(mobilisationService),
             new LoanScheduleStep(loanService),

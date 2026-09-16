@@ -99,6 +99,7 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | 11 | `FX_REVALUATION` | Revalorisation des positions de change | ✔ |
 | 12 | `DORMANCY` | Détection de dormance (délai du produit, sur l'absence d'opération du client) ; régime de frais : non fait | ✔ (non bloquante) |
 | 13 | `HOLD_EXPIRY` | Expiration des blocages de montant arrivés à terme, en date comptable | ✔ |
+| 13b | `DIRECT_DEBITS` | Prélèvements à l'échéance : débit du débiteur, crédit sauf bonne fin du créancier, rejets nommés (provision, mandat révoqué, compte inopérable) | ✔ |
 | 14 | `KYC_REVIEW` | Échéances de revue périodique de la connaissance client ; expiration de documents : non fait | ✔ (non bloquante) |
 | 15 | `BALANCE_SNAPSHOT` | Snapshot des soldes par date comptable et par date de valeur, et par agence | ✔ |
 | 16 | `RECONCILIATION` | Contrôles d'intégrité (cf. §5), compensation inter-agences comprise | ✔ |
@@ -109,13 +110,22 @@ Une étape **bloquante** en échec arrête le run. Les autres consignent une ano
 laissent le run se poursuivre, avec restitution à la clôture.
 
 > **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `HOLD_EXPIRY` →
-> `FEE_CHARGING` → `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_INTEREST_ACCRUAL` →
+> `DIRECT_DEBITS` → `FEE_CHARGING` → `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_INTEREST_ACCRUAL` →
 > `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` → `LOAN_CLOSURE` → `INTEREST_ACCRUAL` →
 > `INTEREST_SETTLEMENT` → `DORMANCY` → `KYC_REVIEW` → `BALANCE_SNAPSHOT` → `RECONCILIATION` →
 > `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans toucher au moteur.
 >
 > `HOLD_EXPIRY` vient avant tout prélèvement : commissions et échéances se prélèvent sur le
-> disponible de la journée arrêtée, blocages expirés compris. `DORMANCY` et `KYC_REVIEW` ne
+> disponible de la journée arrêtée, blocages expirés compris. `DIRECT_DEBITS` vient juste après,
+> avant les commissions et les échéances de crédit de la banque : le prélèvement est un engagement
+> du client envers un tiers, pris à date, et son rejet lui est opposable chez le créancier, quand
+> commission et échéance ont leur régime de report et de retard ; un rejet est enregistré, pas
+> une anomalie, et seul un défaut technique ou de paramétrage — condition de date de valeur
+> absente, compte de règlement inconnu — arrête la journée. L'annulation de l'arrêté contre-passe
+> les écritures des prélèvements exécutés, lève leurs blocages et les rend à l'attente ; elle est
+> refusée, avant de rien défaire, si l'un d'eux a été réglé, remboursé ou retourné depuis. Le TFJ
+> à blanc les exécute et n'en laisse rien : l'exécution s'écrit avec la transaction qui la porte.
+> `DORMANCY` et `KYC_REVIEW` ne
 > comptabilisent rien et ne bloquent pas la journée — un dossier de revue en retard n'empêche pas
 > la banque d'arrêter ses comptes ; les dossiers expirés sont rendus en anomalies non bloquantes,
 > liste de travail du lendemain. Les trois sont défaites par l'annulation de l'arrêté.

@@ -1,9 +1,9 @@
 {
   "openapi" : "3.1.0",
   "info" : {
+    "version" : "1.0.0",
     "title" : "Core banking",
-    "description" : "Socle core banking : comptes, operations, credit, parametrage, arretes, restitutions et etats financiers. Toute reponse porte l'enveloppe data / page / error / meta ; les montants sont des chaines avec leur devise ; les actes a double validation repondent 202 puis s'approuvent par un second porteur.",
-    "version" : "1.0.0"
+    "description" : "Socle core banking : comptes, operations, credit, parametrage, arretes, restitutions et etats financiers. Toute reponse porte l'enveloppe data / page / error / meta ; les montants sont des chaines avec leur devise ; les actes a double validation repondent 202 puis s'approuvent par un second porteur."
   },
   "servers" : [ {
     "url" : "/"
@@ -23,8 +23,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -98,16 +98,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "schemaId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -171,8 +171,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -246,16 +246,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -319,16 +319,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -402,24 +402,24 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "blockId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -493,16 +493,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -514,10 +514,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/ChequeService.Book"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "type" : "null"
@@ -567,16 +567,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -650,16 +650,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/IdempotencyKey"
@@ -760,16 +760,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -781,10 +781,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/ChequeService.Incident"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "type" : "null"
@@ -836,16 +836,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "status",
@@ -864,10 +864,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/ChequeService.Cheque"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "type" : "null"
@@ -919,24 +919,24 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "number",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           }
         }, {
           "$ref" : "#/components/parameters/IdempotencyKey"
@@ -1037,24 +1037,24 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "number",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           }
         } ],
         "requestBody" : {
@@ -1128,16 +1128,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -1211,16 +1211,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/IdempotencyKey"
@@ -1310,6 +1310,82 @@
         }
       }
     },
+    "/v1/entities/{legalEntityId}/accounts/{accountId}/direct-debits" : {
+      "get" : {
+        "operationId" : "DirectDebit.ofAccount",
+        "tags" : [ "DirectDebit" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "type" : "array",
+                      "items" : {
+                        "$ref" : "#/components/schemas/DirectDebitService.DirectDebit"
+                      }
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
     "/v1/entities/{legalEntityId}/accounts/{accountId}/holds" : {
       "post" : {
         "operationId" : "Account.hold",
@@ -1321,16 +1397,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -1404,24 +1480,24 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "holdId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -1474,6 +1550,116 @@
         }
       }
     },
+    "/v1/entities/{legalEntityId}/accounts/{accountId}/issued-direct-debits" : {
+      "post" : {
+        "operationId" : "DirectDebit.issue",
+        "tags" : [ "DirectDebit" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "$ref" : "#/components/parameters/IdempotencyKey"
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.DirectDebitIssue"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/DirectDebitService.DirectDebit"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "201" : {
+            "description" : "Operation comptabilisee : le recu",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/DirectDebitService.DirectDebit"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
     "/v1/entities/{legalEntityId}/accounts/{accountId}/journal" : {
       "get" : {
         "operationId" : "Account.journal",
@@ -1485,32 +1671,32 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "from",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "to",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "$ref" : "#/components/parameters/Page"
@@ -1526,10 +1712,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/Journal.StatementLine"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -1581,32 +1767,32 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "from",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "to",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "$ref" : "#/components/parameters/After"
@@ -1622,10 +1808,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/Journal.StatementLine"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -1677,16 +1863,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -1698,10 +1884,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/Limits.AccountLimit"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "type" : "null"
@@ -1751,16 +1937,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -1769,6 +1955,163 @@
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.AccountLimitRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/accounts/{accountId}/mandates" : {
+      "get" : {
+        "operationId" : "DirectDebit.mandates",
+        "tags" : [ "DirectDebit" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "type" : "array",
+                      "items" : {
+                        "$ref" : "#/components/schemas/DirectDebitService.Mandate"
+                      }
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      },
+      "post" : {
+        "operationId" : "DirectDebit.register",
+        "tags" : [ "DirectDebit" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.MandateRequest"
               }
             }
           }
@@ -1834,16 +2177,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/IdempotencyKey"
@@ -1944,16 +2287,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "accountId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/IdempotencyKey"
@@ -2054,8 +2397,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2129,8 +2472,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2204,8 +2547,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2279,8 +2622,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "status",
@@ -2303,10 +2646,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/ChequeService.ChequeDeposit"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -2358,16 +2701,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "depositId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -2431,16 +2774,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "depositId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2514,16 +2857,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "depositId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2597,8 +2940,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2672,16 +3015,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "policyId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -2745,8 +3088,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2820,16 +3163,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "collateralId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2903,16 +3246,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "collateralId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -2975,6 +3318,497 @@
         }
       }
     },
+    "/v1/entities/{legalEntityId}/direct-debits" : {
+      "get" : {
+        "operationId" : "DirectDebit.list",
+        "tags" : [ "DirectDebit" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "direction",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "$ref" : "#/components/parameters/Page"
+        }, {
+          "$ref" : "#/components/parameters/PageSize"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "type" : "array",
+                      "items" : {
+                        "$ref" : "#/components/schemas/DirectDebitService.DirectDebit"
+                      }
+                    },
+                    "page" : {
+                      "$ref" : "#/components/schemas/Page"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/direct-debits/{directDebitId}" : {
+      "get" : {
+        "operationId" : "DirectDebit.read",
+        "tags" : [ "DirectDebit" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "directDebitId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/DirectDebitService.DirectDebit"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/direct-debits/{directDebitId}/cancellation" : {
+      "post" : {
+        "operationId" : "DirectDebit.cancel",
+        "tags" : [ "DirectDebit" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "directDebitId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.Reason"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/DirectDebitService.DirectDebit"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/direct-debits/{directDebitId}/refund" : {
+      "post" : {
+        "operationId" : "DirectDebit.refund",
+        "tags" : [ "DirectDebit" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "directDebitId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.Reason"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/DirectDebitService.DirectDebit"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/direct-debits/{directDebitId}/return" : {
+      "post" : {
+        "operationId" : "DirectDebit.returnIssued",
+        "tags" : [ "DirectDebit" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "directDebitId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.Reason"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/DirectDebitService.DirectDebit"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/direct-debits/{directDebitId}/settlement" : {
+      "post" : {
+        "operationId" : "DirectDebit.settle",
+        "tags" : [ "DirectDebit" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "directDebitId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.Settlement"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/DirectDebitService.DirectDebit"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
     "/v1/entities/{legalEntityId}/eod/runs" : {
       "post" : {
         "operationId" : "Eod.run",
@@ -2986,8 +3820,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -3061,16 +3895,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -3134,16 +3968,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -3217,16 +4051,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -3290,8 +4124,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -3365,16 +4199,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -3438,16 +4272,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -3521,16 +4355,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -3594,8 +4428,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -3669,16 +4503,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -3742,16 +4576,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -3825,16 +4659,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -3898,8 +4732,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/Page"
@@ -3915,10 +4749,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/FiscalYears.FiscalYear"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -3968,8 +4802,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -4043,16 +4877,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "fiscalYearId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -4116,16 +4950,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "fiscalYearId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -4199,24 +5033,24 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "from",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "to",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "$ref" : "#/components/parameters/After"
@@ -4232,10 +5066,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/Journal.StatementLine"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -4287,40 +5121,40 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "from",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "to",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "kind",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "enum" : [ "CUSTOMER", "GL", "INTERNAL", "NOSTRO", "SUSPENSE", "POSITION" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "CUSTOMER", "GL", "INTERNAL", "NOSTRO", "SUSPENSE", "POSITION" ]
           }
         }, {
           "name" : "branchId",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/Page"
@@ -4336,10 +5170,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/LedgerUseCases.BalanceLine"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -4391,40 +5225,40 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "from",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "to",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "kind",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "enum" : [ "CUSTOMER", "GL", "INTERNAL", "NOSTRO", "SUSPENSE", "POSITION" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "CUSTOMER", "GL", "INTERNAL", "NOSTRO", "SUSPENSE", "POSITION" ]
           }
         }, {
           "name" : "branchId",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -4436,10 +5270,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/LedgerUseCases.BalanceTotals"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "type" : "null"
@@ -4491,8 +5325,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "status",
@@ -4515,10 +5349,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/LoanContract"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -4568,8 +5402,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -4643,16 +5477,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "contractId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -4716,16 +5550,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "contractId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -4799,16 +5633,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "contractId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/IdempotencyKey"
@@ -4884,16 +5718,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "contractId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/IdempotencyKey"
@@ -4969,16 +5803,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "contractId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -5041,6 +5875,199 @@
         }
       }
     },
+    "/v1/entities/{legalEntityId}/mandates/{mandateId}/direct-debits" : {
+      "post" : {
+        "operationId" : "DirectDebit.present",
+        "tags" : [ "DirectDebit" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "mandateId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "$ref" : "#/components/parameters/IdempotencyKey"
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.DirectDebitPresentation"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Rejeu d'une cle d'idempotence deja traitee : le premier recu, rien n'est comptabilise deux fois",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/DirectDebitService.DirectDebit"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "201" : {
+            "description" : "Operation comptabilisee : le recu",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/DirectDebitService.DirectDebit"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/mandates/{mandateId}/revocation" : {
+      "post" : {
+        "operationId" : "DirectDebit.revoke",
+        "tags" : [ "DirectDebit" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "mandateId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.Reason"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/DirectDebitService.Mandate"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
     "/v1/entities/{legalEntityId}/parties" : {
       "get" : {
         "operationId" : "Party.search",
@@ -5052,8 +6079,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "q",
@@ -5076,10 +6103,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/Party"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -5129,8 +6156,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -5204,16 +6231,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "partyId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -5277,16 +6304,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "partyId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -5360,8 +6387,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "status",
@@ -5384,10 +6411,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/PaymentService.PaymentOrder"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -5439,16 +6466,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "orderId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -5512,16 +6539,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "orderId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -5595,16 +6622,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "orderId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -5678,16 +6705,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "orderId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -5751,16 +6778,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "orderId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -5834,8 +6861,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/Page"
@@ -5851,10 +6878,10 @@
                   "type" : "object",
                   "properties" : {
                     "data" : {
+                      "type" : "array",
                       "items" : {
                         "$ref" : "#/components/schemas/MakerChecker.View"
-                      },
-                      "type" : "array"
+                      }
                     },
                     "page" : {
                       "$ref" : "#/components/schemas/Page"
@@ -5906,16 +6933,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "id",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -5979,16 +7006,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "id",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -6052,16 +7079,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "id",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -6069,8 +7096,8 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "additionalProperties" : { },
-                "type" : "object"
+                "type" : "object",
+                "additionalProperties" : { }
               }
             }
           }
@@ -6136,8 +7163,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -6211,16 +7238,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "versionId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -6284,8 +7311,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -6359,16 +7386,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "profileId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -6432,8 +7459,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -6507,16 +7534,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "layoutId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -6580,16 +7607,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "layoutId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "responses" : {
@@ -6653,16 +7680,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "asOf",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         } ],
         "responses" : {
@@ -6726,24 +7753,24 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "from",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }, {
           "name" : "to",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         } ],
         "responses" : {
@@ -6807,16 +7834,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "asOf",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         } ],
         "responses" : {
@@ -6880,8 +7907,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -6955,16 +7982,16 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "name" : "tillId",
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         } ],
         "requestBody" : {
@@ -7038,8 +8065,8 @@
           "in" : "path",
           "required" : true,
           "schema" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "$ref" : "#/components/parameters/IdempotencyKey"
@@ -7154,10 +8181,10 @@
   "components" : {
     "securitySchemes" : {
       "bearerAuth" : {
+        "description" : "Jeton d'acces Keycloak : l'entite, l'agence et les roles de l'appelant en sont derives, jamais d'un parametre.",
         "scheme" : "bearer",
         "bearerFormat" : "JWT",
-        "type" : "http",
-        "description" : "Jeton d'acces Keycloak : l'entite, l'agence et les roles de l'appelant en sont derives, jamais d'un parametre."
+        "type" : "http"
       }
     },
     "parameters" : {
@@ -7184,9 +8211,9 @@
         "in" : "query",
         "required" : false,
         "schema" : {
+          "default" : 0,
           "type" : "integer",
-          "minimum" : 0,
-          "default" : 0
+          "minimum" : 0
         },
         "description" : "Numero de page, a partir de zero"
       },
@@ -7207,8 +8234,8 @@
         "in" : "header",
         "required" : false,
         "schema" : {
-          "pattern" : "^[A-Za-z0-9._:-]{1,64}$",
-          "type" : "string"
+          "type" : "string",
+          "pattern" : "^[A-Za-z0-9._:-]{1,64}$"
         },
         "description" : "Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme"
       }
@@ -7290,8 +8317,8 @@
         "type" : "object",
         "properties" : {
           "accountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "code" : {
             "type" : "string"
@@ -7306,12 +8333,12 @@
             "$ref" : "#/components/schemas/Money"
           },
           "asOf" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "branchId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "status" : {
             "type" : "string"
@@ -7336,28 +8363,28 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "accountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "firstNumber" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "lastNumber" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "deliveredOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "status" : {
             "type" : "string"
@@ -7366,16 +8393,16 @@
             "$ref" : "#/components/schemas/Money"
           },
           "feeEntryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "createdBy" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "approvedBy" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -7383,20 +8410,20 @@
         "type" : "object",
         "properties" : {
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "bookId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "accountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "number" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "status" : {
             "type" : "string"
@@ -7408,16 +8435,16 @@
             "type" : "string"
           },
           "paidOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "entryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "stoppedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "stopReason" : {
             "type" : "string"
@@ -7428,16 +8455,16 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "accountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "amount" : {
             "$ref" : "#/components/schemas/Money"
@@ -7458,51 +8485,51 @@
             "type" : "string"
           },
           "depositedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "valueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "entryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "holdId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "collectionAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "settledOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "settlementAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "settlementEntryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "returnedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "returnEntryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "returnReason" : {
             "type" : "string"
           },
           "createdBy" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -7510,27 +8537,27 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "accountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "number" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "amount" : {
             "$ref" : "#/components/schemas/Money"
           },
           "occurredOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "reason" : {
             "type" : "string"
@@ -7558,12 +8585,202 @@
             "type" : "string"
           },
           "scale" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "roundingMode" : {
-            "enum" : [ "UP", "DOWN", "CEILING", "FLOOR", "HALF_UP", "HALF_DOWN", "HALF_EVEN", "UNNECESSARY" ],
+            "type" : "string",
+            "enum" : [ "UP", "DOWN", "CEILING", "FLOOR", "HALF_UP", "HALF_DOWN", "HALF_EVEN", "UNNECESSARY" ]
+          }
+        }
+      },
+      "DirectDebitService.DirectDebit" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "legalEntityId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "direction" : {
+            "type" : "string",
+            "enum" : [ "RECEIVED", "ISSUED" ]
+          },
+          "accountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "mandateId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "amount" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "fee" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "tax" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "dueDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "counterpartyName" : {
             "type" : "string"
+          },
+          "counterpartyBank" : {
+            "type" : "string"
+          },
+          "counterpartyAccount" : {
+            "type" : "string"
+          },
+          "mandateReference" : {
+            "type" : "string"
+          },
+          "reference" : {
+            "type" : "string"
+          },
+          "channel" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "presentedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "executedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "executedRunId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "valueDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "entryId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "feeEntryId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "holdId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "clearingAccountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "rejectionReason" : {
+            "type" : "string"
+          },
+          "settledOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "settlementAccountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "settlementEntryId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "closedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "closeEntryId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "closeReason" : {
+            "type" : "string"
+          },
+          "createdBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "DirectDebitService.Mandate" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "legalEntityId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "accountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "reference" : {
+            "type" : "string"
+          },
+          "creditorId" : {
+            "type" : "string"
+          },
+          "creditorName" : {
+            "type" : "string"
+          },
+          "creditorAccountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "creditorBank" : {
+            "type" : "string"
+          },
+          "creditorAccount" : {
+            "type" : "string"
+          },
+          "signedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "validFrom" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "validTo" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "maxAmount" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "revokedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "revocationReason" : {
+            "type" : "string"
+          },
+          "createdBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "approvedBy" : {
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -7610,24 +8827,24 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "fiscalYearId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "entryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "bookingDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "decidedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "reference" : {
             "type" : "string"
@@ -7636,12 +8853,12 @@
             "$ref" : "#/components/schemas/Money"
           },
           "createdBy" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "approvedBy" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "reversed" : {
             "type" : "boolean"
@@ -7652,31 +8869,31 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "start" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "end" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "resultAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "status" : {
             "type" : "string"
           },
           "closedByRunId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -7684,39 +8901,39 @@
         "type" : "object",
         "properties" : {
           "entryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "entryNumber" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "lineNumber" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "bookingDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "knowledgeTime" : {
-            "format" : "date-time",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date-time"
           },
           "valueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "accountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "accountCode" : {
             "type" : "string"
           },
           "direction" : {
-            "enum" : [ "DEBIT", "CREDIT" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "DEBIT", "CREDIT" ]
           },
           "amount" : {
             "$ref" : "#/components/schemas/Money"
@@ -7731,12 +8948,12 @@
             "type" : "string"
           },
           "reversalOf" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "branchId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -7744,23 +8961,23 @@
         "type" : "object",
         "properties" : {
           "accountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "code" : {
             "type" : "string"
           },
           "kind" : {
-            "enum" : [ "CUSTOMER", "GL", "INTERNAL", "NOSTRO", "SUSPENSE", "POSITION" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "CUSTOMER", "GL", "INTERNAL", "NOSTRO", "SUSPENSE", "POSITION" ]
           },
           "nature" : {
-            "enum" : [ "BALANCE_SHEET", "PROFIT_AND_LOSS", "OFF_BALANCE_SHEET" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "BALANCE_SHEET", "PROFIT_AND_LOSS", "OFF_BALANCE_SHEET" ]
           },
           "normalBalance" : {
-            "enum" : [ "DEBIT", "CREDIT" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "DEBIT", "CREDIT" ]
           },
           "currency" : {
             "type" : "string"
@@ -7792,8 +9009,8 @@
             "type" : "string"
           },
           "accounts" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "openingDebit" : {
             "$ref" : "#/components/schemas/Money"
@@ -7822,35 +9039,35 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "accountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "kind" : {
-            "enum" : [ "TRANSACTION", "DAILY", "MONTHLY" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "TRANSACTION", "DAILY", "MONTHLY" ]
           },
           "amount" : {
             "$ref" : "#/components/schemas/Money"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "createdBy" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "approvedBy" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -7858,12 +9075,12 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "reference" : {
             "type" : "string"
@@ -7875,30 +9092,30 @@
             "$ref" : "#/components/schemas/CurrencyRef"
           },
           "loanAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "settlementAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "principal" : {
             "$ref" : "#/components/schemas/Money"
           },
           "disbursedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "status" : {
-            "enum" : [ "DRAFT", "ACTIVE", "CLOSED", "WRITTEN_OFF" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "DRAFT", "ACTIVE", "CLOSED", "WRITTEN_OFF" ]
           },
           "terms" : {
             "$ref" : "#/components/schemas/LoanTerms"
           },
           "branchId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -7906,8 +9123,8 @@
         "type" : "object",
         "properties" : {
           "paymentId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "paid" : {
             "$ref" : "#/components/schemas/Money"
@@ -7919,10 +9136,10 @@
             "$ref" : "#/components/schemas/Money"
           },
           "allocations" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Allocation"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -7930,16 +9147,16 @@
         "type" : "object",
         "properties" : {
           "scheduleId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "number" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "dueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "principal" : {
             "$ref" : "#/components/schemas/Money"
@@ -7974,39 +9191,39 @@
             "type" : "number"
           },
           "frequency" : {
-            "enum" : [ "DAILY", "MONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "DAILY", "MONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL" ]
           },
           "instalmentCount" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "graceInstalments" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "disbursedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "firstDueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "method" : {
-            "enum" : [ "CONSTANT_ANNUITY", "CONSTANT_PRINCIPAL", "BULLET" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "CONSTANT_ANNUITY", "CONSTANT_PRINCIPAL", "BULLET" ]
           },
           "dayCount" : {
-            "enum" : [ "ACT_360", "ACT_365", "ACT_ACT_ISDA", "THIRTY_360_US", "THIRTY_E_360" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "ACT_360", "ACT_365", "ACT_ACT_ISDA", "THIRTY_360_US", "THIRTY_E_360" ]
           },
           "periodicFee" : {
             "$ref" : "#/components/schemas/Money"
           },
           "insuranceBasis" : {
-            "enum" : [ "NONE", "INITIAL_PRINCIPAL", "OUTSTANDING_PRINCIPAL" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "NONE", "INITIAL_PRINCIPAL", "OUTSTANDING_PRINCIPAL" ]
           },
           "insuranceRatePercent" : {
             "type" : "number"
@@ -8020,12 +9237,12 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "reference" : {
             "type" : "string"
@@ -8037,49 +9254,49 @@
             "type" : "string"
           },
           "loanAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "settlementAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "principal" : {
             "$ref" : "#/components/schemas/Money"
           },
           "disbursedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "status" : {
             "type" : "string"
           },
           "branchId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "terms" : {
             "$ref" : "#/components/schemas/LoanTerms"
           },
           "schedule" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/LoanStore.DueLine"
-            },
-            "type" : "array"
+            }
           },
           "receivables" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Receivable"
-            },
-            "type" : "array"
+            }
           },
           "daysPastDue" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "asOf" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -8087,8 +9304,8 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "operation" : {
             "type" : "string"
@@ -8106,26 +9323,26 @@
             "type" : "string"
           },
           "madeAt" : {
-            "format" : "date-time",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date-time"
           },
           "expiresAt" : {
-            "format" : "date-time",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date-time"
           },
           "decidedBy" : {
             "type" : "string"
           },
           "decidedAt" : {
-            "format" : "date-time",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date-time"
           },
           "decisionReason" : {
             "type" : "string"
           },
           "payload" : {
-            "additionalProperties" : { },
-            "type" : "object"
+            "type" : "object",
+            "additionalProperties" : { }
           },
           "result" : { },
           "error" : {
@@ -8136,11 +9353,11 @@
       "Meta" : {
         "type" : "object",
         "properties" : {
-          "requestId" : {
-            "type" : "string"
-          },
           "timestamp" : {
-            "format" : "date-time",
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "requestId" : {
             "type" : "string"
           }
         },
@@ -8150,12 +9367,12 @@
         "type" : "object",
         "properties" : {
           "amount" : {
-            "description" : "Montant en chaine, a l'echelle de la devise ; jamais un flottant",
-            "type" : "string"
+            "type" : "string",
+            "description" : "Montant en chaine, a l'echelle de la devise ; jamais un flottant"
           },
           "currency" : {
-            "description" : "Code ISO 4217",
-            "type" : "string"
+            "type" : "string",
+            "description" : "Code ISO 4217"
           }
         },
         "required" : [ "amount", "currency" ]
@@ -8164,20 +9381,20 @@
         "type" : "object",
         "properties" : {
           "entryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "entryNumber" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "bookingDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "valueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "amount" : {
             "$ref" : "#/components/schemas/Money"
@@ -8195,8 +9412,8 @@
             "type" : "boolean"
           },
           "branchId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "remote" : {
             "type" : "boolean"
@@ -8234,26 +9451,26 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "reference" : {
             "type" : "string"
           },
           "kind" : {
-            "enum" : [ "NATURAL_PERSON", "LEGAL_PERSON" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "NATURAL_PERSON", "LEGAL_PERSON" ]
           },
           "displayName" : {
             "type" : "string"
           },
           "birthOrRegistrationDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "countryCode" : {
             "type" : "string"
@@ -8262,28 +9479,28 @@
             "type" : "string"
           },
           "kycLevel" : {
-            "enum" : [ "SIMPLIFIED", "STANDARD", "ENHANCED" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "SIMPLIFIED", "STANDARD", "ENHANCED" ]
           },
           "kycStatus" : {
-            "enum" : [ "PENDING", "VERIFIED", "EXPIRED", "BLOCKED" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING", "VERIFIED", "EXPIRED", "BLOCKED" ]
           },
           "kycVerifiedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "kycReviewDue" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "riskRating" : {
-            "enum" : [ "LOW", "MEDIUM", "HIGH" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "LOW", "MEDIUM", "HIGH" ]
           },
           "status" : {
-            "enum" : [ "ACTIVE", "BLOCKED", "CLOSED" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "ACTIVE", "BLOCKED", "CLOSED" ]
           },
           "statusReason" : {
             "type" : "string"
@@ -8294,16 +9511,16 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "accountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "amount" : {
             "$ref" : "#/components/schemas/Money"
@@ -8333,58 +9550,58 @@
             "type" : "string"
           },
           "orderedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "entryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "clearingAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "sentOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "settledOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "settlementAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "settlementEntryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "returnedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "returnEntryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "returnReason" : {
             "type" : "string"
           },
           "cancelledOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "cancelEntryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "cancelReason" : {
             "type" : "string"
           },
           "createdBy" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -8392,31 +9609,31 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "start" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "end" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "resultAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "status" : {
             "type" : "string"
           },
           "closedByRunId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "netResult" : {
             "$ref" : "#/components/schemas/Money"
@@ -8425,10 +9642,10 @@
             "$ref" : "#/components/schemas/FiscalYears.AppropriationRecord"
           },
           "appropriations" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/FiscalYears.AppropriationRecord"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -8436,20 +9653,20 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "instalmentNumber" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "category" : {
-            "enum" : [ "RECOVERY_FEES", "PENALTIES", "FEES_AND_INSURANCE", "LATE_INTEREST", "INTEREST", "PRINCIPAL", "FUTURE_PRINCIPAL" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "RECOVERY_FEES", "PENALTIES", "FEES_AND_INSURANCE", "LATE_INTEREST", "INTEREST", "PRINCIPAL", "FUTURE_PRINCIPAL" ]
           },
           "dueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "outstanding" : {
             "$ref" : "#/components/schemas/Money"
@@ -8469,12 +9686,12 @@
             "type" : "string"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -8491,22 +9708,22 @@
             "type" : "string"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "version" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "events" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.SchemaEvent"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -8514,8 +9731,8 @@
         "type" : "object",
         "properties" : {
           "contractId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "sharePercent" : {
             "type" : "string"
@@ -8526,8 +9743,8 @@
         "type" : "object",
         "properties" : {
           "accountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "amount" : {
             "type" : "string"
@@ -8541,21 +9758,21 @@
         "type" : "object",
         "properties" : {
           "bookingDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "decidedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "reference" : {
             "type" : "string"
           },
           "allocations" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.Allocation"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -8577,8 +9794,8 @@
         "type" : "object",
         "properties" : {
           "reversalBookingDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "reason" : {
             "type" : "string"
@@ -8606,8 +9823,8 @@
         "type" : "object",
         "properties" : {
           "count" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -8647,8 +9864,8 @@
             "type" : "string"
           },
           "nostroAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "beneficiary" : {
             "type" : "string"
@@ -8670,8 +9887,8 @@
         "type" : "object",
         "properties" : {
           "payoutAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -8688,16 +9905,16 @@
             "type" : "string"
           },
           "maxValuationAgeMonths" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -8714,19 +9931,19 @@
             "type" : "string"
           },
           "parentId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "openedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "liaisonAccounts" : {
+            "type" : "object",
             "additionalProperties" : {
-              "format" : "uuid",
-              "type" : "string"
-            },
-            "type" : "object"
+              "type" : "string",
+              "format" : "uuid"
+            }
           }
         }
       },
@@ -8743,23 +9960,23 @@
             "type" : "string"
           },
           "loanAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "settlementAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "principal" : {
             "type" : "string"
           },
           "disbursedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "customerPartyId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -8776,8 +9993,8 @@
             "type" : "string"
           },
           "birthOrRegistrationDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "countryCode" : {
             "type" : "string"
@@ -8786,10 +10003,10 @@
             "type" : "string"
           },
           "identifiers" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.Identifier"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -8800,15 +10017,15 @@
             "type" : "string"
           },
           "cashAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "tellerSubjectId" : {
             "type" : "string"
           },
           "differenceAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -8816,7 +10033,61 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "Requests.DirectDebitIssue" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "dueDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "debtorName" : {
+            "type" : "string"
+          },
+          "debtorBank" : {
+            "type" : "string"
+          },
+          "debtorAccount" : {
+            "type" : "string"
+          },
+          "mandateReference" : {
+            "type" : "string"
+          },
+          "reference" : {
+            "type" : "string"
+          },
+          "channel" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Requests.DirectDebitPresentation" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "dueDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "reference" : {
+            "type" : "string"
+          },
+          "channel" : {
             "type" : "string"
           }
         }
@@ -8831,16 +10102,16 @@
             "type" : "string"
           },
           "instalments" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "graceInstalments" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "firstDueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "method" : {
             "type" : "string"
@@ -8869,8 +10140,8 @@
         "type" : "object",
         "properties" : {
           "date" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "label" : {
             "type" : "string"
@@ -8887,12 +10158,12 @@
             "type" : "string"
           },
           "issuedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "expiresOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "issuer" : {
             "type" : "string"
@@ -8931,7 +10202,49 @@
             "type" : "string"
           },
           "valueDate" : {
-            "format" : "date",
+            "type" : "string",
+            "format" : "date"
+          }
+        }
+      },
+      "Requests.MandateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reference" : {
+            "type" : "string"
+          },
+          "creditorId" : {
+            "type" : "string"
+          },
+          "creditorName" : {
+            "type" : "string"
+          },
+          "creditorAccountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "creditorBank" : {
+            "type" : "string"
+          },
+          "creditorAccount" : {
+            "type" : "string"
+          },
+          "signedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "validFrom" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "validTo" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "maxAmount" : {
+            "type" : "string"
+          },
+          "currency" : {
             "type" : "string"
           }
         }
@@ -8943,8 +10256,8 @@
             "type" : "string"
           },
           "holderPartyId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "productCode" : {
             "type" : "string"
@@ -8958,16 +10271,16 @@
         "type" : "object",
         "properties" : {
           "start" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "end" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "resultAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -9013,8 +10326,8 @@
             "type" : "string"
           },
           "expiresOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -9034,24 +10347,24 @@
             "type" : "string"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "parameters" : {
+            "type" : "object",
             "additionalProperties" : {
               "type" : "string"
-            },
-            "type" : "object"
+            }
           },
           "tiers" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.RateTier"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -9081,8 +10394,8 @@
         "type" : "object",
         "properties" : {
           "customerPartyId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "assetReference" : {
             "type" : "string"
@@ -9103,12 +10416,12 @@
             "type" : "string"
           },
           "rank" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "valuedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -9116,8 +10429,8 @@
         "type" : "object",
         "properties" : {
           "on" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -9125,16 +10438,16 @@
         "type" : "object",
         "properties" : {
           "instalments" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "firstDueDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "effectiveFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "reason" : {
             "type" : "string"
@@ -9145,8 +10458,8 @@
         "type" : "object",
         "properties" : {
           "ordinal" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "code" : {
             "type" : "string"
@@ -9155,12 +10468,12 @@
             "type" : "string"
           },
           "fromDays" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "toDays" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "provisionRatePercent" : {
             "type" : "string"
@@ -9177,10 +10490,10 @@
             "type" : "string"
           },
           "buckets" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.RiskBucketRequest"
-            },
-            "type" : "array"
+            }
           },
           "contagion" : {
             "type" : "string"
@@ -9189,8 +10502,8 @@
             "type" : "string"
           },
           "cureDays" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -9201,12 +10514,12 @@
             "type" : "string"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "grid" : {
             "$ref" : "#/components/schemas/Requests.RiskGridRequest"
@@ -9217,8 +10530,8 @@
         "type" : "object",
         "properties" : {
           "businessDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "mode" : {
             "type" : "string"
@@ -9232,16 +10545,16 @@
             "type" : "string"
           },
           "derivations" : {
+            "type" : "object",
             "additionalProperties" : {
               "type" : "string"
-            },
-            "type" : "object"
+            }
           },
           "lines" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.SchemaLine"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -9269,8 +10582,8 @@
         "type" : "object",
         "properties" : {
           "nostroAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -9287,24 +10600,24 @@
             "type" : "string"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "lines" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.StatementLineRequest"
-            },
-            "type" : "array"
+            }
           },
           "rules" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Requests.StatementRuleRequest"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -9312,8 +10625,8 @@
         "type" : "object",
         "properties" : {
           "ordinal" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "code" : {
             "type" : "string"
@@ -9322,8 +10635,8 @@
             "type" : "string"
           },
           "level" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "kind" : {
             "type" : "string"
@@ -9332,16 +10645,16 @@
             "type" : "string"
           },
           "plus" : {
+            "type" : "array",
             "items" : {
               "type" : "string"
-            },
-            "type" : "array"
+            }
           },
           "minus" : {
+            "type" : "array",
             "items" : {
               "type" : "string"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -9349,8 +10662,8 @@
         "type" : "object",
         "properties" : {
           "ordinal" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "lineCode" : {
             "type" : "string"
@@ -9381,12 +10694,12 @@
         "type" : "object",
         "properties" : {
           "sourceAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "destinationAccountId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "amount" : {
             "type" : "string"
@@ -9415,8 +10728,8 @@
             "type" : "string"
           },
           "offset" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "unit" : {
             "type" : "string"
@@ -9425,12 +10738,12 @@
             "type" : "string"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -9441,8 +10754,8 @@
             "type" : "string"
           },
           "verifiedOn" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -9450,16 +10763,16 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "kind" : {
-            "enum" : [ "BALANCE_SHEET", "INCOME_STATEMENT", "OFF_BALANCE_SHEET" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "BALANCE_SHEET", "INCOME_STATEMENT", "OFF_BALANCE_SHEET" ]
           },
           "code" : {
             "type" : "string"
@@ -9468,35 +10781,35 @@
             "type" : "string"
           },
           "validFrom" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "validTo" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "status" : {
             "type" : "string"
           },
           "createdBy" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "approvedBy" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "lines" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/StatementLayouts.Line"
-            },
-            "type" : "array"
+            }
           },
           "rules" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/StatementLayouts.Rule"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -9504,8 +10817,8 @@
         "type" : "object",
         "properties" : {
           "ordinal" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "code" : {
             "type" : "string"
@@ -9514,28 +10827,28 @@
             "type" : "string"
           },
           "level" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "kind" : {
-            "enum" : [ "DETAIL", "TOTAL", "PROFIT_OR_LOSS" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "DETAIL", "TOTAL", "PROFIT_OR_LOSS" ]
           },
           "side" : {
-            "enum" : [ "DEBIT", "CREDIT" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "DEBIT", "CREDIT" ]
           },
           "plus" : {
+            "type" : "array",
             "items" : {
               "type" : "string"
-            },
-            "type" : "array"
+            }
           },
           "minus" : {
+            "type" : "array",
             "items" : {
               "type" : "string"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -9543,22 +10856,22 @@
         "type" : "object",
         "properties" : {
           "ordinal" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "lineCode" : {
             "type" : "string"
           },
           "accountKind" : {
-            "enum" : [ "CUSTOMER", "GL", "INTERNAL", "NOSTRO", "SUSPENSE", "POSITION" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "CUSTOMER", "GL", "INTERNAL", "NOSTRO", "SUSPENSE", "POSITION" ]
           },
           "codePrefix" : {
             "type" : "string"
           },
           "balanceSide" : {
-            "enum" : [ "DEBIT", "CREDIT" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "DEBIT", "CREDIT" ]
           }
         }
       },
@@ -9566,8 +10879,8 @@
         "type" : "object",
         "properties" : {
           "ordinal" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "code" : {
             "type" : "string"
@@ -9576,16 +10889,16 @@
             "type" : "string"
           },
           "level" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "kind" : {
-            "enum" : [ "DETAIL", "TOTAL", "PROFIT_OR_LOSS" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "DETAIL", "TOTAL", "PROFIT_OR_LOSS" ]
           },
           "side" : {
-            "enum" : [ "DEBIT", "CREDIT" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "DEBIT", "CREDIT" ]
           },
           "amount" : {
             "$ref" : "#/components/schemas/Money"
@@ -9596,12 +10909,12 @@
         "type" : "object",
         "properties" : {
           "kind" : {
-            "enum" : [ "BALANCE_SHEET", "INCOME_STATEMENT", "OFF_BALANCE_SHEET" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "BALANCE_SHEET", "INCOME_STATEMENT", "OFF_BALANCE_SHEET" ]
           },
           "layoutId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "layoutCode" : {
             "type" : "string"
@@ -9610,25 +10923,25 @@
             "type" : "string"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "currency" : {
             "type" : "string"
           },
           "from" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "to" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "lines" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Statements.LineAmount"
-            },
-            "type" : "array"
+            }
           },
           "totalDebit" : {
             "$ref" : "#/components/schemas/Money"
@@ -9643,10 +10956,10 @@
             "type" : "boolean"
           },
           "anomalies" : {
+            "type" : "array",
             "items" : {
               "type" : "string"
-            },
-            "type" : "array"
+            }
           }
         }
       },
@@ -9654,38 +10967,38 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "legalEntityId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "businessDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "mode" : {
-            "enum" : [ "REAL", "DRY_RUN" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "REAL", "DRY_RUN" ]
           },
           "status" : {
-            "enum" : [ "RUNNING", "COMPLETED", "FAILED", "CANCELLED" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "RUNNING", "COMPLETED", "FAILED", "CANCELLED" ]
           },
           "steps" : {
+            "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/TfjRun.StepExecution"
-            },
-            "type" : "array"
+            }
           },
           "startedAt" : {
-            "format" : "date-time",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date-time"
           },
           "finishedAt" : {
-            "format" : "date-time",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
@@ -9693,8 +11006,8 @@
         "type" : "object",
         "properties" : {
           "order" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           },
           "name" : {
             "type" : "string"
@@ -9703,22 +11016,22 @@
             "type" : "boolean"
           },
           "status" : {
-            "enum" : [ "PENDING", "RUNNING", "COMPLETED", "FAILED" ],
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING", "RUNNING", "COMPLETED", "FAILED" ]
           },
           "read" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "written" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           },
           "anomalies" : {
+            "type" : "array",
             "items" : {
               "type" : "string"
-            },
-            "type" : "array"
+            }
           },
           "error" : {
             "type" : "string"
@@ -9729,19 +11042,19 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "tillId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           },
           "tillCode" : {
             "type" : "string"
           },
           "businessDate" : {
-            "format" : "date",
-            "type" : "string"
+            "type" : "string",
+            "format" : "date"
           },
           "counted" : {
             "$ref" : "#/components/schemas/Money"
@@ -9753,8 +11066,8 @@
             "$ref" : "#/components/schemas/Money"
           },
           "entryId" : {
-            "format" : "uuid",
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       }

@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 590 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 287 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 597 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 294 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -744,16 +744,39 @@ est contre-passée et le blocage tombe avec elle (`deposits`). Les chèques ne c
 plafonds du client : l'instrument est celui d'un tiers porteur, et un refus de plafond ne serait
 pas un défaut de provision.
 
+### 25. Des prélèvements qui attendent leur échéance, et un rejet qui est un résultat
+
+**Un prélèvement s'exécute à son échéance, pas à sa présentation.** Présenté sur un mandat que le
+client a signé — et qui le borne : validité, plafond, révocation —, il attend ; à l'échéance, tout
+de suite si elle est arrivée, par l'arrêté sinon, le débiteur est débité, frais compris, et le
+montant attend le correspondant au siège ou va au créancier de la banque. Sans provision, sur un
+mandat révoqué, sur un compte qui ne peut pas opérer, il est rejeté : le rejet est un résultat
+enregistré avec son motif, que le créancier reçoit, pas une erreur qui arrêterait la journée
+(`received`, `direct_debits_follow_the_day`). La comptabilisation se tente sous un point de
+sauvegarde : un refus du ledger y ramène, et le rejet s'écrit avec la transaction qui l'a
+constaté — réelle, ou à blanc, sans transaction indépendante qu'un TFJ à blanc validerait.
+
+**Un arrêté se défait entièrement, ou refuse.** L'annulation contre-passe les écritures des
+prélèvements exécutés, lève leurs blocages et les rend à l'attente, pour que la journée rejouée
+les exécute de nouveau sous ses propres clés ; mais si l'un d'eux a été réglé, remboursé ou
+retourné depuis, elle refuse avant de rien défaire, parce que la suite s'appuie sur lui. Les
+prélèvements émis sont crédités sauf bonne fin, comme les remises de chèques, les frais dans leur
+propre écriture pour qu'un retour contre-passe la remise et pas le service (`issued`). Un
+prélèvement reçu ne réveille pas un compte dormant et ne compte pas pour sa dormance : l'acte est
+celui du créancier, et il se poursuit sur un compte que son titulaire a oublié.
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
 - API : le contrat OpenAPI est généré et publié ; reste sa vérification de compatibilité
   d'une version à l'autre (le test tient l'égalité au code, pas la non-régression du contrat) ;
-- prélèvements ; pour les chèques, l'échange avec la compensation (SICA-UEMOA), la déclaration
-  des incidents à la centrale et l'interdiction bancaire, les chèques de banque — les chéquiers,
-  le paiement, l'opposition, l'incident et la remise sauf bonne fin, comme les paiements sortants
-  et les plafonds par produit et par compte, eux, sont faits ;
+- pour les chèques et les prélèvements, l'échange avec la compensation (SICA-UEMOA : fichiers de
+  présentation et de rejet, cycles), la déclaration des incidents à la centrale et l'interdiction
+  bancaire, les chèques de banque, les frais de rejet, les ordres permanents — les chéquiers, le
+  paiement, l'opposition, l'incident, la remise sauf bonne fin, les mandats, les prélèvements
+  reçus à l'échéance et émis sauf bonne fin, comme les paiements sortants et les plafonds par
+  produit et par compte, eux, sont faits ;
 - multi-agences : schémas de liaison bilatéral et via la région (le schéma via le siège est
   fait, les caisses par guichetier et l'arrêté de caisse aussi) ;
 - référentiel client : documents et leurs échéances, bénéficiaires effectifs, relations entre
@@ -783,6 +806,9 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Idempotence dans une table satellite | Toute contrainte unique d'une table partitionnée doit contenir la clé de partitionnement ; l'unicité doit être globale |
 | L'incident de paiement d'un chèque se constate dans sa propre transaction, après celle du refus | La transaction refusée est défaite avec ses verrous, et l'incident doit lui survivre ; écrit pendant elle, il attendrait le verrou du chèque qu'elle tient — un interblocage que le premier test a trouvé |
 | Les chèques ne consomment pas les plafonds du client | L'instrument est celui d'un tiers porteur ; un refus de plafond ne serait pas un défaut de provision, et fausserait l'incident |
+| L'exécution d'un prélèvement tente la comptabilisation sous un point de sauvegarde | Un refus du ledger laisse une réservation de clé et une transaction à défaire ; le point de sauvegarde y ramène, et le rejet s'écrit avec la transaction qui l'a constaté — la même en ligne, à l'arrêté, et au TFJ à blanc, qu'une transaction indépendante trahirait en validant |
+| Un prélèvement reçu ne compte pas pour la dormance | L'acte est celui du créancier ; une assurance qui prélève un compte oublié ne prouve pas que son titulaire est là |
+| L'annulation d'un arrêté refuse si un prélèvement exécuté a été réglé, remboursé ou retourné depuis | La suite s'appuie sur l'exécution ; le refus vient avant la première contre-passation, pas au milieu |
 | Un seul instant de connaissance par écriture | `clock_timestamp()` avance dans une transaction ; par ligne, il placerait les lignes après leur propre écriture |
 | Compte à contrôle de disponible ⇒ une seule stripe | Vérifier un disponible exigerait de verrouiller toutes les stripes, ce qui annulerait la répartition |
 | La génération de recalcul entre dans la clé d'idempotence | Sans elle, une réémission après extourne porte la clé de l'écriture d'origine, passe pour un rejeu et n'impute rien |

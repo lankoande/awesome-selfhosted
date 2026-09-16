@@ -428,6 +428,18 @@ public final class TfjEngine {
             });
         }
 
+        if (runType == RunType.TFJ) {
+            // Ce que l'arrete a execute et que la suite a fait avancer ne se defait plus : le
+            // refus vient avant la premiere contre-passation, pas au milieu.
+            database.inTransaction(connection -> {
+                try {
+                    io.corebanking.deposits.DirectDebitService.requireCancellable(connection, runId);
+                } catch (IllegalStateException e) {
+                    throw new TfjRefusedException(e.getMessage());
+                }
+                return null;
+            });
+        }
         List<PostedEntry> entries = entriesOf(runId);
         for (PostedEntry entry : entries) {
             postingService.reverse(entry.id(), entry.bookingDate(), reversalBookingDate,
@@ -442,7 +454,7 @@ public final class TfjEngine {
                 neutraliseLoanDues(connection, runId);
                 neutraliseMobilisation(connection, runId);
                 neutraliseLoanClosures(connection, runId);
-                neutraliseDeposits(connection, runId);
+                neutraliseDeposits(connection, runId, reversalBookingDate, actorId);
                 setBusinessDate(connection, run.legalEntityId(), run.businessDate());
             } else if (runType == RunType.TFM) {
                 // La cloture est defaite, et elle laisse une trace : REOPENED n'est pas OPEN.
@@ -655,13 +667,17 @@ public final class TfjEngine {
     }
 
     /**
-     * Blocages de montant reposes, dormances defaites, revues de connaissance client restaurees :
-     * ce que l'arrete a prononce sans ecriture se defait aussi avec lui.
+     * Blocages de montant reposes, dormances defaites, revues de connaissance client restaurees,
+     * prelevements rendus a l'attente : ce que l'arrete a prononce se defait avec lui.
      */
-    private void neutraliseDeposits(Connection connection, UUID runId) {
+    private void neutraliseDeposits(Connection connection, UUID runId, LocalDate on,
+                                    UUID actorId) {
         Holds.cancelRun(connection, runId);
         Dormancy.cancelRun(connection, runId);
         KycReviews.cancelRun(connection, runId);
+        // Les prelevements executes par l'arrete redeviennent en attente ; leurs ecritures sont
+        // deja contre-passees, leurs blocages tombent ici.
+        io.corebanking.deposits.DirectDebitService.cancelRun(connection, runId, on, actorId);
     }
 
     private LocalDate currentBusinessDate(UUID legalEntityId) {

@@ -15,7 +15,7 @@
     {
       "code": "branch_manager",
       "name": "Chef d'agence",
-      "description": "Encadrement d'une agence : ouverture et cloture de comptes, blocages, plafonds de compte et chequiers a deux, oppositions, validation des operations au-dela du plafond guichetier.",
+      "description": "Encadrement d'une agence : ouverture et cloture de comptes, blocages, plafonds de compte, chequiers et mandats de prelevement a deux, oppositions, validation des operations au-dela du plafond guichetier.",
       "isSystem": true,
       "category": "RESEAU",
       "attributes": {
@@ -26,7 +26,7 @@
     {
       "code": "customer_officer",
       "name": "Charge de clientele",
-      "description": "Gestion du portefeuille clients : ouverture de comptes, virements, paiements sortants, chequiers et oppositions, remises de cheques, consultation du journal.",
+      "description": "Gestion du portefeuille clients : ouverture de comptes, virements, paiements sortants, chequiers et oppositions, remises de cheques, mandats de prelevement et remises de prelevements, consultation du journal.",
       "isSystem": true,
       "category": "RESEAU",
       "attributes": {
@@ -48,7 +48,7 @@
     {
       "code": "accountant",
       "name": "Comptable",
-      "description": "Comptabilite generale : contre-passation, arretes mensuel et annuel, exercices et affectation du resultat a deux, maquettes d'etats financiers, balance, grand livre, journal et etats financiers de l'entite ; suivi des paiements sortants et des remises de cheques.",
+      "description": "Comptabilite generale : contre-passation, arretes mensuel et annuel, exercices et affectation du resultat a deux, maquettes d'etats financiers, balance, grand livre, journal et etats financiers de l'entite ; suivi des paiements sortants, des remises de cheques et des prelevements.",
       "isSystem": true,
       "category": "SIEGE",
       "attributes": {
@@ -92,7 +92,7 @@
     {
       "code": "operator",
       "name": "Exploitant",
-      "description": "Lancement et annulation des traitements de fin de journee ; suivi des paiements sortants et des remises de cheques (envoi, reglement, retour).",
+      "description": "Lancement et annulation des traitements de fin de journee ; suivi des paiements sortants, des remises de cheques et des prelevements (presentation, reglement, retour).",
       "isSystem": true,
       "category": "EXPLOITATION",
       "attributes": {

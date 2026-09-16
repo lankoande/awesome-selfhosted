@@ -154,6 +154,12 @@ public class PlatformConfiguration {
     }
 
     @Bean
+    io.corebanking.deposits.DirectDebitService directDebitService(Database database,
+                                                                  PostingService postingService) {
+        return new io.corebanking.deposits.DirectDebitService(database, postingService);
+    }
+
+    @Bean
     io.corebanking.deposits.TillService tillService(Database database,
                                                     PostingService postingService) {
         return new io.corebanking.deposits.TillService(database, postingService);
@@ -169,14 +175,16 @@ public class PlatformConfiguration {
                                                      AccountDirectory accounts,
                                                      LoanService loans, EodEngines engines,
                                                      PostingService postingService,
-                                                     io.corebanking.deposits.ChequeService cheques) {
+                                                     io.corebanking.deposits.ChequeService cheques,
+                                                     io.corebanking.deposits.DirectDebitService
+                                                         directDebits) {
         int hours = properties.makerChecker() == null ? 48
                     : properties.makerChecker().expiryHoursOrDefault();
         return new io.corebanking.api.web.MakerChecker(
             database, authorization, json, java.time.Duration.ofHours(hours),
             io.corebanking.api.web.DualControlHandlers.all(database, lifecycle, parties, accounts,
                                                            loans, engines, postingService,
-                                                           cheques));
+                                                           cheques, directDebits));
     }
 
     @Bean

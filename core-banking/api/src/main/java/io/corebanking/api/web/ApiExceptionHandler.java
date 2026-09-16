@@ -115,6 +115,8 @@ public class ApiExceptionHandler {
                        io.corebanking.deposits.PaymentService.UnknownPaymentOrderException.class,
                        io.corebanking.deposits.ChequeService.UnknownChequeException.class,
                        io.corebanking.deposits.ChequeService.UnknownChequeDepositException.class,
+                       io.corebanking.deposits.DirectDebitService.UnknownMandateException.class,
+                       io.corebanking.deposits.DirectDebitService.UnknownDirectDebitException.class,
                        PendingOperations.UnknownPendingOperationException.class})
     ResponseEntity<ApiResponse<Void>> unknown(RuntimeException e, HttpServletRequest request) {
         return respond(HttpStatus.NOT_FOUND, "Objet inconnu", e.getMessage(), request);

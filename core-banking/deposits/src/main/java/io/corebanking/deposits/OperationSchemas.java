@@ -23,12 +23,20 @@ public final class OperationSchemas {
     public static final String CHEQUE_PAYMENT = "CHEQUE_PAYMENT";
     public static final String CHEQUE_DEPOSIT = "CHEQUE_DEPOSIT";
     public static final String CHEQUE_COLLECTION = "CHEQUE_COLLECTION";
+    public static final String DIRECT_DEBIT = "DIRECT_DEBIT";
+    public static final String DIRECT_DEBIT_SETTLEMENT = "DIRECT_DEBIT_SETTLEMENT";
+    public static final String DIRECT_DEBIT_REFUND = "DIRECT_DEBIT_REFUND";
+    public static final String DIRECT_DEBIT_ISSUE = "DIRECT_DEBIT_ISSUE";
+    public static final String DIRECT_DEBIT_FEE = "DIRECT_DEBIT_FEE";
+    public static final String DIRECT_DEBIT_COLLECTION = "DIRECT_DEBIT_COLLECTION";
+    public static final String DIRECT_DEBIT_RETURN = "DIRECT_DEBIT_RETURN";
 
     public static final String ROLE_CASH = "cash";
     public static final String ROLE_DESTINATION = "destination";
     public static final String ROLE_CLEARING = "clearing";
     public static final String ROLE_COUNTERPARTY = "counterparty";
     public static final String ROLE_COLLECTION = "collection";
+    public static final String ROLE_CREDITOR = "creditor";
     public static final String ROLE_FEE_INCOME = "fee_income";
     public static final String ROLE_TAX = "tax";
 
@@ -106,6 +114,47 @@ public final class OperationSchemas {
             .derive("amt", "round(amount, " + currency.scale() + ")")
             .line(TemplateLine.debit("PARAM:" + ROLE_COLLECTION, "amt", "Cheque a l'encaissement"))
             .line(TemplateLine.credit("CONTRACT", "amt", "Remise de cheque sauf bonne fin"))
+            .build();
+    }
+
+    /**
+     * Prelevement recu : le debiteur paie le montant, le frais et la taxe ; le montant va au
+     * creancier — son compte s'il est de la banque, le compte de reglement s'il est d'ailleurs.
+     */
+    public static EventTemplate directDebit(CurrencyRef currency) {
+        int scale = currency.scale();
+        return EventTemplate.of(DIRECT_DEBIT)
+            .derive("amt", "round(amount, " + scale + ")")
+            .derive("f", "round(fee, " + scale + ")")
+            .derive("t", "round(tax, " + scale + ")")
+            .derive("total", "amt + f + t")
+            .line(TemplateLine.debit("CONTRACT", "total", "Prelevement"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_CREDITOR, "amt", "Prelevement recu"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_FEE_INCOME, "f", "Frais de prelevement")
+                      .onlyIf("f > 0"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_TAX, "t", "Taxe sur frais").onlyIf("t > 0"))
+            .build();
+    }
+
+    /** Prelevement emis : le creancier est credite sauf bonne fin, la valeur attend l'encaissement. */
+    public static EventTemplate directDebitIssue(CurrencyRef currency) {
+        return EventTemplate.of(DIRECT_DEBIT_ISSUE)
+            .derive("amt", "round(amount, " + currency.scale() + ")")
+            .line(TemplateLine.debit("PARAM:" + ROLE_COLLECTION, "amt", "Prelevement a l'encaissement"))
+            .line(TemplateLine.credit("CONTRACT", "amt", "Prelevement emis sauf bonne fin"))
+            .build();
+    }
+
+    /** Frais d'un prelevement emis : le creancier paie le frais et sa taxe, dans leur ecriture. */
+    public static EventTemplate directDebitFee(CurrencyRef currency) {
+        int scale = currency.scale();
+        return EventTemplate.of(DIRECT_DEBIT_FEE)
+            .derive("f", "round(fee, " + scale + ")")
+            .derive("t", "round(tax, " + scale + ")")
+            .derive("total", "f + t")
+            .line(TemplateLine.debit("CONTRACT", "total", "Frais de prelevement"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_FEE_INCOME, "f", "Frais de prelevement"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_TAX, "t", "Taxe sur frais").onlyIf("t > 0"))
             .build();
     }
 

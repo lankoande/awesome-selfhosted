@@ -64,7 +64,9 @@ public final class DualControlHandlers {
                                                  io.corebanking.api.config.EodEngines engines,
                                                  io.corebanking.ledger.domain.posting.PostingService
                                                      posting,
-                                                 io.corebanking.deposits.ChequeService cheques) {
+                                                 io.corebanking.deposits.ChequeService cheques,
+                                                 io.corebanking.deposits.DirectDebitService
+                                                     directDebits) {
         return List.of(new OpenAccount(lifecycle), new CloseAccount(lifecycle, accounts),
                        new BlockAccount(lifecycle, accounts), new LiftBlock(lifecycle, accounts),
                        new PlaceHold(database, accounts), new ReleaseHold(database, accounts),
@@ -84,7 +86,8 @@ public final class DualControlHandlers {
                        new ActivateCollateralPolicy(database), new ActivateRiskProfile(database),
                        new ActivateAccountingSchema(database),
                        new ActivateStatementLayout(database), new SetAccountLimit(database, accounts),
-                       new IssueChequeBook(cheques, accounts));
+                       new IssueChequeBook(cheques, accounts),
+                       new RegisterMandate(directDebits, accounts));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -1252,6 +1255,46 @@ public final class DualControlHandlers {
             return cheques.issueBook(new io.corebanking.deposits.ChequeService.BookIssue(
                 account.legalEntityId(), account.id(), integer(payload, "count"),
                 Callers.actorId(maker), Callers.actorId(checker)));
+        }
+    }
+
+    /** Mandat de prelevement : demande par l'un, valide par un autre de l'agence du compte. */
+    static final class RegisterMandate implements MakerChecker.Handler {
+        private final io.corebanking.deposits.DirectDebitService directDebits;
+        private final AccountDirectory accounts;
+
+        RegisterMandate(io.corebanking.deposits.DirectDebitService directDebits,
+                        AccountDirectory accounts) {
+            this.directDebits = directDebits;
+            this.accounts = accounts;
+        }
+
+        @Override public String name() { return "MANDATE_REGISTER"; }
+        @Override public Operation operation() { return Operation.MANDATE_REGISTER; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            var account = accounts.require(uuid(payload, "accountId"));
+            return AccessTarget.inBranch(account.legalEntityId(), account.branchId());
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            var account = accounts.require(uuid(payload, "accountId"));
+            String maxAmount = text(payload, "maxAmount");
+            Money max = maxAmount == null || maxAmount.isBlank() ? null
+                : new Requests.Amount(maxAmount, required(payload, "currency")).on(account);
+            String creditorAccountId = text(payload, "creditorAccountId");
+            return directDebits.registerMandate(new io.corebanking.deposits.DirectDebitService
+                .MandateDraft(account.legalEntityId(), account.id(), required(payload, "reference"),
+                              required(payload, "creditorId"), required(payload, "creditorName"),
+                              creditorAccountId == null || creditorAccountId.isBlank() ? null
+                                  : UUID.fromString(creditorAccountId),
+                              text(payload, "creditorBank"), text(payload, "creditorAccount"),
+                              LocalDate.parse(required(payload, "signedOn")),
+                              LocalDate.parse(required(payload, "validFrom")),
+                              date(payload, "validTo"), max, Callers.actorId(maker),
+                              Callers.actorId(checker)));
         }
     }
 

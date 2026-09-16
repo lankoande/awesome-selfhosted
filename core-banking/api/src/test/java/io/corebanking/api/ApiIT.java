@@ -182,13 +182,14 @@ class ApiIT {
             UUID calendar = Calendars.createCalendar(c, "CI", "Cote d'Ivoire",
                 Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY), J.minusYears(1), J.plusYears(1));
             Calendars.attachToEntity(c, ENTITY, calendar);
-            for (String type : List.of("CASH_DEPOSIT", "TRANSFER")) {
+            for (String type : List.of("CASH_DEPOSIT", "TRANSFER", "DIRECT_DEBIT",
+                                       "DIRECT_DEBIT_ISSUE")) {
                 Calendars.addRule(c, ENTITY, new ValueDateRule(type, null, Direction.CREDIT, 0,
                     OffsetUnit.CALENDAR_DAYS, BusinessDayConvention.UNADJUSTED, J.minusYears(1),
                     null), APPROVER, UUID.randomUUID());
             }
             for (String type : List.of("CASH_WITHDRAWAL", "TRANSFER", "PAYMENT_ORDER",
-                                       "CHEQUE_PAYMENT")) {
+                                       "CHEQUE_PAYMENT", "DIRECT_DEBIT")) {
                 Calendars.addRule(c, ENTITY, new ValueDateRule(type, null, Direction.DEBIT, 0,
                     OffsetUnit.CALENDAR_DAYS, BusinessDayConvention.UNADJUSTED, J.minusYears(1),
                     null), APPROVER, UUID.randomUUID());
@@ -220,6 +221,10 @@ class ApiIT {
             encaissement = compte(c, "ENCAISSEMENT", AccountKind.GL, NormalBalance.DEBIT, null);
             parametres.put(DepositCatalog.P_CHEQUE_BOOK_FEE, "2000");
             parametres.put(DepositCatalog.P_CHEQUE_COLLECTION, encaissement.id().toString());
+            Account encaissementPrel = compte(c, "PREL-ENCAISSEMENT", AccountKind.GL,
+                                             NormalBalance.DEBIT, null);
+            parametres.put(DepositCatalog.P_DIRECT_DEBIT_FEE, "500");
+            parametres.put(DepositCatalog.P_DIRECT_DEBIT_COLLECTION, encaissementPrel.id().toString());
             UUID version = ProductCatalog.createDraft(c, new ProductCatalog.Draft(
                 ENTITY, "EP-API", "SAVINGS_ACCOUNT", "Epargne", "XOF", J.minusMonths(1), null,
                 parametres, List.of(), APPROVER));
@@ -1366,6 +1371,168 @@ class ApiIT {
             .isEqualTo(nostro.id().toString());
         assertThat(get(teller, "/cheque-deposits/" + UUID.randomUUID()).status()).isEqualTo(404);
         assertThat(get(creditOfficer, "/cheque-deposits").status()).isEqualTo(403);
+    }
+
+    @Test
+    @Order(14)
+    @DisplayName("prelevements : mandat enregistre a deux, prelevement recu execute a l'echeance, rejoue, regle puis rembourse ; sans provision, rejete avec son motif ; en attente, retire ; mandat revoque ; prelevement emis credite sauf bonne fin puis retourne")
+    @SuppressWarnings("unchecked")
+    void prelevements() throws Exception {
+        Map<String, Object> mandat = new java.util.HashMap<>(Map.of("reference", "RUM-API-1",
+            "creditorId", "CI-EAU", "creditorName", "Compagnie des eaux",
+            "creditorBank", "BK-CI-002", "creditorAccount", "CI93CI0020009876543210987654",
+            "signedOn", J.toString(), "validFrom", J.toString()));
+        // Le mandat, a deux, dans l'agence du compte ; un guichetier ne l'enregistre pas.
+        assertThat(post(teller, "/accounts/" + account + "/mandates", null, mandat).status())
+            .isEqualTo(403);
+        Reponse demande = post(officer, "/accounts/" + account + "/mandates", null, mandat);
+        assertThat(demande.status()).as(String.valueOf(demande.envelope())).isEqualTo(202);
+        Reponse enregistre = post(manager, "/pending-operations/" + attente(demande) + "/approve",
+                                  null, Map.of());
+        assertThat(enregistre.status()).as(String.valueOf(enregistre.envelope())).isEqualTo(200);
+        Map<String, Object> mandatA = resultat(enregistre.body());
+        assertThat(mandatA.get("status")).isEqualTo("ACTIVE");
+        UUID mandatAId = UUID.fromString((String) mandatA.get("id"));
+        // Un second mandat, plafonne a 1 000 par prelevement.
+        Map<String, Object> plafonne = new java.util.HashMap<>(mandat);
+        plafonne.put("reference", "RUM-API-2");
+        plafonne.put("maxAmount", "1000");
+        plafonne.put("currency", "XOF");
+        Reponse demande2 = post(officer, "/accounts/" + account + "/mandates", null, plafonne);
+        assertThat(demande2.status()).as(String.valueOf(demande2.envelope())).isEqualTo(202);
+        UUID mandatBId = UUID.fromString((String) resultat(post(manager2, "/pending-operations/"
+            + attente(demande2) + "/approve", null, Map.of()).body()).get("id"));
+        Reponse mandats = get(officer, "/accounts/" + account + "/mandates");
+        assertThat(mandats.status()).as(String.valueOf(mandats.envelope())).isEqualTo(200);
+        assertThat(mandats.items()).extracting(m -> m.get("id"))
+            .containsExactlyInAnyOrder(mandatAId.toString(), mandatBId.toString());
+        assertThat(get(creditOfficer, "/accounts/" + account + "/mandates").status()).isEqualTo(403);
+
+        // La presentation : par la compensation ou un creancier de la banque, pas au guichet ;
+        // sans cle, rien ; au-dela du plafond du mandat, refusee avant d'exister.
+        Map<String, Object> presentation = Map.of("amount", "30000", "currency", "XOF",
+            "dueDate", J.plusDays(1).toString(), "reference", "FACT-1");
+        assertThat(post(teller, "/mandates/" + mandatAId + "/direct-debits", "dd-1", presentation)
+                       .status()).isEqualTo(403);
+        assertThat(post(operator, "/mandates/" + mandatAId + "/direct-debits", null, presentation)
+                       .status()).isEqualTo(400);
+        Reponse tropGros = post(operator, "/mandates/" + mandatBId + "/direct-debits", "dd-0",
+                                presentation);
+        assertThat(tropGros.status()).as(String.valueOf(tropGros.envelope())).isEqualTo(409);
+        assertThat((String) tropGros.body().get("detail")).contains("plafond du mandat");
+
+        // A l'echeance — la date comptable est deja au lendemain de J — : execute tout de suite,
+        // montant, frais et taxe ; rejoue, le meme.
+        String avant = montant(get(manager, "/accounts/" + account + "/balance").body(), "current");
+        Reponse recu = post(operator, "/mandates/" + mandatAId + "/direct-debits", "dd-1", presentation);
+        assertThat(recu.status()).as(String.valueOf(recu.envelope())).isEqualTo(201);
+        assertThat(recu.body().get("status")).isEqualTo("COLLECTED");
+        assertThat(recu.body().get("direction")).isEqualTo("RECEIVED");
+        assertThat(montant(recu.body(), "fee")).isEqualTo("500");
+        UUID recuId = UUID.fromString((String) recu.body().get("id"));
+        Reponse rejeu = post(operator, "/mandates/" + mandatAId + "/direct-debits", "dd-1", presentation);
+        assertThat(rejeu.status()).isEqualTo(200);
+        assertThat(rejeu.body().get("id")).isEqualTo(recuId.toString());
+        String apres = montant(get(manager, "/accounts/" + account + "/balance").body(), "current");
+        assertThat(new java.math.BigDecimal(avant).subtract(new java.math.BigDecimal(apres)))
+            .isEqualByComparingTo("30590");
+
+        // Le suivi est du back-office : regle sur le nostro, puis rembourse au debiteur qui
+        // conteste — les frais restent acquis.
+        assertThat(post(teller, "/direct-debits/" + recuId + "/settlement", null,
+                        Map.of("nostroAccountId", nostro.id().toString())).status()).isEqualTo(403);
+        assertThat(post(operator, "/direct-debits/" + recuId + "/refund", null,
+                        Map.of("reason", "trop tot")).status()).isEqualTo(409);
+        Reponse regle = post(operator, "/direct-debits/" + recuId + "/settlement", null,
+                             Map.of("nostroAccountId", nostro.id().toString()));
+        assertThat(regle.status()).as(String.valueOf(regle.envelope())).isEqualTo(200);
+        assertThat(regle.body().get("status")).isEqualTo("SETTLED");
+        Reponse rembourse = post(operator, "/direct-debits/" + recuId + "/refund", null,
+                                 Map.of("reason", "conteste par le debiteur"));
+        assertThat(rembourse.status()).as(String.valueOf(rembourse.envelope())).isEqualTo(200);
+        assertThat(rembourse.body().get("status")).isEqualTo("REFUNDED");
+        String rendu = montant(get(manager, "/accounts/" + account + "/balance").body(), "current");
+        assertThat(new java.math.BigDecimal(avant).subtract(new java.math.BigDecimal(rendu)))
+            .as("les frais restent acquis").isEqualByComparingTo("590");
+
+        // Sans provision : un resultat, pas une erreur — rejete, motif compris, rien n'est ecrit.
+        assertThat(new java.math.BigDecimal(rendu)).isLessThan(new java.math.BigDecimal("1900000"));
+        Reponse rejete = post(operator, "/mandates/" + mandatAId + "/direct-debits", "dd-2",
+            Map.of("amount", "1900000", "currency", "XOF", "dueDate", J.plusDays(1).toString()));
+        assertThat(rejete.status()).as(String.valueOf(rejete.envelope())).isEqualTo(201);
+        assertThat(rejete.body().get("status")).isEqualTo("REJECTED");
+        assertThat(rejete.body().get("rejectionReason")).isEqualTo("SANS_PROVISION");
+        assertThat(montant(get(manager, "/accounts/" + account + "/balance").body(), "current"))
+            .isEqualTo(rendu);
+
+        // A venir : en attente, rien n'est debite ; retire par le creancier, sans ecriture.
+        Reponse attente = post(operator, "/mandates/" + mandatAId + "/direct-debits", "dd-3",
+            Map.of("amount", "5000", "currency", "XOF", "dueDate", J.plusDays(10).toString()));
+        assertThat(attente.status()).as(String.valueOf(attente.envelope())).isEqualTo(201);
+        assertThat(attente.body().get("status")).isEqualTo("PENDING");
+        UUID attenteId = UUID.fromString((String) attente.body().get("id"));
+        Reponse retire = post(operator, "/direct-debits/" + attenteId + "/cancellation", null,
+                              Map.of("reason", "retire par le creancier"));
+        assertThat(retire.status()).as(String.valueOf(retire.envelope())).isEqualTo(200);
+        assertThat(retire.body().get("status")).isEqualTo("CANCELLED");
+        assertThat(retire.body().get("closeEntryId")).isNull();
+
+        // La revocation, par le gestionnaire du compte : plus rien ne se presente sur le mandat.
+        assertThat(post(teller, "/mandates/" + mandatAId + "/revocation", null,
+                        Map.of("reason", "resiliation")).status()).isEqualTo(403);
+        Reponse revoque = post(officer, "/mandates/" + mandatAId + "/revocation", null,
+                               Map.of("reason", "resiliation"));
+        assertThat(revoque.status()).as(String.valueOf(revoque.envelope())).isEqualTo(200);
+        assertThat(revoque.body().get("status")).isEqualTo("REVOKED");
+        Reponse refuse = post(operator, "/mandates/" + mandatAId + "/direct-debits", "dd-4", presentation);
+        assertThat(refuse.status()).isEqualTo(409);
+        assertThat((String) refuse.body().get("detail")).contains("revoque");
+        assertThat(post(operator, "/mandates/" + UUID.randomUUID() + "/direct-debits", "dd-5",
+                        presentation).status()).isEqualTo(404);
+
+        // Un prelevement emis : le creancier est credite sauf bonne fin, bloque, frais a part ;
+        // retourne impaye, la remise est contre-passee et le frais reste.
+        Map<String, Object> soldeAvant = get(manager, "/accounts/" + account + "/balance").body();
+        Reponse emis = post(officer, "/accounts/" + account + "/issued-direct-debits", "dd-i1",
+            Map.of("amount", "20000", "currency", "XOF", "dueDate", J.plusDays(1).toString(),
+                   "debtorName", "Abonne Dupont", "debtorBank", "BK-CI-003",
+                   "debtorAccount", "CI93CI0030001111222233334444", "mandateReference", "RUM-X"));
+        assertThat(emis.status()).as(String.valueOf(emis.envelope())).isEqualTo(201);
+        assertThat(emis.body().get("status")).isEqualTo("COLLECTED");
+        assertThat(emis.body().get("direction")).isEqualTo("ISSUED");
+        assertThat(emis.body().get("holdId")).isNotNull();
+        UUID emisId = UUID.fromString((String) emis.body().get("id"));
+        Map<String, Object> soldeEmis = get(manager, "/accounts/" + account + "/balance").body();
+        assertThat(new java.math.BigDecimal(montant(soldeEmis, "current"))
+                       .subtract(new java.math.BigDecimal(montant(soldeAvant, "current"))))
+            .isEqualByComparingTo("19410");
+        assertThat(new java.math.BigDecimal(montant(soldeEmis, "available"))
+                       .subtract(new java.math.BigDecimal(montant(soldeAvant, "available"))))
+            .as("credite mais bloque, frais preleves").isEqualByComparingTo("-590");
+        Reponse retour = post(operator, "/direct-debits/" + emisId + "/return", null,
+                              Map.of("reason", "compte debiteur clos"));
+        assertThat(retour.status()).as(String.valueOf(retour.envelope())).isEqualTo(200);
+        assertThat(retour.body().get("status")).isEqualTo("RETURNED");
+        Map<String, Object> soldeRetour = get(manager, "/accounts/" + account + "/balance").body();
+        assertThat(new java.math.BigDecimal(montant(soldeRetour, "current"))
+                       .subtract(new java.math.BigDecimal(montant(soldeAvant, "current"))))
+            .isEqualByComparingTo("-590");
+        assertThat(montant(soldeRetour, "available")).isEqualTo(montant(soldeRetour, "current"))
+            .as("plus rien de bloque par la remise").isEqualTo(
+                new java.math.BigDecimal(montant(soldeAvant, "available"))
+                    .subtract(new java.math.BigDecimal("590")).toPlainString());
+
+        // La lecture, tracee ; par sens et statut ; un prelevement inconnu n'existe pas.
+        Reponse liste = get(accountant, "/direct-debits?direction=received&status=refunded");
+        assertThat(liste.status()).as(String.valueOf(liste.envelope())).isEqualTo(200);
+        assertThat(liste.items()).extracting(d -> d.get("id")).containsExactly(recuId.toString());
+        assertThat(get(officer, "/direct-debits/" + emisId).body().get("closeReason"))
+            .isEqualTo("compte debiteur clos");
+        Reponse duCompte = get(officer, "/accounts/" + account + "/direct-debits");
+        assertThat(duCompte.items()).as("le rejeu et les refus n'ajoutent rien").hasSize(4);
+        assertThat(get(officer, "/direct-debits/" + UUID.randomUUID()).status()).isEqualTo(404);
+        assertThat(get(teller, "/direct-debits").status()).isEqualTo(403);
+        assertThat(get(accountant, "/direct-debits?direction=sideways").status()).isEqualTo(422);
     }
 
     // ------------------------------------------------------------------ outillage

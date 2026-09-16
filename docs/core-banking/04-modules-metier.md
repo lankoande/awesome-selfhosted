@@ -481,7 +481,7 @@ fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 > `ops.daily_debit_max`, `ops.monthly_debit_max`) et du compte (`account_limit`, à deux, par
 > nature et validité, qui l'emporte) s'appliquent à tout débit du client — retrait, virement,
 > paiement — frais compris, l'usage étant lu dans le journal hors écritures contre-passées
-> (`Limits`). Restent : prélèvements, cut-off par canal, suspens non soldés remontés à l'arrêté.
+> (`Limits`). Restent : cut-off par canal, suspens non soldés remontés à l'arrêté.
 
 > **Implémenté — chèques** (`ChequeService`, V41, module `deposits`) : le **chéquier** se délivre
 > à deux dans l'agence du compte, aux frais du produit (`ops.cheque_book_fee`, taxe comprise,
@@ -509,6 +509,34 @@ fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 > provision. Restent : l'échange avec la compensation (SICA-UEMOA : présentation, cycles,
 > fichiers), la déclaration des incidents à la centrale et l'interdiction bancaire qui en découle,
 > les chèques de banque.
+
+> **Implémenté — prélèvements** (`DirectDebitService`, V42, module `deposits`, étape
+> `DIRECT_DEBITS` du TFJ) : le **mandat** est l'autorisation qu'un client donne à un créancier —
+> un compte de la banque, ou une banque et un compte d'ailleurs — de débiter son compte :
+> référence unique par créancier, validité, plafond par prélèvement ; enregistré à deux dans
+> l'agence du compte, **révoqué** par le client, et rien ne se présente sur un mandat révoqué, hors
+> validité ou au-delà de son plafond. Un **prélèvement reçu** est présenté avec son échéance : à
+> l'échéance — tout de suite si elle est arrivée, par l'arrêté de l'échéance sinon — le débiteur
+> est débité du montant, du frais et de la taxe du produit (`ops.direct_debit_fee`), le montant
+> allant au créancier de la banque (réglé d'emblée) ou au compte de règlement sortant du produit,
+> tenu au siège, où il attend le correspondant ; puis **réglé** sur le nostro, **remboursé** au
+> débiteur qui conteste (le montant seul, depuis le nostro ou le créancier de la banque), ou
+> **rappelé** avant règlement par contre-passation ; en attente, il se **retire** sans écriture.
+> Sans provision, sur un mandat révoqué, sur un compte qui ne peut pas opérer, un compte bloqué,
+> le prélèvement est **rejeté** avec son motif — un résultat enregistré, pas une erreur —, et le
+> créancier peut représenter. Un **prélèvement émis** est la remise d'un client créancier sur un
+> débiteur d'ailleurs : à l'échéance, le créancier est crédité **sauf bonne fin** — la valeur au
+> compte de prélèvements à l'encaissement (`ops.direct_debit_collection_account`), au siège —,
+> les frais dans leur propre écriture, le montant bloqué jusqu'au **règlement** par le
+> correspondant ; **retourné** avant règlement, la remise est contre-passée à sa date de valeur,
+> après, le montant est repris au créancier vers le nostro ; les frais restent acquis. Les
+> prélèvements ne consomment pas les plafonds du client — c'est le mandat qui les borne — et un
+> prélèvement reçu ne réveille pas un compte dormant ni ne compte pour sa dormance : l'acte est
+> celui du créancier, et il se poursuit sur un compte oublié. L'exécution tient dans une
+> transaction : la comptabilisation se tente sous un point de sauvegarde, un refus du ledger y
+> ramène, et le rejet s'écrit avec la transaction qui l'a constaté — réelle ou à blanc. Restent :
+> l'échange avec la compensation (fichiers de présentation et de rejet, cycles), les prélèvements
+> internes entre deux clients hors mandat domicilié (ordres permanents), les frais de rejet.
 
 ### Points de conception
 

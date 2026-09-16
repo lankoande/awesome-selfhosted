@@ -113,7 +113,9 @@
         "Paiement sortant : un compte de reglement sortant recoit les fonds a l'ordre ; sans lui, le",
         "produit n'admet pas de paiement sortant, en le disant.",
         "Cheques : le chequier se delivre aux frais du produit ; une remise de cheque exige un compte",
-        "de cheques a l'encaissement, sans lequel le produit n'admet pas de remise, en le disant."
+        "de cheques a l'encaissement, sans lequel le produit n'admet pas de remise, en le disant.",
+        "Prelevements : un frais par prelevement, a la charge du client ; un prelevement emis exige un",
+        "compte de prelevements a l'encaissement, sans lequel le produit n'en emet pas, en le disant."
       ],
       "optional": [
         "ops.withdrawal_fee",
@@ -127,13 +129,16 @@
         "ops.payment_fee",
         "ops.payment_clearing_account",
         "ops.cheque_book_fee",
-        "ops.cheque_collection_account"
+        "ops.cheque_collection_account",
+        "ops.direct_debit_fee",
+        "ops.direct_debit_collection_account"
       ],
       "accounts": [
         "ops.fee_income_account",
         "ops.tax_account",
         "ops.payment_clearing_account",
-        "ops.cheque_collection_account"
+        "ops.cheque_collection_account",
+        "ops.direct_debit_collection_account"
       ],
       "conditions": [
         {

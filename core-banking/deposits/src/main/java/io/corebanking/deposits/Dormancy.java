@@ -108,7 +108,11 @@ public final class Dormancy {
         return byProduct;
     }
 
-    /** Comptes ouverts avant le seuil et sans ecriture de guichet ou de canal depuis. */
+    /**
+     * Comptes ouverts avant le seuil et sans ecriture de guichet ou de canal depuis. Un
+     * prelevement recu n'en est pas une : c'est l'acte du creancier, et il se poursuit sur un
+     * compte que son titulaire a oublie.
+     */
     private static List<UUID> inactiveSince(Connection c, List<UUID> accountIds, LocalDate threshold) {
         List<UUID> inactive = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(
@@ -117,7 +121,8 @@ public final class Dormancy {
             + "   AND NOT EXISTS ("
             + "       SELECT 1 FROM journal_line l"
             + "         JOIN journal_entry e ON e.id = l.entry_id AND e.booking_date = l.booking_date"
-            + "        WHERE l.account_id = a.id AND l.booking_date > ? AND e.source = 'ONLINE')"
+            + "        WHERE l.account_id = a.id AND l.booking_date > ? AND e.source = 'ONLINE'"
+            + "          AND e.transaction_type <> 'DIRECT_DEBIT')"
             + " ORDER BY a.id")) {
             ps.setArray(1, c.createArrayOf("uuid", accountIds.toArray()));
             ps.setObject(2, threshold);

@@ -50,6 +50,12 @@ class OperationCoverageTest {
         Map.entry("ChequeService.deposit", Operation.CHEQUE_DEPOSIT),
         Map.entry("ChequeService.settleDeposit", Operation.CHEQUE_PROCESS),
         Map.entry("ChequeService.stop", Operation.CHEQUE_STOP),
+        Map.entry("DirectDebitService.registerMandate", Operation.MANDATE_REGISTER),
+        Map.entry("DirectDebitService.revokeMandate", Operation.MANDATE_REVOKE),
+        Map.entry("DirectDebitService.present", Operation.DIRECT_DEBIT_PRESENT),
+        Map.entry("DirectDebitService.issue", Operation.DIRECT_DEBIT_ISSUE),
+        Map.entry("DirectDebitService.settle / cancel / refund / returnIssued",
+                  Operation.DIRECT_DEBIT_PROCESS),
         Map.entry("Tills.create", Operation.TILL_MANAGE),
         Map.entry("TillService.close", Operation.TILL_CLOSE),
         Map.entry("FeeLedger.grantExemption", Operation.FEE_EXEMPTION_GRANT),
@@ -78,7 +84,7 @@ class OperationCoverageTest {
     private static final Set<Operation> WITHOUT_SERVICE = EnumSet.of(
         Operation.ACCOUNT_BALANCE_READ, Operation.ACCOUNT_JOURNAL_READ, Operation.LEDGER_READ,
         Operation.PARTY_READ, Operation.LOAN_READ, Operation.PAYMENT_READ, Operation.CHEQUE_READ,
-        Operation.AUDIT_READ);
+        Operation.DIRECT_DEBIT_READ, Operation.AUDIT_READ);
 
     @Test
     @DisplayName("toute operation est reclamee par un point d'entree, ou est une consultation")
@@ -109,7 +115,8 @@ class OperationCoverageTest {
                                               Operation.RESULT_APPROPRIATION,
                                               Operation.STATEMENT_LAYOUT_ACTIVATE,
                                               Operation.ACCOUNT_LIMIT_MANAGE,
-                                              Operation.CHEQUE_BOOK_ISSUE)) {
+                                              Operation.CHEQUE_BOOK_ISSUE,
+                                              Operation.MANDATE_REGISTER)) {
             assertThat(SecurityConfig.ruleFor(operation).dualControl())
                 .as(operation.name()).isTrue();
         }

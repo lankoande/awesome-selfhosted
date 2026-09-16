@@ -146,6 +146,26 @@ public final class Requests {
     public record ChequeDepositRequest(String amount, String currency, String draweeBank,
                                        String chequeNumber, String drawerName, String channel) {}
 
+    // ------------------------------------------------------------------ prelevements
+
+    /**
+     * Un mandat de prelevement : le creancier est un compte de la banque ({@code creditorAccountId})
+     * ou une banque et un compte d'ailleurs ; {@code maxAmount} plafonne chaque prelevement.
+     */
+    public record MandateRequest(String reference, String creditorId, String creditorName,
+                                 UUID creditorAccountId, String creditorBank, String creditorAccount,
+                                 LocalDate signedOn, LocalDate validFrom, LocalDate validTo,
+                                 String maxAmount, String currency) {}
+
+    /** Un prelevement recu, presente sur un mandat : montant, echeance, reference du creancier. */
+    public record DirectDebitPresentation(String amount, String currency, LocalDate dueDate,
+                                          String reference, String channel) {}
+
+    /** Un prelevement emis : le debiteur d'ailleurs — nom, banque, compte — et son mandat. */
+    public record DirectDebitIssue(String amount, String currency, LocalDate dueDate,
+                                   String debtorName, String debtorBank, String debtorAccount,
+                                   String mandateReference, String reference, String channel) {}
+
     // ------------------------------------------------------------------ arretes et exercices
 
     public record OpenFiscalYear(LocalDate start, LocalDate end, UUID resultAccountId) {}

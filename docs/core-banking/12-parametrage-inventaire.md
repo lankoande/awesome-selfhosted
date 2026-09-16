@@ -67,7 +67,7 @@ Ce que cela débloque directement : **commissions et taxes deviennent des lignes
 qui change de taux est une nouvelle version datée, pas une livraison.
 
 
-### Plafonds, paiements sortants et chèques — bloc `operations`, `account_limit`, `cheque_*` ✅
+### Plafonds, paiements sortants, chèques et prélèvements — bloc `operations`, `account_limit`, `cheque_*`, `debit_mandate`, `direct_debit` ✅
 
 | Paramètre | Valeurs | Effet |
 |---|---|---|
@@ -78,6 +78,8 @@ qui change de taux est une nouvelle version datée, pas une livraison.
 | `ops.payment_clearing_account` | UUID (compte général) | Compte de règlement sortant ; absent, le produit n'admet pas de paiement sortant |
 | `ops.cheque_book_fee` | décimal | Frais de délivrance d'un chéquier, taxé au taux du produit ; absent, le chéquier est gratuit |
 | `ops.cheque_collection_account` | UUID (compte général) | Compte de chèques à l'encaissement ; absent, le produit n'admet pas de remise de chèque |
+| `ops.direct_debit_fee` | décimal | Frais d'un prélèvement, reçu ou émis, à la charge du client de la banque, taxé au taux du produit |
+| `ops.direct_debit_collection_account` | UUID (compte général) | Compte de prélèvements à l'encaissement ; absent, le produit n'émet pas de prélèvement. Un prélèvement reçu d'un créancier d'ailleurs exige `ops.payment_clearing_account` |
 
 Un compte porte son propre plafond (`account_limit` : nature, montant, validité, à deux, sans
 chevauchement par nature) ; il remplace celui du produit, dans un sens comme dans l'autre. Les
@@ -89,6 +91,8 @@ chèques ne consomment pas ces plafonds.
 | `cheque` | Un chèque par numéro : état (`UNUSED`, `PAID`, `STOPPED`, `REJECTED`), montant, porteur, date et écriture du paiement, clé de rejeu, opposition et son motif |
 | `cheque_incident` | Chèque présenté sans provision : montant, date, motif, présentateur — survit au refus |
 | `cheque_deposit` | Remise : chèque désigné (banque tirée, numéro, tireur), écriture et blocage, compte d'encaissement, règlement (nostro, écriture) ou impayé (motif, contre-passation) |
+| `debit_mandate` | Mandat : compte débiteur, référence unique par créancier, créancier de la banque (compte) ou d'ailleurs (banque, compte) — l'un ou l'autre —, signature, validité, plafond par prélèvement, révocation datée et motivée, à deux |
+| `direct_debit` | Prélèvement reçu ou émis : compte du client, mandat, montant, frais et taxe, échéance, tiers, état (`PENDING`, `COLLECTED`, `SETTLED`, `REJECTED`, `CANCELLED`, `RETURNED`, `REFUNDED`), exécution (date, traitement, écriture, blocage, compte de règlement ou d'encaissement, motif de rejet), règlement, clôture (date, écriture, motif) |
 
 ### Maquettes d'états financiers — `statement_layout` ✅
 

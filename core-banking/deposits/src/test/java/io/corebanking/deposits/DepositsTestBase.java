@@ -56,6 +56,7 @@ abstract class DepositsTestBase {
     protected static PartyService parties;
     protected static PaymentService payments;
     protected static ChequeService cheques;
+    protected static DirectDebitService directDebits;
 
     protected static final UUID ACTOR = UUID.fromString("00000000-0000-0000-0000-0000000000ac");
     protected static final UUID APPROVER = UUID.fromString("00000000-0000-0000-0000-0000000000af");
@@ -81,6 +82,7 @@ abstract class DepositsTestBase {
         parties = new PartyService(database, Screening.NONE);
         payments = new PaymentService(database, postingService);
         cheques = new ChequeService(database, postingService);
+        directDebits = new DirectDebitService(database, postingService);
     }
 
     @AfterAll
@@ -110,18 +112,23 @@ abstract class DepositsTestBase {
                 Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY), J.minusYears(2), J.plusYears(1));
             Calendars.attachToEntity(c, entityId, calendarId);
             if (conditionsDeBanque) {
-                for (String type : List.of(OperationSchemas.CASH_DEPOSIT, OperationSchemas.TRANSFER)) {
+                for (String type : List.of(OperationSchemas.CASH_DEPOSIT, OperationSchemas.TRANSFER,
+                                           OperationSchemas.DIRECT_DEBIT)) {
                     regle(c, entityId, type, null, Direction.CREDIT, 0, OffsetUnit.CALENDAR_DAYS);
                 }
                 for (String type : List.of(OperationSchemas.CASH_WITHDRAWAL,
                                            OperationSchemas.TRANSFER,
                                            OperationSchemas.PAYMENT_ORDER,
-                                           OperationSchemas.CHEQUE_PAYMENT)) {
+                                           OperationSchemas.CHEQUE_PAYMENT,
+                                           OperationSchemas.DIRECT_DEBIT)) {
                     regle(c, entityId, type, null, Direction.DEBIT, 0, OffsetUnit.CALENDAR_DAYS);
                 }
-                // Une remise de cheque prend valeur deux jours ouvres apres : sauf bonne fin.
-                regle(c, entityId, OperationSchemas.CHEQUE_DEPOSIT, null, Direction.CREDIT, 2,
-                      OffsetUnit.BUSINESS_DAYS);
+                // Une remise de cheque ou de prelevement prend valeur deux jours ouvres apres :
+                // sauf bonne fin.
+                for (String type : List.of(OperationSchemas.CHEQUE_DEPOSIT,
+                                           OperationSchemas.DIRECT_DEBIT_ISSUE)) {
+                    regle(c, entityId, type, null, Direction.CREDIT, 2, OffsetUnit.BUSINESS_DAYS);
+                }
                 // Au guichet, un versement d'especes prend valeur le jour ouvre suivant.
                 regle(c, entityId, OperationSchemas.CASH_DEPOSIT, "GUICHET", Direction.CREDIT, 1,
                       OffsetUnit.BUSINESS_DAYS);

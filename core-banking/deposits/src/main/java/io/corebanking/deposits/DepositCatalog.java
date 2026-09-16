@@ -28,6 +28,8 @@ public final class DepositCatalog {
     public static final String P_PAYMENT_CLEARING  = "ops.payment_clearing_account";
     public static final String P_CHEQUE_BOOK_FEE   = "ops.cheque_book_fee";
     public static final String P_CHEQUE_COLLECTION = "ops.cheque_collection_account";
+    public static final String P_DIRECT_DEBIT_FEE  = "ops.direct_debit_fee";
+    public static final String P_DIRECT_DEBIT_COLLECTION = "ops.direct_debit_collection_account";
 
     private DepositCatalog() {}
 
@@ -46,6 +48,18 @@ public final class DepositCatalog {
 
     public static Money chequeBookFee(ProductVersion product, CurrencyRef currency) {
         return flat(product.parameters(), P_CHEQUE_BOOK_FEE, currency);
+    }
+
+    /** Frais d'un prelevement, recu ou emis, a la charge du client de la banque. */
+    public static Money directDebitFee(ProductVersion product, CurrencyRef currency) {
+        return flat(product.parameters(), P_DIRECT_DEBIT_FEE, currency);
+    }
+
+    /** Compte de prelevements a l'encaissement ; vide, le produit n'emet pas de prelevement. */
+    public static Optional<UUID> directDebitCollection(ProductVersion product) {
+        var parameters = product.parameters();
+        return parameters.has(P_DIRECT_DEBIT_COLLECTION)
+            ? Optional.of(parameters.requireUuid(P_DIRECT_DEBIT_COLLECTION)) : Optional.empty();
     }
 
     /** Compte de cheques a l'encaissement ; vide, le produit n'admet pas de remise de cheque. */
