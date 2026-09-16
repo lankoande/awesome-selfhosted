@@ -183,25 +183,42 @@ public final class Limits {
      */
     public static void check(Connection c, Account account, ProductVersion product, Money amount,
                              LocalDate on) {
+        Optional<Money> daily = effective(c, account, product, Kind.DAILY, on);
+        Optional<Money> monthly = effective(c, account, product, Kind.MONTHLY, on);
+        if (daily.isPresent() || monthly.isPresent()) {
+            // Deux debits concurrents liraient chacun un usage sans l'autre et passeraient tous
+            // deux : sous un plafond cumule, les debits d'un compte se suivent, sur le verrou
+            // du compte, tenu jusqu'a la validation de l'ecriture.
+            lock(c, account.id());
+        }
         effective(c, account, product, Kind.TRANSACTION, on).ifPresent(limit -> {
             if (amount.isGreaterThan(limit)) {
                 throw new LimitExceededException(account, Kind.TRANSACTION, limit,
                                                  Money.zero(amount.currency()), amount);
             }
         });
-        effective(c, account, product, Kind.DAILY, on).ifPresent(limit -> {
+        daily.ifPresent(limit -> {
             Money used = debits(c, account.id(), on, on, account.currency());
             if (used.plus(amount).isGreaterThan(limit)) {
                 throw new LimitExceededException(account, Kind.DAILY, limit, used, amount);
             }
         });
-        effective(c, account, product, Kind.MONTHLY, on).ifPresent(limit -> {
+        monthly.ifPresent(limit -> {
             Money used = debits(c, account.id(), on.withDayOfMonth(1),
                                 on.withDayOfMonth(on.lengthOfMonth()), account.currency());
             if (used.plus(amount).isGreaterThan(limit)) {
                 throw new LimitExceededException(account, Kind.MONTHLY, limit, used, amount);
             }
         });
+    }
+
+    private static void lock(Connection c, UUID accountId) {
+        try (PreparedStatement ps = c.prepareStatement("SELECT id FROM account WHERE id = ? FOR UPDATE")) {
+            ps.setObject(1, accountId);
+            ps.executeQuery().close();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Verrouillage du compte sous plafond", e);
+        }
     }
 
     /** Les debits du client soumis au plafond sur une plage de dates comptables. */

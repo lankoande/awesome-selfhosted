@@ -111,4 +111,36 @@ class LimitsIT extends DepositsTestBase {
             c -> Limits.ofAccountOn(c, compte, Limits.Kind.DAILY, LocalDate.of(2026, 9, 15)));
         assertThat(aucun).isEmpty();
     }
+
+    @Test
+    @DisplayName("deux debits concurrents sous un plafond journalier : un seul passe, l'autre voit le premier")
+    void concurrent_debits_are_serialised_under_a_limit() throws Exception {
+        Decor decor = decor("CON");
+        Map<String, String> parametres = new HashMap<>(frais(decor));
+        parametres.put(DepositCatalog.P_DAILY_DEBIT_MAX, "150000");
+        produit(decor, "EP-CON", "SAVINGS_ACCOUNT", parametres);
+        UUID compte = ouvrir(decor, "CLI-CON", "EP-CON", client(decor.entityId(), "T-CON"));
+        verser(decor, compte, "1000000", "con-0");
+
+        var depart = new java.util.concurrent.CountDownLatch(1);
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.function.Function<String, java.util.concurrent.Callable<Object>> tentative =
+            key -> () -> {
+                depart.await();
+                try {
+                    return retirer(decor, compte, "90000", key);
+                } catch (RuntimeException e) {
+                    return e;
+                }
+            };
+        var premiere = executor.submit(tentative.apply("con-1"));
+        var seconde = executor.submit(tentative.apply("con-2"));
+        depart.countDown();
+        List<Object> issues = List.of(premiere.get(), seconde.get());
+        executor.shutdown();
+
+        assertThat(issues).filteredOn(o -> o instanceof OperationsService.Receipt).hasSize(1);
+        assertThat(issues).filteredOn(o -> o instanceof Limits.LimitExceededException).hasSize(1);
+        assertThat(solde(compte)).isEqualTo(xof("1000000").minus(xof("90590")));
+    }
 }

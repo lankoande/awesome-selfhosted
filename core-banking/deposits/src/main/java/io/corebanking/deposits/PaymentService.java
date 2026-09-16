@@ -38,8 +38,8 @@ import java.util.UUID;
  * Paiements sortants : un ordre de virement vers un beneficiaire hors de l'entite.
  *
  * <p>Le client est debite <b>a l'ordre</b> — montant, frais et taxe — et le montant va au compte
- * de reglement sortant du produit : les fonds ne sont pas encore chez le correspondant, et le
- * bilan le montre. L'ordre est ensuite <b>envoye</b>, puis <b>regle</b> sur le nostro quand le
+ * de reglement sortant du produit, tenu au siege comme le nostro : les fonds ne sont pas encore
+ * chez le correspondant, et le bilan le montre, au siege, ou la banque livre. L'ordre est ensuite <b>envoye</b>, puis <b>regle</b> sur le nostro quand le
  * correspondant confirme, ou <b>retourne</b> — les fonds reviennent au client, les frais restent
  * acquis — ; avant envoi, il s'<b>annule</b> par contre-passation de l'ecriture d'ordre. Chaque
  * etat porte sa date et son ecriture, et ne se defait que par l'etat suivant. Les plafonds du
@@ -60,14 +60,14 @@ public final class PaymentService {
                         String reference, String channel, UUID actorId) {
         public Order {
             OperationsService.requireCommand(key, legalEntityId, accountId, amount, actorId);
-            for (String field : List.of(String.valueOf(beneficiaryName),
-                                        String.valueOf(beneficiaryBank),
-                                        String.valueOf(beneficiaryAccount))) {
-                if (field.isBlank() || "null".equals(field)) {
-                    throw new IllegalArgumentException(
-                        "Un paiement sortant designe son beneficiaire : nom, banque, compte");
-                }
+            if (isBlank(beneficiaryName) || isBlank(beneficiaryBank) || isBlank(beneficiaryAccount)) {
+                throw new IllegalArgumentException(
+                    "Un paiement sortant designe son beneficiaire : nom, banque, compte");
             }
+        }
+
+        private static boolean isBlank(String value) {
+            return value == null || value.isBlank();
         }
     }
 
@@ -117,10 +117,22 @@ public final class PaymentService {
                                        product),
                 bookingDate);
             lines = OperationsService.withValueDate(lines, account.id(), valueDate);
+            // Le compte de reglement sortant est tenu au siege, comme le nostro qui le soldera :
+            // l'ordre d'un client d'agence passe par la liaison, et le siege porte ce que la
+            // banque doit encore livrer. Le frais reste a l'agence qui sert.
+            UUID headOffice = Branches.headOffice(c, command.legalEntityId());
+            lines = atBranch(lines, clearing.id(), headOffice);
             PostingResult result = postingService.post(PostingCommand.online(
                 command.key(), command.legalEntityId(), bookingDate,
                 OperationSchemas.PAYMENT_ORDER, command.actorId(), lines)
                 .withBranch(account.branchId()));
+            if (result.replayed()) {
+                // Deux ordres concurrents sous la meme cle : le second a attendu le premier sur la
+                // cle d'idempotence, et le premier est valide — son ordre existe.
+                return new Placed(byKey(c, command.legalEntityId(), command.key()).orElseThrow(
+                    () -> new LedgerStoreException("Ordre de paiement absent pour une cle "
+                                                   + "d'idempotence deja traitee")), true);
+            }
             OperationsService.wakeIfDormant(c, account, bookingDate, command.actorId(), result);
 
             UUID id = Ids.newId();
@@ -225,10 +237,13 @@ public final class PaymentService {
                                                           : order.clearingAccountId();
             Account customer = Accounts.loadAll(c, Set.of(order.accountId())).get(order.accountId());
             String narrative = "Retour du paiement " + order.id() + " : " + reason.trim();
+            // Les fonds reviennent du siege, ou le reglement et le nostro sont tenus, vers le
+            // compte du client dans son agence : la liaison fait le reste.
             PostingResult result = postingService.post(PostingCommand.online(
                 IdempotencyKey.of(OperationSchemas.PAYMENT_RETURN + "-" + order.id()),
                 order.legalEntityId(), on, OperationSchemas.PAYMENT_RETURN, actorId,
-                List.of(PostingLine.debit(from, order.amount(), on, narrative),
+                List.of(PostingLine.debit(from, order.amount(), on, narrative)
+                            .withBranch(Branches.headOffice(c, order.legalEntityId())),
                         PostingLine.credit(order.accountId(), order.amount(), on, narrative)))
                 .withBranch(customer.branchId()));
             try (PreparedStatement ps = c.prepareStatement(
@@ -375,6 +390,15 @@ public final class PaymentService {
             rs.getObject(19, UUID.class), rs.getObject(20, LocalDate.class),
             rs.getObject(21, UUID.class), rs.getString(22), rs.getObject(23, LocalDate.class),
             rs.getObject(24, UUID.class), rs.getString(25), rs.getObject(26, UUID.class));
+    }
+
+    /** La ligne d'un compte, dans l'agence donnee ; les autres lignes gardent la leur. */
+    private static List<PostingLine> atBranch(List<PostingLine> lines, UUID accountId, UUID branch) {
+        List<PostingLine> placed = new ArrayList<>(lines.size());
+        for (PostingLine line : lines) {
+            placed.add(line.accountId().equals(accountId) ? line.withBranch(branch) : line);
+        }
+        return placed;
     }
 
     private static void update(Connection c, String sql, LocalDate on, UUID orderId) {

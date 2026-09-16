@@ -43,7 +43,7 @@ Aucune n'est à reprendre telle quelle.
 Le noyau comptable, les intérêts, les commissions, les crédits, le référentiel client, les
 comptes de dépôt et leurs opérations, le multi-agences, le paramétrage produit, les
 habilitations, le calendrier, le TFJ et l'API REST (Spring Boot 4.1) sont implémentés et
-testés : [`../../core-banking`](../../core-banking) — Java 21, PostgreSQL, **584 tests verts**. Le dossier ci-dessous reste la référence de conception ;
+testés : [`../../core-banking`](../../core-banking) — Java 21, PostgreSQL, **586 tests verts**. Le dossier ci-dessous reste la référence de conception ;
 le code en est la mise en œuvre, et les écarts constatés à l'implémentation y ont été répercutés.
 
 ## Sommaire

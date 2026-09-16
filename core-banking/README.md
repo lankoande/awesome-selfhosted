@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 584 tests verts** — 305 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 279 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 586 tests verts** — 305 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 281 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -842,6 +842,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Le plafond du compte remplace celui du produit, dans les deux sens | Un plafond négocié est une décision sur ce client ; prendre le plus strict des deux la rendrait inopérante |
 | Un paiement sortant débite le client à l'ordre | Réserver sans débiter laisserait le client disposer de fonds déjà engagés ; le compte de règlement montre ce que la banque doit encore livrer |
 | Les frais d'un paiement retourné restent acquis | Le service a été rendu ; seule l'annulation avant envoi, où rien n'est parti, rend tout par contre-passation |
+| Sous un plafond cumulé, les débits d'un compte se suivent sur le verrou du compte | Deux débits concurrents liraient chacun un usage sans l'autre et passeraient tous deux ; le test le prouve à deux fils |
+| Le compte de règlement sortant et le nostro sont tenus au siège | C'est le siège qui livre au correspondant ; un règlement au siège contre un ordre en agence laisserait chaque agence porter un solde de règlement qu'elle ne réglera jamais |
 | Le contrat OpenAPI est généré depuis les contrôleurs, versé et comparé par un test | Un contrat écrit à la main ment dès la deuxième route ; généré à la volée, il ne se relit pas en revue. Versé et tenu égal au code, il se voit changer |
 | Un paramètre que le contrat ne sait pas décrire fait échouer la génération | Une route exposée sans être décrite est un contrat faux ; l'erreur nomme le paramètre au lieu de l'omettre |
 | Sans entité posée, le rôle applicatif ne voit rien | Le défaut est l'absence d'accès : une requête écrite sans filtre renvoie zéro ligne, pas toutes les entités |

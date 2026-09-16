@@ -471,8 +471,9 @@ fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 
 > **Implémenté — paiements sortants** (`PaymentService`, V40, module `deposits`) : l'ordre
 > débite le client à l'ordre — montant, frais et taxe du produit — sur le **compte de règlement
-> sortant** du produit (`ops.payment_clearing_account`), où les fonds attendent le correspondant
-> ; puis `ORDERED → SENT → SETTLED` (règlement sur un nostro de l'entité, en devise) ou
+> sortant** du produit (`ops.payment_clearing_account`), tenu au siège comme le nostro — l'ordre
+> d'un client d'agence passe par la liaison, le frais reste à l'agence qui sert —, où les fonds
+> attendent le correspondant ; puis `ORDERED → SENT → SETTLED` (règlement sur un nostro de l'entité, en devise) ou
 > `RETURNED` (les fonds reviennent au client, les frais restent acquis, depuis le compte de
 > règlement ou le nostro selon l'état), et `CANCELLED` avant envoi par contre-passation de
 > l'écriture d'ordre. Chaque état porte sa date et son écriture ; la clé d'idempotence de l'ordre
