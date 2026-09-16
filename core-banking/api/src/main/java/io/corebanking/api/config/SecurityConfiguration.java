@@ -27,6 +27,8 @@ public class SecurityConfiguration {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                // Le contrat n'est pas une donnee : il se lit sans jeton.
+                .requestMatchers(io.corebanking.api.openapi.OpenApiDocument.PATH).permitAll()
                 .anyRequest().authenticated())
             .exceptionHandling(e -> e.authenticationEntryPoint(entryPoint)
                                      .accessDeniedHandler(accessDenied))

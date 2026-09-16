@@ -35,7 +35,7 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 577 tests verts** — 304 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+**État actuel : 578 tests verts** — 305 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
 générés), 273 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
@@ -713,8 +713,8 @@ le bilan et le hors bilan, et un engagement s'équilibre dans son agence sans li
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 
-- API : pas de contrat OpenAPI publié (la pagination par pages bornées et par curseur, elle,
-  est faite) ;
+- API : le contrat OpenAPI est généré et publié ; reste sa vérification de compatibilité
+  d'une version à l'autre (le test tient l'égalité au code, pas la non-régression du contrat) ;
 - chèques (remise, compensation, opposition), paiements sortants, plafonds par produit et par
   client ;
 - multi-agences : schémas de liaison bilatéral et via la région (le schéma via le siège est
@@ -824,6 +824,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Le résultat au bilan est calculé par le socle, jamais par une règle | Une règle sur les comptes de résultat le compterait une seconde fois après la clôture, quand il est déjà au compte de résultat de l'exercice |
 | Un état anomal reste produit, avec ses anomalies nommées | Forcer un total masquerait le compte oublié ; refuser l'état priverait le comptable de ce qui lui permet de le corriger |
 | Une écriture ne mélange pas le bilan et le hors bilan | Un engagement contre un compte de bilan fausserait les deux états à la fois, et aucun ne s'équilibrerait |
+| Le contrat OpenAPI est généré depuis les contrôleurs, versé et comparé par un test | Un contrat écrit à la main ment dès la deuxième route ; généré à la volée, il ne se relit pas en revue. Versé et tenu égal au code, il se voit changer |
+| Un paramètre que le contrat ne sait pas décrire fait échouer la génération | Une route exposée sans être décrite est un contrat faux ; l'erreur nomme le paramètre au lieu de l'omettre |
 | Sans entité posée, le rôle applicatif ne voit rien | Le défaut est l'absence d'accès : une requête écrite sans filtre renvoie zéro ligne, pas toutes les entités |
 | Une transaction ne change pas d'entité | La base a déjà reçu l'entité de la transaction ; une unité de travail qui en attendrait une autre lirait à côté de ce qu'elle croit — refusé en Java, avant la base |
 | Deux comptes de base, propriétaire et applicatif | Le propriétaire des tables n'est soumis à aucune politique ; avec un seul compte, la Row Level Security serait décorative |

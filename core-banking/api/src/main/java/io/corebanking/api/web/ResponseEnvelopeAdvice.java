@@ -22,7 +22,8 @@ public class ResponseEnvelopeAdvice implements ResponseBodyAdvice<Object> {
     @Override
     public boolean supports(MethodParameter returnType,
                             Class<? extends HttpMessageConverter<?>> converterType) {
-        return true;
+        // La seule reponse hors enveloppe : le contrat OpenAPI, marque comme tel.
+        return !returnType.hasMethodAnnotation(io.corebanking.api.openapi.Raw.class);
     }
 
     @Override

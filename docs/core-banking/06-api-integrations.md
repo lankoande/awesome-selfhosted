@@ -15,7 +15,7 @@
 | Pagination | Par pages bornées à ordre total (`page`, `size`) pour les écrans ; par curseur (`after`, `size`) pour les extractions — le grand livre et le journal. |
 | Erreurs | RFC 7807 (`application/problem+json`) avec un code métier stable. |
 | Contexte | `legal_entity_id` déduit du jeton, jamais du corps de la requête. |
-| Contrat | OpenAPI généré, publié, et vérifié en CI contre la version précédente. |
+| Contrat | OpenAPI 3.1 **généré depuis les contrôleurs**, versé avec le code (`openapi/openapi.json`), publié par le service (`GET /v1/openapi.json`, sans jeton, hors enveloppe) et vérifié par un test contre la génération : une route qui change sans le contrat est un test rouge. |
 
 ### Pourquoi les montants en chaîne
 
@@ -117,6 +117,15 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
   n'est pas prévu — et alors rien n'a été comptabilisé.
 - **Les montants** sortent en `{ "amount": "20000", "currency": "XOF" }` et entrent de même ;
   une devise qui n'est pas celle du compte est un refus, jamais une conversion.
+- **Le contrat est généré, pas écrit** : `OpenApiDocument` lit les contrôleurs par réflexion —
+  chemins, méthodes, variables de chemin, paramètres de requête, pagination par pages ou par
+  curseur, en-têtes `Idempotency-Key` et `X-Request-Id`, corps, statut de succès (`200`, `201`,
+  `202` à double validation, `200` de rejeu), refus de `400` à `500` — et projette chaque type
+  en schéma : enregistrements en composants, énumérations, `Money` en chaîne et devise,
+  enveloppe avec `page` quand la donnée est une liste. Le document est versé dans
+  `openapi/openapi.json` et servi tel quel à `GET /v1/openapi.json` ; `OpenApiContractTest` le
+  régénère et le compare, en nommant les routes et schémas ajoutés, retirés ou modifiés — une
+  évolution voulue se reprend avec `-Dopenapi.update=true`, et se voit dans la revue.
 
 | Méthode et chemin (`/v1/entities/{entityId}` en préfixe) | Opération | Corps |
 |---|---|---|

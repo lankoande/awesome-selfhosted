@@ -1085,6 +1085,32 @@ class ApiIT {
         assertThat(get(teller, "/statements/balance-sheet").status()).isEqualTo(403);
     }
 
+    @Test
+    @Order(11)
+    @DisplayName("le contrat OpenAPI est publie par le service, sans jeton, tel qu'il est verse, hors enveloppe")
+    void contrat_openapi() throws Exception {
+        HttpResponse<String> response = http.send(HttpRequest.newBuilder(URI.create(
+                "http://localhost:" + environment.getProperty("local.server.port")
+                + "/v1/openapi.json")).GET().build(), HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.headers().firstValue("Content-Type").orElse(""))
+            .contains("application/json");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> contrat = json.readValue(response.body(), Map.class);
+        assertThat(contrat.get("openapi")).isEqualTo("3.1.0");
+        assertThat(contrat).doesNotContainKey("meta");
+        Map<?, ?> chemins = (Map<?, ?>) contrat.get("paths");
+        assertThat(chemins).containsKeys(
+            "/v1/entities/{legalEntityId}/accounts/{accountId}/balance",
+            "/v1/entities/{legalEntityId}/statements/balance-sheet",
+            "/v1/entities/{legalEntityId}/fiscal-years/{fiscalYearId}/appropriation");
+        Map<?, ?> retrait = (Map<?, ?>) ((Map<?, ?>) chemins.get(
+            "/v1/entities/{legalEntityId}/accounts/{accountId}/withdrawals")).get("post");
+        assertThat(((Map<?, ?>) retrait.get("responses")).keySet())
+            .contains("200", "201", "400", "401", "403", "404", "409", "422");
+        assertThat(String.valueOf(retrait.get("parameters"))).contains("IdempotencyKey");
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static UUID attente(Reponse reponse) {
