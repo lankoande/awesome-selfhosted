@@ -403,6 +403,25 @@ public final class AccountLifecycle {
             throw new LedgerStoreException("Recherche des credits adosses au compte "
                                            + account.code(), e);
         }
+        // Un ordre permanent actif, que le compte le paie ou le recoive, est un engagement pris
+        // par le client : clore sans le revoquer laisserait l'arrete le retenter chaque jour
+        // contre un compte clos, ou virer vers un compte qui n'existe plus. C'est au client de
+        // le revoquer d'abord — la banque ne decide pas a sa place ou son loyer doit aller.
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT reference FROM standing_order"
+            + " WHERE (account_id = ? OR beneficiary_account_id = ?) AND status = 'ACTIVE'"
+            + " ORDER BY reference")) {
+            ps.setObject(1, account.id());
+            ps.setObject(2, account.id());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    obstacles.add("ordre permanent " + rs.getString(1) + " actif sur le compte");
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Recherche des ordres permanents du compte "
+                                           + account.code(), e);
+        }
         if (!obstacles.isEmpty()) {
             throw new ClosureRefusedException(account, String.join(" ; ", obstacles));
         }

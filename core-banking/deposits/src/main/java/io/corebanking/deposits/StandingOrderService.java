@@ -354,6 +354,16 @@ public final class StandingOrderService {
         if (total.isGreaterThan(Balances.available(c, debtor.id(), on))) {
             throw new Rejection("SANS_PROVISION");
         }
+        if (order.internal()) {
+            // Le beneficiaire se controle ici pour nommer le rejet : un compte clos par son
+            // titulaire, ou dont le titulaire n'est plus operable, est la situation d'un client,
+            // pas un defaut de la banque — elle n'a pas a arreter la journee.
+            Account beneficiary = Accounts.loadAll(c, Set.of(order.beneficiaryAccountId()))
+                .get(order.beneficiaryAccountId());
+            if (beneficiary == null || !beneficiary.status().acceptsPosting()) {
+                throw new Rejection("BENEFICIAIRE_INOPERABLE");
+            }
+        }
         IdempotencyKey key = key(order, runId);
         if (order.internal()) {
             OperationsService.Receipt receipt = operations.transfer(new OperationsService.Transfer(
@@ -507,10 +517,13 @@ public final class StandingOrderService {
                     // L'echeance rendue est celle que la premiere tentative de l'arrete portait ;
                     // ses tentatives anterieures, elles, restent consommees : c'est l'arrete qu'on
                     // annule, pas les journees d'avant. Un ordre acheve par l'arrete redevient
-                    // actif, puisque l'echeance qui l'a acheve est a refaire.
+                    // actif, puisque l'echeance qui l'a acheve est a refaire — mais une
+                    // revocation, elle, est un acte du client posterieur a l'arrete : defaire
+                    // l'arrete ne la defait pas, et un ordre revoque le reste.
                     "UPDATE standing_order o SET occurrence = e.occurrence, due_date = e.due_date,"
                     + "   next_attempt_date = e.due_date, attempts = e.attempt - 1,"
-                    + "   status = 'ACTIVE'"
+                    + "   status = CASE WHEN o.status = 'CANCELLED' THEN 'CANCELLED'"
+                    + "                 ELSE 'ACTIVE' END"
                     + "  FROM standing_order_execution e"
                     + " WHERE e.standing_order_id = o.id AND e.batch_run_id = ?"
                     + "   AND e.occurrence = ? AND o.id = ?"

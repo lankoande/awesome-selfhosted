@@ -986,6 +986,19 @@ que l'arrêté a trouvée, sans tentative consommée, et l'ordre de paiement dé
 est déjà parti, l'annulation refuse avant que rien ne soit défait
 (`standing_orders_follow_the_day`).
 
+**Mais on ne défait que ce que l'arrêté a fait.** Si le client a révoqué son ordre le lendemain
+matin, l'annulation de l'arrêté de la veille lui rend son échéance — l'arrêté ne l'a plus payée —
+sans le réveiller : la révocation est un acte du client, postérieur, et défaire un traitement de
+la banque ne défait pas une décision de son client
+(`cancelling_a_run_does_not_revive_a_revoked_order`).
+
+**Un compte que vise un ordre permanent actif ne se clôt pas.** Ni le compte qui paie, ni celui
+qui reçoit : clore sans révoquer laisserait l'arrêté retenter chaque nuit contre un compte clos,
+ou virer vers un compte qui n'existe plus. C'est au client de révoquer d'abord — la banque ne
+décide pas à sa place où son loyer doit aller. Clos par ailleurs, le bénéficiaire fait un rejet
+nommé, jamais une anomalie qui arrêterait la journée
+(`a_closed_beneficiary_is_a_named_rejection`).
+
 
 ## Ce qui n'est pas encore fait
 

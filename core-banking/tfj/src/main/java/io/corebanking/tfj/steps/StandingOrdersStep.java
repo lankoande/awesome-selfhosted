@@ -51,14 +51,16 @@ public final class StandingOrdersStep implements TfjStep {
             return StepResult.none();
         }
         List<String> anomalies = new ArrayList<>();
-        long executed = 0;
+        // Ce qui est compte comme ecrit est ce que l'etape a traite — vire, rejete ou passe sans
+        // objet —, comme pour les prelevements : chacun laisse sa trace, et un rejet est un
+        // resultat. Seule une echeance qui n'etait pas a traiter ne compte pas.
+        long processed = 0;
         for (UUID id : due) {
             try {
                 StandingOrderService.Execution execution = standingOrders.execute(
                     id, context.runId(), context.actorId());
-                if (execution != null
-                    && execution.outcome() == StandingOrderService.Outcome.EXECUTED) {
-                    executed++;
+                if (execution != null) {
+                    processed++;
                 }
             } catch (RuntimeException e) {
                 if (anomalies.size() < MAX_REPORTED) {
@@ -68,6 +70,6 @@ public final class StandingOrdersStep implements TfjStep {
                 }
             }
         }
-        return new StepResult(due.size(), executed, anomalies);
+        return new StepResult(due.size(), processed, anomalies);
     }
 }

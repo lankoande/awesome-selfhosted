@@ -119,7 +119,8 @@ class TfjStandingOrdersIT extends TfjTestBase {
         TfjRun blanc = engine.run(ENTITY, echeance, ACTOR, RunMode.DRY_RUN);
         assertThat(blanc.isCompleted()).as(blanc.summary()).isTrue();
         assertThat(etape(blanc, "STANDING_ORDERS").read()).isEqualTo(3);
-        assertThat(etape(blanc, "STANDING_ORDERS").written()).isEqualTo(2);
+        // Trois traitees : deux virees, une rejetee — un rejet est un resultat, pas un echec.
+        assertThat(etape(blanc, "STANDING_ORDERS").written()).isEqualTo(3);
         assertThat(lire(loyer.id()).dueDate()).isEqualTo(echeance);
         assertThat(lire(loyer.id()).occurrence()).isZero();
         assertThat(lire(decouvert.id()).attempts()).isZero();
@@ -132,7 +133,7 @@ class TfjStandingOrdersIT extends TfjTestBase {
         TfjRun run = engine.run(ENTITY, echeance, ACTOR, RunMode.REAL);
         assertThat(run.isCompleted()).as(run.summary()).isTrue();
         assertThat(etape(run, "STANDING_ORDERS").read()).isEqualTo(3);
-        assertThat(etape(run, "STANDING_ORDERS").written()).isEqualTo(2);
+        assertThat(etape(run, "STANDING_ORDERS").written()).isEqualTo(3);
         assertThat(etape(run, "STANDING_ORDERS").anomalies()).isEmpty();
 
         // Le virement interne : 30 000 vires, 500 de frais, 90 de taxe.

@@ -256,6 +256,85 @@ class StandingOrdersIT extends DepositsTestBase {
         assertThat(apresRevocation).isEmpty();
     }
 
+    @Test
+    @DisplayName("un beneficiaire clos fait un rejet nomme, pas une anomalie ; et un compte porteur d'un ordre actif ne se clot pas")
+    void a_closed_beneficiary_is_a_named_rejection() {
+        Decor decor = decor("SO6");
+        produit(decor, "CC-SO6", "CURRENT_ACCOUNT", frais(decor));
+        UUID client = client(decor.entityId(), "CLI-SO6");
+        UUID payeur = ouvrir(decor, "SO6-PAYEUR", "CC-SO6", client);
+        UUID beneficiaire = ouvrir(decor, "SO6-BENEF", "CC-SO6", client);
+        verser(decor, payeur, "500000", "so6-prov");
+
+        StandingOrderService.StandingOrder ordre = service().register(
+            new StandingOrderService.Draft(decor.entityId(), payeur, "SO-060",
+                StandingOrderService.Kind.FIXED, xof("10000"), null, beneficiaire, null, null, null,
+                Periodicity.MONTHLY, J, null, null, 1, "pension", ACTOR, APPROVER));
+
+        // Un compte que vise un ordre permanent actif ne se clot pas : au client de le revoquer.
+        assertThatThrownBy(() -> lifecycle.close(new AccountLifecycle.Closing(
+                beneficiaire, decor.caisse().id(), ACTOR, APPROVER)))
+            .isInstanceOf(AccountLifecycle.ClosureRefusedException.class)
+            .hasMessageContaining("SO-060");
+        assertThatThrownBy(() -> lifecycle.close(new AccountLifecycle.Closing(
+                payeur, decor.caisse().id(), ACTOR, APPROVER)))
+            .isInstanceOf(AccountLifecycle.ClosureRefusedException.class)
+            .hasMessageContaining("ordre permanent");
+
+        // Clos par une autre voie, le beneficiaire fait un rejet nomme : la situation d'un
+        // client n'arrete pas la journee de la banque.
+        database.inTransaction(c -> {
+            try (var ps = c.prepareStatement(
+                "UPDATE account SET status = 'CLOSED', closed_at = ? WHERE id = ?")) {
+                ps.setObject(1, J);
+                ps.setObject(2, beneficiaire);
+                ps.executeUpdate();
+            } catch (java.sql.SQLException e) {
+                throw new io.corebanking.ledger.store.LedgerStoreException("Cloture forcee", e);
+            }
+            return null;
+        });
+        StandingOrderService.Execution rejet = service().execute(ordre.id(), UUID.randomUUID(),
+                                                                  ACTOR);
+        assertThat(rejet.outcome()).isEqualTo(StandingOrderService.Outcome.REJECTED);
+        assertThat(rejet.reason()).isEqualTo("BENEFICIAIRE_INOPERABLE");
+        assertThat(solde(payeur)).as("rien n'a bouge").isEqualTo(xof("500000"));
+    }
+
+    @Test
+    @DisplayName("l'annulation d'un arrete ne ressuscite pas un ordre que le client a revoque depuis")
+    void cancelling_a_run_does_not_revive_a_revoked_order() {
+        Decor decor = decor("SO7");
+        produit(decor, "CC-SO7", "CURRENT_ACCOUNT", frais(decor));
+        UUID client = client(decor.entityId(), "CLI-SO7");
+        UUID payeur = ouvrir(decor, "SO7-PAYEUR", "CC-SO7", client);
+        UUID beneficiaire = ouvrir(decor, "SO7-BENEF", "CC-SO7", client);
+        verser(decor, payeur, "500000", "so7-prov");
+
+        StandingOrderService.StandingOrder ordre = service().register(
+            new StandingOrderService.Draft(decor.entityId(), payeur, "SO-070",
+                StandingOrderService.Kind.FIXED, xof("10000"), null, beneficiaire, null, null, null,
+                Periodicity.MONTHLY, J, null, null, null, "loyer", ACTOR, APPROVER));
+        UUID run = UUID.randomUUID();
+        service().execute(ordre.id(), run, ACTOR);
+        // Le lendemain matin, le client revoque ; le soir, l'arrete de la veille est annule.
+        service().cancel(ordre.id(), J.plusDays(1), "le client a demenage", ACTOR);
+        int rendus = database.inTransaction(
+            c -> StandingOrderService.cancelRun(c, run, J.plusDays(1)));
+        assertThat(rendus).isEqualTo(1);
+
+        StandingOrderService.StandingOrder apres = database.inTransaction(
+            c -> StandingOrderService.require(c, ordre.id()));
+        assertThat(apres.status()).as("une revocation survit a l'annulation de l'arrete")
+            .isEqualTo("CANCELLED");
+        // L'echeance est bien rendue — l'arrete ne l'a plus payee — mais rien ne repartira.
+        assertThat(apres.occurrence()).isZero();
+        assertThat(apres.dueDate()).isEqualTo(J);
+        List<UUID> plusRienNePart = database.inTransaction(
+            c -> StandingOrderService.due(c, decor.entityId(), J));
+        assertThat(plusRienNePart).isEmpty();
+    }
+
     /**
      * Execute une echeance a une date donnee : le service lit la date comptable de l'entite, et
      * l'arrete l'avance chaque nuit.

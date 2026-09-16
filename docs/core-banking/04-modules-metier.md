@@ -655,7 +655,12 @@ fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 > chaque ordre à l'échéance qu'il a trouvée, sans tentative consommée, contre-passe ses écritures
 > — elles portent son identifiant de traitement — et **solde l'ordre de paiement déposé** ; si
 > celui-ci est déjà envoyé ou réglé, l'arrêté ne s'annule plus, et il le dit avant que rien ne
-> soit défait. Restent : les ordres permanents en devise, et le virement programmé à date unique.
+> soit défait — mais une **révocation postérieure survit** : défaire l'arrêté ne défait pas un
+> acte du client, et un ordre révoqué le reste. Un bénéficiaire devenu inopérable est un rejet
+> nommé, pas une anomalie ; et un compte que vise un ordre permanent actif — qu'il le paie ou le
+> reçoive — **ne se clôt pas** : au client de le révoquer d'abord, la banque ne décide pas à sa
+> place où son loyer doit aller. Restent : les ordres permanents en devise, et le virement
+> programmé à date unique.
 
 ### Points de conception
 
