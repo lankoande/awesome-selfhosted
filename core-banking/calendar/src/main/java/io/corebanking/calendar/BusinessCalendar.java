@@ -97,7 +97,11 @@ public final class BusinessCalendar {
      */
     public int businessDaysBetween(LocalDate from, LocalDate to) {
         int days = 0;
-        LocalDate candidate = from;
+        // Un depart anterieur a la periode couverte compte depuis son debut : l'age rendu est
+        // alors un minimum, ce qui suffit a un suspens plus vieux que toute tolerance — et vaut
+        // mieux qu'un refus de repondre au milieu d'un arrete.
+        LocalDate candidate = coverageFrom != null && from.isBefore(coverageFrom)
+            ? coverageFrom.minusDays(1) : from;
         while (candidate.isBefore(to)) {
             candidate = candidate.plusDays(1);
             if (isBusinessDay(candidate)) {

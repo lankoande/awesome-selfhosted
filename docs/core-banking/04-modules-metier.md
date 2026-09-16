@@ -484,8 +484,8 @@ fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 > (`Limits`).
 
 > **Implémenté — heure limite par canal** (`channel_cutoff`, V43, module `calendar`) : chaque
-> canal a son heure limite, dans le fuseau de l'entité, datée et validée à deux comme une
-> condition de banque ; au-delà, une opération en ligne porte la date de valeur calculée depuis
+> canal a son heure limite, dans le fuseau de l'entité (`legal_entity.timezone`, UTC par défaut
+> — l'heure légale de l'UEMOA), datée et validée à deux comme une condition de banque ; au-delà, une opération en ligne porte la date de valeur calculée depuis
 > le **jour ouvré suivant**, et un canal qui **ferme** à son heure limite refuse l'opération
 > (`409`). Une heure limite sans canal vaut pour tout canal, celle qui nomme le canal l'emporte.
 > Un traitement de lot n'a pas d'heure limite : il exécute ce qui est à l'échéance. La date

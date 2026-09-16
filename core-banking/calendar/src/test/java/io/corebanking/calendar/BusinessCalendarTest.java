@@ -86,4 +86,21 @@ class BusinessCalendarTest {
         assertThat(avecPont.addBusinessDays(VENDREDI, 1)).isEqualTo(LUNDI.plusDays(2));
         assertThat(avecPont.previousBusinessDayOrSame(SAMEDI)).isEqualTo(VENDREDI);
     }
+
+    @Test
+    @DisplayName("l'age d'un suspens se compte en jours ouvres, week-end exclu, depuis le lendemain ; avant la couverture, depuis son debut")
+    void business_days_between_count_working_days_only() {
+        var calendrier = new BusinessCalendar("CI", Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY),
+                                              Set.of(LocalDate.of(2026, 9, 17)),
+                                              LocalDate.of(2026, 9, 1), LocalDate.of(2026, 12, 31));
+        LocalDate mardi = LocalDate.of(2026, 9, 15);
+        assertThat(calendrier.businessDaysBetween(mardi, mardi)).isZero();
+        assertThat(calendrier.businessDaysBetween(mardi, mardi.plusDays(1))).isEqualTo(1);
+        // Mercredi, vendredi (jeudi ferie), lundi : trois jours ouvres jusqu'au lundi 21.
+        assertThat(calendrier.businessDaysBetween(mardi, LocalDate.of(2026, 9, 21))).isEqualTo(3);
+        assertThat(calendrier.businessDaysBetween(mardi.plusDays(3), mardi)).as("jamais negatif").isZero();
+        // Un depart avant la couverture compte depuis son debut : un minimum, pas un refus.
+        assertThat(calendrier.businessDaysBetween(LocalDate.of(2020, 1, 1), LocalDate.of(2026, 9, 2)))
+            .isEqualTo(2);
+    }
 }
