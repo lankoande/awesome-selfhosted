@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 630 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 324 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 632 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 326 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -884,6 +884,20 @@ et sa durée ne peut pas dépasser la durée accordée. Sans ces deux contrôles
 serait décorative : rien n'empêcherait de débloquer à 18 % un crédit accordé à 9 %, ni sur dix ans
 un crédit accordé sur trois (`the_disbursement_applies_what_was_granted`).
 
+**Une garantie exigée est une condition, pas un dépassement.** Compter l'exigence de garantie
+parmi les dépassements de politique rendrait dérogatoire *toute* décision sur un produit garanti —
+et une dérogation qu'on écrit à chaque dossier ne se lit plus. Elle devient donc, à l'accord, une
+condition suspensive posée d'office : elle ne gêne pas la décision, elle retient le versement
+(`a_required_collateral_becomes_a_condition_precedent`).
+
+**Un accord non signé est déjà un engagement.** Deux demandes instruites le même jour s'ignorent
+si l'on ne compte que les crédits en cours : chacune conclut que le client peut, et la banque
+accorde deux fois la même capacité. Les accords en vigueur non encore contractualisés entrent donc
+dans la charge — sauf celui qu'on est en train d'instruire. Et un engagement libellé dans une
+autre devise se convertit au cours de référence ; sans cours, l'instruction s'arrête en le disant,
+plutôt que d'additionner des dollars à des francs
+(`a_standing_offer_counts_and_a_foreign_commitment_needs_a_rate`).
+
 **Une offre a une fin.** Un accord donné sur une situation ancienne n'est plus un accord : les
 revenus ont changé, les engagements aussi. Passée sa validité, l'arrêté l'éteint — sans rien
 comptabiliser, puisque rien n'était engagé — et le dossier se réinstruit ; l'annulation de
@@ -960,6 +974,9 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Les dépassements sont recalculés sur les conditions accordées | Un dossier instruit à 8 % et accordé à 14 % n'a pas le même taux d'endettement, et c'est ce qu'on accorde qui engage l'emprunteur |
 | Le déblocage confronte l'échéancier au taux et à la durée accordés | Sans ce contrôle, la décision du comité serait décorative : rien n'empêcherait de débloquer à 18 % un crédit accordé à 9 % |
 | Une condition suspensive retient le versement, pas la signature | Elle ne suspend pas le contrat mais l'obligation de verser ; le bloquer à la signature retarderait le dossier sans rien protéger |
+| Une garantie exigée devient une condition suspensive, jamais un dépassement de politique | Sinon toute décision sur un produit garanti serait dérogatoire, et une dérogation écrite à chaque dossier ne se lit plus |
+| Les accords en vigueur non signés comptent dans la capacité du dossier suivant | Deux demandes instruites le même jour s'ignoreraient, et la banque accorderait deux fois la même capacité |
+| Un engagement en devise se convertit au cours de référence, ou l'instruction s'arrête | Additionner des dollars à des francs donne un taux d'endettement faux et silencieux ; le cours manquant se cote en une minute |
 | Un blocage de compte est vérifié par le service avant tout prélèvement, dans les deux sens | Le ledger laisse entrer un crédit de lot sur un compte gelé, parce qu'il le tient pour un acte de la banque ; la remise d'un créancier n'en est pas un |
 | La présentation d'un créancier d'ailleurs est réservée à la compensation | Le mandat décide de l'opération : un chargé de clientèle ne présente que pour un créancier de la banque, sous son plafond ; l'appelant ne choisit pas |
 | Un seul instant de connaissance par écriture | `clock_timestamp()` avance dans une transaction ; par ligne, il placerait les lignes après leur propre écriture |

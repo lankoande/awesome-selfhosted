@@ -469,6 +469,12 @@ Piloté par le profil réglementaire ([03](03-referentiel-parametrage.md#7-profi
 > montés juste sous le seuil et des dérogations prises hors du système. La **décision** se prend à
 > deux, sous une délégation mesurée en francs par rôle, et **se recalcule sur ce qu'elle
 > accorde** : un dossier instruit à 8 % et accordé à 14 % n'a pas le même taux d'endettement.
+> Les **accords en vigueur non encore signés** comptent dans la charge du dossier suivant — sans
+> quoi deux demandes instruites le même jour s'ignoreraient —, et un engagement libellé dans une
+> autre devise se **convertit au cours de référence**, faute de quoi l'instruction s'arrête au lieu
+> d'additionner des dollars à des francs. Une **garantie exigée** par la politique n'est pas un
+> dépassement mais une **condition suspensive posée d'office** à l'accord : la compter comme un
+> dépassement rendrait dérogatoire toute décision sur un produit garanti.
 > L'offre a une **durée de validité** ; passée, l'arrêté l'éteint et le dossier se réinstruit. Une
 > **condition suspensive** ne retient pas la signature mais le versement : le déblocage la vérifie,
 > et il vérifie aussi que l'échéancier applique **le taux et la durée accordés** — sans quoi la

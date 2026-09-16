@@ -67,6 +67,9 @@ public final class LoanOrigination {
 
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
+    /** Precision d'une conversion : celle que le socle tient pour un montant. */
+    private static final int CONVERSION_SCALE = 5;
+
     public enum Status { SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, CANCELLED, CONTRACTED, EXPIRED }
 
     public enum Outcome { APPROVED, REJECTED }
@@ -293,8 +296,12 @@ public final class LoanOrigination {
             ? Money.zero(application.currency()) : instruction.monthlyCharges();
         Money downPayment = instruction.downPayment() == null
             ? Money.zero(application.currency()) : instruction.downPayment();
-        Money existing = monthlyCommitments(c, application.customerId(), application.currency(),
-                                            instruction.assessedOn());
+        Money existing = monthlyCommitments(c, application.legalEntityId(),
+                                            application.customerId(), application.currency(),
+                                            instruction.assessedOn())
+            .plus(pendingOffers(c, application.legalEntityId(), application.customerId(),
+                                application.currency(), instruction.assessedOn(),
+                                application.id()));
         Money instalment = monthlyEquivalent(
             simulate(application.requestedAmount(), application.requestedTermMonths(),
                      instruction.ratePercent(), instruction.assessedOn()).instalments(),
@@ -422,6 +429,12 @@ public final class LoanOrigination {
         }
         if (verdict.outcome() == Outcome.APPROVED) {
             setStatus(c, application.id(), Status.APPROVED);
+            LendingPolicies.find(c, application.legalEntityId(), application.productCode(),
+                                 verdict.decidedOn())
+                .filter(LendingPolicies.Policy::collateralRequired)
+                .ifPresent(policy -> addCondition(c, application.id(), ConditionKind.PRECEDENT,
+                    "garantie exigee par la politique d'octroi du produit "
+                    + application.productCode(), null, verdict.decidedOn(), verdict.actorId()));
         } else {
             close(c, application.id(), Status.REJECTED, verdict.decidedOn(), verdict.reason());
         }
@@ -574,6 +587,7 @@ public final class LoanOrigination {
      * dossier le suivent : ce sont elles qui retiendront le versement.
      */
     public static UUID contractualise(Connection c, Contracting contracting) {
+        lock(c, contracting.applicationId());
         Application application = require(c, contracting.applicationId());
         if (application.status() != Status.APPROVED) {
             throw new ApplicationStateException("Seul un accord produit un contrat ; la demande "
@@ -680,11 +694,12 @@ public final class LoanOrigination {
      * par le nombre de mois que ces echeances couvrent. Un credit qui s'eteint dans trois mois
      * pese sur trois mois, pas sur douze ; une echeance trimestrielle pese le tiers de son montant.
      */
-    public static Money monthlyCommitments(Connection c, UUID customerId, CurrencyRef currency,
-                                           LocalDate from) {
+    public static Money monthlyCommitments(Connection c, UUID legalEntityId, UUID customerId,
+                                           CurrencyRef currency, LocalDate from) {
         Map<UUID, List<Object[]>> perContract = new LinkedHashMap<>();
+        Map<UUID, String> currencyOf = new LinkedHashMap<>();
         try (PreparedStatement ps = c.prepareStatement(
-            "SELECT s.contract_id, l.due_date, l.total"
+            "SELECT s.contract_id, l.due_date, l.total, k.currency"
             + "  FROM loan_schedule_line l"
             + "  JOIN loan_schedule s ON s.id = l.schedule_id"
             + "  JOIN loan_contract k ON k.id = s.contract_id"
@@ -696,24 +711,97 @@ public final class LoanOrigination {
             ps.setObject(3, from.plusMonths(WINDOW_MONTHS));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    perContract.computeIfAbsent(rs.getObject(1, UUID.class), k -> new ArrayList<>())
+                    UUID contractId = rs.getObject(1, UUID.class);
+                    perContract.computeIfAbsent(contractId, k -> new ArrayList<>())
                         .add(new Object[] {rs.getObject(2, LocalDate.class), rs.getBigDecimal(3)});
+                    currencyOf.put(contractId, rs.getString(4));
                 }
             }
         } catch (SQLException e) {
             throw new LedgerStoreException("Engagements en cours du client", e);
         }
         Money total = Money.zero(currency);
-        for (List<Object[]> lines : perContract.values()) {
+        for (Map.Entry<UUID, List<Object[]>> entry : perContract.entrySet()) {
             BigDecimal due = BigDecimal.ZERO;
             LocalDate last = from;
-            for (Object[] line : lines) {
+            for (Object[] line : entry.getValue()) {
                 due = due.add((BigDecimal) line[1]);
                 last = (LocalDate) line[0];
             }
-            total = total.plus(spread(Money.of(due, currency), from, last));
+            BigDecimal converted = convert(c, legalEntityId, due, currencyOf.get(entry.getKey()),
+                                           currency, from);
+            total = total.plus(spread(Money.of(converted, currency), from, last));
         }
         return total.roundToCurrency();
+    }
+
+    /**
+     * Les accords en vigueur que le client n'a pas encore signes, comptes comme des engagements.
+     *
+     * <p>Sans cela, deux demandes instruites le meme jour s'ignorent : chacune conclut que le
+     * client peut, et la banque accorde deux fois la meme capacite. Un accord non contractualise
+     * n'est pas une dette, mais c'est un engagement de la banque — et le client peut le signer
+     * demain.
+     */
+    public static Money pendingOffers(Connection c, UUID legalEntityId, UUID customerId,
+                                      CurrencyRef currency, LocalDate from, UUID exceptId) {
+        Money total = Money.zero(currency);
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT a.currency, d.granted_amount, d.granted_term_months, d.granted_rate_percent"
+            + "  FROM loan_application a JOIN loan_application_decision d ON d.application_id = a.id"
+            + " WHERE a.legal_entity_id = ? AND a.customer_id = ? AND a.status = 'APPROVED'"
+            + "   AND d.outcome = 'APPROVED' AND (d.valid_until IS NULL OR d.valid_until >= ?)"
+            + "   AND (?::uuid IS NULL OR a.id <> ?::uuid)")) {
+            ps.setObject(1, legalEntityId);
+            ps.setObject(2, customerId);
+            ps.setObject(3, from);
+            ps.setObject(4, exceptId);
+            ps.setObject(5, exceptId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    CurrencyRef offered = Entities.requireCurrency(c, rs.getString(1));
+                    Money granted = Money.of(rs.getBigDecimal(2), offered);
+                    Money instalment = monthlyEquivalent(
+                        simulate(granted, rs.getInt(3), rs.getBigDecimal(4), from).instalments(),
+                        offered, from);
+                    total = total.plus(Money.of(convert(c, legalEntityId, instalment.amount(),
+                                                        offered.code(), currency, from), currency));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Accords en vigueur du client", e);
+        }
+        return total;
+    }
+
+    /**
+     * Convertit au cours de reference. Une devise sans cours ne se convertit pas : l'instruction
+     * s'arrete en le disant, plutot que d'additionner des dollars a des francs.
+     */
+    private static BigDecimal convert(Connection c, UUID legalEntityId, BigDecimal amount,
+                                      String from, CurrencyRef to, LocalDate on) {
+        if (from.equals(to.code())) {
+            return amount;
+        }
+        CurrencyRef functional = Entities.functionalCurrency(c, legalEntityId);
+        BigDecimal inFunctional = from.equals(functional.code())
+            ? amount : amount.multiply(rate(c, legalEntityId, from, on));
+        BigDecimal converted = to.code().equals(functional.code())
+            ? inFunctional
+            : inFunctional.divide(rate(c, legalEntityId, to.code(), on), CONVERSION_SCALE,
+                                  RoundingMode.HALF_UP);
+        // Le montant converti reste un montant : la precision interne du socle le borne, et une
+        // conversion qui la depasserait serait refusee a la construction.
+        return converted.setScale(CONVERSION_SCALE, RoundingMode.HALF_UP);
+    }
+
+    private static BigDecimal rate(Connection c, UUID legalEntityId, String currency,
+                                   LocalDate on) {
+        return io.corebanking.ledger.store.FxRates.latestOn(c, legalEntityId, currency, on)
+            .map(io.corebanking.ledger.store.FxRates.Rate::rate)
+            .orElseThrow(() -> new ApplicationStateException("Le client porte un engagement en "
+                + currency + " et aucun cours n'est cote au " + on
+                + " : la capacite de remboursement ne se calcule pas sur des devises melangees"));
     }
 
     private static Money monthlyEquivalent(List<Instalment> instalments, CurrencyRef currency,
@@ -785,9 +873,9 @@ public final class LoanOrigination {
                              + required.toPlainString() + ")");
             }
         }
-        if (policy.collateralRequired()) {
-            breaches.add("garantie exigee par la politique : a constituer avant deblocage");
-        }
+        // La garantie exigee n'est pas un depassement : c'est une condition suspensive, posee
+        // d'office a l'accord. La compter comme un depassement rendrait toute decision
+        // derogatoire sur un produit garanti, et une derogation banale ne se lit plus.
         return breaches;
     }
 
@@ -1083,8 +1171,22 @@ public final class LoanOrigination {
         return events;
     }
 
-    /** Devise de tenue de l'entite — utile aux restitutions qui agregent plusieurs dossiers. */
-    public static CurrencyRef functionalCurrency(Connection c, UUID legalEntityId) {
-        return Entities.functionalCurrency(c, legalEntityId);
+    /**
+     * Verrouille le dossier le temps de la transaction : deux contractualisations concurrentes
+     * creeraient chacune un contrat avant qu'une seule ne soit retenue.
+     */
+    private static void lock(Connection c, UUID applicationId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id FROM loan_application WHERE id = ? FOR UPDATE")) {
+            ps.setObject(1, applicationId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new IllegalArgumentException("Demande de credit inconnue : "
+                                                       + applicationId);
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Verrou du dossier " + applicationId, e);
+        }
     }
 }

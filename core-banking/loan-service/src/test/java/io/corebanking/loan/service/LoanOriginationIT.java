@@ -7,7 +7,10 @@ import io.corebanking.kernel.money.Currencies;
 import io.corebanking.kernel.money.Money;
 import io.corebanking.loan.AmortisationSchedule;
 import io.corebanking.loan.LoanTerms;
+import io.corebanking.ledger.domain.account.NormalBalance;
+import io.corebanking.ledger.store.FxRates;
 import io.corebanking.loan.ScheduleGenerator;
+import io.corebanking.product.ProductCatalog;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -218,7 +221,7 @@ class LoanOriginationIT extends LoanTestBase {
         loanService.disburse(premier, echeancier("3000000", "12", 24), ACTOR, APPROVER);
 
         Money charge = database.inTransaction(c -> LoanOrigination.monthlyCommitments(
-            c, client, Currencies.XOF, DEBLOCAGE));
+            c, decor.entityId(), client, Currencies.XOF, DEBLOCAGE));
         assertThat(charge).as("la mensualite du credit en cours").isEqualTo(xof("141220"));
 
         UUID demande = database.inTransaction(
@@ -344,6 +347,125 @@ class LoanOriginationIT extends LoanTestBase {
                                               LoanOrigination.Status.CANCELLED));
         assertThat(dossiers).extracting(LoanOrigination.Application::reference)
             .containsExactly("DEM-007");
+    }
+
+
+    @Test
+    @DisplayName("une garantie exigee par la politique pose une condition suspensive d'office : elle retient le versement, elle ne rend pas la decision derogatoire")
+    void a_required_collateral_becomes_a_condition_precedent() {
+        Decor decor = decor("ORIG7");
+        product(decor, "CRED-ORIG7", Map.of());
+        UUID client = client(decor.entityId(), "CLI-ORIG7");
+        database.inTransaction(c -> LendingPolicies.declare(c, new LendingPolicies.Draft(
+            decor.entityId(), "CRED-ORIG7", new BigDecimal("50"), null, null, null, true, null,
+            DEBLOCAGE.minusYears(1), null, ACTOR, APPROVER)));
+
+        UUID demande = database.inTransaction(
+            c -> LoanOrigination.submit(c, new LoanOrigination.Request(
+                decor.entityId(), null, "DEM-007", client, "CRED-ORIG7", xof("1200000"), 12,
+                "fonds de roulement", DEBLOCAGE, ACTOR))).id();
+        LoanOrigination.Assessment instruction = database.inTransaction(
+            c -> LoanOrigination.assess(c, new LoanOrigination.Instruction(
+                demande, xof("2000000"), xof("0"), xof("0"), new BigDecimal("12"), null, null,
+                DEBLOCAGE, ACTOR)));
+        assertThat(instruction.withinPolicy())
+            .as("la garantie n'est pas un depassement : c'est une condition a venir").isTrue();
+
+        // L'accord passe sans derogation, et pose la condition de lui-meme.
+        database.inTransaction(c -> LoanOrigination.decide(c, new LoanOrigination.Verdict(
+            demande, LoanOrigination.Outcome.APPROVED, xof("1200000"), 12, new BigDecimal("12"),
+            DEBLOCAGE, "accord", null, ACTOR, APPROVER)));
+        List<LoanOrigination.Condition> conditions = database.inTransaction(
+            c -> LoanOrigination.conditions(c, demande));
+        assertThat(conditions).singleElement().satisfies(condition -> {
+            assertThat(condition.kind()).isEqualTo(LoanOrigination.ConditionKind.PRECEDENT);
+            assertThat(condition.description()).contains("garantie exigee");
+            assertThat(condition.open()).isTrue();
+        });
+
+        // Et elle retient le versement, comme toute condition suspensive.
+        UUID contrat = database.inTransaction(
+            c -> LoanOrigination.contractualise(c, new LoanOrigination.Contracting(
+                demande, "PRET-ORIG7", decor.pret().id(), decor.courant().id(), DEBLOCAGE, ACTOR)));
+        assertThatThrownBy(() -> loanService.disburse(contrat, echeancier("1200000", "12", 12),
+                                                      ACTOR, APPROVER))
+            .isInstanceOf(LoanOrigination.ApplicationStateException.class)
+            .hasMessageContaining("garantie exigee");
+    }
+
+    @Test
+    @DisplayName("un accord non encore signe compte comme un engagement, et un engagement en devise se convertit au cours de reference ou arrete l'instruction")
+    void a_standing_offer_counts_and_a_foreign_commitment_needs_a_rate() {
+        Decor decor = decor("ORIG8");
+        product(decor, "CRED-ORIG8", Map.of());
+        UUID client = client(decor.entityId(), "CLI-ORIG8");
+
+        // Un premier accord, en dollars, que le client n'a pas encore signe.
+        UUID creancesUsd = compteEnDevise(decor.entityId(), "ORIG8-CREANCES-USD",
+                                          NormalBalance.DEBIT);
+        UUID courusUsd = compteEnDevise(decor.entityId(), "ORIG8-ICNE-USD", NormalBalance.DEBIT);
+        UUID produitsUsd = compteEnDevise(decor.entityId(), "ORIG8-PRODUITS-USD",
+                                          NormalBalance.CREDIT);
+        UUID taxeUsd = compteEnDevise(decor.entityId(), "ORIG8-TAXE-USD", NormalBalance.CREDIT);
+        database.inTransaction(c -> {
+            UUID version = ProductCatalog.createDraft(c, new ProductCatalog.Draft(
+                decor.entityId(), "CRED-ORIG8-USD", "TERM_LOAN", "Credit en devise", "USD",
+                DEBLOCAGE.minusMonths(1), null,
+                Map.of(LoanCatalog.P_ACCRUED, creancesUsd.toString(),
+                       LoanCatalog.P_ACCRUED_INTEREST, courusUsd.toString(),
+                       LoanCatalog.P_INTEREST_INCOME, produitsUsd.toString(),
+                       LoanCatalog.P_TAX_ACCOUNT, taxeUsd.toString()),
+                List.of(), ACTOR));
+            ProductCatalog.activate(c, version, APPROVER);
+            return null;
+        });
+        UUID enDevise = database.inTransaction(
+            c -> LoanOrigination.submit(c, new LoanOrigination.Request(
+                decor.entityId(), null, "DEM-008-USD", client, "CRED-ORIG8-USD",
+                Money.of("12000", Currencies.USD), 12, "importation", DEBLOCAGE, ACTOR))).id();
+        database.inTransaction(c -> LoanOrigination.assess(c, new LoanOrigination.Instruction(
+            enDevise, Money.of("20000", Currencies.USD), null, null, new BigDecimal("6"), null,
+            null, DEBLOCAGE, ACTOR)));
+        database.inTransaction(c -> LoanOrigination.decide(c, new LoanOrigination.Verdict(
+            enDevise, LoanOrigination.Outcome.APPROVED, Money.of("12000", Currencies.USD), 12,
+            new BigDecimal("6"), DEBLOCAGE, "accord", null, ACTOR, APPROVER)));
+
+        // Une seconde demande, en francs : sans cours, la capacite ne se calcule pas.
+        UUID enFrancs = database.inTransaction(
+            c -> LoanOrigination.submit(c, new LoanOrigination.Request(
+                decor.entityId(), null, "DEM-008-XOF", client, "CRED-ORIG8", xof("1200000"), 12,
+                "tresorerie", DEBLOCAGE, ACTOR))).id();
+        assertThatThrownBy(() -> database.inTransaction(
+                c -> LoanOrigination.assess(c, new LoanOrigination.Instruction(
+                    enFrancs, xof("3000000"), null, null, new BigDecimal("12"), null, null,
+                    DEBLOCAGE, ACTOR))))
+            .isInstanceOf(LoanOrigination.ApplicationStateException.class)
+            .hasMessageContaining("aucun cours n'est cote")
+            .hasMessageContaining("devises melangees");
+
+        // Le cours cote, l'accord en dollars pese sur la demande en francs.
+        database.inTransaction(c -> FxRates.quote(c, new FxRates.Quote(
+            decor.entityId(), "USD", DEBLOCAGE, new BigDecimal("600"), "BCEAO", ACTOR, APPROVER)));
+        LoanOrigination.Assessment instruction = database.inTransaction(
+            c -> LoanOrigination.assess(c, new LoanOrigination.Instruction(
+                enFrancs, xof("3000000"), null, null, new BigDecimal("12"), null, null, DEBLOCAGE,
+                ACTOR)));
+        assertThat(instruction.existingCommitments())
+            .as("1 033 USD par mois au cours de 600").isEqualTo(xof("619680"));
+    }
+
+    /** Un compte general tenu en dollars : le paramétrage d'un produit en devise l'exige. */
+    private static UUID compteEnDevise(UUID entityId, String code, NormalBalance sens) {
+        io.corebanking.ledger.domain.account.Account compte =
+            new io.corebanking.ledger.domain.account.Account(
+                UUID.randomUUID(), entityId, code,
+                io.corebanking.ledger.domain.account.AccountKind.GL, sens, Currencies.USD, true,
+                false, 1, io.corebanking.ledger.domain.account.AccountStatus.ACTIVE);
+        database.inTransaction(c -> {
+            io.corebanking.ledger.store.Accounts.create(c, compte, DEBLOCAGE.minusMonths(1));
+            return null;
+        });
+        return compte.id();
     }
 
     private static AmortisationSchedule echeancier(String capital, String taux, int echeances) {

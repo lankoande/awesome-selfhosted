@@ -53,6 +53,7 @@ abstract class LoanTestBase {
 
         database.inTransaction(c -> {
             Entities.insertCurrency(c, Currencies.XOF, "Franc CFA BCEAO");
+            Entities.insertCurrency(c, Currencies.USD, "Dollar des Etats-Unis");
             return null;
         });
         postingService = new JdbcPostingService(database);
