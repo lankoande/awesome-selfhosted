@@ -105,6 +105,29 @@ public final class ParameterUseCases {
         }
     }
 
+    /** Redaction d'une maquette d'etat financier ; verifiee avant d'entrer en base. */
+    public static final class DraftStatementLayout
+            implements UseCase<io.corebanking.ledger.store.StatementLayouts.Draft, UUID> {
+        private final Database database;
+
+        public DraftStatementLayout(Database database) {
+            this.database = database;
+        }
+
+        @Override public Operation operation() { return Operation.STATEMENT_LAYOUT_DRAFT; }
+
+        @Override
+        public AccessTarget targetOf(io.corebanking.ledger.store.StatementLayouts.Draft draft) {
+            return AccessTarget.inEntity(draft.legalEntityId());
+        }
+
+        @Override
+        public UUID execute(io.corebanking.ledger.store.StatementLayouts.Draft draft) {
+            return database.inTransaction(
+                c -> io.corebanking.ledger.store.StatementLayouts.createDraft(c, draft));
+        }
+    }
+
     private static void requireDate(LocalDate validFrom) {
         if (validFrom == null) {
             throw new IllegalArgumentException("Champ obligatoire absent : validFrom");

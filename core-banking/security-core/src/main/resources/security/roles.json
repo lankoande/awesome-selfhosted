@@ -48,7 +48,7 @@
     {
       "code": "accountant",
       "name": "Comptable",
-      "description": "Comptabilite generale : contre-passation, arretes mensuel et annuel, exercices et affectation du resultat a deux, balance, grand livre et journal de l'entite.",
+      "description": "Comptabilite generale : contre-passation, arretes mensuel et annuel, exercices et affectation du resultat a deux, maquettes d'etats financiers, balance, grand livre, journal et etats financiers de l'entite.",
       "isSystem": true,
       "category": "SIEGE",
       "attributes": {

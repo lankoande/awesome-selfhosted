@@ -97,6 +97,10 @@ public enum Operation {
     ACCOUNTING_SCHEMA_DRAFT,
     /** Activation d'un schema comptable. */
     ACCOUNTING_SCHEMA_ACTIVATE,
+    /** Redaction d'une maquette d'etat financier : bilan, compte de resultat, hors bilan. */
+    STATEMENT_LAYOUT_DRAFT,
+    /** Activation d'une maquette d'etat financier : ce que la banque presente, a deux. */
+    STATEMENT_LAYOUT_ACTIVATE,
     /** Calendriers, jours feries, regles de date de valeur. */
     CALENDAR_MANAGE,
     /** Creation d'une agence ou d'une region, avec ses comptes de liaison. */

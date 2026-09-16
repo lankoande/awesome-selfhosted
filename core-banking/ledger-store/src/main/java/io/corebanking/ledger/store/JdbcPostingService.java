@@ -115,9 +115,14 @@ public final class JdbcPostingService implements PostingService {
         PostingContext context = new PostingContext(functional, accounts, network.headOfficeId(),
                                                     network.liaisonAccountIds());
         ValidatedEntry entry = EntryValidator.validate(command, context);
-        // Treizieme invariant : equilibree agence par agence, lignes de liaison comprises.
-        entry = InterbranchBridging.complete(entry, context,
-            (branch, currency) -> liaisonAccount(c, network, branch, currency));
+        // Treizieme invariant : equilibree agence par agence, lignes de liaison comprises. Le
+        // hors bilan s'equilibre dans son agence, sans liaison : la liaison est un compte de bilan.
+        if (entry.offBalance()) {
+            EntryValidator.requireBalancedPerBranch(entry.lines());
+        } else {
+            entry = InterbranchBridging.complete(entry, context,
+                (branch, currency) -> liaisonAccount(c, network, branch, currency));
+        }
 
         List<AccountDelta> deltas = aggregateDeltas(entry);
         refuseBlocked(c, deltas, command.source());

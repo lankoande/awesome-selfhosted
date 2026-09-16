@@ -251,6 +251,15 @@ public final class SecurityConfig {
             AccessRule.allow(ACCOUNTANT)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
+        // Une maquette d'etat financier fixe ce que la banque presente : la comptabilite la
+        // redige, une seconde main comptable l'active.
+        policy.put(Operation.STATEMENT_LAYOUT_DRAFT,
+            AccessRule.allow(ACCOUNTANT).within(Scope.OWN_ENTITY).build());
+
+        policy.put(Operation.STATEMENT_LAYOUT_ACTIVATE,
+            AccessRule.allow(ACCOUNTANT)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
         // Un jour ferie deplace des dates de valeur et des echeances : ce n'est pas anodin.
         policy.put(Operation.CALENDAR_MANAGE,
             AccessRule.allow(OPERATOR, PRODUCT_MANAGER)

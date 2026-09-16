@@ -66,6 +66,24 @@ défaut réellement coûteux — trois composantes arrondies séparément qui ne
 Ce que cela débloque directement : **commissions et taxes deviennent des lignes de schéma**. Une TVA
 qui change de taux est une nouvelle version datée, pas une livraison.
 
+
+### Maquettes d'états financiers — `statement_layout` ✅
+
+Bilan, compte de résultat et hors bilan sont des maquettes : des rubriques et des règles
+d'affectation, versionnées par validité, rédigées puis activées à deux, une seule active par
+nature d'état et par date ([02 §13](02-ledger.md#13-états-financiers)).
+
+| Table | Contenu |
+|---|---|
+| `statement_layout` | Nature d'état, code, validité, statut, approbation à quatre yeux |
+| `statement_line` | Rubrique : rang, code, libellé, niveau, nature (détail, total, résultat de l'exercice), sens, rubriques sommées et retranchées |
+| `statement_rule` | Règle d'affectation, dans l'ordre : rubrique de détail visée, nature de compte, préfixe de code, sens du solde |
+
+**Une maquette fausse n'entre pas en base** : totaux qui ne somment que des rubriques qui les
+précèdent, règles vers des rubriques de détail existantes, au moins un critère par règle, un seul
+résultat de l'exercice et seulement au bilan. Un compte qu'aucune règle ne reçoit n'est pas une
+erreur de maquette mais une anomalie nommée de l'état produit.
+
 ### Calendrier et dates de valeur ✅
 
 | Table | Contenu |

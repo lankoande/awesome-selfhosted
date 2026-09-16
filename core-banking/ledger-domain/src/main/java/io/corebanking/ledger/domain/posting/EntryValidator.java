@@ -3,6 +3,7 @@ package io.corebanking.ledger.domain.posting;
 import io.corebanking.kernel.money.CurrencyRef;
 import io.corebanking.kernel.money.Money;
 import io.corebanking.ledger.domain.account.Account;
+import io.corebanking.ledger.domain.account.AccountNature;
 import io.corebanking.ledger.domain.account.Direction;
 import io.corebanking.ledger.domain.error.InvalidPostingException;
 import io.corebanking.ledger.domain.error.UnbalancedEntryException;
@@ -39,13 +40,41 @@ public final class EntryValidator {
         for (PostingLine line : command.lines()) {
             validated.add(validateLine(line, command, context));
         }
+        boolean offBalance = requireOneWorld(validated);
         UUID operationBranch = operationBranchOf(validated, command, context);
         validated = withBranches(validated, operationBranch);
 
         requireBalancedPerCurrency(validated);
         requireBalancedInFunctionalCurrency(validated, context.functionalCurrency());
 
-        return new ValidatedEntry(command, validated, context.functionalCurrency(), operationBranch);
+        return new ValidatedEntry(command, validated, context.functionalCurrency(), operationBranch,
+                                  offBalance);
+    }
+
+    /**
+     * Bilan et hors bilan ne se melangent pas dans une ecriture. Un engagement par signature
+     * s'inscrit entre comptes de hors bilan, avec sa contrepartie de hors bilan, comme le veut le
+     * plan comptable bancaire ; une ecriture qui mettrait en jeu un compte de bilan et un compte
+     * de hors bilan fausserait les deux etats a la fois, et aucun des deux ne s'equilibrerait.
+     *
+     * @return vrai si l'ecriture est de hors bilan
+     */
+    private static boolean requireOneWorld(List<ValidatedLine> lines) {
+        boolean onBalance = false;
+        boolean offBalance = false;
+        for (ValidatedLine v : lines) {
+            if (v.account().nature() == AccountNature.OFF_BALANCE_SHEET) {
+                offBalance = true;
+            } else {
+                onBalance = true;
+            }
+        }
+        if (onBalance && offBalance) {
+            throw new InvalidPostingException(
+                "Une ecriture ne melange pas le bilan et le hors bilan : un engagement s'inscrit "
+                + "entre comptes de hors bilan, avec sa contrepartie de hors bilan.");
+        }
+        return offBalance;
     }
 
     /**

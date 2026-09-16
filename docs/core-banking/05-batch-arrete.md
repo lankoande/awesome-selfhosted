@@ -261,7 +261,12 @@ comptes de bilan, états financiers, liasse réglementaire, archivage de l'exerc
 > seconde voit la première (`concurrent_appropriations_are_serialised`). Un mois ne se rouvre
 > pas non plus sous un exercice clos : l'annulation d'un arrêté mensuel est refusée tant que la
 > clôture annuelle n'est pas annulée, parce que le résultat a été déterminé avec ce mois.
-> Restent à faire : les états financiers et la liasse.
+>
+> **Les états financiers** sont faits ([02 §13](02-ledger.md#13-états-financiers)) : bilan,
+> compte de résultat et hors bilan sont des maquettes paramétrées, activées à deux, appliquées
+> au journal en devise de tenue de compte à toute date — avant comme après la clôture. La
+> liasse réglementaire est un jeu de maquettes : ses modèles se chargent comme des maquettes,
+> ils ne sont pas du code.
 
 ---
 

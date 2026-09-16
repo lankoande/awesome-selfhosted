@@ -81,7 +81,8 @@ public final class DualControlHandlers {
                        new RegisterCollateral(database),
                        new AllocateCollateral(database), new ReleaseCollateral(database),
                        new ActivateCollateralPolicy(database), new ActivateRiskProfile(database),
-                       new ActivateAccountingSchema(database));
+                       new ActivateAccountingSchema(database),
+                       new ActivateStatementLayout(database));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -1220,6 +1221,54 @@ public final class DualControlHandlers {
                 return null;
             });
             return Map.of("schemaId", schema.id(), "code", schema.code(), "status", "ACTIVE");
+        }
+    }
+
+    /** Activation d'une maquette d'etat financier : jamais par son redacteur. */
+    static final class ActivateStatementLayout implements MakerChecker.Handler {
+        private final Database database;
+
+        ActivateStatementLayout(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "STATEMENT_LAYOUT_ACTIVATE"; }
+        @Override public Operation operation() { return Operation.STATEMENT_LAYOUT_ACTIVATE; }
+
+        private io.corebanking.ledger.store.StatementLayouts.Layout require(
+                Map<String, Object> payload) {
+            UUID id = uuid(payload, "layoutId");
+            return database.inTransaction(
+                    c -> io.corebanking.ledger.store.StatementLayouts.find(c, id))
+                .filter(layout -> layout.legalEntityId().equals(uuid(payload, "legalEntityId")))
+                .orElseThrow(() -> new ParameterUseCases.UnknownParameterException(
+                    "Maquette d'etat", id));
+        }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(require(payload).legalEntityId());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "layoutId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            var layout = require(payload);
+            UUID approver = Callers.actorId(checker);
+            if (approver.equals(layout.createdBy())) {
+                throw new IllegalStateException(
+                    "La maquette " + layout.code() + " ne peut pas etre activee par son redacteur.");
+            }
+            database.inTransaction(c -> {
+                io.corebanking.ledger.store.StatementLayouts.activate(c, layout.id(), approver);
+                return null;
+            });
+            return Map.of("layoutId", layout.id(), "code", layout.code(), "kind",
+                          layout.kind().name(), "status", "ACTIVE");
         }
     }
 }

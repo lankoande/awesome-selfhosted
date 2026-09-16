@@ -151,6 +151,19 @@ public final class Requests {
 
     public record ReleaseCollateral(LocalDate on) {}
 
+    // ------------------------------------------------------------------ etats financiers
+
+    public record StatementLineRequest(Integer ordinal, String code, String label, Integer level,
+                                       String kind, String side, List<String> plus,
+                                       List<String> minus) {}
+
+    public record StatementRuleRequest(Integer ordinal, String lineCode, String accountKind,
+                                       String codePrefix, String balanceSide) {}
+
+    public record StatementLayoutDraft(String kind, String code, String label, LocalDate validFrom,
+                                       LocalDate validTo, List<StatementLineRequest> lines,
+                                       List<StatementRuleRequest> rules) {}
+
     // ------------------------------------------------------------------ schemas comptables
 
     public record SchemaLine(String account, String direction, String amount, String label,

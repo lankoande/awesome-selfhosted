@@ -143,6 +143,7 @@ class ApiIT {
     private Account resultat;
     private Account reserves;
     private Account report;
+    private java.math.BigDecimal resultatNet;
     private String accountant2;
     private UUID caisseId;
     private String officer;
@@ -822,6 +823,7 @@ class ApiIT {
         assertThat(fiche.body().get("appropriation")).isNull();
         java.math.BigDecimal net = new java.math.BigDecimal(montant(fiche.body(), "netResult"));
         assertThat(net).isNotZero();
+        resultatNet = net;
         assertThat(montant(get(manager, "/accounts/" + resultat.id() + "/balance").body(),
                            "current")).isEqualTo(net.toPlainString());
         assertThat(get(accountant, "/fiscal-years/" + UUID.randomUUID()).status()).isEqualTo(404);
@@ -967,6 +969,120 @@ class ApiIT {
         // Une surete inconnue n'existe pas.
         assertThat(post(creditOfficer, "/collaterals/" + UUID.randomUUID() + "/release", null,
                         Map.of("on", J.toString())).status()).isEqualTo(404);
+    }
+
+    @Test
+    @Order(10)
+    @DisplayName("les etats financiers : maquettes redigees et activees a deux, bilan equilibre, compte de resultat egal au resultat affecte")
+    void etats_financiers() throws Exception {
+        List<Map<String, Object>> rubriques = List.of(
+            Map.of("ordinal", 1, "code", "A1", "label", "Caisse", "level", 1, "kind", "DETAIL",
+                   "side", "DEBIT"),
+            Map.of("ordinal", 2, "code", "A2", "label", "Credits et comptes debiteurs",
+                   "level", 1, "kind", "DETAIL", "side", "DEBIT"),
+            Map.of("ordinal", 3, "code", "A3", "label", "Autres actifs", "level", 1,
+                   "kind", "DETAIL", "side", "DEBIT"),
+            Map.of("ordinal", 4, "code", "TA", "label", "Total actif", "level", 0,
+                   "kind", "TOTAL", "side", "DEBIT", "plus", List.of("A1", "A2", "A3")),
+            Map.of("ordinal", 5, "code", "P1", "label", "Depots de la clientele", "level", 1,
+                   "kind", "DETAIL", "side", "CREDIT"),
+            Map.of("ordinal", 6, "code", "P2", "label", "Autres passifs et fonds propres",
+                   "level", 1, "kind", "DETAIL", "side", "CREDIT"),
+            Map.of("ordinal", 7, "code", "PR", "label", "Resultat de l'exercice", "level", 1,
+                   "kind", "PROFIT_OR_LOSS", "side", "CREDIT"),
+            Map.of("ordinal", 8, "code", "TP", "label", "Total passif", "level", 0,
+                   "kind", "TOTAL", "side", "CREDIT", "plus", List.of("P1", "P2", "PR")));
+        List<Map<String, Object>> regles = List.of(
+            Map.of("ordinal", 1, "lineCode", "A1", "accountKind", "INTERNAL"),
+            Map.of("ordinal", 2, "lineCode", "A2", "accountKind", "CUSTOMER", "balanceSide", "DEBIT"),
+            Map.of("ordinal", 3, "lineCode", "P1", "accountKind", "CUSTOMER", "balanceSide", "CREDIT"),
+            Map.of("ordinal", 4, "lineCode", "A3", "balanceSide", "DEBIT"),
+            Map.of("ordinal", 5, "lineCode", "P2", "balanceSide", "CREDIT"));
+
+        // Une maquette fausse n'est pas enregistree ; un guichetier n'en redige pas.
+        Reponse fausse = post(accountant, "/statement-layouts", null, Map.of(
+            "kind", "BALANCE_SHEET", "code", "BILAN-FAUX", "label", "Bilan",
+            "validFrom", J.minusYears(1).toString(),
+            "lines", List.of(Map.of("ordinal", 1, "code", "T", "label", "Total", "kind", "TOTAL",
+                                    "side", "DEBIT", "plus", List.of("ZZ"))),
+            "rules", regles));
+        assertThat(fausse.status()).as(String.valueOf(fausse.envelope())).isEqualTo(422);
+        assertThat((String) fausse.body().get("detail")).contains("Maquette invalide");
+        assertThat(post(teller, "/statement-layouts", null, Map.of("kind", "BALANCE_SHEET"))
+            .status()).isEqualTo(403);
+
+        // Le bilan et le compte de resultat : rediges par la comptabilite, actives par une seconde.
+        Reponse maquette = post(accountant, "/statement-layouts", null, Map.of(
+            "kind", "BALANCE_SHEET", "code", "BILAN-API", "label", "Bilan",
+            "validFrom", J.minusYears(1).toString(), "lines", rubriques, "rules", regles));
+        assertThat(maquette.status()).as(String.valueOf(maquette.envelope())).isEqualTo(201);
+        UUID bilanId = UUID.fromString((String) maquette.body().get("id"));
+        Reponse activation = post(accountant, "/statement-layouts/" + bilanId + "/activation",
+                                  null, Map.of());
+        assertThat(activation.status()).as(String.valueOf(activation.envelope())).isEqualTo(202);
+        assertThat(post(accountant, "/pending-operations/" + attente(activation) + "/approve",
+                        null, Map.of()).status()).isEqualTo(403);
+        Reponse active = post(accountant2, "/pending-operations/" + attente(activation)
+                              + "/approve", null, Map.of());
+        assertThat(active.status()).as(String.valueOf(active.envelope())).isEqualTo(200);
+        assertThat(resultat(active.body()).get("status")).isEqualTo("ACTIVE");
+        Reponse compteDeResultat = post(accountant, "/statement-layouts", null, Map.of(
+            "kind", "INCOME_STATEMENT", "code", "CR-API", "label", "Compte de resultat",
+            "validFrom", J.minusYears(1).toString(),
+            "lines", List.of(
+                Map.of("ordinal", 1, "code", "C1", "label", "Charges", "kind", "DETAIL",
+                       "side", "DEBIT"),
+                Map.of("ordinal", 2, "code", "R1", "label", "Produits", "kind", "DETAIL",
+                       "side", "CREDIT"),
+                Map.of("ordinal", 3, "code", "RES", "label", "Resultat", "kind", "TOTAL",
+                       "side", "CREDIT", "plus", List.of("R1"), "minus", List.of("C1"))),
+            "rules", List.of(
+                Map.of("ordinal", 1, "lineCode", "C1", "balanceSide", "DEBIT"),
+                Map.of("ordinal", 2, "lineCode", "R1", "balanceSide", "CREDIT"))));
+        assertThat(compteDeResultat.status()).isEqualTo(201);
+        Reponse activationCr = post(accountant, "/statement-layouts/"
+                                    + compteDeResultat.body().get("id") + "/activation", null,
+                                    Map.of());
+        assertThat(post(accountant2, "/pending-operations/" + attente(activationCr) + "/approve",
+                        null, Map.of()).status()).isEqualTo(200);
+
+        // La maquette se relit ; une maquette inconnue n'existe pas.
+        Reponse relue = get(accountant, "/statement-layouts/" + bilanId);
+        assertThat(relue.status()).isEqualTo(200);
+        assertThat((List<?>) relue.body().get("lines")).hasSize(8);
+        assertThat((List<?>) relue.body().get("rules")).hasSize(5);
+        assertThat(get(accountant, "/statement-layouts/" + UUID.randomUUID()).status())
+            .isEqualTo(404);
+
+        // Le bilan a la date de cloture : tout compte affecte, actif egal au passif ; le
+        // resultat de l'exercice clos est au compte de resultat, la rubrique en cours a zero.
+        Reponse bilan = get(accountant, "/statements/balance-sheet?asOf=" + J);
+        assertThat(bilan.status()).as(String.valueOf(bilan.envelope())).isEqualTo(200);
+        assertThat(bilan.body().get("consistent")).as(String.valueOf(bilan.body().get("anomalies")))
+            .isEqualTo(true);
+        assertThat(montant(bilan.body(), "net")).isEqualTo("0");
+        Map<String, String> lignes = new java.util.HashMap<>();
+        for (Object ligne : (List<?>) bilan.body().get("lines")) {
+            Map<?, ?> l = (Map<?, ?>) ligne;
+            lignes.put((String) l.get("code"), (String) ((Map<?, ?>) l.get("amount")).get("amount"));
+        }
+        assertThat(lignes.get("TA")).isEqualTo(lignes.get("TP"));
+        assertThat(new java.math.BigDecimal(lignes.get("TA"))).isPositive();
+        assertThat(lignes.get("PR")).isEqualTo("0");
+
+        // Le compte de resultat de l'exercice, hors ecritures de cloture : le resultat affecte.
+        Reponse cr = get(accountant, "/statements/income-statement?to=" + J);
+        assertThat(cr.status()).as(String.valueOf(cr.envelope())).isEqualTo(200);
+        assertThat(cr.body().get("consistent")).isEqualTo(true);
+        assertThat(cr.body().get("from")).isEqualTo(J.minusYears(1).plusDays(1).toString());
+        assertThat(new java.math.BigDecimal(montant(cr.body(), "net")))
+            .isEqualByComparingTo(resultatNet);
+
+        // Sans maquette de hors bilan, pas de hors bilan ; et le guichet ne lit pas les etats.
+        Reponse horsBilan = get(accountant, "/statements/off-balance-sheet");
+        assertThat(horsBilan.status()).isEqualTo(409);
+        assertThat((String) horsBilan.body().get("detail")).contains("maquette");
+        assertThat(get(teller, "/statements/balance-sheet").status()).isEqualTo(403);
     }
 
     // ------------------------------------------------------------------ outillage

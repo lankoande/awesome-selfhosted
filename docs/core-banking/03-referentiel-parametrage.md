@@ -77,6 +77,14 @@ Compte réglementaire (propre au référentiel du pays)
 Un changement de plan comptable réglementaire devient alors un **import de mapping**, sans
 reprise de données ni migration d'écritures.
 
+> **Implémenté, sous une forme plus générale.** La projection vers l'état présenté est portée
+> par les **maquettes d'états financiers** (`StatementLayouts`, V39, [02 §13](02-ledger.md#13-états-financiers)) :
+> des règles ordonnées qui affectent un compte à une rubrique selon sa nature, le préfixe de son
+> code et le sens de son solde. C'est la table de correspondance ci-dessus, versionnée par
+> validité et activée à deux, avec ce qu'une correspondance compte à compte ne sait pas dire —
+> un compte client débiteur change de rubrique. Une renumérotation du référentiel est une
+> nouvelle maquette ; le journal n'est pas touché.
+
 ### Structure d'un compte
 
 | Attribut | Rôle |

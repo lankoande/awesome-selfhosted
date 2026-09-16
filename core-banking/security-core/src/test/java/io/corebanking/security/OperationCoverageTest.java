@@ -37,6 +37,8 @@ class OperationCoverageTest {
         Map.entry("ProductCatalog.activate", Operation.PRODUCT_ACTIVATE),
         Map.entry("SchemaCatalog.createDraft", Operation.ACCOUNTING_SCHEMA_DRAFT),
         Map.entry("SchemaCatalog.activate", Operation.ACCOUNTING_SCHEMA_ACTIVATE),
+        Map.entry("StatementLayouts.createDraft", Operation.STATEMENT_LAYOUT_DRAFT),
+        Map.entry("StatementLayouts.activate", Operation.STATEMENT_LAYOUT_ACTIVATE),
         Map.entry("Calendars.createCalendar / addHoliday / attachToEntity / addRule",
                   Operation.CALENDAR_MANAGE),
         Map.entry("Branches.create", Operation.BRANCH_MANAGE),
@@ -95,7 +97,8 @@ class OperationCoverageTest {
                                               Operation.BRANCH_MANAGE, Operation.TILL_MANAGE,
                                               Operation.FISCAL_YEAR_MANAGE, Operation.YEAR_CLOSE,
                                               Operation.YEAR_REOPEN,
-                                              Operation.RESULT_APPROPRIATION)) {
+                                              Operation.RESULT_APPROPRIATION,
+                                              Operation.STATEMENT_LAYOUT_ACTIVATE)) {
             assertThat(SecurityConfig.ruleFor(operation).dualControl())
                 .as(operation.name()).isTrue();
         }

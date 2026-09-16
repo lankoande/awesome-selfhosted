@@ -1,0 +1,112 @@
+package io.corebanking.api.web;
+
+import io.corebanking.api.usecase.LedgerUseCases;
+import io.corebanking.api.usecase.ParameterUseCases;
+import io.corebanking.ledger.domain.account.AccountKind;
+import io.corebanking.ledger.domain.account.Direction;
+import io.corebanking.ledger.store.Database;
+import io.corebanking.ledger.store.StatementLayouts;
+import io.corebanking.security.Caller;
+import io.corebanking.security.UseCaseExecutor;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * Maquettes d'etats financiers : redigees par la comptabilite, verifiees avant d'entrer en base,
+ * activees a deux. Une maquette se relit, rubriques et regles : ce qui a produit un etat.
+ */
+@RestController
+@RequestMapping("/v1/entities/{legalEntityId}/statement-layouts")
+public class StatementLayoutController {
+
+    private final UseCaseExecutor executor;
+    private final MakerChecker makerChecker;
+    private final ParameterUseCases.DraftStatementLayout draft;
+    private final LedgerUseCases.ReadStatementLayout read;
+
+    public StatementLayoutController(UseCaseExecutor executor, Database database,
+                                     MakerChecker makerChecker) {
+        this.executor = executor;
+        this.makerChecker = makerChecker;
+        this.draft = new ParameterUseCases.DraftStatementLayout(database);
+        this.read = new LedgerUseCases.ReadStatementLayout(database);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public Requests.Created draft(Caller caller, @PathVariable UUID legalEntityId,
+                                  @RequestBody Requests.StatementLayoutDraft body) {
+        UUID id = executor.run(caller, draft, layout(legalEntityId, body, Callers.actorId(caller)));
+        return new Requests.Created(id);
+    }
+
+    @PostMapping("/{layoutId}/activation")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MakerChecker.View activate(Caller caller, @PathVariable UUID legalEntityId,
+                                      @PathVariable UUID layoutId) {
+        return makerChecker.submit(caller, legalEntityId, "STATEMENT_LAYOUT_ACTIVATE",
+                                   Payloads.of("layoutId", layoutId));
+    }
+
+    @GetMapping("/{layoutId}")
+    public StatementLayouts.Layout read(Caller caller, @PathVariable UUID legalEntityId,
+                                        @PathVariable UUID layoutId) {
+        return executor.run(caller, read, new LedgerUseCases.LayoutLookup(legalEntityId, layoutId));
+    }
+
+    /** La maquette telle que le socle la verifie ; une valeur inconnue est une requete fausse. */
+    private static StatementLayouts.Draft layout(UUID legalEntityId,
+                                                 Requests.StatementLayoutDraft body, UUID author) {
+        List<StatementLayouts.Line> lines = new ArrayList<>();
+        for (Requests.StatementLineRequest line : body.lines() == null
+                ? List.<Requests.StatementLineRequest>of() : body.lines()) {
+            lines.add(new StatementLayouts.Line(
+                integer(line.ordinal(), "ordinal"), line.code(), line.label(),
+                line.level() == null ? 0 : line.level(),
+                enumOf(StatementLayouts.LineKind.class, line.kind(), "kind"),
+                enumOf(Direction.class, line.side(), "side"), line.plus(), line.minus()));
+        }
+        List<StatementLayouts.Rule> rules = new ArrayList<>();
+        for (Requests.StatementRuleRequest rule : body.rules() == null
+                ? List.<Requests.StatementRuleRequest>of() : body.rules()) {
+            rules.add(new StatementLayouts.Rule(
+                integer(rule.ordinal(), "ordinal"), rule.lineCode(),
+                rule.accountKind() == null ? null
+                    : enumOf(AccountKind.class, rule.accountKind(), "accountKind"),
+                rule.codePrefix(),
+                rule.balanceSide() == null ? null
+                    : enumOf(Direction.class, rule.balanceSide(), "balanceSide")));
+        }
+        return new StatementLayouts.Draft(
+            legalEntityId, enumOf(StatementLayouts.Kind.class, body.kind(), "kind"), body.code(),
+            body.label(), body.validFrom(), body.validTo(), lines, rules, author);
+    }
+
+    private static int integer(Integer value, String what) {
+        if (value == null) {
+            throw new IllegalArgumentException("Champ obligatoire absent : " + what);
+        }
+        return value;
+    }
+
+    private static <E extends Enum<E>> E enumOf(Class<E> type, String value, String what) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Champ obligatoire absent : " + what);
+        }
+        try {
+            return Enum.valueOf(type, value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(what + " inconnu : " + value);
+        }
+    }
+}

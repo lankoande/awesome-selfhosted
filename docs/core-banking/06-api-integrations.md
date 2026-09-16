@@ -112,7 +112,7 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
   `401` sans jeton valide, `403` habilitation refusée ou jeton insuffisant, `404` compte,
   traitement, exercice ou chemin inconnu, `405`/`415` méthode ou type de contenu non admis,
   `409` conflit d'état (compte bloqué, disponible insuffisant, tiers non opérable, clôture
-  refusée, TFJ refusé, doublon de tiers), `422` requête que le socle ne peut pas honorer
+  refusée, TFJ refusé, doublon de tiers, aucune maquette d'état active à la date), `422` requête que le socle ne peut pas honorer
   (devise, montant, condition de date de valeur absente, paramétrage), `500` seulement pour ce qui
   n'est pas prévu — et alors rien n'a été comptabilisé.
 - **Les montants** sortent en `{ "amount": "20000", "currency": "XOF" }` et entrent de même ;
@@ -131,6 +131,9 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `GET /ledger/trial-balance?from=&to=&kind=&branchId=&page=&size=` | `LEDGER_READ` | la balance à six colonnes, dans l'ordre des codes de compte ; `kind` (balance auxiliaire) et `branchId` (balance d'agence) en filtres |
 | `GET /ledger/trial-balance/totals?from=&to=&kind=&branchId=` | `LEDGER_READ` | les totaux de la même balance, une ligne par devise, avec le constat d'équilibre |
 | `GET /ledger/journal?from=&to=&after=&size=` | `LEDGER_READ` | le journal de l'entité, toutes lignes, par curseur : un jour par défaut, la lecture des extractions |
+| `GET /statements/balance-sheet?asOf=`, `/off-balance-sheet?asOf=` | `LEDGER_READ` | l'état à la date (la date comptable par défaut) : rubriques, totaux, anomalies nommées, `consistent` ; `409` sans maquette active |
+| `GET /statements/income-statement?from=&to=` | `LEDGER_READ` | les mouvements de la plage hors écritures de clôture ; l'exercice en cours par défaut |
+| `POST /statement-layouts`, `.../{id}/activation`, `GET .../{id}` | `STATEMENT_LAYOUT_DRAFT`, `STATEMENT_LAYOUT_ACTIVATE` | nature d'état, code, validité, rubriques (rang, code, libellé, niveau, nature, sens, `plus`, `minus`), règles (rang, rubrique, nature de compte, préfixe, sens du solde) ; vérifiée avant d'entrer en base (`422`), activation **202**, jamais par le rédacteur ; lecture par `LEDGER_READ` |
 | `POST /accounts/{id}/deposits`, `/withdrawals` | `CASH_OPERATION` | montant, canal ; `Idempotency-Key` — la caisse est celle de l'appelant, résolue depuis son jeton (`409` s'il n'en a pas, ou si elle est arrêtée) |
 | `POST /transfers` | `TRANSFER` | émetteur, bénéficiaire, montant ; `Idempotency-Key` |
 | `POST /accounts/{id}/blocks`, `.../{blockId}/lift` | `ACCOUNT_BLOCK` | nature, motif — **202** |

@@ -498,3 +498,39 @@ clichée. L'accélération exacte, quand le volume l'exigera, est un cliché **p
 arrêté à la clôture de période** — une période close n'admet plus d'antidatage — d'où la
 balance repartirait ; elle est notée au plan, et ne change ni la forme ni le résultat.
 
+---
+
+## 13. États financiers
+
+> **Implémenté** — `StatementLayouts`, `Statements`, V39 ; opérations `STATEMENT_LAYOUT_DRAFT`,
+> `STATEMENT_LAYOUT_ACTIVATE` (à deux), lecture par `LEDGER_READ`.
+
+Un état financier est **une maquette appliquée au journal**. La maquette est un paramétrage :
+des rubriques ordonnées — de détail, de total, ou la rubrique du résultat de l'exercice, propre
+au bilan — et des **règles d'affectation** qui donnent à chaque compte sa rubrique de détail
+selon sa nature de compte, le préfixe de son code et le **sens de son solde** : un compte client
+débiteur est un crédit à la clientèle, créditeur un dépôt — la règle que le plan comptable
+bancaire impose et qu'aucune table de correspondance statique ne sait dire. Les règles se
+lisent dans l'ordre, la première qui reconnaît le compte l'emporte : la précédence est écrite
+par l'auteur, pas laissée à un chevauchement. Une maquette est vérifiée avant d'entrer en base
+(totaux qui ne sommeraient que des rubriques qui les précèdent, règles vers des rubriques de
+détail existantes, un seul résultat, et seulement au bilan), se rédige, puis s'active à deux ;
+une seule maquette active par nature d'état et par date.
+
+La production lit le journal en **devise de tenue de compte** — la contre-valeur de chaque
+ligne — à la date demandée : le bilan et le hors bilan présentent les soldes, le compte de
+résultat les mouvements d'une plage, l'exercice en cours par défaut, **hors écritures de
+clôture** : celles-ci soldent les comptes de résultat sans être de l'activité, et le compte de
+résultat d'un exercice clos montre ce que l'exercice a fait, pas sa clôture. Le bilan présente le
+résultat de l'exercice en cours dans sa rubrique de résultat, calculé par le socle et jamais par
+une règle ; après la clôture, il est au compte de résultat de l'exercice et la rubrique retombe
+à zéro. Un état **dit ce qu'il ne sait pas présenter** : un compte à solde non nul qu'aucune règle
+ne reçoit, un résultat antérieur non clos, un actif qui ne vaut pas le passif sont des anomalies
+nommées, jamais des montants perdus en silence, et l'état porte `consistent` faux.
+
+Pour que ces états se tiennent, le ledger tient un invariant de plus : **une écriture ne mélange
+pas le bilan et le hors bilan**. Un engagement par signature s'inscrit entre comptes de hors
+bilan, avec sa contrepartie de hors bilan, et s'équilibre dans son agence — la liaison est un
+compte de bilan, elle ne lui est pas offerte. Le hors bilan s'équilibre alors par lui-même, le
+bilan avec le résultat, chacun par construction.
+

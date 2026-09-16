@@ -16,14 +16,22 @@ public final class ValidatedEntry {
     private final List<ValidatedLine> lines;
     private final CurrencyRef functionalCurrency;
     private final java.util.UUID operationBranchId;
+    private final boolean offBalance;
 
     ValidatedEntry(PostingCommand command, List<ValidatedLine> lines, CurrencyRef functionalCurrency,
-                   java.util.UUID operationBranchId) {
+                   java.util.UUID operationBranchId, boolean offBalance) {
         this.command = Objects.requireNonNull(command);
         this.lines = List.copyOf(lines);
         this.functionalCurrency = Objects.requireNonNull(functionalCurrency);
         this.operationBranchId = operationBranchId;
+        this.offBalance = offBalance;
     }
+
+    /**
+     * Vrai pour une ecriture de hors bilan : tous ses comptes le sont. Elle s'equilibre dans son
+     * agence et ne recoit pas de lignes de liaison — la liaison est un compte de bilan.
+     */
+    public boolean offBalance() { return offBalance; }
 
     /** Agence de l'operation, telle que resolue : celle de la commande, sinon deduite, sinon le siege. */
     public java.util.UUID operationBranchId() { return operationBranchId; }

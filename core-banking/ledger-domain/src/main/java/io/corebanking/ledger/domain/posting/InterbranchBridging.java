@@ -83,7 +83,7 @@ public final class InterbranchBridging {
 
         ValidatedEntry completed = new ValidatedEntry(entry.command(), lines,
                                                       entry.functionalCurrency(),
-                                                      entry.operationBranchId());
+                                                      entry.operationBranchId(), entry.offBalance());
         EntryValidator.requireBalancedPerBranch(completed.lines());
         return completed;
     }

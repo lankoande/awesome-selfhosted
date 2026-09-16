@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 570 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 267 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 576 tests verts** — 304 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 272 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -687,6 +687,28 @@ le report à nouveau étant une destination comme une autre
 pas : on contre-passe son écriture pour la refaire ; et un résultat affecté retient la clôture,
 qui ne s'annule qu'une fois l'affectation contre-passée.
 
+### 22. Des états financiers qui disent ce qu'ils ne savent pas présenter
+
+**Un état est une maquette appliquée au journal.** Bilan, compte de résultat et hors bilan sont
+des paramétrages — rubriques et règles d'affectation — vérifiés avant d'entrer en base, rédigés
+puis activés à deux, une seule maquette active par nature d'état et par date. Une règle affecte
+un compte selon sa nature, le préfixe de son code et **le sens de son solde** : un compte client
+débiteur est un crédit, créditeur un dépôt, ce qu'aucune correspondance compte à compte ne sait
+dire (`the_balance_sheet_balances`).
+
+**Le résultat n'est jamais compté deux fois.** Le bilan présente le résultat de l'exercice en
+cours dans sa rubrique de résultat, calculé par le socle ; après la clôture, il est au compte de
+résultat de l'exercice et la rubrique retombe à zéro. Le compte de résultat ignore les écritures
+de clôture : celui d'un exercice clos montre ce que l'exercice a fait, et il vaut exactement le
+résultat qui a été affecté (`etats_financiers`).
+
+**Une anomalie est nommée, pas absorbée.** Un compte qu'aucune règle ne reçoit, un résultat
+antérieur non clos, un actif qui ne vaut pas le passif : l'état les dit et porte `consistent`
+faux, au lieu de forcer un total (`the_statement_names_what_it_cannot_present`). Pour que le
+hors bilan s'équilibre par lui-même, le ledger a gagné un invariant : une écriture ne mélange pas
+le bilan et le hors bilan, et un engagement s'équilibre dans son agence sans ligne de liaison
+(`an_entry_keeps_to_one_world`).
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
@@ -708,8 +730,9 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
   commissions de découvert (mise en place, dépassement), base minimum ou moyenne pour l'épargne
   classique — la capitalisation et les agios, eux, sont faits ;
 - archivage des partitions (leur création, elle, est garantie par le TFJ) ;
-- clôture annuelle : les états financiers et la liasse — la détermination du résultat, la
-  clôture du dernier mois et de l'exercice, et l'affectation du résultat, elles, sont faites ;
+- clôture annuelle : les modèles de liasse réglementaire à livrer comme maquettes — la
+  détermination du résultat, la clôture, l'affectation du résultat et les états financiers
+  (bilan, compte de résultat, hors bilan, maquettes à deux), eux, sont faits ;
 - contrôle du cours appliqué contre la table de référence — le ledger valide la cohérence des
   contre-valeurs, pas la justesse d'un cours uniforme.
 
@@ -795,6 +818,12 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Un mois ne se rouvre pas sous un exercice clos | Le résultat a été déterminé avec ce mois ; le rouvrir changerait ce que la clôture a déjà constaté, sans passer par elle |
 | L'ordre par curseur a un index par clé de lecture, vérifié sur le plan | Un ordre total que l'index ne porte pas relit à chaque page tout ce qui la précède ; le test le prouve sur le plan d'exécution, pas sur une intention |
 | Le coût de la balance est dit, pas caché | L'ouverture est une somme sur l'historique ; un cliché quotidien serait faux sous une écriture antidatée, et l'accélération exacte est un cliché arrêté à la clôture de période, notée au plan |
+| Une règle d'affectation peut lire le sens du solde | Un compte client débiteur change de rubrique ; une correspondance compte à compte le mettrait au passif avec un solde négatif |
+| Les règles se lisent dans l'ordre, la première l'emporte | La précédence est écrite par l'auteur ; refuser tout chevauchement rendrait les règles générales impossibles |
+| Le compte de résultat ignore les écritures de clôture | Elles soldent les comptes de résultat sans être de l'activité ; les lire ferait valoir zéro à tout exercice clos |
+| Le résultat au bilan est calculé par le socle, jamais par une règle | Une règle sur les comptes de résultat le compterait une seconde fois après la clôture, quand il est déjà au compte de résultat de l'exercice |
+| Un état anomal reste produit, avec ses anomalies nommées | Forcer un total masquerait le compte oublié ; refuser l'état priverait le comptable de ce qui lui permet de le corriger |
+| Une écriture ne mélange pas le bilan et le hors bilan | Un engagement contre un compte de bilan fausserait les deux états à la fois, et aucun ne s'équilibrerait |
 | Sans entité posée, le rôle applicatif ne voit rien | Le défaut est l'absence d'accès : une requête écrite sans filtre renvoie zéro ligne, pas toutes les entités |
 | Une transaction ne change pas d'entité | La base a déjà reçu l'entité de la transaction ; une unité de travail qui en attendrait une autre lirait à côté de ce qu'elle croit — refusé en Java, avant la base |
 | Deux comptes de base, propriétaire et applicatif | Le propriétaire des tables n'est soumis à aucune politique ; avec un seul compte, la Row Level Security serait décorative |

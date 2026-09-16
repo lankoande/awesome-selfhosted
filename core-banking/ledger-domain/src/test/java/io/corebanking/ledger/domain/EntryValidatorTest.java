@@ -7,12 +7,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.corebanking.kernel.money.Money;
 import io.corebanking.ledger.domain.account.Account;
+import io.corebanking.ledger.domain.account.AccountNature;
 import io.corebanking.ledger.domain.account.AccountStatus;
 import io.corebanking.ledger.domain.account.NormalBalance;
 import io.corebanking.ledger.domain.error.InvalidPostingException;
 import io.corebanking.ledger.domain.error.UnbalancedEntryException;
 import io.corebanking.ledger.domain.posting.EntryValidator;
 import io.corebanking.ledger.domain.posting.PostingLine;
+import io.corebanking.ledger.domain.posting.ValidatedEntry;
 import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -188,5 +190,37 @@ class EntryValidatorTest {
             XOF, true, true, 32, AccountStatus.ACTIVE))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("compte chaud");
+    }
+
+    @Test
+    @DisplayName("une ecriture ne melange pas le bilan et le hors bilan ; entre comptes de hors bilan, elle est marquee comme telle")
+    void an_entry_keeps_to_one_world() {
+        Account engagement = Fixtures.glAccount("GL-ENGAGEMENT", XOF, NormalBalance.DEBIT)
+            .withNature(AccountNature.OFF_BALANCE_SHEET);
+        Account contrepartie = Fixtures.glAccount("GL-CONTREPARTIE-HB", XOF, NormalBalance.CREDIT)
+            .withNature(AccountNature.OFF_BALANCE_SHEET);
+
+        assertThatThrownBy(() -> EntryValidator.validate(
+            Fixtures.command(List.of(
+                PostingLine.debit(engagement.id(), Money.of("500000", XOF), Fixtures.TODAY, null),
+                PostingLine.credit(caisse.id(), Money.of("500000", XOF), Fixtures.TODAY, null))),
+            Fixtures.context(XOF, engagement, caisse)))
+            .isInstanceOf(InvalidPostingException.class)
+            .hasMessageContaining("hors bilan");
+
+        ValidatedEntry engagementDonne = EntryValidator.validate(
+            Fixtures.command(List.of(
+                PostingLine.debit(engagement.id(), Money.of("500000", XOF), Fixtures.TODAY, null),
+                PostingLine.credit(contrepartie.id(), Money.of("500000", XOF), Fixtures.TODAY,
+                                   null))),
+            Fixtures.context(XOF, engagement, contrepartie));
+        assertThat(engagementDonne.offBalance()).isTrue();
+
+        ValidatedEntry versement = EntryValidator.validate(
+            Fixtures.command(List.of(
+                PostingLine.debit(caisse.id(), Money.of("1000", XOF), Fixtures.TODAY, null),
+                PostingLine.credit(client.id(), Money.of("1000", XOF), Fixtures.TODAY, null))),
+            Fixtures.context(XOF, client, caisse));
+        assertThat(versement.offBalance()).isFalse();
     }
 }
