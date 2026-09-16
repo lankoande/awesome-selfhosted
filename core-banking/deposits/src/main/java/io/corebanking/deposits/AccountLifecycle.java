@@ -85,8 +85,15 @@ public final class AccountLifecycle {
 
     public static final String TYPE_CLOSURE_PAYOUT = "ACCOUNT_CLOSURE_PAYOUT";
 
-    /** Familles de produit qu'un compte de depot peut porter. */
-    static final Set<String> DEPOSIT_FAMILIES = Set.of("CURRENT_ACCOUNT", "SAVINGS_ACCOUNT");
+    /**
+     * Familles de produit qu'un compte de depot peut porter.
+     *
+     * <p>Un compte de depot a terme en fait partie : c'est un compte du client, tenu au passif,
+     * ouvert et clos comme les autres. Ce qui le distingue tient au contrat qui s'y adosse, pas au
+     * compte.
+     */
+    static final Set<String> DEPOSIT_FAMILIES = Set.of("CURRENT_ACCOUNT", "SAVINGS_ACCOUNT",
+                                                       "TERM_DEPOSIT");
 
     private final Database database;
     private final PostingService postingService;
@@ -140,7 +147,8 @@ public final class AccountLifecycle {
                 throw new IllegalArgumentException(
                     "Le produit " + product.code() + " est de la famille " + product.productType()
                     + " (" + ProductFamilies.require(product.productType()).label() + ") : un "
-                    + "compte de depot ne se rattache qu'a un compte courant ou d'epargne");
+                    + "compte de depot ne se rattache qu'a un compte courant, d'epargne ou a "
+                    + "terme");
             }
             ProductCatalog.requireProductCurrency(c, opening.legalEntityId(), opening.productCode(),
                                                   opening.currency().code(),

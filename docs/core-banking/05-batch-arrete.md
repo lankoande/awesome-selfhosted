@@ -100,6 +100,8 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | 12 | `DORMANCY` | Détection de dormance (délai du produit, sur l'absence d'opération du client) ; régime de frais : non fait | ✔ (non bloquante) |
 | 13 | `HOLD_EXPIRY` | Expiration des blocages de montant arrivés à terme, en date comptable | ✔ |
 | 13b | `DIRECT_DEBITS` | Prélèvements à l'échéance : débit du débiteur, crédit sauf bonne fin du créancier, rejets nommés (provision, mandat révoqué, compte inopérable) | ✔ |
+| 13d | `TERM_DEPOSIT_ACCRUAL` | Intérêts courus des dépôts à terme, au taux de chaque contrat | ✔ |
+| 13e | `TERM_DEPOSIT_MATURITY` | Échéances des dépôts à terme : intérêts servis, terme dénoué (versement ou reconduction au taux du jour) | ✔ |
 | 13c | `STANDING_ORDERS` | Ordres permanents à l'échéance : virement interne ou dépôt d'un ordre de paiement, rejets nommés retentés un nombre borné de fois | ✔ |
 | 14 | `KYC_REVIEW` | Échéances de revue périodique de la connaissance client ; expiration de documents : non fait | ✔ (non bloquante) |
 | 14b | `SUSPENSE_REVIEW` | Revue des suspens : ordres, remises, prélèvements non réglés, comptes d'attente non soldés, par ancienneté en jours ouvrés et responsable ; les retards en anomalies | ✔ (non bloquante) |
@@ -113,7 +115,8 @@ laissent le run se poursuivre, avec restitution à la clôture.
 
 > **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `FX_RATES` → `HOLD_EXPIRY` →
 > `DIRECT_DEBITS` → `STANDING_ORDERS` → `FEE_CHARGING` → `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_INTEREST_ACCRUAL` →
-> `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` → `LOAN_CLOSURE` → `INTEREST_ACCRUAL` →
+> `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` → `LOAN_CLOSURE` → `TERM_DEPOSIT_ACCRUAL` →
+> `TERM_DEPOSIT_MATURITY` → `INTEREST_ACCRUAL` →
 > `INTEREST_SETTLEMENT` → `FX_REVALUATION` → `DORMANCY` → `KYC_REVIEW` → `DOCUMENT_EXPIRY` →
 > `OFFER_EXPIRY` → `SUSPENSE_REVIEW` → `BALANCE_SNAPSHOT` →
 > `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans toucher au moteur.
@@ -150,6 +153,19 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > depuis. Les écritures de l'étape portent l'identifiant du traitement — un virement de lot non
 > rattaché à son arrêté survivrait à son annulation —, et leur clé d'idempotence aussi : rejoué,
 > l'arrêté annulé réécrit au lieu de croire avoir viré.
+>
+> `TERM_DEPOSIT_ACCRUAL` et `TERM_DEPOSIT_MATURITY` viennent avant les intérêts sur dépôts, et
+> dans cet ordre : ce qui est servi au client au terme est ce qui a été constaté, journée du terme
+> comprise ; et les intérêts qu'un terme verse sur un compte courant entrent dans le solde sur
+> lequel ce compte est rémunéré le même jour — l'ordre inverse rémunérerait un solde que le client
+> n'a pas encore. Les comptes de dépôt à terme sont **écartés** de `INTEREST_ACCRUAL` : leur
+> intérêt n'est pas la rémunération d'un solde au barème du jour, c'est l'exécution d'un contrat à
+> taux figé ; les rémunérer là les paierait deux fois, et au mauvais prix. Les deux étapes sont
+> bloquantes — un intérêt non constaté surévalue le résultat, un terme non dénoué laisse l'argent
+> du client bloqué un jour de plus. L'annulation de l'arrêté efface ses journées d'intérêts,
+> ramène le cumul à ce que les journées restantes disent, défait les échéances qu'il a servies et
+> supprime la reconduction qu'il a créée : un sous-livre qui survivrait à la contre-passation de
+> ses écritures ferait échouer le rapprochement du lendemain.
 >
 > `DOCUMENT_EXPIRY` suit `KYC_REVIEW` : les deux constatent la même chose — un dossier qui s'est
 > périmé pendant la nuit — et ne comptabilisent rien. La pièce expirée est constatée **une seule

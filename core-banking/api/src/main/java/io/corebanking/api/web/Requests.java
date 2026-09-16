@@ -206,6 +206,25 @@ public final class Requests {
     /** La revocation d'un ordre permanent, motivee. */
     public record StandingOrderRevocation(LocalDate on, String reason) {}
 
+    // ------------------------------------------------------------------ depots a terme
+
+    /**
+     * Souscription d'un depot a terme.
+     *
+     * @param grantedRatePercent taux consenti, absent pour le taux de reference du produit ; il
+     *     est borne par le plafond du produit — le prix de la ressource ne se fixe pas en agence
+     * @param interestPayment {@code AT_MATURITY} ou une periodicite de service des interets
+     * @param maturityInstruction ce que le client demande pour le terme, decide maintenant :
+     *     {@code PAY_OUT}, {@code RENEW_PRINCIPAL} ou {@code RENEW_ALL}
+     */
+    public record TermDepositRequest(String reference, UUID depositAccountId,
+                                     UUID settlementAccountId, BigDecimal principal,
+                                     BigDecimal grantedRatePercent, Integer termMonths,
+                                     String interestPayment, String maturityInstruction) {}
+
+    /** Rupture avant terme : le motif est la piece que lira le controle. */
+    public record TermDepositBreak(String reason) {}
+
     // ------------------------------------------------------------------ fin de vie du credit
 
     /** Passage en perte : le motif est la piece que lira le controle. */

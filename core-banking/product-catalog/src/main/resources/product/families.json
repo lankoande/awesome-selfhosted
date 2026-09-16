@@ -286,6 +286,49 @@
       ]
     },
     {
+      "code": "TERM_DEPOSIT",
+      "label": "Depot a terme",
+      "comment": [
+        "Le DAT ne porte pas le bloc « interest » : son taux est celui du contrat, fige a la",
+        "souscription, quand le bloc « interest » decrit la remuneration d'un solde au bareme",
+        "du jour. Le produit ne sert ici qu'a la souscription : le taux de reference, le",
+        "plafond de ce qu'une agence peut consentir au-dela, la duree et le montant admis, le",
+        "taux servi a qui ne tient pas la duree, et les comptes ou les interets se constatent.",
+        "Ce que le contrat a retenu, il le garde — le bareme peut changer le lendemain."
+      ],
+      "required": [
+        "term.rate",
+        "term.accrued_interest",
+        "term.interest_expense",
+        "term.day_count",
+        "term.min_amount",
+        "term.min_months",
+        "term.max_months"
+      ],
+      "optional": [
+        "term.penalty_rate",
+        "term.withholding_rate",
+        "term.withholding_account",
+        "term.max_rate",
+        "term.renewal"
+      ],
+      "accounts": [
+        "term.accrued_interest",
+        "term.interest_expense",
+        "term.withholding_account"
+      ],
+      "conditions": [
+        {
+          "when": "term.withholding_rate",
+          "present": true,
+          "require": [
+            "term.withholding_account"
+          ],
+          "because": "une retenue a la source sans compte d'imputation echouerait au versement des interets, de nuit, sur l'echeance d'un client"
+        }
+      ]
+    },
+    {
       "code": "TERM_LOAN",
       "label": "Credit amortissable",
       "required": [

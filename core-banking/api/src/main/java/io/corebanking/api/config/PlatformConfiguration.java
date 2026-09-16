@@ -181,7 +181,9 @@ public class PlatformConfiguration {
                                                      io.corebanking.loan.service
                                                          .LoanWriteOffService writeOffs,
                                                      io.corebanking.deposits.StandingOrderService
-                                                         standingOrders) {
+                                                         standingOrders,
+                                                     io.corebanking.deposits.TermDepositService
+                                                         termDeposits) {
         int hours = properties.makerChecker() == null ? 48
                     : properties.makerChecker().expiryHoursOrDefault();
         return new io.corebanking.api.web.MakerChecker(
@@ -189,13 +191,19 @@ public class PlatformConfiguration {
             io.corebanking.api.web.DualControlHandlers.all(database, lifecycle, parties, accounts,
                                                            loans, engines, postingService,
                                                            cheques, directDebits, writeOffs,
-                                                           standingOrders));
+                                                           standingOrders, termDeposits));
     }
 
     @Bean
     io.corebanking.deposits.StandingOrderService standingOrderService(
             Database database, PostingService postingService) {
         return new io.corebanking.deposits.StandingOrderService(database, postingService);
+    }
+
+    @Bean
+    io.corebanking.deposits.TermDepositService termDepositService(
+            Database database, PostingService postingService) {
+        return new io.corebanking.deposits.TermDepositService(database, postingService);
     }
 
     @Bean

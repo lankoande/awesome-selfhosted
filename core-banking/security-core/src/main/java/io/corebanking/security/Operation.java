@@ -73,6 +73,12 @@ public enum Operation {
     STANDING_ORDER_CANCEL,
     /** Consultation des ordres permanents et de leurs echeances. */
     STANDING_ORDER_READ,
+    /** Souscription d'un depot a terme : elle engage la banque sur un prix et sur une duree, a deux. */
+    TERM_DEPOSIT_SUBSCRIBE,
+    /** Rupture d'un depot a terme avant son terme : elle defait un engagement pris des deux cotes, a deux. */
+    TERM_DEPOSIT_BREAK,
+    /** Consultation des depots a terme et de leurs interets. */
+    TERM_DEPOSIT_READ,
     /** Presentation par la compensation d'un prelevement d'un creancier d'ailleurs, sur un mandat. */
     DIRECT_DEBIT_PRESENT,
     /** Remise d'un client creancier : sur un debiteur d'ailleurs, credite sauf bonne fin a l'echeance ; sur un debiteur de la banque, par son mandat. */

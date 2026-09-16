@@ -138,7 +138,11 @@ public class ApiExceptionHandler {
                        TillService.UnjustifiedDifferenceException.class,
                        io.corebanking.loan.service.LoanOrigination.ApplicationStateException.class,
                        io.corebanking.loan.service.LoanWriteOffService
-                           .WriteOffRefusedException.class})
+                           .WriteOffRefusedException.class,
+                       io.corebanking.deposits.StandingOrderService
+                           .StandingOrderRefusedException.class,
+                       io.corebanking.deposits.TermDepositService
+                           .TermDepositRefusedException.class})
     ResponseEntity<ApiResponse<Void>> conflict(RuntimeException e, HttpServletRequest request) {
         return respond(HttpStatus.CONFLICT, "Operation refusee", e.getMessage(), request);
     }

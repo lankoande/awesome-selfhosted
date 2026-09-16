@@ -655,6 +655,34 @@ fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 > chaque ordre à l'échéance qu'il a trouvée, sans tentative consommée, contre-passe ses écritures
 > — elles portent son identifiant de traitement — et **solde l'ordre de paiement déposé** ; si
 > celui-ci est déjà envoyé ou réglé, l'arrêté ne s'annule plus, et il le dit avant que rien ne
+> **Implémenté — dépôts à terme** (`TermDepositService`, V52, famille de produit `TERM_DEPOSIT`,
+> module `deposits`, étapes `TERM_DEPOSIT_ACCRUAL` et `TERM_DEPOSIT_MATURITY` du TFJ) : **un
+> contrat, pas un solde rémunéré**. Trois traits le distinguent d'un compte d'épargne, et chacun
+> a sa conséquence. **Le taux est figé à la souscription** : le produit propose le barème du jour
+> et le plafond de ce qu'une agence peut consentir au-delà (`term.rate`, `term.max_rate`) ; ce que
+> le contrat retient, il le garde, et le barème peut changer le lendemain. **Le capital est
+> bloqué** — par un blocage de compte, pas par une convention que chaque service devrait
+> connaître : aucun retrait, aucun prélèvement, aucun ordre permanent, aucune commission ne peut
+> l'entamer, quel qu'en soit le chemin. Le blocage tombe dans la transaction même qui dénoue le
+> contrat : le capital n'est jamais libre sans être rendu. **Une sortie avant terme est une
+> rupture**, pas un retrait : les intérêts sont recalculés au taux de pénalité
+> (`term.penalty_rate`) sur la période réellement courue, ce qui a été constaté au-delà est repris,
+> et si le client avait déjà perçu plus que la rupture ne lui laisse, le versement en est diminué.
+> Les **intérêts courent jour après jour** au taux du contrat, en charge contre un compte de courus
+> (`term.accrued_interest`, `term.interest_expense`) — cumul en précision entière, imputé par écart
+> entre le cumul arrondi et ce qui a déjà été imputé, donc sans dérive d'arrondi quel que soit le
+> rattrapage. Ils courent sur **[valeur, terme[** : le jour du terme, le capital est rendu ou
+> reconduit, et c'est le contrat suivant qui le porte. Ils se servent **au terme ou à chaque fin de
+> période**, retenue à la source déduite (`term.withholding_rate`). **Au terme**, le capital suit
+> l'instruction donnée à la souscription — versé, reconduit seul, ou reconduit avec ses intérêts
+> nets ; le renouvellement souscrit un **nouveau contrat au taux du jour** : reconduire l'ancien
+> taux engagerait la banque sur un prix qu'elle n'a pas décidé, et le client sur un prix qu'il n'a
+> pas revu. Le compte de dépôt ne porte **qu'un contrat vivant** : son solde serait sinon celui de
+> deux capitaux aux taux et aux termes différents, et aucun des deux ne serait juste. Le
+> rapprochement de chaque nuit confronte la somme des contrats au solde du compte de courus. Restent :
+> les dépôts à terme en devise, les barèmes par durée, et le nantissement d'un DAT en garantie
+> d'un crédit.
+
 > soit défait — mais une **révocation postérieure survit** : défaire l'arrêté ne défait pas un
 > acte du client, et un ordre révoqué le reste. Un bénéficiaire devenu inopérable est un rejet
 > nommé, pas une anomalie ; et un compte que vise un ordre permanent actif — qu'il le paie ou le

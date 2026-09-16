@@ -228,7 +228,11 @@ un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servi
 > décide de l'opération, pas l'appelant), ordres permanents (`STANDING_ORDER_REGISTER` à deux
 > dans l'agence — il engage des virements que personne ne redemandera —, `STANDING_ORDER_CANCEL`
 > en gestion du compte, `STANDING_ORDER_READ` tracé ; l'ordre est celui du client, et il consomme
-> ses plafonds), suspens (`SUSPENSE_MANAGE` à deux pour le back-office,
+> ses plafonds), dépôts à terme (`TERM_DEPOSIT_SUBSCRIBE` et `TERM_DEPOSIT_BREAK` à deux dans
+> l'agence et plafonnés par rôle sur le capital — placer la ressource engage la banque sur un prix
+> et sur une durée, et la rompre défait cet engagement —, `TERM_DEPOSIT_READ` tracé à l'échelle de
+> l'entité : la comptabilité et l'audit lisent les engagements de la banque au même titre que
+> l'agence qui les a placés), suspens (`SUSPENSE_MANAGE` à deux pour le back-office,
 > `SUSPENSE_READ` tracé pour l'exploitation et le contrôle), heures limites des canaux sous
 > `CALENDAR_MANAGE`, change (`FX_RATE_QUOTE` à deux — le coteur n'est pas le valideur —,
 > `FX_POSITION_MANAGE` à deux pour la comptabilité, `FX_READ` tracé), dossier client

@@ -72,7 +72,9 @@ public final class DualControlHandlers {
                                                  io.corebanking.deposits.DirectDebitService
                                                      directDebits,
                                                  LoanWriteOffService writeOffs,
-                                                 StandingOrderService standingOrders) {
+                                                 StandingOrderService standingOrders,
+                                                 io.corebanking.deposits.TermDepositService
+                                                     termDeposits) {
         return List.of(new OpenAccount(lifecycle), new CloseAccount(lifecycle, accounts),
                        new BlockAccount(lifecycle, accounts), new LiftBlock(lifecycle, accounts),
                        new PlaceHold(database, accounts), new ReleaseHold(database, accounts),
@@ -102,7 +104,9 @@ public final class DualControlHandlers {
                        new DecideApplication(database), new ClearCondition(database),
                        new SetLendingPolicy(database), new WriteOffLoan(database, writeOffs),
                        new ReviseLoanRate(database, loans),
-                       new RegisterStandingOrder(database, standingOrders, accounts));
+                       new RegisterStandingOrder(database, standingOrders, accounts),
+                       new SubscribeTermDeposit(termDeposits, accounts),
+                       new BreakTermDeposit(database, termDeposits, accounts));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -2074,4 +2078,130 @@ public final class DualControlHandlers {
                           layout.kind().name(), "status", "ACTIVE");
         }
     }
+
+    /**
+     * Souscription d'un depot a terme : elle engage la banque sur un prix et sur une duree, et le
+     * taux consenti est borne par le produit. Le plafond du role porte sur le capital place : ce
+     * n'est pas de l'argent qui sort, mais c'est de la ressource que la banque achete.
+     */
+    static final class SubscribeTermDeposit implements MakerChecker.Handler {
+        private final io.corebanking.deposits.TermDepositService termDeposits;
+        private final AccountDirectory accounts;
+
+        SubscribeTermDeposit(io.corebanking.deposits.TermDepositService termDeposits,
+                             AccountDirectory accounts) {
+            this.termDeposits = termDeposits;
+            this.accounts = accounts;
+        }
+
+        @Override public String name() { return "TERM_DEPOSIT_SUBSCRIBE"; }
+        @Override public Operation operation() { return Operation.TERM_DEPOSIT_SUBSCRIBE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            UUID entity = uuid(payload, "legalEntityId");
+            io.corebanking.ledger.domain.account.Account account =
+                accounts.require(uuid(payload, "depositAccountId"));
+            AccessTarget target = account.branchId() == null
+                ? AccessTarget.inEntity(entity)
+                : AccessTarget.inBranch(entity, account.branchId());
+            return target.withAmount(io.corebanking.kernel.money.Money.of(
+                new java.math.BigDecimal(required(payload, "principal")), account.currency()));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "reference");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            UUID entity = uuid(payload, "legalEntityId");
+            UUID depositAccountId = uuid(payload, "depositAccountId");
+            io.corebanking.kernel.money.CurrencyRef currency =
+                accounts.require(depositAccountId).currency();
+            String rate = text(payload, "grantedRatePercent");
+            String payment = text(payload, "interestPayment");
+            io.corebanking.kernel.time.Periodicity periodicity = null;
+            if (payment != null && !"AT_MATURITY".equalsIgnoreCase(payment.trim())) {
+                try {
+                    periodicity = io.corebanking.kernel.time.Periodicity.valueOf(
+                        payment.trim().toUpperCase(java.util.Locale.ROOT));
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalArgumentException("Periodicite de service des interets "
+                        + "inconnue : " + payment);
+                }
+            }
+            io.corebanking.deposits.TermDepositService.MaturityInstruction instruction;
+            try {
+                instruction = io.corebanking.deposits.TermDepositService.MaturityInstruction
+                    .valueOf(required(payload, "maturityInstruction").trim()
+                                 .toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Instruction de terme inconnue : "
+                    + text(payload, "maturityInstruction")
+                    + " (PAY_OUT, RENEW_PRINCIPAL, RENEW_ALL)");
+            }
+            return termDeposits.subscribe(new io.corebanking.deposits.TermDepositService.Draft(
+                entity, required(payload, "reference"), depositAccountId,
+                uuid(payload, "settlementAccountId"),
+                io.corebanking.kernel.money.Money.of(
+                    new java.math.BigDecimal(required(payload, "principal")), currency),
+                rate == null ? null : new java.math.BigDecimal(rate),
+                integer(payload, "termMonths"), periodicity, instruction,
+                Callers.actorId(maker), Callers.actorId(checker)));
+        }
+    }
+
+    /**
+     * Rupture avant terme : elle defait un engagement pris des deux cotes, et coute au client le
+     * prix de la duree qu'il ne tient pas. Elle se decide donc a deux, comme la souscription.
+     */
+    static final class BreakTermDeposit implements MakerChecker.Handler {
+        private final Database database;
+        private final io.corebanking.deposits.TermDepositService termDeposits;
+        private final AccountDirectory accounts;
+
+        BreakTermDeposit(Database database,
+                         io.corebanking.deposits.TermDepositService termDeposits,
+                         AccountDirectory accounts) {
+            this.database = database;
+            this.termDeposits = termDeposits;
+            this.accounts = accounts;
+        }
+
+        @Override public String name() { return "TERM_DEPOSIT_BREAK"; }
+        @Override public Operation operation() { return Operation.TERM_DEPOSIT_BREAK; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            io.corebanking.deposits.TermDepositService.TermDeposit deposit = deposit(payload);
+            io.corebanking.ledger.domain.account.Account account =
+                accounts.require(deposit.depositAccountId());
+            AccessTarget target = account.branchId() == null
+                ? AccessTarget.inEntity(deposit.legalEntityId())
+                : AccessTarget.inBranch(deposit.legalEntityId(), account.branchId());
+            return target.withAmount(deposit.principal());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "termDepositId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            return termDeposits.breakEarly(uuid(payload, "termDepositId"),
+                                           required(payload, "reason"), Callers.actorId(maker),
+                                           Callers.actorId(checker));
+        }
+
+        private io.corebanking.deposits.TermDepositService.TermDeposit deposit(
+                Map<String, Object> payload) {
+            UUID id = uuid(payload, "termDepositId");
+            return database.inTransaction(
+                c -> io.corebanking.deposits.TermDepositService.require(c, id));
+        }
+    }
+
 }

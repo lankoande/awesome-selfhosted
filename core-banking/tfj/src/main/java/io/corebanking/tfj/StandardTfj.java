@@ -24,6 +24,8 @@ import io.corebanking.tfj.steps.DormancyStep;
 import io.corebanking.tfj.steps.FxRatesStep;
 import io.corebanking.tfj.steps.FxRevaluationStep;
 import io.corebanking.tfj.steps.SuspenseReviewStep;
+import io.corebanking.tfj.steps.TermDepositAccrualStep;
+import io.corebanking.tfj.steps.TermDepositMaturityStep;
 import io.corebanking.tfj.steps.FeeChargingStep;
 import io.corebanking.tfj.steps.HoldExpiryStep;
 import io.corebanking.tfj.steps.InterestAccrualStep;
@@ -98,6 +100,11 @@ import java.util.List;
  *   <li><b>Dormance et revue de connaissance client apres les traitements comptables.</b> Elles ne
  *       comptabilisent rien et ne bloquent pas la journee : un dossier de revue en retard ne doit
  *       pas empecher la banque d'arreter ses comptes. Elles sont defaites avec l'arrete.</li>
+ *   <li><b>Les interets des depots a terme avant leur echeance, et les deux avant les interets
+ *       sur depots.</b> Ce qui est servi au client au terme est ce qui a ete constate, journee du
+ *       terme comprise ; et les interets qu'un terme verse sur un compte courant entrent dans le
+ *       solde sur lequel ce compte est remunere le meme jour. L'ordre inverse remunererait un
+ *       solde que le client n'a pas encore.</li>
  *   <li><b>La reconciliation avant la bascule.</b> C'est tout le mecanisme : tant que les controles
  *       ne sont pas verts, la journee ne bascule pas, et le systeme refuse de travailler sur la
  *       suivante.</li>
@@ -113,7 +120,8 @@ public final class StandardTfj {
     /** Rapprochements de sous-livres executes a chaque arrete, quotidien comme mensuel. */
     public static List<Reconciliation.Check> subLedgerChecks() {
         return List.of(new InterestReconciliation(), new LoanReconciliation(),
-                       new FeeReconciliation());
+                       new FeeReconciliation(),
+                       new io.corebanking.deposits.TermDepositReconciliation());
     }
 
     public static List<TfjStep> steps(Database database, PostingService postingService,
@@ -123,6 +131,8 @@ public final class StandardTfj {
                                       LoanLateChargesService lateService,
                                       LoanClassificationService classificationService,
                                       BusinessCalendar calendar) {
+        io.corebanking.deposits.TermDepositService termDeposits =
+            new io.corebanking.deposits.TermDepositService(database, postingService);
         return List.of(
             new PreChecksStep(database, calendar),
             new FxRatesStep(database),
@@ -140,6 +150,8 @@ public final class StandardTfj {
             new LoanLateChargesStep(lateService),
             new LoanClassificationStep(classificationService),
             new LoanClosureStep(loanService),
+            new TermDepositAccrualStep(termDeposits),
+            new TermDepositMaturityStep(database, termDeposits),
             new InterestAccrualStep(database, interestService),
             new InterestSettlementStep(database,
                                        new InterestSettlementService(database, postingService)),

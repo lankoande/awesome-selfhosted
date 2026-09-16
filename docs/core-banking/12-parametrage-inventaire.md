@@ -74,6 +74,16 @@ qui change de taux est une nouvelle version datée, pas une livraison.
 | `ops.transaction_max` | décimal | Débit maximal par opération du client (retrait, virement, paiement sortant) |
 | `ops.daily_debit_max` | décimal | Somme des débits du jour, frais compris, hors écritures contre-passées |
 | `ops.monthly_debit_max` | décimal | Même somme sur le mois civil |
+| `term.rate` | décimal | Taux de référence d'un dépôt à terme, en pourcentage annuel : ce que l'agence propose. Le contrat le fige à la souscription |
+| `term.max_rate` | décimal | Plafond de taux que la banque s'autorise à consentir ; absent, le taux de référence — le prix de la ressource ne se fixe pas en agence |
+| `term.penalty_rate` | décimal | Taux servi à qui reprend ses fonds avant terme ; absent, zéro. Servir le taux convenu à qui ne tient pas la durée reviendrait à le servir à tout le monde |
+| `term.day_count` | énum | Base de calcul des intérêts du dépôt à terme |
+| `term.min_amount` | décimal | Capital minimum admis |
+| `term.min_months`, `term.max_months` | entier | Bornes de durée, en mois pleins |
+| `term.accrued_interest` | UUID (compte général) | Intérêts courus non échus des dépôts à terme, au passif : le sous-livre que le rapprochement de chaque nuit confronte aux contrats |
+| `term.interest_expense` | UUID (compte général) | Charge d'intérêts : ce que le dépôt coûte, reconnu jour après jour |
+| `term.withholding_rate`, `term.withholding_account` | décimal, UUID | Retenue à la source sur les intérêts servis ; le taux exige son compte |
+| `term.renewal` | énum | `NONE` interdit la reconduction : un dépôt reconduit sans l'avoir demandé bloquerait l'argent du client une période de plus |
 | `ops.payment_fee` | décimal | Frais forfaitaire d'un paiement sortant ; exige `ops.fee_income_account`. Un ordre permanent vers l'extérieur le paie : il dépose un ordre de paiement |
 | `ops.payment_clearing_account` | UUID (compte général) | Compte de règlement sortant ; absent, le produit n'admet pas de paiement sortant |
 | `ops.cheque_book_fee` | décimal | Frais de délivrance d'un chéquier, taxé au taux du produit ; absent, le chéquier est gratuit |

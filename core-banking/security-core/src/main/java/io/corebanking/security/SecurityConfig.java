@@ -219,6 +219,22 @@ public final class SecurityConfig {
                              AUDITOR)
                 .within(Scope.OWN_ENTITY).tracedOnRead().build());
 
+        // Un depot a terme engage la banque sur un prix et sur une duree : il se souscrit a deux,
+        // et le taux consenti est borne par le produit — le prix de la ressource ne se fixe pas
+        // en agence. Sa rupture defait un engagement pris des deux cotes, et se decide de meme.
+        policy.put(Operation.TERM_DEPOSIT_SUBSCRIBE,
+            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_BRANCH).requiringSecondPerson().build());
+
+        policy.put(Operation.TERM_DEPOSIT_BREAK,
+            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER)
+                .within(Scope.OWN_BRANCH).requiringSecondPerson().build());
+
+        policy.put(Operation.TERM_DEPOSIT_READ,
+            AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER, OPERATOR, ACCOUNTANT,
+                             AUDITOR)
+                .within(Scope.OWN_ENTITY).tracedOnRead().build());
+
         policy.put(Operation.DIRECT_DEBIT_PRESENT,
             AccessRule.allow(OPERATOR, ACCOUNTANT).within(Scope.OWN_ENTITY).build());
 

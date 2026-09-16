@@ -48,7 +48,8 @@ class ProductFamilyTest {
     @DisplayName("le catalogue se charge et declare les familles que le code sait traiter")
     void catalogueCharge() {
         assertThat(ProductFamilies.codes())
-            .containsExactlyInAnyOrder("CURRENT_ACCOUNT", "SAVINGS_ACCOUNT", "TERM_LOAN");
+            .containsExactlyInAnyOrder("CURRENT_ACCOUNT", "SAVINGS_ACCOUNT", "TERM_DEPOSIT",
+                                       "TERM_LOAN");
         assertThat(ProductFamilies.require("TERM_LOAN").label()).isEqualTo("Credit amortissable");
     }
 

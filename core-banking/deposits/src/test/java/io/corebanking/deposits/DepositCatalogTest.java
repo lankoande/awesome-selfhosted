@@ -34,5 +34,29 @@ class DepositCatalogTest {
         // Un parametre lu par le module de credit n'est pas un parametre de depot.
         assertThat(ProductFamilies.declaredParameters("TERM_LOAN"))
             .doesNotContainAnyElementsOf(lus);
+        // Ni un parametre de depot a terme : le DAT ne remunere pas un solde, il execute un
+        // contrat, et ses parametres sont les siens.
+        assertThat(ProductFamilies.declaredParameters("TERM_DEPOSIT"))
+            .doesNotContainAnyElementsOf(lus);
+    }
+
+    @Test
+    @DisplayName("chaque constante de TermDepositCatalog est declaree par la famille TERM_DEPOSIT")
+    void constantesDuDepotATermeEtFamilleSAccordent() {
+        Set<String> lus = new TreeSet<>();
+        for (Field field : TermDepositCatalog.class.getDeclaredFields()) {
+            if (Modifier.isStatic(field.getModifiers()) && field.getName().startsWith("P_")) {
+                try {
+                    lus.add((String) field.get(null));
+                } catch (IllegalAccessException e) {
+                    throw new AssertionError(e);
+                }
+            }
+        }
+        assertThat(lus).isNotEmpty();
+        // Un parametre lu ici et absent du descripteur serait refuse a l'activation ; un
+        // parametre declare et lu par personne serait un parametre mort.
+        assertThat(ProductFamilies.declaredParameters("TERM_DEPOSIT"))
+            .containsExactlyInAnyOrderElementsOf(lus);
     }
 }

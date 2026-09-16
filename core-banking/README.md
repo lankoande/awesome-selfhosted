@@ -1000,6 +1000,40 @@ nommé, jamais une anomalie qui arrêterait la journée
 (`a_closed_beneficiary_is_a_named_rejection`).
 
 
+### 32. Un contrat, et non un solde rémunéré
+
+**Un dépôt à terme n'est pas un compte d'épargne avec une date.** Trois traits le distinguent, et
+chacun décide d'une partie du code. Le premier : **le taux est celui du contrat**, figé à la
+souscription. Le produit propose le barème du jour et le plafond de ce qu'une agence peut consentir
+au-delà ; ce que le contrat retient, il le garde, et le barème peut baisser le lendemain sans le
+toucher. C'est pourquoi la famille `TERM_DEPOSIT` ne porte pas le bloc `interest.*` — qui décrit,
+lui, la rémunération d'un solde — et pourquoi les comptes de DAT sont écartés de l'étape qui
+rémunère les soldes : les y laisser les paierait deux fois, et au mauvais prix.
+
+**Le capital est bloqué par un blocage de compte, pas par une convention.** Une règle que chaque
+service devrait connaître serait oubliée par le prochain : le guichet, le virement, le prélèvement,
+l'ordre permanent, la commission — il suffit d'un chemin non prévenu pour que le terme ne veuille
+plus rien dire. Le blocage, lui, est lu par le ledger avant d'écrire, quel que soit l'appelant. Il
+tombe dans la transaction même qui rend le capital : jamais libre sans être rendu. Une reconduction
+ne le lève pas et ne le repose pas — l'instant d'une transaction sans blocage rendrait l'argent
+saisissable, et rien ne le justifie (`a_renewed_deposit_restarts_at_the_rate_of_the_day`).
+
+**Une sortie avant terme est une rupture, pas un retrait.** Les intérêts sont recalculés au taux de
+pénalité sur la période réellement courue, et ce qui avait été constaté au-delà est repris. Si le
+client avait déjà perçu plus que la rupture ne lui laisse, le versement en est diminué : ce qu'il
+garde est ce que le contrat rompu prévoit, pas ce que la banque avait provisionné pour lui. Servir
+le taux convenu à qui ne tient pas la durée reviendrait à le servir à tout le monde — la durée est
+la contrepartie du prix (`an_early_break_costs_its_price`).
+
+**Les intérêts courent sur [valeur, terme[.** Le jour du terme, le capital est rendu ou reconduit,
+et c'est le contrat suivant qui le porte ; le rémunérer des deux côtés paierait une journée que
+personne n'a placée. Le cumul est tenu en précision entière et l'imputé est un écart : rattraper
+trente journées en une passe donne exactement la même somme que trente arrêtés successifs.
+
+**Une reconduction repart au taux du jour**, jamais à l'ancien. Reconduire le taux échu engagerait
+la banque sur un prix qu'elle n'a pas décidé, et le client sur un prix qu'il n'a pas revu.
+
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :

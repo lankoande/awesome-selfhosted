@@ -7,3 +7,4 @@ V41__cheques.sql
 V42__prelevements.sql
 V44__suspens.sql
 V51__ordres_permanents.sql
+V52__depots_a_terme.sql

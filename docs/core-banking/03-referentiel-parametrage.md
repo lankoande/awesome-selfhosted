@@ -186,9 +186,16 @@ différents de l'original — et l'arrêté devient invérifiable.
 > paramétré quelque chose. C'est la règle 9 de la gouvernance du paramétrage, désormais tenue par un
 > test plutôt que par la discipline.
 >
-> Les familles déclarées aujourd'hui sont `CURRENT_ACCOUNT`, `SAVINGS_ACCOUNT` et `TERM_LOAN`.
-> `TERM_DEPOSIT` et `REVOLVING_CREDIT` figurent dans le schéma ci-dessus mais n'ont pas de code qui
-> les traite : les déclarer sans cela reviendrait à promettre un contrat que personne n'honore.
+> Les familles déclarées aujourd'hui sont `CURRENT_ACCOUNT`, `SAVINGS_ACCOUNT`, `TERM_DEPOSIT` et
+> `TERM_LOAN`. `REVOLVING_CREDIT` figure dans le schéma ci-dessus mais n'a pas de code qui le
+> traite : le déclarer reviendrait à promettre un contrat que personne n'honore.
+>
+> `TERM_DEPOSIT` ne porte pas le bloc `interest.*`, et c'est la seule famille de dépôt dans ce
+> cas : le taux d'un dépôt à terme est celui de son **contrat**, figé à la souscription, quand le
+> bloc `interest.*` décrit la rémunération d'un solde au barème du jour. Le produit ne sert ici
+> qu'à la souscription — taux de référence, plafond de ce qu'une agence peut consentir, bornes de
+> durée et de montant, taux servi à qui ne tient pas la durée, comptes d'imputation. Le barème
+> peut changer le lendemain sans toucher un contrat déjà signé.
 
 ---
 

@@ -233,6 +233,27 @@ class ApiIT {
                 parametres, List.of(), APPROVER));
             ProductCatalog.activate(c, version, UUID.randomUUID());
 
+            // Un produit de depot a terme : son taux est celui du contrat, le produit ne donne
+            // que le bareme du jour, ses bornes et ses comptes.
+            Account courusDat = compte(c, "DAT-COURUS", AccountKind.GL, NormalBalance.CREDIT, null);
+            Account chargesDat = compteDeResultat(c, "DAT-CHARGES", NormalBalance.DEBIT);
+            Map<String, String> dat = new LinkedHashMap<>();
+            dat.put(io.corebanking.deposits.TermDepositCatalog.P_RATE, "5");
+            dat.put(io.corebanking.deposits.TermDepositCatalog.P_MAX_RATE, "7");
+            dat.put(io.corebanking.deposits.TermDepositCatalog.P_PENALTY_RATE, "1");
+            dat.put(io.corebanking.deposits.TermDepositCatalog.P_DAY_COUNT, "ACT_365");
+            dat.put(io.corebanking.deposits.TermDepositCatalog.P_MIN_AMOUNT, "100000");
+            dat.put(io.corebanking.deposits.TermDepositCatalog.P_MIN_MONTHS, "3");
+            dat.put(io.corebanking.deposits.TermDepositCatalog.P_MAX_MONTHS, "60");
+            dat.put(io.corebanking.deposits.TermDepositCatalog.P_ACCRUED_INTEREST,
+                    courusDat.id().toString());
+            dat.put(io.corebanking.deposits.TermDepositCatalog.P_INTEREST_EXPENSE,
+                    chargesDat.id().toString());
+            UUID versionDat = ProductCatalog.createDraft(c, new ProductCatalog.Draft(
+                ENTITY, "DAT-API", "TERM_DEPOSIT", "Depot a terme", "XOF", J.minusMonths(1), null,
+                dat, List.of(), APPROVER));
+            ProductCatalog.activate(c, versionDat, UUID.randomUUID());
+
             // Le decor du credit : comptes du client et comptes generaux que le produit citera.
             pret = compte(c, "PRET", AccountKind.CUSTOMER, NormalBalance.DEBIT, siege);
             courant = compte(c, "COURANT", AccountKind.CUSTOMER, NormalBalance.CREDIT, siege);
@@ -2090,6 +2111,87 @@ class ApiIT {
         Reponse actifs = get(officer, "/standing-orders?status=ACTIVE");
         assertThat(actifs.items()).extracting(o -> o.get("reference")).doesNotContain("SO-API-1");
         assertThat(get(officer, "/standing-orders?status=INCONNU").status())
+            .as("un statut inconnu se refuse au lieu de rendre une liste vide").isEqualTo(422);
+    }
+
+    @Test
+    @Order(21)
+    @DisplayName("depot a terme : souscrit a deux dans les bornes du produit, lu avec ses echeances, rompu a deux")
+    void depot_a_terme() throws Exception {
+        // Le compte qui portera le capital : un compte de la famille TERM_DEPOSIT.
+        Reponse ouverture = post(officer, "/accounts", null, Map.of(
+            "code", "CLI-API-DAT", "holderPartyId", party.toString(), "productCode", "DAT-API",
+            "currency", "XOF"));
+        assertThat(ouverture.status()).as(String.valueOf(ouverture.envelope())).isEqualTo(202);
+        Reponse ouvert = post(manager, "/pending-operations/" + attente(ouverture) + "/approve",
+                              null, Map.of());
+        assertThat(ouvert.status()).as(String.valueOf(ouvert.envelope())).isEqualTo(200);
+        UUID depot = UUID.fromString((String) resultat(ouvert.body()).get("id"));
+
+        // Le client alimente son compte : le capital du DAT vient de son disponible.
+        Reponse provision = post(teller, "/accounts/" + account + "/deposits", "dat-prov", Map.of(
+            "amount", "400000", "currency", "XOF", "channel", "GUICHET"));
+        assertThat(provision.status()).as(String.valueOf(provision.envelope())).isEqualTo(201);
+
+        Map<String, Object> demande = new LinkedHashMap<>();
+        demande.put("reference", "DAT-API-1");
+        demande.put("depositAccountId", depot.toString());
+        demande.put("settlementAccountId", account.toString());
+        demande.put("principal", "300000");
+        demande.put("termMonths", 3);
+        demande.put("maturityInstruction", "PAY_OUT");
+
+        // Le back-office ne place pas les depots des clients.
+        assertThat(post(operator, "/term-deposits", null, demande).status()).isEqualTo(403);
+        // Une instruction de terme inconnue se refuse a la soumission.
+        Map<String, Object> fausse = new LinkedHashMap<>(demande);
+        fausse.put("maturityInstruction", "ROULEMENT");
+        assertThat(post(officer, "/term-deposits", null, fausse).status()).isEqualTo(422);
+
+        Reponse proposee = post(officer, "/term-deposits", null, demande);
+        assertThat(proposee.status()).as(String.valueOf(proposee.envelope())).isEqualTo(202);
+        assertThat(post(officer, "/pending-operations/" + attente(proposee) + "/approve", null,
+                        Map.of()).status())
+            .as("celui qui propose ne valide pas").isEqualTo(403);
+        Reponse souscrit = post(manager, "/pending-operations/" + attente(proposee) + "/approve",
+                                null, Map.of());
+        assertThat(souscrit.status()).as(String.valueOf(souscrit.envelope())).isEqualTo(200);
+        Map<String, Object> contrat = resultat(souscrit.body());
+        UUID dat = UUID.fromString((String) contrat.get("id"));
+        assertThat(contrat.get("status")).isEqualTo("ACTIVE");
+        assertThat(String.valueOf(contrat.get("annualRatePercent"))).startsWith("5");
+
+        // Le taux consenti au-dela du plafond du produit est refuse : le prix de la ressource ne
+        // se fixe pas en agence.
+        Map<String, Object> trop = new LinkedHashMap<>(demande);
+        trop.put("reference", "DAT-API-2");
+        trop.put("grantedRatePercent", "9");
+        Reponse excessif = post(officer, "/term-deposits", null, trop);
+        assertThat(excessif.status()).isEqualTo(202);
+        assertThat(post(manager, "/pending-operations/" + attente(excessif) + "/approve", null,
+                        Map.of()).status())
+            .as("le refus vient a l'execution, avec son motif").isEqualTo(409);
+
+        Reponse lecture = get(teller, "/term-deposits/" + dat);
+        assertThat(lecture.status()).as(String.valueOf(lecture.envelope())).isEqualTo(200);
+        Map<?, ?> vue = (Map<?, ?>) lecture.body().get("deposit");
+        assertThat(vue.get("reference")).isEqualTo("DAT-API-1");
+        assertThat((List<?>) lecture.body().get("payments")).isEmpty();
+
+        // La rupture avant terme se decide a deux, comme la souscription.
+        Reponse rupture = post(officer, "/term-deposits/" + dat + "/break", null,
+                               Map.of("reason", "besoin de tresorerie"));
+        assertThat(rupture.status()).as(String.valueOf(rupture.envelope())).isEqualTo(202);
+        Reponse rompu = post(manager, "/pending-operations/" + attente(rupture) + "/approve", null,
+                             Map.of());
+        assertThat(rompu.status()).as(String.valueOf(rompu.envelope())).isEqualTo(200);
+
+        Reponse apres = get(officer, "/term-deposits/" + dat);
+        assertThat(((Map<?, ?>) apres.body().get("deposit")).get("status")).isEqualTo("BROKEN");
+        assertThat((List<?>) apres.body().get("payments")).hasSize(1);
+        assertThat(get(officer, "/term-deposits?status=ACTIVE").items())
+            .extracting(d -> d.get("reference")).doesNotContain("DAT-API-1");
+        assertThat(get(officer, "/term-deposits?status=INCONNU").status())
             .as("un statut inconnu se refuse au lieu de rendre une liste vide").isEqualTo(422);
     }
 
