@@ -679,7 +679,12 @@ fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 > taux engagerait la banque sur un prix qu'elle n'a pas décidé, et le client sur un prix qu'il n'a
 > pas revu. Le compte de dépôt ne porte **qu'un contrat vivant** : son solde serait sinon celui de
 > deux capitaux aux taux et aux termes différents, et aucun des deux ne serait juste. Le
-> rapprochement de chaque nuit confronte la somme des contrats au solde du compte de courus. Restent :
+> rapprochement de chaque nuit confronte la somme des contrats au solde du compte de courus. Le
+> jour d'une échéance de service appartient à la période qu'elle ferme, une fois pour toutes : la
+> période suivante repart le lendemain, et la somme des périodes reste l'intérêt du contrat. Un
+> compte que vise un dépôt à terme vivant **ne se clôt pas**, ni celui qui porte le capital — déjà
+> tenu par son blocage — ni celui qui le règle : clore ce dernier laisserait l'arrêté buter au
+> terme sur un compte qui n'existe plus. Restent :
 > les dépôts à terme en devise, les barèmes par durée, et le nantissement d'un DAT en garantie
 > d'un crédit.
 

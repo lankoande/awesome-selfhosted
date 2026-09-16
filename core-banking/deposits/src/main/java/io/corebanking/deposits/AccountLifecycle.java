@@ -430,6 +430,25 @@ public final class AccountLifecycle {
             throw new LedgerStoreException("Recherche des ordres permanents du compte "
                                            + account.code(), e);
         }
+        // Un depot a terme vivant, que le compte le porte ou le regle : le compte de depot est
+        // deja tenu par son blocage, le compte de reglement ne l'est par rien. Clore celui-ci
+        // laisserait l'arrete buter au terme sur un compte qui n'existe plus — et c'est la
+        // journee de la banque qui s'arreterait, pour un compte que le client a ferme.
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT reference FROM term_deposit"
+            + " WHERE (deposit_account_id = ? OR settlement_account_id = ?) AND status = 'ACTIVE'"
+            + " ORDER BY reference")) {
+            ps.setObject(1, account.id());
+            ps.setObject(2, account.id());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    obstacles.add("depot a terme " + rs.getString(1) + " en cours sur le compte");
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Recherche des depots a terme du compte "
+                                           + account.code(), e);
+        }
         if (!obstacles.isEmpty()) {
             throw new ClosureRefusedException(account, String.join(" ; ", obstacles));
         }

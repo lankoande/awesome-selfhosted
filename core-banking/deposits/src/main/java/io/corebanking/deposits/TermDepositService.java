@@ -644,10 +644,12 @@ public final class TermDepositService {
             lines.add(PostingLine.debit(deposit.depositAccountId(), deposit.principal(), on,
                                         "Rupture " + deposit.reference()));
             if (net.isNegative()) {
-                // Le client rend ce qu'il a percu en trop : le versement en est diminue.
+                // Le client rend ce qu'il a percu en trop : son compte est debite d'autant, et
+                // la charge reprise le porte deja — « clawedBack » est l'ecart entre ce qui a ete
+                // constate et ce que la rupture laisse, la part deja versee comprise. Recrediter
+                // la charge une seconde fois desequilibrerait l'ecriture, et le ledger la
+                // refuserait de nuit, sur la rupture d'un client.
                 lines.add(PostingLine.debit(settlement.id(), net.negate(), on,
-                    "Reprise d'interets sur rupture " + deposit.reference()));
-                lines.add(PostingLine.credit(deposit.expenseAccountId(), net.negate(), on,
                     "Reprise d'interets sur rupture " + deposit.reference()));
                 paidOut = deposit.principal();
                 lines.add(PostingLine.credit(settlement.id(), deposit.principal(), on,

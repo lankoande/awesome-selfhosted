@@ -1033,6 +1033,18 @@ trente journées en une passe donne exactement la même somme que trente arrêt�
 **Une reconduction repart au taux du jour**, jamais à l'ancien. Reconduire le taux échu engagerait
 la banque sur un prix qu'elle n'a pas décidé, et le client sur un prix qu'il n'a pas revu.
 
+**Ce que le client a déjà touché entre dans le compte de la rupture.** Un dépôt servi
+périodiquement a versé des intérêts au taux du contrat ; rompu, il n'y avait droit qu'au taux de
+pénalité. La différence est reprise sur son compte, et la charge reprise la porte **une seule
+fois** — la recréditer une seconde déséquilibrerait l'écriture, que le ledger refuserait de nuit,
+sur la rupture d'un client (`a_break_after_interest_was_paid_claws_it_back`).
+
+**Un compte que vise un dépôt à terme vivant ne se clôt pas.** Celui qui porte le capital est déjà
+tenu par son blocage ; celui qui le règle ne l'est par rien d'autre que cette règle, et le clore
+laisserait l'arrêté buter au terme sur un compte qui n'existe plus — c'est la journée de la banque
+qui s'arrêterait, pour un compte que le client a fermé
+(`an_account_bound_to_a_live_deposit_does_not_close`).
+
 
 ## Ce qui n'est pas encore fait
 

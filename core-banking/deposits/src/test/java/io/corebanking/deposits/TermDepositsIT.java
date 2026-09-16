@@ -188,6 +188,84 @@ class TermDepositsIT extends DepositsTestBase {
     }
 
     @Test
+    @DisplayName("rompu apres avoir deja percu des interets, le client rend le trop-percu et l'ecriture reste equilibree")
+    void a_break_after_interest_was_paid_claws_it_back() {
+        Decor decor = decor("DAT5");
+        Bureau bureau = bureau(decor, "DAT5");
+        produitDat(decor, bureau, "DAT5", "6", "1");
+        UUID client = client(decor.entityId(), "CLI-DAT5");
+        UUID courant = ouvrir(decor, "DAT5-COURANT", "CC-DAT5", client);
+        UUID depot = ouvrir(decor, "DAT5-DEPOT", "DAT-DAT5", client);
+        verser(decor, courant, "10000000", "dat5-prov");
+
+        // Un DAT de six mois qui sert ses interets chaque mois.
+        TermDepositService.TermDeposit dat = service().subscribe(new TermDepositService.Draft(
+            decor.entityId(), "DAT-2026-050", depot, courant, xof("6000000"), null, 6,
+            Periodicity.MONTHLY, TermDepositService.MaturityInstruction.PAY_OUT, ACTOR, APPROVER));
+        assertThat(dat.nextPaymentDate()).isEqualTo(LocalDate.of(2026, 10, 15));
+
+        // Premiere echeance : les interets du mois sont verses au client.
+        UUID run = UUID.randomUUID();
+        dater(decor, LocalDate.of(2026, 10, 15));
+        service().accrue(decor.entityId(), LocalDate.of(2026, 10, 15), run, ACTOR);
+        TermDepositService.Payment servi = service().settle(dat.id(), run, ACTOR);
+        assertThat(servi.matured()).isFalse();
+        // Les 31 journees courues jusqu'a l'echeance comprise : 6 000 000 x 6 % x 31 / 365 =
+        // 30 575 ; retenue 10 % : 3 058 ; net 27 517. La periode suivante repart le lendemain :
+        // le jour d'une echeance appartient a la periode qu'elle ferme, une fois pour toutes.
+        assertThat(servi.interestGross()).isEqualTo(xof("30575"));
+        assertThat(servi.interestNet()).isEqualTo(xof("27517"));
+        assertThat(solde(courant)).isEqualTo(xof("4027517"));
+        assertThat(solde(bureau.courus()).isZero()).as("la periode est soldee").isTrue();
+
+        // Le client rompt le lendemain : au taux de penalite, il n'avait droit qu'a 5 096 sur
+        // les 31 journees courues — il a percu 30 575 bruts, il rend la difference.
+        dater(decor, LocalDate.of(2026, 10, 16));
+        service().accrue(decor.entityId(), LocalDate.of(2026, 10, 16), run, ACTOR);
+        TermDepositService.Break rupture = service().breakEarly(dat.id(), "achat immobilier",
+                                                                 ACTOR, APPROVER);
+        assertThat(rupture.interestDue()).isEqualTo(xof("5096"));
+        assertThat(rupture.paidOut()).as("le capital seul : le trop-percu est repris")
+            .isEqualTo(xof("6000000"));
+        assertThat(solde(depot).isZero()).isTrue();
+        assertThat(solde(bureau.courus()).isZero()).as("le sous-livre est solde").isTrue();
+        // La charge nette de la banque est ce que la rupture laisse.
+        assertThat(solde(bureau.charges())).isEqualTo(xof("5096"));
+        // 4 027 517 + 6 000 000 − 25 479 rendus : le client garde ce que la rupture lui laisse,
+        // la retenue deja prelevee restant acquise au Tresor.
+        assertThat(solde(courant)).isEqualTo(xof("10002038"));
+
+        TermDepositService.TermDeposit rompu = lire(dat.id());
+        assertThat(rompu.status()).isEqualTo("BROKEN");
+        assertThat(rompu.outstandingInterest().isZero()).isTrue();
+    }
+
+    @Test
+    @DisplayName("un compte que vise un depot a terme vivant ne se clot pas, pas meme celui qui le regle")
+    void an_account_bound_to_a_live_deposit_does_not_close() {
+        Decor decor = decor("DAT6");
+        Bureau bureau = bureau(decor, "DAT6");
+        produitDat(decor, bureau, "DAT6", "5", null);
+        UUID client = client(decor.entityId(), "CLI-DAT6");
+        UUID courant = ouvrir(decor, "DAT6-COURANT", "CC-DAT6", client);
+        UUID depot = ouvrir(decor, "DAT6-DEPOT", "DAT-DAT6", client);
+        verser(decor, courant, "5000000", "dat6-prov");
+        service().subscribe(new TermDepositService.Draft(
+            decor.entityId(), "DAT-2026-060", depot, courant, xof("2000000"), null, 3, null,
+            TermDepositService.MaturityInstruction.PAY_OUT, ACTOR, APPROVER));
+
+        // Le compte de depot est tenu par son blocage ; le compte de reglement, lui, ne l'est
+        // par rien d'autre que cette regle.
+        assertThatThrownBy(() -> lifecycle.close(new AccountLifecycle.Closing(
+                courant, decor.caisse().id(), ACTOR, APPROVER)))
+            .isInstanceOf(AccountLifecycle.ClosureRefusedException.class)
+            .hasMessageContaining("DAT-2026-060");
+        assertThatThrownBy(() -> lifecycle.close(new AccountLifecycle.Closing(
+                depot, decor.caisse().id(), ACTOR, APPROVER)))
+            .isInstanceOf(AccountLifecycle.ClosureRefusedException.class);
+    }
+
+    @Test
     @DisplayName("le produit borne ce qu'une agence peut consentir : montant, duree et taux")
     void the_product_bounds_what_a_branch_may_grant() {
         Decor decor = decor("DAT4");
