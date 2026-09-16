@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 632 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 326 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 636 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 330 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -904,6 +904,41 @@ comptabiliser, puisque rien n'était engagé — et le dossier se réinstruit ; 
 l'arrêté la rend à l'accord.
 
 
+### 30. Une perte qui n'efface pas la dette
+
+**Le passage en perte n'éteint pas la créance.** C'est la première chose que dit un contrôleur et
+la première qu'oublie un progiciel : la sortie de l'actif est une décision comptable, pas une
+remise de dette. Ce qui sort du bilan entre au hors bilan, pour son montant entier, dans une
+écriture séparée — une écriture ne mélange pas les deux mondes. Le rapprochement de chaque nuit
+confronte ce compte à ce qui reste dû : un écart signale soit un encaissement qui n'en est pas
+sorti — l'engagement survivrait à la dette —, soit une sortie oubliée, et le suivi du recouvrement
+porterait sur du vide.
+
+**L'ordre d'absorption n'est pas une commodité.** Ce qui sort est absorbé d'abord par les
+**intérêts réservés** : ces produits ont déjà été sortis du résultat à la suspension, et les passer
+en perte une seconde fois constaterait une charge pour un produit jamais pris — l'erreur double le
+coût du dossier dans le compte de résultat. Vient ensuite la **provision** constituée, qui est
+faite pour cela. Le reliquat seul est une perte. Un dossier sur-provisionné rend l'excédent au
+résultat : la provision n'a plus d'objet
+(`the_provision_and_the_reserved_interest_absorb_the_loss`).
+
+**Ce qui rentre après est un produit, jamais un remboursement.** Il n'y a plus de créance à
+l'actif à diminuer : l'imputer sur un encours ferait réapparaître un crédit soldé et rendrait le
+capital négatif. C'est une récupération sur créance amortie, et elle sort du hors bilan d'autant —
+bornée par ce qui a été passé en perte, sinon le hors bilan deviendrait créditeur
+(`what_comes_back_is_income_not_a_repayment`).
+
+**Le plafond du passage en perte porte sur ce qui sort, pas sur le capital d'origine.** Un crédit
+largement remboursé ne mobilise pas la même délégation qu'un crédit intact — et c'est le même
+argent que le déblocage, dans l'autre sens.
+
+**Une révision de taux ne refait pas le passé.** Elle publie un nouvel échéancier sur le capital
+restant dû à partir d'une date ; recalculer l'échu reviendrait à réclamer au client des intérêts
+qu'on ne lui avait pas demandés, ou à lui en rendre qu'il a déjà payés. Le taux effectif du
+nouveau plan est confronté au plafond d'usure : une révision peut le franchir là où le déblocage
+le respectait (`a_rate_revision_reprices_what_is_left`).
+
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
@@ -922,8 +957,10 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
   opération — les pièces datées et leurs échéances, la politique de diligence, la complétude qui
   restreint l'ouverture, les bénéficiaires effectifs et les relations entre tiers, eux, sont faits ;
 - crédit : le moteur de score lui-même (le socle porte le score et sa source, il ne les calcule
-  pas) et le comité comme circuit à plus de deux yeux — la demande, l'instruction, la décision
-  sous délégation, les conditions suspensives et le déblocage par tranches, eux, sont faits ; la
+  pas), le comité comme circuit à plus de deux yeux, et le recouvrement contentieux (dossier,
+  frais, huissier, réalisation de sûreté) — la demande, l'instruction, la décision sous délégation,
+  les conditions suspensives, le déblocage par tranches, le passage en perte, la récupération et la
+  révision de taux, eux, sont faits ; la
   commission d'engagement sur la fraction non tirée se paramètre comme une commission ordinaire et
   n'a pas encore de barème dédié ;
 - circuits de validation à trois yeux par montant et réservation du disponible par une
@@ -974,6 +1011,10 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Les dépassements sont recalculés sur les conditions accordées | Un dossier instruit à 8 % et accordé à 14 % n'a pas le même taux d'endettement, et c'est ce qu'on accorde qui engage l'emprunteur |
 | Le déblocage confronte l'échéancier au taux et à la durée accordés | Sans ce contrôle, la décision du comité serait décorative : rien n'empêcherait de débloquer à 18 % un crédit accordé à 9 % |
 | Une condition suspensive retient le versement, pas la signature | Elle ne suspend pas le contrat mais l'obligation de verser ; le bloquer à la signature retarderait le dossier sans rien protéger |
+| Le passage en perte sort l'actif et entre au hors bilan, il n'éteint pas la dette | La sortie de l'actif est une décision comptable, pas une remise ; sans le hors bilan, la créance disparaît des livres le jour où elle sort du bilan |
+| Les intérêts réservés absorbent la sortie avant la provision | Ces produits ont déjà été sortis du résultat à la suspension ; les passer en perte une seconde fois doublerait le coût du dossier |
+| Un encaissement après la perte est un produit, jamais un remboursement | Il n'y a plus d'encours à diminuer : l'y imputer ferait réapparaître un crédit soldé et rendrait le capital négatif |
+| Le plafond du passage en perte porte sur l'encours qui sort | Un crédit largement remboursé ne mobilise pas la même délégation qu'un crédit intact |
 | Une garantie exigée devient une condition suspensive, jamais un dépassement de politique | Sinon toute décision sur un produit garanti serait dérogatoire, et une dérogation écrite à chaque dossier ne se lit plus |
 | Les accords en vigueur non signés comptent dans la capacité du dossier suivant | Deux demandes instruites le même jour s'ignoreraient, et la banque accorderait deux fois la même capacité |
 | Un engagement en devise se convertit au cours de référence, ou l'instruction s'arrête | Additionner des dollars à des francs donne un taux d'endettement faux et silencieux ; le cours manquant se cote en une minute |

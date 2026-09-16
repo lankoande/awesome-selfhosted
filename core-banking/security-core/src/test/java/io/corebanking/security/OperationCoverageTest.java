@@ -65,6 +65,9 @@ class OperationCoverageTest {
         Map.entry("LoanOrigination.decide", Operation.LOAN_APPLICATION_DECIDE),
         Map.entry("LoanOrigination.clearCondition", Operation.LOAN_CONDITION_CLEAR),
         Map.entry("LendingPolicies.declare", Operation.LENDING_POLICY_MANAGE),
+        Map.entry("LoanWriteOffService.writeOff", Operation.LOAN_WRITE_OFF),
+        Map.entry("LoanWriteOffService.recover", Operation.LOAN_RECOVERY),
+        Map.entry("LoanService.reviseRate", Operation.LOAN_RATE_REVISION),
         Map.entry("FxRates.quote", Operation.FX_RATE_QUOTE),
         Map.entry("FxPositions.declare", Operation.FX_POSITION_MANAGE),
         Map.entry("Tills.create", Operation.TILL_MANAGE),
@@ -135,6 +138,8 @@ class OperationCoverageTest {
                                               Operation.LOAN_APPLICATION_DECIDE,
                                               Operation.LOAN_CONDITION_CLEAR,
                                               Operation.LENDING_POLICY_MANAGE,
+                                              Operation.LOAN_WRITE_OFF,
+                                              Operation.LOAN_RATE_REVISION,
                                               Operation.FX_RATE_QUOTE,
                                               Operation.FX_POSITION_MANAGE)) {
             assertThat(SecurityConfig.ruleFor(operation).dualControl())

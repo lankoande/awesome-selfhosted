@@ -192,6 +192,18 @@ public final class Requests {
                                    Boolean beneficialOwnersRequired,
                                    BigDecimal ownershipThresholdPercent) {}
 
+    // ------------------------------------------------------------------ fin de vie du credit
+
+    /** Passage en perte : le motif est la piece que lira le controle. */
+    public record LoanWriteOffRequest(String reason, LocalDate writtenOffOn) {}
+
+    /** Encaissement sur une creance passee en perte, et le compte par lequel il arrive. */
+    public record LoanRecoveryRequest(BigDecimal amount, UUID channelAccountId,
+                                      LocalDate recoveredOn) {}
+
+    /** Revision de taux : le nouveau taux et la date a partir de laquelle il s'applique. */
+    public record LoanRateRevision(BigDecimal annualRatePercent, LocalDate effectiveFrom) {}
+
     // ------------------------------------------------------------------ origination
 
     /** Une demande de credit : le client, le produit, ce qu'il demande et pourquoi. */

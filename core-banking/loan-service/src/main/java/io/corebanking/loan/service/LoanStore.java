@@ -188,6 +188,37 @@ public final class LoanStore {
      *                   annulation rend le contrat actif : une cloture n'est pas plus definitive
      *                   que l'arrete qui l'a prononcee.
      */
+    /**
+     * Sort un credit de l'actif. Le contrat cesse d'etre actif : plus rien n'y devient exigible,
+     * aucun interet n'y court — mais la creance, elle, reste due au hors bilan.
+     */
+    /** Enregistre le taux en vigueur apres une revision : le contrat porte ce qu'il applique. */
+    public static void recordRate(Connection c, UUID contractId, java.math.BigDecimal ratePercent) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE loan_contract SET annual_rate_percent = ? WHERE id = ?")) {
+            ps.setBigDecimal(1, ratePercent);
+            ps.setObject(2, contractId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Revision du taux du contrat " + contractId, e);
+        }
+    }
+
+    public static void writeOff(Connection c, UUID contractId, LocalDate on) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE loan_contract SET status = 'WRITTEN_OFF', closed_on = ?"
+            + " WHERE id = ? AND status = 'ACTIVE'")) {
+            ps.setObject(1, on);
+            ps.setObject(2, contractId);
+            if (ps.executeUpdate() == 0) {
+                throw new IllegalStateException(
+                    "Contrat " + contractId + " introuvable ou deja sorti de l'etat ACTIVE.");
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Passage en perte du contrat " + contractId, e);
+        }
+    }
+
     public static void close(Connection c, UUID contractId, LocalDate on, UUID batchRunId) {
         try (PreparedStatement ps = c.prepareStatement(
             "UPDATE loan_contract SET status = 'CLOSED', closed_on = ?, closed_run_id = ?"

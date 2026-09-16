@@ -13,3 +13,4 @@ V20__loan_interest_accrual.sql
 V23__loan_customer.sql
 V29__rls_loans.sql
 V48__origination.sql
+V49__perte_recouvrement.sql

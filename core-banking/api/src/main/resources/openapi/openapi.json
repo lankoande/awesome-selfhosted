@@ -7161,6 +7161,174 @@
         }
       }
     },
+    "/v1/entities/{legalEntityId}/loans/{contractId}/rate-revision" : {
+      "post" : {
+        "operationId" : "Loan.reviseRate",
+        "tags" : [ "Loan" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "name" : "contractId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.LoanRateRevision"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/loans/{contractId}/recoveries" : {
+      "post" : {
+        "operationId" : "Loan.recover",
+        "tags" : [ "Loan" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "name" : "contractId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "$ref" : "#/components/parameters/IdempotencyKey"
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.LoanRecoveryRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Cree",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/LoanWriteOffService.Recovery"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
     "/v1/entities/{legalEntityId}/loans/{contractId}/repayments" : {
       "post" : {
         "operationId" : "Loan.repay",
@@ -7275,6 +7443,160 @@
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/Requests.Rescheduling"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/v1/entities/{legalEntityId}/loans/{contractId}/write-off" : {
+      "get" : {
+        "operationId" : "Loan.writeOffView",
+        "tags" : [ "Loan" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "name" : "contractId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Succes",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/LoanUseCases.WriteOffView"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ]
+                }
+              }
+            }
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        }
+      },
+      "post" : {
+        "operationId" : "Loan.writeOff",
+        "tags" : [ "Loan" ],
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "name" : "legalEntityId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "name" : "contractId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.LoanWriteOffRequest"
               }
             }
           }
@@ -10539,10 +10861,10 @@
   "components" : {
     "securitySchemes" : {
       "bearerAuth" : {
-        "scheme" : "bearer",
         "bearerFormat" : "JWT",
         "type" : "http",
-        "description" : "Jeton d'acces Keycloak : l'entite, l'agence et les roles de l'appelant en sont derives, jamais d'un parametre."
+        "description" : "Jeton d'acces Keycloak : l'entite, l'agence et les roles de l'appelant en sont derives, jamais d'un parametre.",
+        "scheme" : "bearer"
       }
     },
     "parameters" : {
@@ -12136,6 +12458,111 @@
           }
         }
       },
+      "LoanUseCases.WriteOffView" : {
+        "type" : "object",
+        "properties" : {
+          "writeOff" : {
+            "$ref" : "#/components/schemas/LoanWriteOffService.WriteOff"
+          },
+          "recoveries" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LoanWriteOffService.Recovery"
+            },
+            "type" : "array"
+          }
+        }
+      },
+      "LoanWriteOffService.Recovery" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "writeOffId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "recoveredOn" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "amount" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "channelAccountId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "recordedBy" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }
+      },
+      "LoanWriteOffService.WriteOff" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "contractId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "contractReference" : {
+            "type" : "string"
+          },
+          "legalEntityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "writtenOffOn" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "principalWritten" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "receivablesWritten" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "provisionUsed" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "reservedUsed" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "provisionReleased" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "lossRecognised" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "recovered" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "bucketCode" : {
+            "type" : "string"
+          },
+          "daysPastDue" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "createdBy" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "approvedBy" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }
+      },
       "MakerChecker.View" : {
         "type" : "object",
         "properties" : {
@@ -13512,6 +13939,34 @@
           }
         }
       },
+      "Requests.LoanRateRevision" : {
+        "type" : "object",
+        "properties" : {
+          "annualRatePercent" : {
+            "type" : "number"
+          },
+          "effectiveFrom" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }
+      },
+      "Requests.LoanRecoveryRequest" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "channelAccountId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "recoveredOn" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }
+      },
       "Requests.LoanRepayment" : {
         "type" : "object",
         "properties" : {
@@ -13522,6 +13977,18 @@
             "type" : "string"
           },
           "valueDate" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }
+      },
+      "Requests.LoanWriteOffRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string"
+          },
+          "writtenOffOn" : {
             "format" : "date",
             "type" : "string"
           }

@@ -34,6 +34,7 @@ public final class LoanReconciliation implements Reconciliation.Check {
     public static final String CHECK_RECEIVABLES = "SOUS_LIVRE_CREANCES_CREDIT";
     public static final String CHECK_OUTSTANDING = "SOUS_LIVRE_ENCOURS_CREDIT";
     public static final String CHECK_ACCRUED = "SOUS_LIVRE_ICNE_CREDIT";
+    public static final String CHECK_WRITTEN_OFF = "HORS_BILAN_CREANCES_EN_PERTE";
 
     @Override
     public List<Reconciliation.Discrepancy> run(Connection c, UUID legalEntityId,
@@ -42,6 +43,7 @@ public final class LoanReconciliation implements Reconciliation.Check {
         all.addAll(receivables(c, legalEntityId, businessDate));
         all.addAll(outstanding(c, legalEntityId));
         all.addAll(accruedInterest(c, legalEntityId, businessDate));
+        all.addAll(writtenOff(c, legalEntityId, businessDate));
         return all;
     }
 
@@ -124,6 +126,48 @@ public final class LoanReconciliation implements Reconciliation.Check {
             }
         } catch (SQLException e) {
             throw new LedgerStoreException("Rapprochement des encours de credit", e);
+        }
+        return discrepancies;
+    }
+
+    /**
+     * Le hors bilan des creances passees en perte contre ce qui reste du.
+     *
+     * <p>Une creance sortie de l'actif reste due : le compte de hors bilan doit porter, au
+     * centime, ce qui a ete passe en perte et pas encore recouvre. Un ecart signale soit un
+     * recouvrement encaisse sans sortir du hors bilan — l'engagement survivrait a la dette —,
+     * soit une sortie oubliee, et le suivi du recouvrement porterait sur du vide.
+     */
+    public static List<Reconciliation.Discrepancy> writtenOff(Connection c, UUID legalEntityId,
+                                                              LocalDate businessDate) {
+        List<Reconciliation.Discrepancy> discrepancies = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT a.product_code, COALESCE(w.expected, 0), COALESCE(b.balance, 0)"
+            + "  FROM (" + PRODUCT_ACCOUNTS + ") a"
+            + "  LEFT JOIN (SELECT k.product_code,"
+            + "                    SUM(x.principal_written + x.receivables_written)"
+            + "                  - SUM(COALESCE((SELECT SUM(r.amount) FROM loan_recovery r"
+            + "                                   WHERE r.write_off_id = x.id), 0)) AS expected"
+            + "               FROM loan_write_off x"
+            + "               JOIN loan_contract k ON k.id = x.contract_id"
+            + "              WHERE x.legal_entity_id = ?"
+            + "              GROUP BY k.product_code) w ON w.product_code = a.product_code"
+            + "  LEFT JOIN account_balance_agg b ON b.account_id = a.account_id"
+            + " WHERE COALESCE(w.expected, 0) <> COALESCE(b.balance, 0)")) {
+            ps.setString(1, LoanCatalog.P_WRITTEN_OFF);
+            ps.setObject(2, legalEntityId);
+            ps.setObject(3, businessDate);
+            ps.setObject(4, businessDate);
+            ps.setObject(5, legalEntityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    discrepancies.add(new Reconciliation.Discrepancy(
+                        CHECK_WRITTEN_OFF, rs.getString(1), rs.getBigDecimal(2),
+                        rs.getBigDecimal(3)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Rapprochement du hors bilan des creances en perte", e);
         }
         return discrepancies;
     }

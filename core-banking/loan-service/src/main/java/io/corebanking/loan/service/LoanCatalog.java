@@ -54,6 +54,10 @@ public final class LoanCatalog {
     public static final String P_PREPAY_CAP_PCT   = "loan.prepayment_cap_percent";
     public static final String P_PREPAY_CAP_MONTHS = "loan.prepayment_cap_months";
     public static final String P_PREPAY_INDEMNITY_ACCOUNT = "loan.prepayment_indemnity_account";
+    public static final String P_WRITE_OFF_LOSS   = "loan.write_off_loss";
+    public static final String P_RECOVERY_INCOME  = "loan.recovery_income";
+    public static final String P_WRITTEN_OFF      = "loan.written_off_off_balance";
+    public static final String P_WRITTEN_OFF_COUNTERPART = "loan.written_off_counterpart";
 
     private LoanCatalog() {}
 
@@ -210,6 +214,21 @@ public final class LoanCatalog {
 
     public static UUID accruedReceivable(ProductVersion product) {
         return product.parameters().requireUuid(P_ACCRUED);
+    }
+
+    /**
+     * Un compte nomme par le parametrage, avec un refus qui dit a quoi il sert.
+     *
+     * <p>Sans lui, l'absence du parametre se decouvre au milieu d'une ecriture, sous la forme
+     * d'un nom de cle technique que personne ne sait rattacher a une decision de gestion.
+     */
+    public static UUID account(ProductVersion product, String parameter, String what) {
+        if (!product.parameters().has(parameter)) {
+            throw new IllegalStateException("Le produit " + product.code() + " ne nomme pas le "
+                + "compte de " + what + " (" + parameter + ") : l'operation ne peut pas etre "
+                + "comptabilisee");
+        }
+        return product.parameters().requireUuid(parameter);
     }
 
     /**

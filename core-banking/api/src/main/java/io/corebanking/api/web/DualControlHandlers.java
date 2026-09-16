@@ -38,6 +38,7 @@ import io.corebanking.ledger.store.FiscalYears;
 import io.corebanking.loan.service.Collaterals;
 import io.corebanking.loan.service.LendingPolicies;
 import io.corebanking.loan.service.LoanOrigination;
+import io.corebanking.loan.service.LoanWriteOffService;
 import io.corebanking.loan.service.RiskProfiles;
 import io.corebanking.product.SchemaCatalog;
 import io.corebanking.api.usecase.ParameterUseCases;
@@ -68,7 +69,8 @@ public final class DualControlHandlers {
                                                      posting,
                                                  io.corebanking.deposits.ChequeService cheques,
                                                  io.corebanking.deposits.DirectDebitService
-                                                     directDebits) {
+                                                     directDebits,
+                                                 LoanWriteOffService writeOffs) {
         return List.of(new OpenAccount(lifecycle), new CloseAccount(lifecycle, accounts),
                        new BlockAccount(lifecycle, accounts), new LiftBlock(lifecycle, accounts),
                        new PlaceHold(database, accounts), new ReleaseHold(database, accounts),
@@ -96,7 +98,8 @@ public final class DualControlHandlers {
                        new EndRelationship(database), new DeclareBeneficialOwner(database),
                        new EndBeneficialOwner(database), new SetKycPolicy(database),
                        new DecideApplication(database), new ClearCondition(database),
-                       new SetLendingPolicy(database));
+                       new SetLendingPolicy(database), new WriteOffLoan(database, writeOffs),
+                       new ReviseLoanRate(database, loans));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -255,6 +258,86 @@ public final class DualControlHandlers {
                 date(payload, "validFrom"), date(payload, "validTo"),
                 Callers.actorId(maker), Callers.actorId(checker));
             return database.inTransaction(c -> LendingPolicies.declare(c, draft));
+        }
+    }
+
+
+    /** Passage en perte : la sortie d'un actif des livres, a deux et sous plafond. */
+    static final class WriteOffLoan implements MakerChecker.Handler {
+        private final Database database;
+        private final LoanWriteOffService writeOffs;
+
+        WriteOffLoan(Database database, LoanWriteOffService writeOffs) {
+            this.database = database;
+            this.writeOffs = writeOffs;
+        }
+
+        @Override public String name() { return "LOAN_WRITE_OFF"; }
+        @Override public Operation operation() { return Operation.LOAN_WRITE_OFF; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            LoanContract contract = LoanUseCases.require(database, uuid(payload, "contractId"));
+            // Le plafond porte sur ce qui sort des livres, pas sur le capital d'origine : un
+            // credit largement rembourse ne mobilise pas la meme delegation qu'un credit intact.
+            Money exposure = database.inTransaction(
+                c -> io.corebanking.loan.service.LoanStore.exposureOf(c, contract));
+            return AccessTarget.inEntity(contract.legalEntityId()).withAmount(exposure);
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "contractId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            LoanContract contract = LoanUseCases.require(database, uuid(payload, "contractId"));
+            LocalDate on = date(payload, "writtenOffOn") == null
+                ? database.inTransaction(c -> io.corebanking.api.usecase.AccountUseCases
+                      .businessDate(c, contract.legalEntityId()))
+                : date(payload, "writtenOffOn");
+            return writeOffs.writeOff(contract.id(), on, required(payload, "reason"),
+                                      Callers.actorId(maker), Callers.actorId(checker));
+        }
+    }
+
+    /** Revision de taux : un nouvel echeancier sur le capital restant du, a deux. */
+    static final class ReviseLoanRate implements MakerChecker.Handler {
+        private final Database database;
+        private final LoanService loans;
+
+        ReviseLoanRate(Database database, LoanService loans) {
+            this.database = database;
+            this.loans = loans;
+        }
+
+        @Override public String name() { return "LOAN_RATE_REVISION"; }
+        @Override public Operation operation() { return Operation.LOAN_RATE_REVISION; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            LoanContract contract = LoanUseCases.require(database, uuid(payload, "contractId"));
+            return AccessTarget.inEntity(contract.legalEntityId());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "contractId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            LoanContract contract = LoanUseCases.require(database, uuid(payload, "contractId"));
+            LocalDate from = date(payload, "effectiveFrom") == null
+                ? database.inTransaction(c -> io.corebanking.api.usecase.AccountUseCases
+                      .businessDate(c, contract.legalEntityId()))
+                : date(payload, "effectiveFrom");
+            UUID scheduleId = loans.reviseRate(contract.id(),
+                new java.math.BigDecimal(required(payload, "annualRatePercent")), from,
+                Callers.actorId(maker), Callers.actorId(checker));
+            return new LoanUseCases.Revised(contract.id(), scheduleId, from,
+                                            required(payload, "annualRatePercent"));
         }
     }
 

@@ -24,6 +24,8 @@ import io.corebanking.loan.Receivable;
 import io.corebanking.loan.Teg;
 import io.corebanking.product.ProductCatalog;
 import io.corebanking.product.ProductVersion;
+import io.corebanking.loan.LoanTerms;
+import io.corebanking.loan.ScheduleGenerator;
 import io.corebanking.schema.AccountResolver;
 import io.corebanking.schema.EventTemplate;
 import io.corebanking.schema.SchemaEngine;
@@ -175,6 +177,69 @@ public final class LoanService {
                            UUID approverId) {
         return database.inTransaction(c -> LoanStore.publishSchedule(
             c, contractId, schedule, reason, effectiveFrom, actorId, approverId));
+    }
+
+    /**
+     * Revise le taux d'un credit en cours : un nouvel echeancier sur le capital restant du.
+     *
+     * <p>Une revision n'est pas un rechelonnement : la duree ne bouge pas, le taux si. Elle prend
+     * effet a une date, et ce qui est deja exigible ne se recalcule pas — refaire le passe
+     * reviendrait a reclamer au client des interets qu'on ne lui avait pas demandes, ou a lui en
+     * rendre qu'il a deja payes. Le <b>taux effectif</b> du nouveau plan est confronte au plafond
+     * d'usure comme au deblocage : c'est le seul controle qui ait un sens ici, puisqu'une revision
+     * peut franchir le plafond que le deblocage respectait.
+     */
+    public UUID reviseRate(UUID contractId, java.math.BigDecimal newRatePercent,
+                           LocalDate effectiveFrom, UUID actorId, UUID approverId) {
+        if (newRatePercent == null || newRatePercent.signum() < 0) {
+            throw new IllegalArgumentException("Un taux revise est positif ou nul : "
+                                               + newRatePercent);
+        }
+        if (actorId == null || approverId == null || approverId.equals(actorId)) {
+            throw new IllegalArgumentException("Une revision de taux se decide a deux : elle "
+                + "change ce que le client doit");
+        }
+        return database.inTransaction(c -> {
+            LoanContract contract = LoanStore.requireContract(c, contractId);
+            if (contract.status() != LoanContract.Status.ACTIVE) {
+                throw new IllegalStateException("Le contrat " + contract.reference() + " est "
+                    + contract.status() + " : seul un credit actif se revise");
+            }
+            ProductVersion product = product(c, contract, effectiveFrom);
+            Money outstanding = Balances.current(c, contract.loanAccountId());
+            if (!outstanding.isPositive()) {
+                throw new IllegalStateException("Le contrat " + contract.reference()
+                    + " n'a plus de capital restant du : il n'y a rien a reviser");
+            }
+            LoanStore.Remaining remaining = LoanStore
+                .remainingAfter(c, contractId, contract.currency(), effectiveFrom)
+                .orElseThrow(() -> new IllegalStateException("Aucune echeance a venir apres le "
+                    + effectiveFrom + " : une revision ne refait pas le passe"));
+
+            LoanTerms terms = LoanTerms.of(outstanding)
+                .ratePercent(newRatePercent)
+                .frequency(contract.terms().frequency())
+                .instalments(remaining.count())
+                .disbursedOn(effectiveFrom)
+                .firstDueDate(remaining.nextDueDate())
+                .method(contract.terms().method())
+                .dayCount(contract.terms().dayCount())
+                .build();
+            AmortisationSchedule revised = ScheduleGenerator.generate(terms);
+
+            Teg teg = EffectiveRate.of(revised, Money.zero(contract.currency()),
+                                       LoanCatalog.tegMethod(product));
+            LoanCatalog.usuryRate(product).ifPresent(ceiling -> {
+                if (teg.exceeds(ceiling)) {
+                    throw new UsuryCeilingExceededException(contract.reference(), teg, ceiling);
+                }
+            });
+            UUID scheduleId = LoanStore.publishSchedule(
+                c, contractId, revised, LoanStore.ScheduleReason.RATE_REVISION, effectiveFrom,
+                actorId, approverId);
+            LoanStore.recordRate(c, contractId, newRatePercent);
+            return scheduleId;
+        });
     }
 
     // ------------------------------------------------------------------ remboursement anticipe

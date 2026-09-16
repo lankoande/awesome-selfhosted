@@ -191,6 +191,10 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `POST /loan-applications/{id}/withdrawal` | `LOAN_APPLICATION` | date et motif ; un dossier devenu contrat ne se retire plus (`409`) |
 | `POST /lending-policies` | `LENDING_POLICY_MANAGE` | endettement, montant, durée, apport, garantie, validité de l'offre — **202**, à deux |
 | `GET /lending-policies` | `LOAN_READ` | les politiques d'octroi déclarées |
+| `POST /loans/{id}/write-off` | `LOAN_WRITE_OFF` | motif et date — **202**, à deux ; **plafonné par rôle sur l'encours qui sort**, pas sur le capital d'origine |
+| `GET /loans/{id}/write-off` | `LOAN_READ` | le dossier de perte : ce qui est sorti, ce qui l'a absorbé, ce qui a été recouvré |
+| `POST /loans/{id}/recoveries` | `LOAN_RECOVERY` | montant, compte d'encaissement, date — **201** ; au-delà de ce qui a été passé en perte, refus nommé (`409`) |
+| `POST /loans/{id}/rate-revision` | `LOAN_RATE_REVISION` | nouveau taux et date d'effet — **202**, à deux ; le plafond d'usure est vérifié sur le nouveau plan |
 | `POST /calendar/cutoffs` | `CALENDAR_MANAGE` | canal (vide : tous), heure limite `HH:mm` dans le fuseau de l'entité, `closesChannel`, validité — **202**, à deux ; l'heure se valide à la soumission (`422`) ; au-delà de l'heure, une opération du canal prend valeur depuis le jour ouvré suivant, ou est refusée (`409`) si le canal ferme |
 | `POST /suspense-policies`, `GET /suspense-policies` | `SUSPENSE_MANAGE` | nature (`SUSPENSE_ACCOUNT`, `PAYMENT_ORDER`, `CHEQUE_DEPOSIT`, `DIRECT_DEBIT`), ancienneté tolérée en jours ouvrés, responsable, validité — **202**, à deux ; nature, tolérance et responsable validés à la soumission (`422`) |
 | `GET /suspense` | `SUSPENSE_READ` | la revue à la date comptable : chaque suspens avec son compte, son montant, depuis quand, son ancienneté, la tolérance et le responsable de sa politique, `overdue` ; lecture tracée |

@@ -341,6 +341,24 @@ public final class SecurityConfig {
             AccessRule.allow(RISK_OFFICER).within(Scope.OWN_ENTITY)
                 .requiringSecondPerson().build());
 
+        // Sortir un actif des livres constate une perte : la decision est du siege, a deux, et
+        // plafonnee comme un deblocage — c'est le meme argent, dans l'autre sens.
+        policy.put(Operation.LOAN_WRITE_OFF,
+            AccessRule.allow(CREDIT_MANAGER, ACCOUNTANT)
+                .within(Scope.OWN_ENTITY)
+                .upTo(Map.of(CREDIT_MANAGER, Money.of("100000000", XOF),
+                             ACCOUNTANT, Money.of("100000000", XOF)))
+                .requiringSecondPerson().build());
+
+        // Encaisser sur une creance amortie est une operation de guichet comme une autre.
+        policy.put(Operation.LOAN_RECOVERY,
+            AccessRule.allow(TELLER, CREDIT_OFFICER, CREDIT_MANAGER, BRANCH_MANAGER)
+                .within(Scope.OWN_ENTITY).build());
+
+        policy.put(Operation.LOAN_RATE_REVISION,
+            AccessRule.allow(CREDIT_MANAGER, BRANCH_MANAGER)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
         policy.put(Operation.LOAN_CONTRACT_CREATE,
             AccessRule.allow(CREDIT_OFFICER, BRANCH_MANAGER).within(Scope.OWN_BRANCH).build());
 

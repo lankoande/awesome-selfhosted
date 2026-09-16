@@ -309,7 +309,11 @@
         "loan.usury_rate",
         "loan.provision_release",
         "loan.prepayment_cap_percent",
-        "loan.prepayment_cap_months"
+        "loan.prepayment_cap_months",
+        "loan.write_off_loss",
+        "loan.recovery_income",
+        "loan.written_off_off_balance",
+        "loan.written_off_counterpart"
       ],
       "accounts": [
         "loan.accrued_receivable",
@@ -324,7 +328,11 @@
         "loan.provision_allowance",
         "loan.provision_release",
         "loan.reserved_interest",
-        "loan.prepayment_indemnity_account"
+        "loan.prepayment_indemnity_account",
+        "loan.write_off_loss",
+        "loan.recovery_income",
+        "loan.written_off_off_balance",
+        "loan.written_off_counterpart"
       ],
       "conditions": [
         {
@@ -392,6 +400,16 @@
             "loan.prepayment_indemnity_account"
           ],
           "because": "une indemnite de remboursement anticipe n'est pas un interet : la crediter sur le produit d'interets fausserait la marge et le rendement du portefeuille"
+        },
+        {
+          "when": "loan.write_off_loss",
+          "present": true,
+          "require": [
+            "loan.recovery_income",
+            "loan.written_off_off_balance",
+            "loan.written_off_counterpart"
+          ],
+          "because": "un credit passe en perte reste du : sans compte de hors bilan pour le suivre ni compte de recuperation pour l'encaisser, la creance disparait des livres le jour ou elle sort de l'actif"
         }
       ]
     }

@@ -480,6 +480,20 @@ Piloté par le profil réglementaire ([03](03-referentiel-parametrage.md#7-profi
 > et il vérifie aussi que l'échéancier applique **le taux et la durée accordés** — sans quoi la
 > décision du comité serait décorative. Le contrat naît du **montant accordé**, une seule fois.
 >
+> **La fin de vie est implémentée** (`LoanWriteOffService`, V49) : le **passage en perte** sort le
+> capital restant dû et les créances de l'actif, à deux et sous plafond de rôle. Ce qui sort est
+> absorbé d'abord par les **intérêts réservés** — ces produits ont déjà été sortis du résultat à la
+> suspension, et les passer en perte une seconde fois constaterait une charge pour un produit
+> jamais pris —, puis par la **provision** constituée ; le reliquat seul est une perte, et un
+> dossier sur-provisionné rend l'excédent au résultat. **La créance n'est pas éteinte** : elle
+> entre au hors bilan pour son montant entier, dans une écriture séparée. Ce qui est encaissé
+> ensuite est un **produit de récupération**, jamais un remboursement — il n'y a plus d'encours à
+> diminuer —, et il sort du hors bilan d'autant ; on ne recouvre pas plus que ce qui est sorti. Le
+> rapprochement de chaque nuit confronte le compte de hors bilan à ce qui reste dû
+> (`HORS_BILAN_CREANCES_EN_PERTE`). La **révision de taux** publie un nouvel échéancier sur le
+> capital restant dû, à deux, sans refaire le passé et sous le plafond d'usure — qu'une révision
+> peut franchir là où le déblocage le respectait.
+>
 > **Ce qui manque** : le scoring lui-même (le socle porte le score et sa source, il ne le calcule
 > pas — un moteur maison se démode et ne se défend pas devant un régulateur), le comité comme
 > circuit à plus de deux yeux (au-delà du plafond du responsable des engagements, aucun rôle ne

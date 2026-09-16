@@ -32,15 +32,22 @@ public class LoanController {
     private final LoanUseCases.Repay repay;
     private final LoanUseCases.Read read;
     private final LoanUseCases.List_ list;
+    private final Database database;
+    private final LoanUseCases.Recover recover;
+    private final LoanUseCases.ReadWriteOff readWriteOff;
 
     public LoanController(UseCaseExecutor executor, Database database, AccountDirectory accounts,
-                          LoanService loans, MakerChecker makerChecker) {
+                          LoanService loans, MakerChecker makerChecker,
+                          io.corebanking.loan.service.LoanWriteOffService writeOffs) {
         this.executor = executor;
         this.makerChecker = makerChecker;
         this.create = new LoanUseCases.Create(database, accounts);
         this.repay = new LoanUseCases.Repay(database, loans);
         this.read = new LoanUseCases.Read(database, loans);
         this.list = new LoanUseCases.List_(database);
+        this.database = database;
+        this.recover = new LoanUseCases.Recover(database, writeOffs);
+        this.readWriteOff = new LoanUseCases.ReadWriteOff(database);
     }
 
     /** Les contrats de l'entite, par pages ; le statut est un filtre facultatif. */
@@ -115,6 +122,67 @@ public class LoanController {
         return makerChecker.submit(caller, legalEntityId, "LOAN_PREPAY", Payloads.of(
             "contractId", contractId, "amount", body.amount(), "currency", body.currency(),
             "mode", body.mode(), "idempotencyKey", key.value()));
+    }
+
+
+    /**
+     * Passage en perte, a deux : la sortie d'un actif des livres. La creance, elle, reste due et
+     * se suit au hors bilan.
+     */
+    @PostMapping("/{contractId}/write-off")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MakerChecker.View writeOff(Caller caller, @PathVariable UUID legalEntityId,
+                                      @PathVariable UUID contractId,
+                                      @RequestBody Requests.LoanWriteOffRequest body) {
+        if (body.reason() == null || body.reason().isBlank()) {
+            throw new IllegalArgumentException("Un passage en perte porte son motif");
+        }
+        return makerChecker.submit(caller, legalEntityId, "LOAN_WRITE_OFF", Payloads.of(
+            "contractId", contractId, "reason", body.reason(),
+            "writtenOffOn", body.writtenOffOn()));
+    }
+
+    /** Ce qui rentre apres la perte : un produit de recuperation, jamais un remboursement. */
+    @PostMapping("/{contractId}/recoveries")
+    @ResponseStatus(HttpStatus.CREATED)
+    public io.corebanking.loan.service.LoanWriteOffService.Recovery recover(
+            Caller caller, @PathVariable UUID legalEntityId, @PathVariable UUID contractId,
+            IdempotencyKey key, @RequestBody Requests.LoanRecoveryRequest body) {
+        io.corebanking.loan.service.LoanContract contract = LoanUseCases.require(database,
+                                                                                 contractId);
+        if (body.amount() == null) {
+            throw new IllegalArgumentException("Champ obligatoire absent : amount");
+        }
+        java.time.LocalDate on = body.recoveredOn() == null
+            ? database.inTransaction(c -> io.corebanking.api.usecase.AccountUseCases
+                  .businessDate(c, legalEntityId))
+            : body.recoveredOn();
+        return executor.run(caller, recover, new LoanUseCases.RecoveryCommand(
+            legalEntityId, contractId,
+            io.corebanking.kernel.money.Money.of(body.amount(), contract.currency()),
+            body.channelAccountId(), on, key, Callers.actorId(caller)));
+    }
+
+    /** Le dossier de perte : ce qui est sorti, ce qui a ete recouvre, ce qui reste du. */
+    @GetMapping("/{contractId}/write-off")
+    public LoanUseCases.WriteOffView writeOffView(Caller caller, @PathVariable UUID legalEntityId,
+                                                  @PathVariable UUID contractId) {
+        return executor.run(caller, readWriteOff, new LoanUseCases.Lookup(contractId));
+    }
+
+    /** Revision de taux, a deux : un nouvel echeancier sur le capital restant du. */
+    @PostMapping("/{contractId}/rate-revision")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MakerChecker.View reviseRate(Caller caller, @PathVariable UUID legalEntityId,
+                                        @PathVariable UUID contractId,
+                                        @RequestBody Requests.LoanRateRevision body) {
+        if (body.annualRatePercent() == null) {
+            throw new IllegalArgumentException("Champ obligatoire absent : annualRatePercent");
+        }
+        return makerChecker.submit(caller, legalEntityId, "LOAN_RATE_REVISION", Payloads.of(
+            "contractId", contractId,
+            "annualRatePercent", body.annualRatePercent().toPlainString(),
+            "effectiveFrom", body.effectiveFrom()));
     }
 
     @GetMapping("/{contractId}")

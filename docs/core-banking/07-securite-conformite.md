@@ -239,7 +239,10 @@ un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servi
 > délégation, et la délégation se mesure en francs ; au-delà du plafond du responsable des
 > engagements, aucun rôle ne porte la décision, elle relève d'un comité et le refus le dit au lieu
 > de laisser passer ; `LOAN_CONDITION_CLEAR` à deux, comme une mainlevée de sûreté : lever une
-> condition suspensive libère des fonds ; `LENDING_POLICY_MANAGE` à deux pour la conformité) ;
+> condition suspensive libère des fonds ; `LENDING_POLICY_MANAGE` à deux pour la conformité), fin
+> de vie du crédit (`LOAN_WRITE_OFF` à deux et **plafonné sur l'encours qui sort** — c'est le même
+> argent que le déblocage, dans l'autre sens —, `LOAN_RECOVERY` au guichet, `LOAN_RATE_REVISION`
+> à deux : elle change ce que le client doit) ;
 > `RESULT_APPROPRIATION` — l'affectation du résultat, à deux ; `STATEMENT_LAYOUT_DRAFT` et
 > `STATEMENT_LAYOUT_ACTIVATE` — les maquettes d'états financiers, activées à deux) et
 > restitutions (`LEDGER_READ` : balance, grand livre, journal de l'entité, états financiers —

@@ -97,6 +97,12 @@ public enum Operation {
     LOAN_CONDITION_CLEAR,
     /** Politique d'octroi d'un produit : endettement, montant, duree, apport, garantie, a deux. */
     LENDING_POLICY_MANAGE,
+    /** Passage en perte : la sortie d'un actif des livres, a deux. */
+    LOAN_WRITE_OFF,
+    /** Encaissement sur une creance passee en perte. */
+    LOAN_RECOVERY,
+    /** Revision du taux d'un credit en cours, a deux : elle change ce que le client doit. */
+    LOAN_RATE_REVISION,
     /** Politique de suspens : anciennete toleree et responsable par nature, a deux. */
     SUSPENSE_MANAGE,
     /** Revue des suspens : ce qui attend le correspondant, avec son anciennete. */

@@ -50,6 +50,10 @@ public final class LoanSchemas {
     public static final String EVENT_TRANCHE_RELEASE = "LOAN_TRANCHE_RELEASE";
     public static final String EVENT_INTERIM_INTEREST = "LOAN_INTERIM_INTEREST";
     public static final String EVENT_INTEREST_ACCRUAL = "LOAN_INTEREST_ACCRUAL";
+    public static final String EVENT_WRITE_OFF = "LOAN_WRITE_OFF";
+    public static final String EVENT_WRITE_OFF_OFF_BALANCE = "LOAN_WRITE_OFF_OFF_BALANCE";
+    public static final String EVENT_RECOVERY = "LOAN_RECOVERY";
+    public static final String EVENT_RECOVERY_OFF_BALANCE = "LOAN_RECOVERY_OFF_BALANCE";
 
     public static final String ROLE_SETTLEMENT = "settlement";
     public static final String ROLE_ACCRUED = "accrued_receivable";
@@ -65,6 +69,10 @@ public final class LoanSchemas {
     public static final String ROLE_PROVISION_RELEASE = "provision_release";
     public static final String ROLE_RESERVED_INTEREST = "reserved_interest";
     public static final String ROLE_PREPAYMENT_INDEMNITY = "prepayment_indemnity";
+    public static final String ROLE_WRITE_OFF_LOSS = "write_off_loss";
+    public static final String ROLE_RECOVERY_INCOME = "recovery_income";
+    public static final String ROLE_WRITTEN_OFF = "written_off_off_balance";
+    public static final String ROLE_WRITTEN_OFF_COUNTERPART = "written_off_counterpart";
 
     private LoanSchemas() {}
 
@@ -293,6 +301,81 @@ public final class LoanSchemas {
             .on(prepayment(currency))
             .on(trancheRelease(currency))
             .on(interimInterest(currency))
+            .build();
+    }
+
+    /**
+     * Passage en perte : ce qui sort de l'actif, et ce qui l'absorbe.
+     *
+     * <p>L'ordre d'absorption n'est pas une commodite. Les <b>interets reserves</b> viennent en
+     * premier sur la part d'interets : ces produits ont deja ete sortis du resultat a la
+     * suspension, et les passer en perte une seconde fois constaterait une charge pour un produit
+     * jamais pris. Vient ensuite la <b>provision</b> constituee, qui est faite pour cela. Le
+     * reliquat seul est une perte. Si provision et reserves depassent ce qui sort — un dossier
+     * sur-provisionne —, l'excedent est repris en produit : il n'a plus d'objet.
+     */
+    public static EventTemplate writeOff(CurrencyRef currency) {
+        int scale = currency.scale();
+        return EventTemplate.of(EVENT_WRITE_OFF)
+            .derive("capital", "round(principal, " + scale + ")")
+            .derive("creances", "round(receivables, " + scale + ")")
+            .derive("reserves", "round(reserved, " + scale + ")")
+            .derive("provision", "round(provision, " + scale + ")")
+            .derive("perte", "round(loss, " + scale + ")")
+            .derive("reprise", "round(released, " + scale + ")")
+            .line(TemplateLine.credit("CONTRACT", "capital", "Capital sorti de l'actif")
+                      .onlyIf("capital > 0"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_ACCRUED, "creances",
+                                      "Creances sorties de l'actif").onlyIf("creances > 0"))
+            .line(TemplateLine.debit("PARAM:" + ROLE_RESERVED_INTEREST, "reserves",
+                                     "Interets reserves imputes").onlyIf("reserves > 0"))
+            .line(TemplateLine.debit("PARAM:" + ROLE_PROVISION_ALLOWANCE, "provision",
+                                     "Provision utilisee").onlyIf("provision > 0"))
+            .line(TemplateLine.debit("PARAM:" + ROLE_WRITE_OFF_LOSS, "perte",
+                                     "Perte sur creance irrecouvrable").onlyIf("perte > 0"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_PROVISION_RELEASE, "reprise",
+                                      "Provision sans objet reprise").onlyIf("reprise > 0"))
+            .build();
+    }
+
+    /** La creance sortie de l'actif entre au hors bilan : elle reste due. */
+    public static EventTemplate writeOffOffBalance(CurrencyRef currency) {
+        String amount = "round(amount, " + currency.scale() + ")";
+        return EventTemplate.of(EVENT_WRITE_OFF_OFF_BALANCE)
+            .derive("engagement", amount)
+            .line(TemplateLine.debit("PARAM:" + ROLE_WRITTEN_OFF, "engagement",
+                                     "Creance passee en perte, toujours due"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_WRITTEN_OFF_COUNTERPART, "engagement",
+                                      "Contrepartie du hors bilan"))
+            .build();
+    }
+
+    /**
+     * Recouvrement apres perte : un produit, jamais un remboursement.
+     *
+     * <p>Il n'y a plus de creance a l'actif a diminuer — l'imputer sur un encours ferait
+     * reapparaitre un credit solde et rendrait le capital negatif.
+     */
+    public static EventTemplate recovery(CurrencyRef currency) {
+        String amount = "round(amount, " + currency.scale() + ")";
+        return EventTemplate.of(EVENT_RECOVERY)
+            .derive("encaisse", amount)
+            .line(TemplateLine.debit("PARAM:" + ROLE_SETTLEMENT, "encaisse",
+                                     "Encaissement sur creance amortie"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_RECOVERY_INCOME, "encaisse",
+                                      "Recuperation sur creance passee en perte"))
+            .build();
+    }
+
+    /** Ce qui est recouvre sort du hors bilan : il n'est plus du. */
+    public static EventTemplate recoveryOffBalance(CurrencyRef currency) {
+        String amount = "round(amount, " + currency.scale() + ")";
+        return EventTemplate.of(EVENT_RECOVERY_OFF_BALANCE)
+            .derive("engagement", amount)
+            .line(TemplateLine.debit("PARAM:" + ROLE_WRITTEN_OFF_COUNTERPART, "engagement",
+                                     "Contrepartie du hors bilan"))
+            .line(TemplateLine.credit("PARAM:" + ROLE_WRITTEN_OFF, "engagement",
+                                      "Creance recouvree, sortie du hors bilan"))
             .build();
     }
 }

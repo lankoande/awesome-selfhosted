@@ -249,6 +249,18 @@ class ApiIT {
             parametresCredit.put(LoanCatalog.P_DIRECT_DEBIT, "true");
             parametresCredit.put(LoanCatalog.P_LATE_RATE, "18");
             parametresCredit.put(LoanCatalog.P_LATE_INCOME, retard.id().toString());
+            // La fin de vie du credit : ou va la perte, ou revient ce qui est recouvre, et ou la
+            // creance continue d'etre suivie une fois sortie de l'actif.
+            Account perte = compteDeResultat(c, "PERTES-CREDIT", NormalBalance.DEBIT);
+            Account recuperations = compteDeResultat(c, "RECUP-CREDIT", NormalBalance.CREDIT);
+            Account horsBilan = compteHorsBilan(c, "HB-CREANCES-PERTE", NormalBalance.DEBIT);
+            Account horsBilanContrepartie = compteHorsBilan(c, "HB-CONTREPARTIE",
+                                                            NormalBalance.CREDIT);
+            parametresCredit.put(LoanCatalog.P_WRITE_OFF_LOSS, perte.id().toString());
+            parametresCredit.put(LoanCatalog.P_RECOVERY_INCOME, recuperations.id().toString());
+            parametresCredit.put(LoanCatalog.P_WRITTEN_OFF, horsBilan.id().toString());
+            parametresCredit.put(LoanCatalog.P_WRITTEN_OFF_COUNTERPART,
+                                 horsBilanContrepartie.id().toString());
             return null;
         });
         teller = token(GUICHETIER, "guichetier", siege, Roles.TELLER);
@@ -1963,6 +1975,72 @@ class ApiIT {
             .as("un statut inconnu se refuse au lieu de rendre une liste vide").isEqualTo(422);
     }
 
+
+    @Test
+    @Order(19)
+    @DisplayName("fin de vie : le taux se revise sur le capital restant du, la perte sort l'actif des livres sans eteindre la creance, et ce qui rentre ensuite est un produit")
+    void fin_de_vie_du_credit() throws Exception {
+        // La banque tente d'abord de sauver le dossier : un taux revise, a deux.
+        Reponse revision = post(manager, "/loans/" + pretId + "/rate-revision", null,
+            Map.of("annualRatePercent", "9", "effectiveFrom", J.plusDays(4).toString()));
+        assertThat(revision.status()).as(String.valueOf(revision.envelope())).isEqualTo(202);
+        Reponse revise = post(creditManager, "/pending-operations/" + attente(revision) + "/approve",
+                              null, Map.of());
+        assertThat(revise.status()).as(String.valueOf(revise.envelope())).isEqualTo(200);
+        assertThat(resultat(revise.body()).get("annualRatePercent")).isEqualTo("9");
+        Map<?, ?> conditions = (Map<?, ?>) get(creditOfficer, "/loans/" + pretId).body()
+            .get("terms");
+        assertThat(String.valueOf(conditions.get("annualRatePercent")))
+            .as("le contrat porte desormais le taux revise").startsWith("9");
+
+        // Puis elle renonce. Le passage en perte est une decision du siege, a deux.
+        assertThat(post(creditOfficer, "/loans/" + pretId + "/write-off", null,
+                        Map.of("reason", "recours epuises")).status())
+            .as("sortir un actif des livres n'est pas un acte d'agence").isEqualTo(403);
+        assertThat(post(accountant, "/loans/" + pretId + "/write-off", null, Map.of()).status())
+            .as("sans motif, rien n'est soumis").isEqualTo(422);
+
+        Reponse demande = post(accountant, "/loans/" + pretId + "/write-off", null,
+            Map.of("reason", "creance compromise, recours epuises",
+                   "writtenOffOn", J.plusDays(4).toString()));
+        assertThat(demande.status()).as(String.valueOf(demande.envelope())).isEqualTo(202);
+        Reponse passee = post(creditManager, "/pending-operations/" + attente(demande) + "/approve",
+                              null, Map.of());
+        assertThat(passee.status()).as(String.valueOf(passee.envelope())).isEqualTo(200);
+        Map<String, Object> perte = resultat(passee.body());
+        assertThat(montant(perte, "lossRecognised")).as("sans provision, tout est perte")
+            .isEqualTo(montant(perte, "principalWritten"));
+        assertThat(montant(perte, "recovered")).as("rien n'est encore rentre").isEqualTo("0");
+        assertThat(montant(perte, "receivablesWritten")).isNotNull();
+
+        // Le credit est sorti de l'actif, la creance reste due.
+        assertThat(get(creditOfficer, "/loans/" + pretId).body().get("status"))
+            .isEqualTo("WRITTEN_OFF");
+        assertThat(montant(get(manager, "/accounts/" + pret.id() + "/balance").body(), "current"))
+            .isEqualTo("0");
+
+        // Ce qui rentre ensuite est un produit de recuperation, encaisse au guichet.
+        Reponse recouvrement = post(teller, "/loans/" + pretId + "/recoveries", "rec-1",
+            Map.of("amount", "50000", "channelAccountId", caisse.id().toString(),
+                   "recoveredOn", J.plusDays(4).toString()));
+        assertThat(recouvrement.status()).as(String.valueOf(recouvrement.envelope()))
+            .isEqualTo(201);
+        assertThat(montant(recouvrement.body(), "amount")).isEqualTo("50000");
+
+        Reponse dossier = get(auditor, "/loans/" + pretId + "/write-off");
+        assertThat(dossier.status()).as(String.valueOf(dossier.envelope())).isEqualTo(200);
+        assertThat((List<?>) dossier.body().get("recoveries")).hasSize(1);
+        Map<?, ?> suivi = (Map<?, ?>) dossier.body().get("writeOff");
+        assertThat(montant((Map<String, Object>) suivi, "recovered")).isEqualTo("50000");
+
+        // On ne recouvre pas plus que ce qui a ete passe en perte.
+        Reponse trop = post(teller, "/loans/" + pretId + "/recoveries", "rec-2",
+            Map.of("amount", "100000000", "channelAccountId", caisse.id().toString(),
+                   "recoveredOn", J.plusDays(4).toString()));
+        assertThat(trop.status()).as(String.valueOf(trop.envelope())).isEqualTo(409);
+        assertThat((String) trop.body().get("detail")).contains("pas plus que ce qui a ete passe");
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static UUID attente(Reponse reponse) {
@@ -2065,6 +2143,16 @@ class ApiIT {
         Account account = new Account(UUID.randomUUID(), ENTITY, code, AccountKind.GL, normal,
                                       Currencies.XOF, true, false, 1, AccountStatus.ACTIVE, null)
             .withNature(io.corebanking.ledger.domain.account.AccountNature.PROFIT_AND_LOSS);
+        Accounts.create(c, account, J.minusMonths(1));
+        return account;
+    }
+
+    /** Un compte de hors bilan : l'engagement y vit, hors du bilan et hors du resultat. */
+    private static Account compteHorsBilan(java.sql.Connection c, String code,
+                                           NormalBalance normal) {
+        Account account = new Account(UUID.randomUUID(), ENTITY, code, AccountKind.GL, normal,
+                                      Currencies.XOF, true, false, 1, AccountStatus.ACTIVE, null)
+            .withNature(io.corebanking.ledger.domain.account.AccountNature.OFF_BALANCE_SHEET);
         Accounts.create(c, account, J.minusMonths(1));
         return account;
     }

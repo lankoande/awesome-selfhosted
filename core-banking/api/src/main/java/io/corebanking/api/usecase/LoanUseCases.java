@@ -101,6 +101,84 @@ public final class LoanUseCases {
     /** Ce que rend un deblocage : l'echeancier publie. */
     public record Disbursed(UUID contractId, UUID scheduleId, List<Instalment> schedule) {}
 
+    /** Un encaissement sur une creance passee en perte. */
+    public record RecoveryCommand(UUID legalEntityId, UUID contractId, Money amount,
+                                  UUID channelAccountId, java.time.LocalDate on,
+                                  io.corebanking.kernel.id.IdempotencyKey key, UUID actorId) {}
+
+    public static final class Recover
+            implements UseCase<RecoveryCommand, io.corebanking.loan.service
+                                                    .LoanWriteOffService.Recovery> {
+        private final Database database;
+        private final io.corebanking.loan.service.LoanWriteOffService writeOffs;
+
+        public Recover(Database database,
+                       io.corebanking.loan.service.LoanWriteOffService writeOffs) {
+            this.database = database;
+            this.writeOffs = writeOffs;
+        }
+
+        @Override public Operation operation() { return Operation.LOAN_RECOVERY; }
+
+        @Override
+        public AccessTarget targetOf(RecoveryCommand command) {
+            return AccessTarget.inEntity(command.legalEntityId()).withAmount(command.amount());
+        }
+
+        @Override
+        public io.corebanking.loan.service.LoanWriteOffService.Recovery execute(
+                RecoveryCommand command) {
+            UUID writeOffId = database.inTransaction(
+                c -> io.corebanking.loan.service.LoanWriteOffService.find(c, command.contractId()))
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "Le contrat " + command.contractId() + " n'est pas passe en perte : un "
+                    + "versement s'y impute comme un reglement ordinaire"))
+                .id();
+            return writeOffs.recover(writeOffId, command.amount(), command.channelAccountId(),
+                                     command.on(), command.key(), command.actorId());
+        }
+    }
+
+    /** Le dossier de perte d'un credit : ce qui est sorti, ce qui a ete recouvre. */
+    public record WriteOffView(io.corebanking.loan.service.LoanWriteOffService.WriteOff writeOff,
+                               java.util.List<io.corebanking.loan.service.LoanWriteOffService
+                                   .Recovery> recoveries) {}
+
+    public static final class ReadWriteOff implements UseCase<Lookup, WriteOffView> {
+        private final Database database;
+
+        public ReadWriteOff(Database database) {
+            this.database = database;
+        }
+
+        @Override public Operation operation() { return Operation.LOAN_READ; }
+
+        @Override
+        public AccessTarget targetOf(Lookup lookup) {
+            return AccessTarget.inEntity(require(database, lookup.contractId()).legalEntityId());
+        }
+
+        @Override
+        public WriteOffView execute(Lookup lookup) {
+            io.corebanking.loan.service.LoanContract contract = require(database,
+                                                                        lookup.contractId());
+            return database.inTransaction(c -> {
+                var writeOff = io.corebanking.loan.service.LoanWriteOffService
+                    .find(c, lookup.contractId())
+                    .orElseThrow(() -> new IllegalArgumentException("Le contrat "
+                        + contract.reference() + " n'est pas passe en perte"));
+                return new WriteOffView(writeOff,
+                    io.corebanking.loan.service.LoanWriteOffService.recoveries(
+                        c, writeOff.id(), contract.currency()));
+            });
+        }
+    }
+
+    /** Un taux revise : le nouveau plan, sa date d'effet et le taux qui s'y applique. */
+    public record Revised(UUID contractId, UUID scheduleId, java.time.LocalDate effectiveFrom,
+                          String annualRatePercent) {}
+
+
     /** Ce que rend un rechelonnement : le capital replanifie et le nouvel echeancier. */
     public record Rescheduled(UUID contractId, UUID scheduleId, Money remaining,
                               List<Instalment> schedule) {}
