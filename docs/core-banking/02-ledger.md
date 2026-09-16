@@ -523,10 +523,13 @@ résultat les mouvements d'une plage, l'exercice en cours par défaut, **hors é
 clôture** : celles-ci soldent les comptes de résultat sans être de l'activité, et le compte de
 résultat d'un exercice clos montre ce que l'exercice a fait, pas sa clôture. Le bilan présente le
 résultat de l'exercice en cours dans sa rubrique de résultat, calculé par le socle et jamais par
-une règle ; après la clôture, il est au compte de résultat de l'exercice et la rubrique retombe
-à zéro. Un état **dit ce qu'il ne sait pas présenter** : un compte à solde non nul qu'aucune règle
+une règle — il faut pour cela un exercice qui couvre la date : sans exercice, le bilan le dit ;
+après la clôture, le résultat est au compte de résultat de l'exercice et la rubrique retombe à
+zéro. Un état **dit ce qu'il ne sait pas présenter** : un compte à solde non nul qu'aucune règle
 ne reçoit, un résultat antérieur non clos, un actif qui ne vaut pas le passif sont des anomalies
-nommées, jamais des montants perdus en silence, et l'état porte `consistent` faux.
+nommées, jamais des montants perdus en silence, et l'état porte `consistent` faux. Le coût est
+celui de la balance (§12) : les soldes sont une somme sur l'historique, et le compte de résultat
+une somme sur sa plage.
 
 Pour que ces états se tiennent, le ledger tient un invariant de plus : **une écriture ne mélange
 pas le bilan et le hors bilan**. Un engagement par signature s'inscrit entre comptes de hors

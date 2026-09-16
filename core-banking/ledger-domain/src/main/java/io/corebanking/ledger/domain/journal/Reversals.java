@@ -47,7 +47,8 @@ public final class Reversals {
             key,
             original.legalEntityId(),
             reversalBookingDate,
-            original.transactionType(),
+            original.transactionType(),   // repris : une famille d'ecritures s'exclut d'un etat avec ses contre-passations
+
             actorId,
             PostingSource.CORRECTION,
             null,

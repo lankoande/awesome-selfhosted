@@ -67,6 +67,23 @@ class TfaIT extends TfjTestBase {
             c -> FiscalYears.endingOn(c, ENTITY, FIN_EXERCICE)).orElseThrow().status();
     }
 
+    private static long contrePassationsDeType(String type) {
+        return database.inTransaction(c -> {
+            try (var ps = c.prepareStatement(
+                "SELECT count(*) FROM journal_entry WHERE legal_entity_id = ?"
+                + " AND reversal_of IS NOT NULL AND transaction_type = ?")) {
+                ps.setObject(1, ENTITY);
+                ps.setString(2, type);
+                try (var rs = ps.executeQuery()) {
+                    rs.next();
+                    return rs.getLong(1);
+                }
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Contre-passations par type", e);
+            }
+        });
+    }
+
     private static void ecriture(String key, Account debit, Account credit, String montant,
                                  LocalDate date) {
         postingService.post(PostingCommand.online(
@@ -154,6 +171,10 @@ class TfaIT extends TfjTestBase {
             .isInstanceOf(TfjEngine.TfjRefusedException.class)
             .hasMessageContaining("fin d'exercice");
         tfa().cancel(cloture.id(), ACTOR, FIN_EXERCICE, "produit oublie");
+
+        // Les contre-passations reprennent le type de l'ecriture d'origine : c'est ce qui permet
+        // au compte de resultat d'exclure la cloture et son annulation d'un seul mot.
+        assertThat(contrePassationsDeType(FiscalYears.YEAR_END_RESULT)).isPositive();
 
         assertThat(solde(charges)).isEqualTo(chargesAvant);
         assertThat(solde(produits)).isEqualTo(produitsAvant);

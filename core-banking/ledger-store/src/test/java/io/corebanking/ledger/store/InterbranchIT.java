@@ -8,6 +8,7 @@ import io.corebanking.kernel.money.Currencies;
 import io.corebanking.kernel.money.Money;
 import io.corebanking.ledger.domain.account.Account;
 import io.corebanking.ledger.domain.account.AccountKind;
+import io.corebanking.ledger.domain.account.AccountNature;
 import io.corebanking.ledger.domain.account.AccountStatus;
 import io.corebanking.ledger.domain.account.Direction;
 import io.corebanking.ledger.domain.account.NormalBalance;
@@ -235,6 +236,36 @@ class InterbranchIT extends LedgerTestBase {
     }
 
     // ------------------------------------------------------------------ outillage
+
+    @Test
+    @DisplayName("un engagement de hors bilan s'equilibre dans son agence : entre deux agences, aucune liaison ne lui est offerte, et le refus le dit")
+    void offBalanceCommitmentsStayInTheirBranch() {
+        Account engagement = horsBilan("ENG-HB", NormalBalance.DEBIT);
+        Account contrepartie = horsBilan("CTR-HB", NormalBalance.CREDIT);
+
+        // Dans une meme agence, l'engagement s'inscrit tel quel : deux lignes, aucune liaison.
+        PostingResult dansA = poster("hb-1", agenceA, List.of(
+            debit(engagement, "1000").withBranch(agenceA),
+            credit(contrepartie, "1000").withBranch(agenceA)));
+        assertThat(lignes(dansA.entryId())).hasSize(2)
+            .allMatch(l -> l.branchId().equals(agenceA) && l.kind().equals("BUSINESS"));
+
+        // Entre l'agence A et le siege, pas de liaison pour le hors bilan : refuse, en le disant.
+        assertThatThrownBy(() -> poster("hb-2", agenceA, List.of(
+                debit(engagement, "1000").withBranch(agenceA),
+                credit(contrepartie, "1000").withBranch(siege))))
+            .isInstanceOf(InvalidPostingException.class)
+            .hasMessageContaining("hors bilan")
+            .hasMessageContaining("meme agence");
+    }
+
+    private static Account horsBilan(String code, NormalBalance normal) {
+        Account account = new Account(UUID.randomUUID(), ENTITY, code, AccountKind.GL, normal,
+                                      Currencies.XOF, true, false, 1, AccountStatus.ACTIVE)
+            .withNature(AccountNature.OFF_BALANCE_SHEET);
+        database.inTransaction(c -> { Accounts.create(c, account); return null; });
+        return account;
+    }
 
     private static Account compte(String code, AccountKind kind, NormalBalance normal, UUID branch) {
         return compte(code, kind, normal, branch, Currencies.XOF);

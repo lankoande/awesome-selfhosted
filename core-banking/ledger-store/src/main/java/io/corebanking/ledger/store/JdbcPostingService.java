@@ -7,6 +7,7 @@ import io.corebanking.kernel.money.Money;
 import io.corebanking.ledger.domain.account.Account;
 import io.corebanking.ledger.domain.error.InsufficientFundsException;
 import io.corebanking.ledger.domain.error.InvalidPostingException;
+import io.corebanking.ledger.domain.error.UnbalancedEntryException;
 import io.corebanking.ledger.domain.journal.JournalEntry;
 import io.corebanking.ledger.domain.journal.Reversals;
 import io.corebanking.ledger.domain.posting.EntryValidator;
@@ -118,7 +119,14 @@ public final class JdbcPostingService implements PostingService {
         // Treizieme invariant : equilibree agence par agence, lignes de liaison comprises. Le
         // hors bilan s'equilibre dans son agence, sans liaison : la liaison est un compte de bilan.
         if (entry.offBalance()) {
-            EntryValidator.requireBalancedPerBranch(entry.lines());
+            try {
+                EntryValidator.requireBalancedPerBranch(entry.lines());
+            } catch (UnbalancedEntryException e) {
+                throw new InvalidPostingException(
+                    "Un engagement de hors bilan s'equilibre dans son agence : la liaison est un "
+                    + "compte de bilan, elle ne lui est pas offerte. Inscrire l'engagement et sa "
+                    + "contrepartie dans la meme agence. " + e.getMessage(), e);
+            }
         } else {
             entry = InterbranchBridging.complete(entry, context,
                 (branch, currency) -> liaisonAccount(c, network, branch, currency));

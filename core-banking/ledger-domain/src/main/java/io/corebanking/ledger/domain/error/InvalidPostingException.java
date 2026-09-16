@@ -5,4 +5,8 @@ public class InvalidPostingException extends LedgerViolation {
     public InvalidPostingException(String message) {
         super(message);
     }
+
+    public InvalidPostingException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

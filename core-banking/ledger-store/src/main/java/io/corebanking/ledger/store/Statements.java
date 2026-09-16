@@ -190,17 +190,16 @@ public final class Statements {
     // ------------------------------------------------------------------ lecture du journal
 
     /**
-     * Les ecritures de determination du resultat — et leurs contre-passations — soldent les
-     * comptes de resultat a la cloture ; elles ne sont pas de l'activite. Le compte de resultat
-     * les ignore : celui d'un exercice clos montre ce que l'exercice a fait, pas sa cloture. Le
-     * bilan, lui, les lit : apres la cloture, le resultat est au compte de resultat de
+     * Les ecritures de determination du resultat soldent les comptes de resultat a la cloture ;
+     * elles ne sont pas de l'activite. Le compte de resultat les ignore : celui d'un exercice
+     * clos montre ce que l'exercice a fait, pas sa cloture. Leurs contre-passations — l'annulation
+     * d'une cloture — portent le meme type, parce qu'une contre-passation reprend le type de
+     * l'ecriture d'origine ({@code Reversals}) : le type suffit a exclure la famille entiere.
+     * Le bilan, lui, les lit : apres la cloture, le resultat est au compte de resultat de
      * l'exercice, et la rubrique du resultat en cours retombe a zero.
      */
     private static final String WITHOUT_YEAR_END =
-        " AND e.transaction_type <> '" + FiscalYears.YEAR_END_RESULT + "'"
-        + " AND (e.reversal_of IS NULL OR e.reversal_of NOT IN"
-        + "      (SELECT r.id FROM journal_entry r WHERE r.transaction_type = '"
-        + FiscalYears.YEAR_END_RESULT + "'))";
+        " AND e.transaction_type <> '" + FiscalYears.YEAR_END_RESULT + "'";
 
     private static List<AccountAmount> accountAmounts(Connection c, UUID legalEntityId,
                                                       AccountNature nature, LocalDate from,

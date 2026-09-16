@@ -103,7 +103,7 @@
     {
       "code": "auditor",
       "name": "Auditeur",
-      "description": "Consultation transverse aux entites, acces a la piste d'audit, balance, grand livre et journal de son entite. Profil exclusif : ne se cumule avec aucun role operationnel.",
+      "description": "Consultation transverse aux entites, acces a la piste d'audit, balance, grand livre, journal et etats financiers de son entite. Profil exclusif : ne se cumule avec aucun role operationnel.",
       "isSystem": true,
       "category": "CONTROLE",
       "attributes": {

@@ -141,6 +141,13 @@ INT.LOAN.PROVISION       ──────────────────�
 Bénéfice concret : une renumérotation du PCB par la BCEAO devient un **import de mapping**.
 Aucune écriture n'est reprise, aucun historique n'est touché.
 
+> **Implémenté** sous la forme des maquettes d'états financiers
+> ([02 §13](02-ledger.md#13-états-financiers)) : les rubriques du bilan, du compte de résultat et
+> du hors bilan PCB sont des rubriques de maquette, et l'affectation des comptes internes se
+> fait par règles ordonnées — nature de compte, préfixe de code, sens du solde. Une
+> renumérotation est une nouvelle maquette, activée à deux à sa date de validité. Les modèles
+> PCB eux-mêmes se chargent comme des maquettes ; ils ne sont pas livrés dans le code.
+
 ### Hors bilan
 
 La classe 9 est traitée comme un **ledger à part entière**, pas comme une table annexe :

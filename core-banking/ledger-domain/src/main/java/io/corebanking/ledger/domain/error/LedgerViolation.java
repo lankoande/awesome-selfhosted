@@ -8,4 +8,8 @@ public abstract class LedgerViolation extends RuntimeException {
     protected LedgerViolation(String message) {
         super(message);
     }
+
+    protected LedgerViolation(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
