@@ -74,7 +74,8 @@ class TfjEngineIT extends TfjTestBase {
                              "LOAN_MOBILISATION",
                              "LOAN_SCHEDULE", "LOAN_INTEREST_ACCRUAL", "LOAN_LATE_CHARGES",
                              "LOAN_CLASSIFICATION", "LOAN_CLOSURE", "INTEREST_ACCRUAL",
-                             "INTEREST_SETTLEMENT", "DORMANCY", "KYC_REVIEW", "BALANCE_SNAPSHOT",
+                             "INTEREST_SETTLEMENT", "DORMANCY", "KYC_REVIEW", "SUSPENSE_REVIEW",
+                             "BALANCE_SNAPSHOT",
                              "RECONCILIATION", "OPEN_NEXT_DAY");
         assertThat(run.steps()).allMatch(
             step -> step.status() == TfjRun.StepExecution.Status.COMPLETED);

@@ -217,7 +217,9 @@ un catalogue incohérent n'est pas poussé dans le royaume, il empêche de servi
 > `MANDATE_REVOKE` en gestion du compte, `DIRECT_DEBIT_PRESENT` réservé à la compensation — le
 > back-office —, `DIRECT_DEBIT_ISSUE` plafonné par rôle pour les remises des créanciers de la
 > banque, `DIRECT_DEBIT_PROCESS` pour le back-office, `DIRECT_DEBIT_READ` tracé ; le mandat
-> décide de l'opération, pas l'appelant) ;
+> décide de l'opération, pas l'appelant), suspens (`SUSPENSE_MANAGE` à deux pour le back-office,
+> `SUSPENSE_READ` tracé pour l'exploitation et le contrôle), heures limites des canaux sous
+> `CALENDAR_MANAGE` ;
 > `RESULT_APPROPRIATION` — l'affectation du résultat, à deux ; `STATEMENT_LAYOUT_DRAFT` et
 > `STATEMENT_LAYOUT_ACTIVATE` — les maquettes d'états financiers, activées à deux) et
 > restitutions (`LEDGER_READ` : balance, grand livre, journal de l'entité, états financiers —

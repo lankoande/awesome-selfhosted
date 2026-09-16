@@ -220,6 +220,16 @@ public final class SecurityConfig {
             AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER, OPERATOR, ACCOUNTANT, AUDITOR)
                 .within(Scope.OWN_ENTITY).tracedOnRead().build());
 
+        // Suspens : la politique — anciennete toleree, responsable — se fixe a deux par le
+        // back-office ; la revue est une consultation d'exploitation et de controle, tracee.
+        policy.put(Operation.SUSPENSE_MANAGE,
+            AccessRule.allow(OPERATOR, ACCOUNTANT).within(Scope.OWN_ENTITY)
+                .requiringSecondPerson().build());
+
+        policy.put(Operation.SUSPENSE_READ,
+            AccessRule.allow(OPERATOR, ACCOUNTANT, AUDITOR).within(Scope.OWN_ENTITY)
+                .tracedOnRead().build());
+
         // Une correction se valide par un tiers : c'est le geste par lequel une fraude se dissimule.
         policy.put(Operation.ENTRY_REVERSAL,
             AccessRule.allow(BRANCH_MANAGER, ACCOUNTANT)

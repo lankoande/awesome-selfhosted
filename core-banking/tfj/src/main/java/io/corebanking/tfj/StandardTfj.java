@@ -18,6 +18,7 @@ import io.corebanking.loan.service.LoanService;
 import io.corebanking.tfj.steps.BalanceSnapshotStep;
 import io.corebanking.tfj.steps.DirectDebitsStep;
 import io.corebanking.tfj.steps.DormancyStep;
+import io.corebanking.tfj.steps.SuspenseReviewStep;
 import io.corebanking.tfj.steps.FeeChargingStep;
 import io.corebanking.tfj.steps.HoldExpiryStep;
 import io.corebanking.tfj.steps.InterestAccrualStep;
@@ -76,6 +77,10 @@ import java.util.List;
  *       expires compris ; le prelevement est un engagement du client envers un tiers, pris a
  *       date, et son rejet lui est opposable chez le creancier, quand commission et echeance de
  *       credit ont leur regime de report et de retard.</li>
+ *   <li><b>La revue des suspens avec la dormance et la revue de connaissance client.</b> Elle
+ *       ne comptabilise rien et ne bloque pas : elle rend la liste de travail du lendemain, par
+ *       nature, avec le plus ancien et son responsable. Ce qui bloque — un compte d'attente en
+ *       retard — est dit par les controles prealables, avant tout calcul.</li>
  *   <li><b>Dormance et revue de connaissance client apres les traitements comptables.</b> Elles ne
  *       comptabilisent rien et ne bloquent pas la journee : un dossier de revue en retard ne doit
  *       pas empecher la banque d'arreter ses comptes. Elles sont defaites avec l'arrete.</li>
@@ -105,7 +110,7 @@ public final class StandardTfj {
                                       LoanClassificationService classificationService,
                                       BusinessCalendar calendar) {
         return List.of(
-            new PreChecksStep(database),
+            new PreChecksStep(database, calendar),
             new HoldExpiryStep(database),
             new DirectDebitsStep(database,
                                  new io.corebanking.deposits.DirectDebitService(database,
@@ -122,6 +127,7 @@ public final class StandardTfj {
                                        new InterestSettlementService(database, postingService)),
             new DormancyStep(database),
             new KycReviewStep(database),
+            new SuspenseReviewStep(database, calendar),
             new BalanceSnapshotStep(database),
             new ReconciliationStep(database, subLedgerChecks()),
             new OpenNextDayStep(database, calendar));

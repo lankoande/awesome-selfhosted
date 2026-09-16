@@ -134,6 +134,7 @@ public class ApiExceptionHandler {
                        LoanService.ArrearsOutstandingException.class,
                        TillUseCases.NoTillException.class,
                        Tills.TillClosedException.class,
+                       ValueDatePolicy.ChannelClosedException.class,
                        TillService.UnjustifiedDifferenceException.class})
     ResponseEntity<ApiResponse<Void>> conflict(RuntimeException e, HttpServletRequest request) {
         return respond(HttpStatus.CONFLICT, "Operation refusee", e.getMessage(), request);

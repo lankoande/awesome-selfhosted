@@ -11,8 +11,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Conditions de banque : regles de date de valeur et jours feries. Un ferie deplace des dates de
- * valeur et des echeances, une regle deplace des interets — l'un et l'autre se valident a deux.
+ * Conditions de banque : regles de date de valeur, heures limites des canaux et jours feries. Un
+ * ferie deplace des dates de valeur et des echeances, une regle ou une heure limite deplace des
+ * interets — tous se valident a deux.
  */
 @RestController
 @RequestMapping("/v1/entities/{legalEntityId}/calendar")
@@ -32,6 +33,27 @@ public class CalendarController {
             "operationType", body.operationType(), "channel", body.channel(),
             "direction", body.direction(), "offset", body.offset(), "unit", body.unit(),
             "convention", body.convention(), "validFrom", body.validFrom(),
+            "validTo", body.validTo()));
+    }
+
+    /** Heure limite d'un canal : au-dela, la valeur du jour ouvre suivant, ou le canal ferme. */
+    @PostMapping("/cutoffs")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MakerChecker.View addCutoff(Caller caller, @PathVariable UUID legalEntityId,
+                                       @RequestBody Requests.ChannelCutoffRequest body) {
+        // L'heure se valide a la soumission : un valideur ne doit pas decouvrir une demande fausse.
+        if (body.cutoffTime() == null) {
+            throw new IllegalArgumentException("Champ obligatoire absent : cutoffTime");
+        }
+        try {
+            java.time.LocalTime.parse(body.cutoffTime());
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new IllegalArgumentException("Heure limite attendue au format HH:mm : "
+                                               + body.cutoffTime());
+        }
+        return makerChecker.submit(caller, legalEntityId, "CHANNEL_CUTOFF_ADD", Payloads.of(
+            "channel", body.channel(), "cutoffTime", body.cutoffTime(),
+            "closesChannel", body.closesChannel(), "validFrom", body.validFrom(),
             "validTo", body.validTo()));
     }
 

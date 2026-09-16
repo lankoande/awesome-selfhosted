@@ -72,7 +72,8 @@ public final class DualControlHandlers {
                        new PlaceHold(database, accounts), new ReleaseHold(database, accounts),
                        new VerifyKyc(parties), new DisburseLoan(database, loans),
                        new PrepayLoan(database, loans), new ActivateProduct(database),
-                       new AddValueDateRule(database), new AddHoliday(database),
+                       new AddValueDateRule(database), new AddChannelCutoff(database),
+                       new AddHoliday(database),
                        new CreateBranch(database), new CreateTill(database, accounts),
                        new RescheduleLoan(database, loans),
                        new RunPeriodEnd(engines, RunType.TFM), new RunPeriodEnd(engines, RunType.TFA),
@@ -87,7 +88,8 @@ public final class DualControlHandlers {
                        new ActivateAccountingSchema(database),
                        new ActivateStatementLayout(database), new SetAccountLimit(database, accounts),
                        new IssueChequeBook(cheques, accounts),
-                       new RegisterMandate(directDebits, accounts));
+                       new RegisterMandate(directDebits, accounts),
+                       new SetSuspensePolicy(database));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -540,6 +542,52 @@ public final class DualControlHandlers {
                 date(payload, "validTo"));
             UUID id = database.inTransaction(c -> Calendars.addRule(
                 c, entity, rule, Callers.actorId(maker), Callers.actorId(checker)));
+            return new Requests.Created(id);
+        }
+    }
+
+    /** Heure limite d'un canal, dans le fuseau de l'entite : elle deplace des dates de valeur. */
+    static final class AddChannelCutoff implements MakerChecker.Handler {
+        private final Database database;
+
+        AddChannelCutoff(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "CHANNEL_CUTOFF_ADD"; }
+        @Override public Operation operation() { return Operation.CALENDAR_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            String channel = text(payload, "channel");
+            return channel == null ? "*" : channel;
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            UUID entity = uuid(payload, "legalEntityId");
+            LocalDate validFrom = date(payload, "validFrom");
+            if (validFrom == null) {
+                throw new IllegalArgumentException("Champ obligatoire absent : validFrom");
+            }
+            java.time.LocalTime time;
+            try {
+                time = java.time.LocalTime.parse(required(payload, "cutoffTime"));
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new IllegalArgumentException("Heure limite attendue au format HH:mm : "
+                                                   + text(payload, "cutoffTime"));
+            }
+            io.corebanking.calendar.ChannelCutoff cutoff = new io.corebanking.calendar.ChannelCutoff(
+                text(payload, "channel"), time,
+                Boolean.parseBoolean(String.valueOf(payload.getOrDefault("closesChannel", "false"))),
+                validFrom, date(payload, "validTo"));
+            UUID id = database.inTransaction(c -> Calendars.addCutoff(
+                c, entity, cutoff, Callers.actorId(maker), Callers.actorId(checker)));
             return new Requests.Created(id);
         }
     }
@@ -1295,6 +1343,48 @@ public final class DualControlHandlers {
                               LocalDate.parse(required(payload, "validFrom")),
                               date(payload, "validTo"), max, Callers.actorId(maker),
                               Callers.actorId(checker)));
+        }
+    }
+
+    /** Politique de suspens : anciennete toleree et responsable d'une nature, a deux. */
+    static final class SetSuspensePolicy implements MakerChecker.Handler {
+        private final Database database;
+
+        SetSuspensePolicy(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "SUSPENSE_POLICY_SET"; }
+        @Override public Operation operation() { return Operation.SUSPENSE_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "kind");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            io.corebanking.deposits.Suspense.Kind kind;
+            try {
+                kind = io.corebanking.deposits.Suspense.Kind.valueOf(
+                    required(payload, "kind").trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Nature de suspens inconnue : " + text(payload, "kind"));
+            }
+            LocalDate validFrom = date(payload, "validFrom");
+            if (validFrom == null) {
+                throw new IllegalArgumentException("Champ obligatoire absent : validFrom");
+            }
+            return database.inTransaction(c -> io.corebanking.deposits.Suspense.setPolicy(
+                c, new io.corebanking.deposits.Suspense.Draft(
+                    uuid(payload, "legalEntityId"), kind, integer(payload, "maxBusinessDays"),
+                    required(payload, "owner"), validFrom, date(payload, "validTo"),
+                    Callers.actorId(maker), Callers.actorId(checker))));
         }
     }
 

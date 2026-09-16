@@ -3,3 +3,4 @@
 # les tests du module le refusent.
 V7__calendar.sql
 V34__rls_calendar.sql
+V43__cutoff.sql

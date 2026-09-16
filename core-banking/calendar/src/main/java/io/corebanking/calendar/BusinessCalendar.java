@@ -91,6 +91,23 @@ public final class BusinessCalendar {
     }
 
     /**
+     * Le nombre de jours ouvres ecoules de {@code from} (exclu) a {@code to} (inclus) : l'age
+     * d'un suspens ne depuis {@code from}, en jours ouvres. Zero si {@code to} ne depasse pas
+     * {@code from}.
+     */
+    public int businessDaysBetween(LocalDate from, LocalDate to) {
+        int days = 0;
+        LocalDate candidate = from;
+        while (candidate.isBefore(to)) {
+            candidate = candidate.plusDays(1);
+            if (isBusinessDay(candidate)) {
+                days++;
+            }
+        }
+        return days;
+    }
+
+    /**
      * Un calendrier ne repond pas au-dela de sa periode de saisie.
      *
      * <p>Presumer qu'un jour non saisi est ouvre reviendrait a traiter le 1er janvier comme un

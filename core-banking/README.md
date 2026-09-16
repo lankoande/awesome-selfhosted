@@ -35,8 +35,8 @@ requise. Les binaires sont téléchargés au premier lancement. Chaque base de t
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 598 tests verts** — 303 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 295 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 605 tests verts** — 305 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés), 300 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus
@@ -765,6 +765,26 @@ propre écriture pour qu'un retour contre-passe la remise et pas le service (`is
 prélèvement reçu ne réveille pas un compte dormant et ne compte pas pour sa dormance : l'acte est
 celui du créancier, et il se poursuit sur un compte que son titulaire a oublié.
 
+### 26. Une heure limite qui déplace la valeur, et des suspens qui ont un âge et un responsable
+
+**L'heure limite se lit à l'horloge, dans le fuseau de l'entité, et déplace la date de
+valeur, pas la date comptable.** Au-delà de l'heure limite de son canal, une opération en ligne
+prend la valeur calculée depuis le jour ouvré suivant — les conditions de banque s'appliquent
+depuis ce jour-là —, et un canal qui ferme refuse ; un traitement de lot n'a pas d'heure limite,
+il exécute ce qui est à l'échéance. L'heure limite se déclare à deux, datée, sans chevauchement
+par canal, comme une condition de banque : elle déplace des intérêts
+(`the_channel_cutoff_shifts_the_value_date_or_closes_the_channel`, `cutoff`).
+
+**Un suspens a un âge en jours ouvrés et un responsable, et son retard se paramètre.** Ce qui
+attend le correspondant — ordre non réglé, remise non encaissée, prélèvement non réglé, compte
+d'attente non soldé — est passé en revue chaque soir avec son ancienneté et le responsable que
+la politique lui donne ; les retards remontent par nature avec le plus ancien, sans bloquer, et
+un compte d'attente en retard bloque la journée aux contrôles préalables, avant tout calcul.
+L'ancienneté d'un compte d'attente part de son premier mouvement après le dernier jour où il
+était soldé, pas de son ouverture. Sans politique, un suspens est listé sans être en retard, et
+un compte d'attente non soldé bloque : le paramétrage dit ce qu'il tolère, le système ne le
+présume pas (`items_age_in_business_days`, `a_suspense_account_blocks_the_day_beyond_its_tolerance`).
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
@@ -809,6 +829,9 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | L'exécution d'un prélèvement tente la comptabilisation sous un point de sauvegarde | Un refus du ledger laisse une réservation de clé et une transaction à défaire ; le point de sauvegarde y ramène, et le rejet s'écrit avec la transaction qui l'a constaté — la même en ligne, à l'arrêté, et au TFJ à blanc, qu'une transaction indépendante trahirait en validant |
 | Un prélèvement reçu ne compte pas pour la dormance | L'acte est celui du créancier ; une assurance qui prélève un compte oublié ne prouve pas que son titulaire est là |
 | L'annulation d'un arrêté refuse si un prélèvement exécuté a été réglé, remboursé ou retourné depuis | La suite s'appuie sur l'exécution ; le refus vient avant la première contre-passation, pas au milieu |
+| L'heure limite d'un canal ne s'applique qu'aux opérations en ligne | Un arrêté qui exécute des prélèvements à 23 h leur donnerait la valeur du lendemain ; l'échéance, elle, est la bonne date |
+| L'horloge des heures limites est une horloge unique, fixable | Les services ne prennent pas d'heure en paramètre — un appelant qui la fournirait choisirait sa date de valeur ; une horloge fixée sert les tests et les simulations |
+| Un compte d'attente non soldé bloque sans politique, et au-delà de la tolérance avec | La justification des comptes d'attente conditionne la sincérité de l'arrêté ; la tolérance est une décision de la banque, écrite à deux, pas un défaut du système |
 | Un blocage de compte est vérifié par le service avant tout prélèvement, dans les deux sens | Le ledger laisse entrer un crédit de lot sur un compte gelé, parce qu'il le tient pour un acte de la banque ; la remise d'un créancier n'en est pas un |
 | La présentation d'un créancier d'ailleurs est réservée à la compensation | Le mandat décide de l'opération : un chargé de clientèle ne présente que pour un créancier de la banque, sous son plafond ; l'appelant ne choisit pas |
 | Un seul instant de connaissance par écriture | `clock_timestamp()` avance dans une transaction ; par ligne, il placerait les lignes après leur propre écriture |

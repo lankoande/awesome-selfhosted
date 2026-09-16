@@ -115,6 +115,56 @@ class OperationsIT extends DepositsTestBase {
     }
 
     @Test
+    @DisplayName("apres l'heure limite du canal, le versement prend valeur depuis le jour ouvre suivant ; un canal qui ferme refuse ; avant l'heure, rien ne change")
+    void cutoff() {
+        Decor decor = decor("CUT");
+        produit(decor, "EP-CUT", "SAVINGS_ACCOUNT", Map.of());
+        UUID compte = ouvrir(decor, "CLI-CUT", "EP-CUT", client(decor.entityId(), "T-CUT"));
+        database.inTransaction(c -> {
+            io.corebanking.calendar.Calendars.addCutoff(c, decor.entityId(),
+                new io.corebanking.calendar.ChannelCutoff("MOBILE", java.time.LocalTime.of(18, 0),
+                                                          false, LocalDate.of(2020, 1, 1), null),
+                ACTOR, APPROVER);
+            io.corebanking.calendar.Calendars.addCutoff(c, decor.entityId(),
+                new io.corebanking.calendar.ChannelCutoff("GUICHET", java.time.LocalTime.of(16, 0),
+                                                          true, LocalDate.of(2020, 1, 1), null),
+                ACTOR, APPROVER);
+            return null;
+        });
+        // Deux heures limites d'un meme canal ne se chevauchent pas — refuse dans sa propre
+        // transaction : un refus de la base rend la transaction inutilisable.
+        assertThatThrownBy(() -> database.inTransaction(c -> io.corebanking.calendar.Calendars.addCutoff(
+                c, decor.entityId(),
+                new io.corebanking.calendar.ChannelCutoff("MOBILE", java.time.LocalTime.of(20, 0),
+                                                          false, J, null), ACTOR, APPROVER)))
+            .isInstanceOf(IllegalStateException.class).hasMessageContaining("couvre deja");
+        java.time.Clock systeme = io.corebanking.calendar.Calendars.clock();
+        try {
+            // 19 h 30 dans le fuseau de l'entite (UTC) : mobile decale, guichet ferme, sans canal rien.
+            io.corebanking.calendar.Calendars.useClock(java.time.Clock.fixed(
+                java.time.Instant.parse("2026-09-15T19:30:00Z"), java.time.ZoneId.of("UTC")));
+            OperationsService.Receipt mobile = verser(decor, compte, "10000", "cut-1", "MOBILE");
+            assertThat(mobile.valueDate()).as("depuis le jour ouvre suivant, mercredi")
+                .isEqualTo(LocalDate.of(2026, 9, 16));
+            assertThat(mobile.bookingDate()).as("la date comptable, elle, ne bouge pas").isEqualTo(J);
+            assertThatThrownBy(() -> verser(decor, compte, "10000", "cut-2", "GUICHET"))
+                .isInstanceOf(ValueDatePolicy.ChannelClosedException.class)
+                .hasMessageContaining("GUICHET");
+            assertThat(verser(decor, compte, "10000", "cut-3").valueDate()).isEqualTo(J);
+            assertThat(solde(compte)).isEqualTo(xof("20000"));
+
+            // 10 h : le guichet sert, avec sa propre condition — le jour ouvre suivant.
+            io.corebanking.calendar.Calendars.useClock(java.time.Clock.fixed(
+                java.time.Instant.parse("2026-09-15T10:00:00Z"), java.time.ZoneId.of("UTC")));
+            assertThat(verser(decor, compte, "10000", "cut-4", "GUICHET").valueDate())
+                .isEqualTo(LocalDate.of(2026, 9, 16));
+            assertThat(verser(decor, compte, "10000", "cut-5", "MOBILE").valueDate()).isEqualTo(J);
+        } finally {
+            io.corebanking.calendar.Calendars.useClock(systeme);
+        }
+    }
+
+    @Test
     @DisplayName("un virement debite l'emetteur du montant et des frais, credite le beneficiaire du montant")
     void virement() {
         Decor decor = decor("VIR");

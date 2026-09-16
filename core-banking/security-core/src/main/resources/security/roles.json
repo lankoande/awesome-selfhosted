@@ -48,7 +48,7 @@
     {
       "code": "accountant",
       "name": "Comptable",
-      "description": "Comptabilite generale : contre-passation, arretes mensuel et annuel, exercices et affectation du resultat a deux, maquettes d'etats financiers, balance, grand livre, journal et etats financiers de l'entite ; suivi des paiements sortants, des remises de cheques et des prelevements.",
+      "description": "Comptabilite generale : contre-passation, arretes mensuel et annuel, exercices et affectation du resultat a deux, maquettes d'etats financiers, balance, grand livre, journal et etats financiers de l'entite ; suivi des paiements sortants, des remises de cheques et des prelevements ; politiques de suspens a deux, revue des suspens.",
       "isSystem": true,
       "category": "SIEGE",
       "attributes": {
@@ -92,7 +92,7 @@
     {
       "code": "operator",
       "name": "Exploitant",
-      "description": "Lancement et annulation des traitements de fin de journee ; suivi des paiements sortants, des remises de cheques et des prelevements (presentation, reglement, retour).",
+      "description": "Lancement et annulation des traitements de fin de journee ; suivi des paiements sortants, des remises de cheques et des prelevements (presentation, reglement, retour) ; heures limites des canaux et politiques de suspens a deux, revue des suspens.",
       "isSystem": true,
       "category": "EXPLOITATION",
       "attributes": {
@@ -103,7 +103,7 @@
     {
       "code": "auditor",
       "name": "Auditeur",
-      "description": "Consultation transverse aux entites, acces a la piste d'audit, balance, grand livre, journal et etats financiers de son entite. Profil exclusif : ne se cumule avec aucun role operationnel.",
+      "description": "Consultation transverse aux entites, acces a la piste d'audit, balance, grand livre, journal, etats financiers et revue des suspens de son entite. Profil exclusif : ne se cumule avec aucun role operationnel.",
       "isSystem": true,
       "category": "CONTROLE",
       "attributes": {

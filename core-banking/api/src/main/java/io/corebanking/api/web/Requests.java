@@ -105,6 +105,10 @@ public final class Requests {
 
     public record Holiday(LocalDate date, String label) {}
 
+    /** Heure limite d'un canal (nul : tous), au format HH:mm ; {@code closesChannel} ferme le canal. */
+    public record ChannelCutoffRequest(String channel, String cutoffTime, Boolean closesChannel,
+                                       LocalDate validFrom, LocalDate validTo) {}
+
     public record CreateBranch(String code, String name, String kind, UUID parentId,
                                LocalDate openedOn, java.util.Map<String, UUID> liaisonAccounts) {}
 
@@ -165,6 +169,12 @@ public final class Requests {
     public record DirectDebitIssue(String amount, String currency, LocalDate dueDate,
                                    String debtorName, String debtorBank, String debtorAccount,
                                    String mandateReference, String reference, String channel) {}
+
+    // ------------------------------------------------------------------ suspens
+
+    /** Politique de suspens : nature (SUSPENSE_ACCOUNT, PAYMENT_ORDER, CHEQUE_DEPOSIT, DIRECT_DEBIT), anciennete toleree, responsable. */
+    public record SuspensePolicyRequest(String kind, Integer maxBusinessDays, String owner,
+                                        LocalDate validFrom, LocalDate validTo) {}
 
     // ------------------------------------------------------------------ arretes et exercices
 

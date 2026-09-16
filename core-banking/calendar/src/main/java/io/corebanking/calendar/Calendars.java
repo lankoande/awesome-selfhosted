@@ -8,8 +8,11 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -76,6 +79,52 @@ public final class Calendars {
         }
     }
 
+    /**
+     * L'horloge qui dit si l'heure limite d'un canal est passee. Celle du systeme, sauf pour un
+     * test ou une simulation qui la fixe ; le fuseau est celui de l'entite, pas de l'horloge.
+     */
+    private static volatile Clock clock = Clock.systemUTC();
+
+    public static Clock clock() {
+        return clock;
+    }
+
+    public static void useClock(Clock replacement) {
+        clock = java.util.Objects.requireNonNull(replacement, "clock");
+    }
+
+    /** Heure limite d'un canal, validee a deux comme une condition de banque. */
+    public static UUID addCutoff(Connection c, UUID legalEntityId, ChannelCutoff cutoff,
+                                 UUID createdBy, UUID approvedBy) {
+        if (createdBy == null || approvedBy == null || approvedBy.equals(createdBy)) {
+            throw new IllegalArgumentException(
+                "Une heure limite se declare a deux : le demandeur ne peut pas etre le valideur");
+        }
+        UUID id = Ids.newId();
+        try (PreparedStatement ps = c.prepareStatement(
+            "INSERT INTO channel_cutoff(id, legal_entity_id, channel, cutoff_time, closes_channel,"
+            + " valid_from, valid_to, created_by, approved_by) VALUES (?,?,?,?,?,?,?,?,?)")) {
+            ps.setObject(1, id);
+            ps.setObject(2, legalEntityId);
+            ps.setString(3, cutoff.channel());
+            ps.setObject(4, cutoff.cutoffTime());
+            ps.setBoolean(5, cutoff.closesChannel());
+            ps.setObject(6, cutoff.validFrom());
+            ps.setObject(7, cutoff.validTo());
+            ps.setObject(8, createdBy);
+            ps.setObject(9, approvedBy);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            if ("23P01".equals(e.getSQLState())) {
+                throw new IllegalStateException("Une heure limite couvre deja le canal "
+                    + (cutoff.channel() == null ? "(tous)" : cutoff.channel())
+                    + " sur une partie de la periode", e);
+            }
+            throw new LedgerStoreException("Declaration de l'heure limite du canal", e);
+        }
+        return id;
+    }
+
     public static UUID addRule(Connection c, UUID legalEntityId, ValueDateRule rule,
                                UUID createdBy, UUID approvedBy) {
         UUID id = Ids.newId();
@@ -112,8 +161,44 @@ public final class Calendars {
      * memoire et ne change pas en cours d'arrete.
      */
     public static ValueDatePolicy load(Database database, UUID legalEntityId) {
-        return database.inTransaction(c -> new ValueDatePolicy(loadCalendar(c, legalEntityId),
-                                                               loadRules(c, legalEntityId)));
+        return database.inTransaction(c -> new ValueDatePolicy(
+            loadCalendar(c, legalEntityId), loadRules(c, legalEntityId),
+            loadCutoffs(c, legalEntityId), timezoneOf(c, legalEntityId), clock));
+    }
+
+    /** Le fuseau de l'entite : celui dans lequel ses heures limites se lisent. */
+    public static ZoneId timezoneOf(Connection c, UUID legalEntityId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT timezone FROM legal_entity WHERE id = ?")) {
+            ps.setObject(1, legalEntityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new LedgerStoreException("Entite juridique inconnue : " + legalEntityId);
+                }
+                return ZoneId.of(rs.getString(1));
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture du fuseau de l'entite", e);
+        }
+    }
+
+    private static List<ChannelCutoff> loadCutoffs(Connection c, UUID legalEntityId) {
+        List<ChannelCutoff> cutoffs = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT channel, cutoff_time, closes_channel, valid_from, valid_to FROM channel_cutoff"
+            + " WHERE legal_entity_id = ?")) {
+            ps.setObject(1, legalEntityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    cutoffs.add(new ChannelCutoff(rs.getString(1), rs.getObject(2, LocalTime.class),
+                                                  rs.getBoolean(3), rs.getObject(4, LocalDate.class),
+                                                  rs.getObject(5, LocalDate.class)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des heures limites", e);
+        }
+        return cutoffs;
     }
 
     private static BusinessCalendar loadCalendar(Connection c, UUID legalEntityId) {

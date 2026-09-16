@@ -75,6 +75,10 @@ public enum Operation {
     DIRECT_DEBIT_PROCESS,
     /** Consultation des mandats et des prelevements. */
     DIRECT_DEBIT_READ,
+    /** Politique de suspens : anciennete toleree et responsable par nature, a deux. */
+    SUSPENSE_MANAGE,
+    /** Revue des suspens : ce qui attend le correspondant, avec son anciennete. */
+    SUSPENSE_READ,
     /** Contre-passation d'une ecriture. */
     ENTRY_REVERSAL,
     /** Pose ou levee d'un blocage de montant sur un compte. */

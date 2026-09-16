@@ -4,13 +4,9 @@ import io.corebanking.deposits.Tills;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.Entities;
 import io.corebanking.ledger.store.SchemaMigrator;
-import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.tfj.StepResult;
 import io.corebanking.tfj.TfjContext;
 import io.corebanking.tfj.TfjStep;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -25,9 +21,11 @@ import java.util.Optional;
 public final class PreChecksStep implements TfjStep {
 
     private final Database database;
+    private final io.corebanking.calendar.BusinessCalendar calendar;
 
-    public PreChecksStep(Database database) {
+    public PreChecksStep(Database database, io.corebanking.calendar.BusinessCalendar calendar) {
         this.database = database;
+        this.calendar = calendar;
     }
 
     @Override
@@ -66,9 +64,23 @@ public final class PreChecksStep implements TfjStep {
                           + "pas un effet de bord de l'arrete.");
         }
 
-        long suspens = database.inTransaction(c -> unbalancedSuspenseAccounts(c, context));
-        if (suspens > 0) {
-            anomalies.add(suspens + " compte(s) d'attente non solde(s). Leur justification "
+        // Un compte d'attente non solde bloque la journee des qu'il depasse l'anciennete que la
+        // politique tolere — ou des qu'il n'est pas solde, sans politique : sa justification
+        // conditionne la sincerite de l'arrete.
+        List<io.corebanking.deposits.Suspense.Item> suspens = database.inTransaction(
+            c -> io.corebanking.deposits.Suspense.blockingSuspenseAccounts(
+                c, context.legalEntityId(), context.businessDate(), calendar));
+        if (!suspens.isEmpty()) {
+            StringBuilder detail = new StringBuilder();
+            for (io.corebanking.deposits.Suspense.Item item : suspens) {
+                detail.append(detail.isEmpty() ? "" : ", ").append(item.accountCode())
+                    .append(" (").append(item.amount().roundToCurrency()).append(", ")
+                    .append(item.ageBusinessDays()).append(" jour(s) ouvre(s)")
+                    .append(item.owner() == null ? "" : ", responsable " + item.owner())
+                    .append(')');
+            }
+            anomalies.add(suspens.size() + " compte(s) d'attente non solde(s) au-dela de "
+                          + "l'anciennete toleree : " + detail + ". Leur justification "
                           + "conditionne la sincerite de l'arrete.");
         }
 
@@ -85,22 +97,4 @@ public final class PreChecksStep implements TfjStep {
         return new StepResult(3, 0, anomalies);
     }
 
-    private long unbalancedSuspenseAccounts(java.sql.Connection c, TfjContext context) {
-        try (PreparedStatement ps = c.prepareStatement(
-            "SELECT count(*) FROM account a"
-            + " JOIN account_balance b ON b.account_id = a.id"
-            + " WHERE a.legal_entity_id = ? AND a.account_kind = 'SUSPENSE'"
-            + " GROUP BY a.id HAVING SUM(b.balance) <> 0")) {
-            ps.setObject(1, context.legalEntityId());
-            try (ResultSet rs = ps.executeQuery()) {
-                long count = 0;
-                while (rs.next()) {
-                    count++;
-                }
-                return count;
-            }
-        } catch (SQLException e) {
-            throw new LedgerStoreException("Controle des comptes d'attente", e);
-        }
-    }
 }

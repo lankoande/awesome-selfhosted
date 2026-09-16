@@ -92,6 +92,8 @@ chèques ne consomment pas ces plafonds.
 | `cheque_incident` | Chèque présenté sans provision : montant, date, motif, présentateur — survit au refus |
 | `cheque_deposit` | Remise : chèque désigné (banque tirée, numéro, tireur), écriture et blocage, compte d'encaissement, règlement (nostro, écriture) ou impayé (motif, contre-passation) |
 | `debit_mandate` | Mandat : compte débiteur, référence unique par créancier, créancier de la banque (compte) ou d'ailleurs (banque, compte) — l'un ou l'autre —, signature, validité, plafond par prélèvement, révocation datée et motivée, à deux |
+| `channel_cutoff` | Heure limite d'un canal (ou de tous), dans le fuseau de l'entité, `closes_channel`, validité sans chevauchement par canal, à deux |
+| `suspense_policy` | Par nature de suspens : ancienneté tolérée en jours ouvrés, responsable, validité sans chevauchement, à deux |
 | `direct_debit` | Prélèvement reçu ou émis : compte du client, mandat, montant, frais et taxe, échéance, tiers, état (`PENDING`, `COLLECTED`, `SETTLED`, `REJECTED`, `CANCELLED`, `RETURNED`, `REFUNDED`), exécution (date, traitement, écriture, blocage, compte de règlement ou d'encaissement, motif de rejet), règlement, clôture (date, écriture, motif) |
 
 ### Maquettes d'états financiers — `statement_layout` ✅

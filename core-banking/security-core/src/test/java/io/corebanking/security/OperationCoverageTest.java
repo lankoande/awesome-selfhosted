@@ -56,6 +56,7 @@ class OperationCoverageTest {
         Map.entry("DirectDebitService.issue", Operation.DIRECT_DEBIT_ISSUE),
         Map.entry("DirectDebitService.settle / cancel / refund / returnIssued",
                   Operation.DIRECT_DEBIT_PROCESS),
+        Map.entry("Suspense.setPolicy", Operation.SUSPENSE_MANAGE),
         Map.entry("Tills.create", Operation.TILL_MANAGE),
         Map.entry("TillService.close", Operation.TILL_CLOSE),
         Map.entry("FeeLedger.grantExemption", Operation.FEE_EXEMPTION_GRANT),
@@ -84,7 +85,7 @@ class OperationCoverageTest {
     private static final Set<Operation> WITHOUT_SERVICE = EnumSet.of(
         Operation.ACCOUNT_BALANCE_READ, Operation.ACCOUNT_JOURNAL_READ, Operation.LEDGER_READ,
         Operation.PARTY_READ, Operation.LOAN_READ, Operation.PAYMENT_READ, Operation.CHEQUE_READ,
-        Operation.DIRECT_DEBIT_READ, Operation.AUDIT_READ);
+        Operation.DIRECT_DEBIT_READ, Operation.SUSPENSE_READ, Operation.AUDIT_READ);
 
     @Test
     @DisplayName("toute operation est reclamee par un point d'entree, ou est une consultation")
@@ -116,7 +117,8 @@ class OperationCoverageTest {
                                               Operation.STATEMENT_LAYOUT_ACTIVATE,
                                               Operation.ACCOUNT_LIMIT_MANAGE,
                                               Operation.CHEQUE_BOOK_ISSUE,
-                                              Operation.MANDATE_REGISTER)) {
+                                              Operation.MANDATE_REGISTER,
+                                              Operation.SUSPENSE_MANAGE)) {
             assertThat(SecurityConfig.ruleFor(operation).dualControl())
                 .as(operation.name()).isTrue();
         }

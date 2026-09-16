@@ -528,8 +528,9 @@ public final class DirectDebitService {
                                                          debtor.currency());
         }
         ValueDatePolicy policy = Calendars.load(database, dd.legalEntityId());
+        // En ligne, l'heure limite du canal s'applique ; a l'arrete, non.
         LocalDate valueDate = policy.valueDateFor(OperationSchemas.DIRECT_DEBIT, dd.channel(),
-                                                  Direction.DEBIT, on);
+                                                  Direction.DEBIT, on, runId == null);
         List<PostingLine> lines = OperationsService.lines(
             OperationSchemas.directDebit(debtor.currency()),
             EvaluationContext.builder().put("amount", dd.amount()).put("fee", charges.fee())
@@ -539,7 +540,8 @@ public final class DirectDebitService {
         lines = OperationsService.withValueDate(lines, debtor.id(), valueDate);
         if (mandate.internal()) {
             lines = OperationsService.withValueDate(lines, creditor.id(),
-                policy.valueDateFor(OperationSchemas.DIRECT_DEBIT, dd.channel(), Direction.CREDIT, on));
+                policy.valueDateFor(OperationSchemas.DIRECT_DEBIT, dd.channel(), Direction.CREDIT, on,
+                                    runId == null));
         } else {
             // Le reglement est tenu au siege, comme le nostro qui le soldera.
             lines = atBranch(lines, creditor.id(), headOffice);
@@ -583,7 +585,7 @@ public final class DirectDebitService {
         UUID headOffice = Branches.headOffice(c, dd.legalEntityId());
         ValueDatePolicy policy = Calendars.load(database, dd.legalEntityId());
         LocalDate valueDate = policy.valueDateFor(OperationSchemas.DIRECT_DEBIT_ISSUE, dd.channel(),
-                                                  Direction.CREDIT, on);
+                                                  Direction.CREDIT, on, runId == null);
         List<PostingLine> lines = OperationsService.lines(
             OperationSchemas.directDebitIssue(creditor.currency()),
             EvaluationContext.builder().put("amount", dd.amount()).build(),

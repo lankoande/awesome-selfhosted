@@ -83,7 +83,7 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | # | Étape | Contenu | Bloquant |
 |---|---|---|---|
 | 1 | `CUT_OFF` | Gel des saisies sur la date comptable, bascule des canaux sur J+1 | ✔ |
-| 2 | `PRE_CHECKS` | Suspens non soldés, opérations en attente, disponibilité du paramétrage | ✔ |
+| 2 | `PRE_CHECKS` | Comptes d'attente non soldés au-delà de l'ancienneté tolérée, caisses non arrêtées, période comptable, partitions | ✔ |
 | 3 | `FX_RATES` | Chargement et contrôle des cours de clôture | ✔ |
 | 4 | `VALUE_DATE_REBUILD` | Reconstruction des soldes en date de valeur, détection des antidatages | ✔ |
 | 5 | `INTEREST_ACCRUAL` | Accruals créditeurs et débiteurs, y compris recalculs rétroactifs | ✔ |
@@ -101,6 +101,7 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | 13 | `HOLD_EXPIRY` | Expiration des blocages de montant arrivés à terme, en date comptable | ✔ |
 | 13b | `DIRECT_DEBITS` | Prélèvements à l'échéance : débit du débiteur, crédit sauf bonne fin du créancier, rejets nommés (provision, mandat révoqué, compte inopérable) | ✔ |
 | 14 | `KYC_REVIEW` | Échéances de revue périodique de la connaissance client ; expiration de documents : non fait | ✔ (non bloquante) |
+| 14b | `SUSPENSE_REVIEW` | Revue des suspens : ordres, remises, prélèvements non réglés, comptes d'attente non soldés, par ancienneté en jours ouvrés et responsable ; les retards en anomalies | ✔ (non bloquante) |
 | 15 | `BALANCE_SNAPSHOT` | Snapshot des soldes par date comptable et par date de valeur, et par agence | ✔ |
 | 16 | `RECONCILIATION` | Contrôles d'intégrité (cf. §5), compensation inter-agences comprise | ✔ |
 | 17 | `REPORTING` | États quotidiens, extractions vers le datamart | |
@@ -112,8 +113,8 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > **Implémenté** — la séquence effective est aujourd'hui `PRE_CHECKS` → `HOLD_EXPIRY` →
 > `DIRECT_DEBITS` → `FEE_CHARGING` → `LOAN_MOBILISATION` → `LOAN_SCHEDULE` → `LOAN_INTEREST_ACCRUAL` →
 > `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` → `LOAN_CLOSURE` → `INTEREST_ACCRUAL` →
-> `INTEREST_SETTLEMENT` → `DORMANCY` → `KYC_REVIEW` → `BALANCE_SNAPSHOT` → `RECONCILIATION` →
-> `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans toucher au moteur.
+> `INTEREST_SETTLEMENT` → `DORMANCY` → `KYC_REVIEW` → `SUSPENSE_REVIEW` → `BALANCE_SNAPSHOT` →
+> `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans toucher au moteur.
 >
 > `HOLD_EXPIRY` vient avant tout prélèvement : commissions et échéances se prélèvent sur le
 > disponible de la journée arrêtée, blocages expirés compris. `DIRECT_DEBITS` vient juste après,
@@ -125,6 +126,11 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > les écritures des prélèvements exécutés, lève leurs blocages et les rend à l'attente ; elle est
 > refusée, avant de rien défaire, si l'un d'eux a été réglé, remboursé ou retourné depuis. Le TFJ
 > à blanc les exécute et n'en laisse rien : l'exécution s'écrit avec la transaction qui la porte.
+> `SUSPENSE_REVIEW` passe en revue ce qui attend le correspondant — ordres, remises,
+> prélèvements non réglés, comptes d'attente non soldés — avec l'ancienneté en jours ouvrés et le
+> responsable de la politique, et rend les retards en anomalies non bloquantes, par nature, avec
+> le plus ancien ; ce qui bloque, un compte d'attente au-delà de l'ancienneté tolérée — ou non
+> soldé, sans politique —, est dit par `PRE_CHECKS`, avant tout calcul.
 > `DORMANCY` et `KYC_REVIEW` ne
 > comptabilisent rien et ne bloquent pas la journée — un dossier de revue en retard n'empêche pas
 > la banque d'arrêter ses comptes ; les dossiers expirés sont rendus en anomalies non bloquantes,

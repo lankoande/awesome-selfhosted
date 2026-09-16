@@ -107,4 +107,73 @@ class ValueDatePolicyTest {
         return InterestCalculator.accrue(serie, InterestBasis.DAILY_BALANCE, AccrualSide.CREDITOR,
                                          FlatRate.of("6"), DayCountConvention.ACT_365).total();
     }
+
+    @Test
+    @DisplayName("apres l'heure limite du canal, la valeur part du jour ouvre suivant ; un canal qui ferme refuse ; un traitement de lot n'a pas d'heure limite")
+    void the_channel_cutoff_shifts_the_value_date_or_closes_the_channel() {
+        var cutoffs = List.of(
+            new ChannelCutoff("MOBILE", java.time.LocalTime.of(18, 0), false,
+                              LocalDate.of(2026, 1, 1), null),
+            new ChannelCutoff("BRANCH", java.time.LocalTime.of(16, 0), true,
+                              LocalDate.of(2026, 1, 1), null));
+        var rules = List.of(rule("DEPOSIT", null, Direction.CREDIT, 1, OffsetUnit.BUSINESS_DAYS));
+        var soir = java.time.Clock.fixed(java.time.Instant.parse("2026-09-11T19:30:00Z"),
+                                         java.time.ZoneId.of("UTC"));
+        var matin = java.time.Clock.fixed(java.time.Instant.parse("2026-09-11T09:00:00Z"),
+                                          java.time.ZoneId.of("UTC"));
+        var abidjan = java.time.ZoneId.of("Africa/Abidjan");
+
+        // Le soir : par mobile, la valeur part de lundi, plus un jour ouvre — mardi.
+        var leSoir = new ValueDatePolicy(calendrier, rules, cutoffs, abidjan, soir);
+        assertThat(leSoir.valueDateFor("DEPOSIT", "MOBILE", Direction.CREDIT, VENDREDI))
+            .isEqualTo(LocalDate.of(2026, 9, 15));
+        // Au guichet, le canal est ferme.
+        assertThatThrownBy(() -> leSoir.valueDateFor("DEPOSIT", "BRANCH", Direction.CREDIT, VENDREDI))
+            .isInstanceOf(ValueDatePolicy.ChannelClosedException.class)
+            .hasMessageContaining("BRANCH").hasMessageContaining("16:00");
+        // Sans canal, aucune heure limite ne vaut : lundi.
+        assertThat(leSoir.valueDateFor("DEPOSIT", null, Direction.CREDIT, VENDREDI))
+            .isEqualTo(LocalDate.of(2026, 9, 14));
+        // Un traitement de lot n'a pas d'heure limite.
+        assertThat(leSoir.valueDateFor("DEPOSIT", "BRANCH", Direction.CREDIT, VENDREDI, false))
+            .isEqualTo(LocalDate.of(2026, 9, 14));
+
+        // Le matin, rien ne change.
+        var leMatin = new ValueDatePolicy(calendrier, rules, cutoffs, abidjan, matin);
+        assertThat(leMatin.valueDateFor("DEPOSIT", "MOBILE", Direction.CREDIT, VENDREDI))
+            .isEqualTo(LocalDate.of(2026, 9, 14));
+        assertThat(leMatin.valueDateFor("DEPOSIT", "BRANCH", Direction.CREDIT, VENDREDI))
+            .isEqualTo(LocalDate.of(2026, 9, 14));
+
+        // L'heure se lit dans le fuseau de l'entite : a 16 h 30 UTC, il est 17 h 30 a Lagos —
+        // apres l'heure limite du guichet — et 16 h 30 a Abidjan, aussi.
+        var apresMidi = java.time.Clock.fixed(java.time.Instant.parse("2026-09-11T15:30:00Z"),
+                                              java.time.ZoneId.of("UTC"));
+        var lagos = new ValueDatePolicy(calendrier, rules, cutoffs, java.time.ZoneId.of("Africa/Lagos"),
+                                        apresMidi);
+        assertThatThrownBy(() -> lagos.valueDateFor("DEPOSIT", "BRANCH", Direction.CREDIT, VENDREDI))
+            .isInstanceOf(ValueDatePolicy.ChannelClosedException.class);
+        var abidjanApresMidi = new ValueDatePolicy(calendrier, rules, cutoffs, abidjan, apresMidi);
+        assertThat(abidjanApresMidi.valueDateFor("DEPOSIT", "BRANCH", Direction.CREDIT, VENDREDI))
+            .isEqualTo(LocalDate.of(2026, 9, 14));
+    }
+
+    @Test
+    @DisplayName("une heure limite generale vaut pour tout canal, et celle qui nomme le canal l'emporte")
+    void a_general_cutoff_covers_every_channel_and_a_named_one_wins() {
+        var cutoffs = List.of(
+            new ChannelCutoff(null, java.time.LocalTime.of(17, 0), false, LocalDate.of(2026, 1, 1), null),
+            new ChannelCutoff("MOBILE", java.time.LocalTime.of(22, 0), false,
+                              LocalDate.of(2026, 1, 1), null));
+        var rules = List.of(rule("DEPOSIT", null, Direction.CREDIT, 0, OffsetUnit.BUSINESS_DAYS));
+        var soir = java.time.Clock.fixed(java.time.Instant.parse("2026-09-11T18:00:00Z"),
+                                         java.time.ZoneId.of("UTC"));
+        var policy = new ValueDatePolicy(calendrier, rules, cutoffs, java.time.ZoneId.of("UTC"), soir);
+        assertThat(policy.valueDateFor("DEPOSIT", "BRANCH", Direction.CREDIT, VENDREDI))
+            .as("18 h : le guichet est apres l'heure generale de 17 h").isEqualTo(LocalDate.of(2026, 9, 14));
+        assertThat(policy.valueDateFor("DEPOSIT", null, Direction.CREDIT, VENDREDI))
+            .isEqualTo(LocalDate.of(2026, 9, 14));
+        assertThat(policy.valueDateFor("DEPOSIT", "MOBILE", Direction.CREDIT, VENDREDI))
+            .as("le mobile a jusqu'a 22 h").isEqualTo(VENDREDI);
+    }
 }

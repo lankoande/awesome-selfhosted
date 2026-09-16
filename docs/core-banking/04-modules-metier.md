@@ -481,7 +481,29 @@ fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 > `ops.daily_debit_max`, `ops.monthly_debit_max`) et du compte (`account_limit`, à deux, par
 > nature et validité, qui l'emporte) s'appliquent à tout débit du client — retrait, virement,
 > paiement — frais compris, l'usage étant lu dans le journal hors écritures contre-passées
-> (`Limits`). Restent : cut-off par canal, suspens non soldés remontés à l'arrêté.
+> (`Limits`).
+
+> **Implémenté — heure limite par canal** (`channel_cutoff`, V43, module `calendar`) : chaque
+> canal a son heure limite, dans le fuseau de l'entité, datée et validée à deux comme une
+> condition de banque ; au-delà, une opération en ligne porte la date de valeur calculée depuis
+> le **jour ouvré suivant**, et un canal qui **ferme** à son heure limite refuse l'opération
+> (`409`). Une heure limite sans canal vaut pour tout canal, celle qui nomme le canal l'emporte.
+> Un traitement de lot n'a pas d'heure limite : il exécute ce qui est à l'échéance. La date
+> comptable, elle, ne bouge pas.
+>
+> **Implémenté — suspens** (`Suspense`, `suspense_policy`, V44, module `deposits` ; étape
+> `SUSPENSE_REVIEW` du TFJ) : un ordre de paiement non réglé, une remise de chèque non
+> encaissée, un prélèvement exécuté non réglé, un compte d'attente non soldé sont des suspens,
+> chacun avec son **ancienneté en jours ouvrés** — depuis l'ordre, la remise, l'exécution, ou
+> depuis le premier mouvement d'un compte d'attente postérieur au dernier jour où il était soldé
+> — et le **responsable** que la politique lui donne. La politique, par nature, fixe à deux
+> l'ancienneté tolérée et le responsable ; au-delà, le suspens est **en retard**. La revue de
+> l'arrêté remonte les retards par nature, avec le plus ancien, sans bloquer ; un compte
+> d'attente en retard — ou non soldé, sans politique — bloque la journée aux contrôles
+> préalables, parce que sa justification conditionne la sincérité de l'arrêté. Sans politique
+> pour une nature, ses suspens sont listés sans être en retard : le paramétrage dit ce qu'il
+> tolère, le système ne le présume pas. Restent : l'affectation nominative d'un suspens à un
+> agent et son suivi (commentaires, échéance), la lettrage automatique des comptes d'attente.
 
 > **Implémenté — chèques** (`ChequeService`, V41, module `deposits`) : le **chéquier** se délivre
 > à deux dans l'agence du compte, aux frais du produit (`ops.cheque_book_fee`, taxe comprise,
@@ -549,11 +571,12 @@ fonds ne sont pas encore chez le correspondant, et le bilan doit le refléter.
 - **Idempotence de bout en bout** : la référence de bout en bout (`end-to-end id`) est la
   clé d'idempotence. Un fichier de compensation rejoué ne double aucune opération.
 - **Cut-off** : au-delà de l'heure limite du canal, l'opération porte la date de valeur du
-  jour ouvré suivant. Le calcul dépend du calendrier de l'entité.
+  jour ouvré suivant. Le calcul dépend du calendrier de l'entité. *Fait* : `channel_cutoff`.
 - **Rappels et retours** : un retour interbancaire arrive après la compensation. Il se
   traite par contre-passation et non par suppression.
 - **Réconciliation des suspens** : un compte de suspens non soldé à la fin du jour est une
-  anomalie remontée à l'arrêté, avec ancienneté et responsable assigné.
+  anomalie remontée à l'arrêté, avec ancienneté et responsable assigné. *Fait* : `Suspense`,
+  `SUSPENSE_REVIEW`.
 
 ---
 

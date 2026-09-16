@@ -590,6 +590,33 @@ class ApiIT {
         assertThat(regleActive.status()).as(String.valueOf(regleActive.body())).isEqualTo(200);
         assertThat(resultat(regleActive.body()).get("id")).isNotNull();
 
+        // Les heures limites : a minuit, tout canal nomme est deja au-dela ; l'un decale la
+        // valeur au jour ouvre suivant, l'autre ferme.
+        for (Map<String, Object> heure : List.of(
+                Map.<String, Object>of("channel", "TARDIF", "cutoffTime", "00:00",
+                                       "closesChannel", false, "validFrom", J.toString()),
+                Map.<String, Object>of("channel", "FERME", "cutoffTime", "00:00",
+                                       "closesChannel", true, "validFrom", J.toString()))) {
+            Reponse limite = post(operator, "/calendar/cutoffs", null, heure);
+            assertThat(limite.status()).as(String.valueOf(limite.body())).isEqualTo(202);
+            Reponse limiteActive = post(productManager, "/pending-operations/" + attente(limite)
+                                        + "/approve", null, Map.of());
+            assertThat(limiteActive.status()).as(String.valueOf(limiteActive.body())).isEqualTo(200);
+        }
+        assertThat(post(operator, "/calendar/cutoffs", null, Map.of("channel", "TARDIF",
+                        "cutoffTime", "midi", "validFrom", J.toString())).status())
+            .as("l'heure se valide a la soumission").isEqualTo(422);
+        Reponse tardif = post(teller, "/accounts/" + account + "/deposits", "cut-1",
+                              Map.of("amount", "100", "currency", "XOF", "channel", "TARDIF"));
+        assertThat(tardif.status()).as(String.valueOf(tardif.envelope())).isEqualTo(201);
+        assertThat(tardif.body().get("valueDate")).as("mercredi, apres l'heure : jeudi")
+            .isEqualTo(J.plusDays(2).toString());
+        assertThat(tardif.body().get("bookingDate")).isEqualTo(J.plusDays(1).toString());
+        Reponse ferme = post(teller, "/accounts/" + account + "/deposits", "cut-2",
+                             Map.of("amount", "100", "currency", "XOF", "channel", "FERME"));
+        assertThat(ferme.status()).as(String.valueOf(ferme.envelope())).isEqualTo(409);
+        assertThat((String) ferme.body().get("detail")).contains("ferme");
+
         Reponse ferie = post(operator, "/calendar/holidays", null, Map.of(
             "date", J.plusMonths(2).toString(), "label", "Fete nationale"));
         assertThat(ferie.status()).as(String.valueOf(ferie.body())).isEqualTo(202);
@@ -1536,6 +1563,48 @@ class ApiIT {
         assertThat(get(officer, "/direct-debits/" + UUID.randomUUID()).status()).isEqualTo(404);
         assertThat(get(teller, "/direct-debits").status()).isEqualTo(403);
         assertThat(get(accountant, "/direct-debits?direction=sideways").status()).isEqualTo(422);
+    }
+
+    @Test
+    @Order(15)
+    @DisplayName("suspens : la politique se fixe a deux, la revue liste ce qui attend le correspondant avec son anciennete et son responsable")
+    void suspens() throws Exception {
+        Map<String, Object> politique = Map.of("kind", "PAYMENT_ORDER", "maxBusinessDays", 2,
+                                               "owner", "back-office paiements",
+                                               "validFrom", J.toString());
+        assertThat(post(officer, "/suspense-policies", null, politique).status()).isEqualTo(403);
+        Reponse demande = post(operator, "/suspense-policies", null, politique);
+        assertThat(demande.status()).as(String.valueOf(demande.envelope())).isEqualTo(202);
+        assertThat(post(operator, "/pending-operations/" + attente(demande) + "/approve", null,
+                        Map.of()).status()).as("jamais par le demandeur").isEqualTo(403);
+        Reponse fixee = post(accountant, "/pending-operations/" + attente(demande) + "/approve", null,
+                             Map.of());
+        assertThat(fixee.status()).as(String.valueOf(fixee.envelope())).isEqualTo(200);
+        assertThat(resultat(fixee.body()).get("owner")).isEqualTo("back-office paiements");
+        assertThat(post(operator, "/suspense-policies", null, Map.of("kind", "AUTRE",
+                        "maxBusinessDays", 1, "owner", "x", "validFrom", J.toString())).status())
+            .as("une nature inconnue est refusee a la soumission").isEqualTo(422);
+        Reponse politiques = get(accountant, "/suspense-policies");
+        assertThat(politiques.status()).as(String.valueOf(politiques.envelope())).isEqualTo(200);
+        assertThat(politiques.items()).hasSize(1);
+
+        // Un ordre de paiement non regle est un suspens du jour, avec son responsable.
+        Reponse ordre = post(officer, "/accounts/" + account + "/payment-orders", "sus-1",
+            Map.of("amount", "10000", "currency", "XOF", "beneficiaryName", "Fournisseur SA",
+                   "beneficiaryBank", "BK-CI-001", "beneficiaryAccount", "CI93CI0010001234567890123456"));
+        assertThat(ordre.status()).as(String.valueOf(ordre.envelope())).isEqualTo(201);
+        Reponse revue = get(accountant, "/suspense");
+        assertThat(revue.status()).as(String.valueOf(revue.envelope())).isEqualTo(200);
+        assertThat(revue.items()).singleElement().satisfies(item -> {
+            assertThat(item.get("kind")).isEqualTo("PAYMENT_ORDER");
+            assertThat(item.get("reference")).isEqualTo(ordre.body().get("id"));
+            assertThat(item.get("ageBusinessDays")).isEqualTo(0);
+            assertThat(item.get("maxBusinessDays")).isEqualTo(2);
+            assertThat(item.get("owner")).isEqualTo("back-office paiements");
+            assertThat(item.get("overdue")).isEqualTo(false);
+        });
+        assertThat(get(officer, "/suspense").status()).as("la revue est d'exploitation et de controle")
+            .isEqualTo(403);
     }
 
     // ------------------------------------------------------------------ outillage
