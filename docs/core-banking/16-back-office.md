@@ -267,3 +267,75 @@ poids embarqué pour rien dans une agence de l'UEMOA. IBM Plex Sans est pris en 
 **Le démarrage a son propre test.** Un initialiseur qui appelle `inject()` après un `await`
 compile, passe les tests de composants, et casse l'application au premier chargement (NG0203).
 Seule l'exécution de la séquence de démarrage le montre — elle est donc jouée par un test.
+
+### Responsivité — les largeurs d'un poste d'agence
+
+Ce n'est pas un site : personne ne fait un versement sur un téléphone. Mais les postes d'agence
+sont souvent des 1366×768, le chef d'agence consulte sur tablette, et un écran qui casse à 1024
+est un écran qu'on n'ouvre pas.
+
+| Seuil | Ce qui change |
+|---|---|
+| ≥ 1280 | Deux colonnes : la saisie à gauche, l'imputation et l'action à droite, épinglées |
+| 1280 | Le suivi repasse sous la saisie |
+| 1100 | La barre se resserre ; la recherche garde son icône et perd son libellé |
+| 768 | Une colonne ; le sommaire de l'atelier et les libellés secondaires tombent |
+| < 768 | Consultation : lisible, jamais de défilement horizontal, ni clé d'idempotence ni raccourci clavier |
+
+Une table comptable ne se replie jamais en cartes : elle défile dans son conteneur, colonnes
+alignées. Un relevé lu en cartes empilées n'est plus un relevé.
+
+`npm run check:largeurs` ouvre chaque écran à sept largeurs et échoue sur un débordement
+horizontal ou une cible sous 24 px (WCAG 2.2, critère 2.5.8). Il demande un navigateur, donc il
+n'est pas dans `npm test` ; il devient une barrière d'intégration le jour où le front en a une.
+
+---
+
+## 9. L'écran de versement : ce qu'il a tranché
+
+**Le poste ne calcule ni les frais, ni la taxe, ni la date de valeur.** Ce sont des paramètres du
+socle. L'écran montre donc l'imputation en deux temps : en projection, les deux lignes certaines
+— débit caisse, crédit client — et une mention explicite ; après la comptabilisation, les chiffres
+du reçu. Un barème recopié dans le navigateur finit par diverger, et l'écart se paie à l'arrêté de
+caisse.
+
+**Le billetage est un contrôle, pas une commodité.** Le montant annoncé et le comptage doivent
+tomber juste ; l'écart bloque l'envoi et se voit à la remise, pas le soir quand il faudra rappeler
+le client. Le comptage reste facultatif — un guichetier qui n'a pas encore compté saisit le
+montant — mais dès la première coupure, il est contrôlé. Les coupures sont celles de la BCEAO,
+billets et pièces, le 500 des deux côtés parce qu'un caissier les range séparément.
+
+**La clé d'idempotence couvre une demande, pas une session.** Elle est conservée tant que la
+saisie ne change pas : « Réessayer » rejoue la même clé, et un réseau qui tombe ne peut pas
+produire un double versement. Dès que le montant, le compte ou le libellé changent, la clé est
+renouvelée — sinon le socle rejouerait le premier reçu pour une opération différente, et le
+guichetier croirait avoir passé la seconde.
+
+**Les trois issues du socle sont trois messages distincts.** 201 comptabilisé, 200 rejeu d'une clé
+déjà traitée, 202 en attente d'un second regard. « Comptabilisé » annoncé deux fois fait recompter
+la caisse ; annoncé sur une opération en attente, il fait remettre les espèces au client.
+
+**L'identité du remettant part au libellé de l'écriture.** Le contrat n'a pas de champ dédié, et
+c'est de toute façon ce qu'un libellé d'écriture porte dans une agence. La lacune est nommée
+ci-dessous.
+
+**Une source de démonstration, jamais déguisée.** Tant qu'aucun socle n'est branché
+(`sourceDonnees: "factice"`), un bandeau permanent le dit : rien de ce qui s'affiche ne vient d'un
+registre. Basculer sur un socle réel est une ligne de `config.json`.
+
+### Lacunes du contrat, relevées en construisant l'écran
+
+Aucune n'a été comblée côté front : une règle devinée dans le navigateur est une divergence
+programmée.
+
+- **Cotation d'une opération** — frais, taxe et date de valeur avant comptabilisation. Sans elle,
+  le guichetier ne peut pas annoncer au client ce qui sera prélevé.
+- **Lien compte → titulaire** — le solde ne porte pas le tiers ; le bandeau client ne peut pas
+  afficher le nom sans un appel qui n'existe pas.
+- **Lecture des blocages d'un compte** — leur pose est exposée, pas leur lecture. L'écart entre
+  solde et disponible reste donc inexpliqué face à un socle réel.
+- **Recherche de compte** — `GET /parties` cherche des tiers, pas des comptes. Le guichet cherche
+  un compte.
+- **Identité du remettant, structurée** — exigence LCB-FT que `Requests.CashOperation` ne porte pas.
+- **Lignes d'écriture du reçu** — le reçu donne les montants, pas les lignes. Un
+  `GET /entries/{entryId}` permettrait d'afficher l'imputation réelle, pas seulement ses totaux.
