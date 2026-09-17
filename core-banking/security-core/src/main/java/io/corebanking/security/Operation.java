@@ -107,6 +107,16 @@ public enum Operation {
      * serait le chemin le plus court pour le commettre sans le vouloir.
      */
     AML_READ,
+    /** Declaration reglementaire : destinataire, methode, periodicite, delai, seuil, a deux. */
+    REGULATORY_DECLARATION_MANAGE,
+    /** Production d'un etat reglementaire : il se calcule, il ne se saisit pas. */
+    REGULATORY_REPORT_PRODUCE,
+    /** Transmission d'un etat au superviseur, a deux : produire est un travail, transmettre engage. */
+    REGULATORY_REPORT_TRANSMIT,
+    /** Consentement du client a la declaration au bureau d'information sur le credit. */
+    CREDIT_BUREAU_CONSENT,
+    /** Consultation des declarations, des etats produits et des echeances. */
+    REGULATORY_READ,
     /** Lecture du dossier a l'echelle de l'entite : politique declaree, dossiers incomplets. */
     PARTY_FILE_READ,
     /** Cotation d'un cours de reference, a deux : il controle tout cours applique. */

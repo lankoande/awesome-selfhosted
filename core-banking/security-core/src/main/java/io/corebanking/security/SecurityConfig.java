@@ -292,6 +292,33 @@ public final class SecurityConfig {
             AccessRule.allow(RISK_OFFICER, AUDITOR).within(Scope.OWN_ENTITY)
                 .tracedOnRead().build());
 
+        // ------------------------------------------------------------------ reglementaire
+        //
+        // Ce que la banque doit a son superviseur passe par la comptabilite, pas par le reseau :
+        // la situation comptable, le recensement des engagements et les incidents se lisent dans
+        // le journal et les sous-livres, et c'est le comptable qui en repond.
+        policy.put(Operation.REGULATORY_DECLARATION_MANAGE,
+            AccessRule.allow(ACCOUNTANT, RISK_OFFICER).within(Scope.OWN_ENTITY)
+                .requiringSecondPerson().build());
+
+        policy.put(Operation.REGULATORY_REPORT_PRODUCE,
+            AccessRule.allow(ACCOUNTANT, RISK_OFFICER).within(Scope.OWN_ENTITY).build());
+
+        // Transmettre engage la banque devant le superviseur — et ne pas transmettre l'engage
+        // autant. Ni l'un ni l'autre ne se decide seul.
+        policy.put(Operation.REGULATORY_REPORT_TRANSMIT,
+            AccessRule.allow(ACCOUNTANT, RISK_OFFICER).within(Scope.OWN_ENTITY)
+                .requiringSecondPerson().build());
+
+        // Le consentement se recueille au guichet, avec le reste du dossier : c'est le client qui
+        // le donne, en face de quelqu'un.
+        policy.put(Operation.CREDIT_BUREAU_CONSENT,
+            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER).within(Scope.OWN_BRANCH).build());
+
+        policy.put(Operation.REGULATORY_READ,
+            AccessRule.allow(ACCOUNTANT, RISK_OFFICER, AUDITOR, OPERATOR)
+                .within(Scope.OWN_ENTITY).build());
+
         // La politique declaree et la liste des dossiers incomplets se lisent a l'echelle de
         // l'entite : le guichetier doit savoir quelles pieces reclamer, la conformite et l'audit
         // ont besoin de la liste de travail — qu'aucun perimetre d'agence ne doit tronquer.

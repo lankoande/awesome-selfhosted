@@ -107,7 +107,8 @@ public final class DualControlHandlers {
                        new RegisterStandingOrder(database, standingOrders, accounts),
                        new SubscribeTermDeposit(termDeposits, accounts),
                        new BreakTermDeposit(database, termDeposits, accounts),
-                       new DeclareMonitoringScenario(database), new ReportSuspicion(database));
+                       new DeclareMonitoringScenario(database), new ReportSuspicion(database),
+                       new DeclareRegulatoryReport(database), new TransmitReport(database));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -2336,6 +2337,130 @@ public final class DualControlHandlers {
                         required(payload, "narrative"), alerts, Callers.actorId(maker),
                         Callers.actorId(checker)));
                 return io.corebanking.compliance.SuspiciousActivityReports.require(c, id);
+            });
+        }
+
+        private static java.time.LocalDate businessDate(java.sql.Connection c,
+                                                        java.util.UUID legalEntityId) {
+            try (var ps = c.prepareStatement(
+                "SELECT current_business_date FROM legal_entity WHERE id = ?")) {
+                ps.setObject(1, legalEntityId);
+                try (var rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        throw new IllegalArgumentException("Entite inconnue : " + legalEntityId);
+                    }
+                    return rs.getObject(1, java.time.LocalDate.class);
+                }
+            } catch (java.sql.SQLException e) {
+                throw new io.corebanking.ledger.store.LedgerStoreException("Date comptable", e);
+            }
+        }
+    }
+
+
+    /**
+     * Declaration reglementaire : ce que la banque doit a son superviseur, et quand.
+     *
+     * <p>A deux, parce que les trois facons de manquer a l'obligation se decident au meme
+     * endroit : oublier une declaration, la dater trop large, ou la seuiller trop haut.
+     */
+    static final class DeclareRegulatoryReport implements MakerChecker.Handler {
+        private final Database database;
+
+        DeclareRegulatoryReport(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "REGULATORY_DECLARATION_DECLARE"; }
+
+        @Override
+        public Operation operation() {
+            return Operation.REGULATORY_DECLARATION_MANAGE;
+        }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "code");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            String threshold = text(payload, "thresholdAmount");
+            String validTo = text(payload, "validTo");
+            return database.inTransaction(c ->
+                io.corebanking.regulatory.RegulatoryDeclarations.declare(c,
+                    new io.corebanking.regulatory.RegulatoryDeclarations.Draft(
+                        uuid(payload, "legalEntityId"), required(payload, "code"),
+                        required(payload, "label"),
+                        io.corebanking.regulatory.RegulatoryDeclarations.Recipient.valueOf(
+                            required(payload, "recipient")),
+                        io.corebanking.regulatory.RegulatoryDeclarations.Method.valueOf(
+                            required(payload, "method")),
+                        io.corebanking.regulatory.RegulatoryDeclarations.Frequency.valueOf(
+                            required(payload, "frequency")),
+                        integer(payload, "deadlineDays"),
+                        threshold == null || threshold.isBlank() ? null
+                            : new java.math.BigDecimal(threshold),
+                        java.time.LocalDate.parse(required(payload, "validFrom")),
+                        validTo == null || validTo.isBlank() ? null
+                            : java.time.LocalDate.parse(validTo),
+                        Callers.actorId(maker), Callers.actorId(checker))));
+        }
+    }
+
+    /**
+     * Transmission d'un etat au superviseur.
+     *
+     * <p>Produire est un travail : il se refait tant que rien n'est parti. Transmettre engage la
+     * banque, et ne se defait pas — d'ou les deux personnes, et la reference rendue par le
+     * destinataire, qui est la preuve du depot.
+     */
+    static final class TransmitReport implements MakerChecker.Handler {
+        private final Database database;
+
+        TransmitReport(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "REGULATORY_REPORT_TRANSMIT"; }
+
+        @Override
+        public Operation operation() {
+            return Operation.REGULATORY_REPORT_TRANSMIT;
+        }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            java.util.UUID entity = uuid(payload, "legalEntityId");
+            io.corebanking.regulatory.ReportFilings.Filing filing = database.inTransaction(
+                c -> io.corebanking.regulatory.ReportFilings.require(
+                    c, uuid(payload, "filingId")));
+            if (!filing.legalEntityId().equals(entity)) {
+                throw new IllegalArgumentException("Etat inconnu : " + filing.id());
+            }
+            return AccessTarget.inEntity(entity);
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "filingId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            java.util.UUID entity = uuid(payload, "legalEntityId");
+            String on = text(payload, "transmittedOn");
+            return database.inTransaction(c -> {
+                java.time.LocalDate date = on == null || on.isBlank()
+                    ? businessDate(c, entity) : java.time.LocalDate.parse(on);
+                return io.corebanking.regulatory.ReportFilings.transmit(c,
+                    uuid(payload, "filingId"), date, required(payload, "reference"),
+                    Callers.actorId(maker), Callers.actorId(checker));
             });
         }
 

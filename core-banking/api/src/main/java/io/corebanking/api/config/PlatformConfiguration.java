@@ -204,6 +204,11 @@ public class PlatformConfiguration {
     }
 
     @Bean
+    io.corebanking.regulatory.ReportingService reportingService(Database database) {
+        return new io.corebanking.regulatory.ReportingService(database);
+    }
+
+    @Bean
     io.corebanking.deposits.TermDepositService termDepositService(
             Database database, PostingService postingService) {
         return new io.corebanking.deposits.TermDepositService(database, postingService);

@@ -351,6 +351,17 @@ reporting:
 - Les **délais de transmission** sont suivis comme des échéances bloquantes, avec alerte
   anticipée : le retard déclaratif est en lui-même un manquement.
 
+> **Implémenté** — module `regulatory` (V54), détaillé en
+> [07 §6](07-securite-conformite.md#prudentiel-et-réglementaire). Les déclarations de ce profil se
+> chargent comme du paramétrage : code, destinataire, méthode, périodicité, délai, seuil. Quatre
+> méthodes sont codées — situation comptable, centrale des risques **agrégée par client**
+> (bilan et hors bilan, classe la plus dégradée), incidents de paiement, bureau du crédit sous
+> consentement révocable. L'état produit est figé avec le paramétrage qui l'a calculé et se
+> confronte à son recalcul ; sa transmission se décide à deux et porte la référence rendue. Les
+> échéances dépassées sont constatées chaque nuit par l'arrêté. Restent à livrer : les **formats
+> de fichier** attendus par chaque destinataire (la production rend les lignes, pas le fichier),
+> les ratios prudentiels et les réserves obligatoires.
+
 ---
 
 ## 10. Ratios prudentiels

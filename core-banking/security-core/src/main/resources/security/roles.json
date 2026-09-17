@@ -15,7 +15,7 @@
     {
       "code": "branch_manager",
       "name": "Chef d'agence",
-      "description": "Encadrement d'une agence : ouverture et cloture de comptes, blocages, plafonds de compte, chequiers, mandats de prelevement, ordres permanents et depots a terme a deux, oppositions, relations entre tiers et beneficiaires effectifs a deux, validation des operations au-dela du plafond guichetier.",
+      "description": "Encadrement d'une agence : ouverture et cloture de comptes, blocages, plafonds de compte, chequiers, mandats de prelevement, ordres permanents et depots a terme a deux, oppositions, relations entre tiers et beneficiaires effectifs a deux, consentement au bureau d'information sur le credit, validation des operations au-dela du plafond guichetier.",
       "isSystem": true,
       "category": "RESEAU",
       "attributes": {
@@ -26,7 +26,7 @@
     {
       "code": "customer_officer",
       "name": "Charge de clientele",
-      "description": "Gestion du portefeuille clients : ouverture de comptes, virements, paiements sortants, chequiers et oppositions, remises de cheques, mandats de prelevement et remises de prelevements, ordres permanents a deux et leur revocation, depots a terme a deux (souscription et rupture avant terme), dossier client (pieces, relations entre tiers et beneficiaires effectifs a deux), consultation du journal.",
+      "description": "Gestion du portefeuille clients : ouverture de comptes, virements, paiements sortants, chequiers et oppositions, remises de cheques, mandats de prelevement et remises de prelevements, ordres permanents a deux et leur revocation, depots a terme a deux (souscription et rupture avant terme), dossier client (pieces, relations entre tiers et beneficiaires effectifs a deux, consentement au bureau d'information sur le credit), consultation du journal.",
       "isSystem": true,
       "category": "RESEAU",
       "attributes": {
@@ -48,7 +48,7 @@
     {
       "code": "accountant",
       "name": "Comptable",
-      "description": "Comptabilite generale : contre-passation, passage en perte a deux, arretes mensuel et annuel, exercices et affectation du resultat a deux, maquettes d'etats financiers, balance, grand livre, journal et etats financiers de l'entite ; suivi des paiements sortants, des remises de cheques et des prelevements ; politiques de suspens, cours de change et positions de change a deux, revue des suspens et des positions.",
+      "description": "Comptabilite generale : contre-passation, passage en perte a deux, arretes mensuel et annuel, exercices et affectation du resultat a deux, maquettes d'etats financiers, balance, grand livre, journal et etats financiers de l'entite ; suivi des paiements sortants, des remises de cheques et des prelevements ; politiques de suspens, cours de change et positions de change a deux, revue des suspens et des positions ; declarations reglementaires a deux, production des etats reglementaires et leur transmission a deux, veille des echeances declaratives.",
       "isSystem": true,
       "category": "SIEGE",
       "attributes": {
@@ -81,7 +81,7 @@
     {
       "code": "risk_officer",
       "name": "Responsable des risques",
-      "description": "Blocages de comptes, seconde validation du parametrage produit, politiques de diligence client et d'octroi de credit (endettement, montant, duree, apport, garantie) a deux, dispositif LCB-FT : scenarios de surveillance a deux, instruction et classement motive des alertes, declaration de soupcon a deux et sa transmission.",
+      "description": "Blocages de comptes, seconde validation du parametrage produit, politiques de diligence client et d'octroi de credit (endettement, montant, duree, apport, garantie) a deux, dispositif LCB-FT : scenarios de surveillance a deux, instruction et classement motive des alertes, declaration de soupcon a deux et sa transmission ; declarations reglementaires a deux, production et transmission des etats.",
       "isSystem": true,
       "category": "CONTROLE",
       "attributes": {
@@ -92,7 +92,7 @@
     {
       "code": "operator",
       "name": "Exploitant",
-      "description": "Lancement et annulation des traitements de fin de journee ; suivi des paiements sortants, des remises de cheques et des prelevements (presentation, reglement, retour) ; heures limites des canaux, politiques de suspens et cours de change a deux, revue des suspens et des positions.",
+      "description": "Lancement et annulation des traitements de fin de journee ; suivi des paiements sortants, des remises de cheques et des prelevements (presentation, reglement, retour) ; heures limites des canaux, politiques de suspens et cours de change a deux, revue des suspens et des positions ; lecture des etats reglementaires et des echeances declaratives.",
       "isSystem": true,
       "category": "EXPLOITATION",
       "attributes": {
@@ -103,7 +103,7 @@
     {
       "code": "auditor",
       "name": "Auditeur",
-      "description": "Consultation transverse aux entites, acces a la piste d'audit, balance, grand livre, journal, etats financiers, revue des suspens, positions de change, dossiers clients incomplets et dispositif LCB-FT (scenarios, alertes, declarations) de son entite, en lecture tracee. Profil exclusif : ne se cumule avec aucun role operationnel.",
+      "description": "Consultation transverse aux entites, acces a la piste d'audit, balance, grand livre, journal, etats financiers, revue des suspens, positions de change, dossiers clients incomplets, dispositif LCB-FT (scenarios, alertes, declarations) en lecture tracee et etats reglementaires de son entite. Profil exclusif : ne se cumule avec aucun role operationnel.",
       "isSystem": true,
       "category": "CONTROLE",
       "attributes": {

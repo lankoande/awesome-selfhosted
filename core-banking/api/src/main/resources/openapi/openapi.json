@@ -2373,6 +2373,66 @@
         },
         "type" : "object"
       },
+      "RegulatoryDeclarations.Declaration" : {
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "deadlineDays" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "frequency" : {
+            "enum" : [ "MONTHLY", "QUARTERLY", "YEARLY" ],
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "legalEntityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "method" : {
+            "enum" : [ "ACCOUNTING_SITUATION", "CREDIT_REGISTRY", "PAYMENT_INCIDENTS", "CREDIT_BUREAU" ],
+            "type" : "string"
+          },
+          "recipient" : {
+            "enum" : [ "CENTRAL_BANK", "BANKING_COMMISSION", "CREDIT_BUREAU", "TAX_AUTHORITY" ],
+            "type" : "string"
+          },
+          "thresholdAmount" : {
+            "type" : "number"
+          },
+          "validFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "validTo" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "RegulatoryUseCases.FilingView" : {
+        "properties" : {
+          "differences" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "filing" : {
+            "$ref" : "#/components/schemas/ReportFilings.Filing"
+          }
+        },
+        "type" : "object"
+      },
       "Relationships.Relationship" : {
         "properties" : {
           "approvedBy" : {
@@ -2419,6 +2479,138 @@
           "validTo" : {
             "format" : "date",
             "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ReportFilings.Filing" : {
+        "properties" : {
+          "cancellationReason" : {
+            "type" : "string"
+          },
+          "cancelledOn" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "declarationCode" : {
+            "type" : "string"
+          },
+          "declarationId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "dueOn" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "legalEntityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "lineCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "lines" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ReportFilings.Line"
+            },
+            "type" : "array"
+          },
+          "method" : {
+            "enum" : [ "ACCOUNTING_SITUATION", "CREDIT_REGISTRY", "PAYMENT_INCIDENTS", "CREDIT_BUREAU" ],
+            "type" : "string"
+          },
+          "periodEnd" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "periodStart" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "producedOn" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "PRODUCED", "TRANSMITTED", "CANCELLED" ],
+            "type" : "string"
+          },
+          "thresholdUsed" : {
+            "type" : "number"
+          },
+          "totalAmount" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "transmissionReference" : {
+            "type" : "string"
+          },
+          "transmittedOn" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ReportFilings.Line" : {
+        "properties" : {
+          "amount" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "classification" : {
+            "type" : "string"
+          },
+          "daysPastDue" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "occurrences" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "offBalance" : {
+            "$ref" : "#/components/schemas/Money"
+          },
+          "subjectId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "subjectKind" : {
+            "enum" : [ "PARTY", "ACCOUNT", "GL_ACCOUNT" ],
+            "type" : "string"
+          },
+          "subjectReference" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ReportingService.Overdue" : {
+        "properties" : {
+          "declarationCode" : {
+            "type" : "string"
+          },
+          "dueOn" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "periodEnd" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "produced" : {
+            "type" : "boolean"
           }
         },
         "type" : "object"
@@ -2728,6 +2920,14 @@
         },
         "type" : "object"
       },
+      "Requests.ConsentRequest" : {
+        "properties" : {
+          "granted" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "Requests.CreateBranch" : {
         "properties" : {
           "code" : {
@@ -2848,6 +3048,41 @@
         },
         "type" : "object"
       },
+      "Requests.DeclarationRequest" : {
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "deadlineDays" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "frequency" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "method" : {
+            "type" : "string"
+          },
+          "recipient" : {
+            "type" : "string"
+          },
+          "thresholdAmount" : {
+            "type" : "number"
+          },
+          "validFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "validTo" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Requests.DirectDebitIssue" : {
         "properties" : {
           "amount" : {
@@ -2941,6 +3176,23 @@
             "type" : "string"
           },
           "upfrontFees" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Requests.FilingCancellation" : {
+        "properties" : {
+          "reason" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Requests.FilingRequest" : {
+        "properties" : {
+          "periodEnd" : {
+            "format" : "date",
             "type" : "string"
           }
         },
@@ -4067,6 +4319,18 @@
           },
           "sourceAccountId" : {
             "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Requests.TransmissionRequest" : {
+        "properties" : {
+          "reference" : {
+            "type" : "string"
+          },
+          "transmittedOn" : {
+            "format" : "date",
             "type" : "string"
           }
         },
@@ -15343,6 +15607,695 @@
           }
         },
         "tags" : [ "Product" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/regulatory/deadlines" : {
+      "get" : {
+        "operationId" : "Regulatory.deadlines",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "items" : {
+                        "$ref" : "#/components/schemas/ReportingService.Overdue"
+                      },
+                      "type" : "array"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/regulatory/declarations" : {
+      "get" : {
+        "operationId" : "Regulatory.declarations",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "items" : {
+                        "$ref" : "#/components/schemas/RegulatoryDeclarations.Declaration"
+                      },
+                      "type" : "array"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      },
+      "post" : {
+        "operationId" : "Regulatory.declare",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.DeclarationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/regulatory/declarations/{declarationId}/filings" : {
+      "post" : {
+        "operationId" : "Regulatory.produce",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "declarationId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.FilingRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/ReportFilings.Filing"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Cree"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/regulatory/filings" : {
+      "get" : {
+        "operationId" : "Regulatory.filings",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "items" : {
+                        "$ref" : "#/components/schemas/ReportFilings.Filing"
+                      },
+                      "type" : "array"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/regulatory/filings/{filingId}" : {
+      "get" : {
+        "operationId" : "Regulatory.filing",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "filingId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/RegulatoryUseCases.FilingView"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/regulatory/filings/{filingId}/cancellation" : {
+      "post" : {
+        "operationId" : "Regulatory.cancel",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "filingId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.FilingCancellation"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/ReportFilings.Filing"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/regulatory/filings/{filingId}/transmission" : {
+      "post" : {
+        "operationId" : "Regulatory.transmit",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "filingId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.TransmissionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/regulatory/parties/{partyId}/credit-bureau-consent" : {
+      "post" : {
+        "operationId" : "Regulatory.consent",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "partyId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.ConsentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "type" : "boolean"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
       }
     },
     "/v1/entities/{legalEntityId}/relationships/{relationshipId}/termination" : {

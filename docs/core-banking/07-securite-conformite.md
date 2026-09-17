@@ -530,6 +530,51 @@ Chaque état produit est **archivé avec son jeu de données source et son param
 état régénéré six mois plus tard doit être identique à l'original : c'est une exigence de
 contrôle, et la principale difficulté rencontrée lors des inspections.
 
+**Implémenté — module `regulatory` (V54).**
+
+| Objet | Ce qu'il porte |
+|---|---|
+| `regulatory_declaration` | Code, destinataire, méthode, périodicité, délai de transmission, seuil, validité datée, deux signatures |
+| `report_filing` | Période, échéance, date de production, **méthode et seuil recopiés**, nombre de lignes, total, statut, transmission (date, référence rendue, deux personnes), annulation motivée |
+| `report_filing_line` | Le contenu figé : sujet (tiers, compte, compte général), libellé, montant, hors bilan, classe de risque, jours de retard, occurrences |
+| `party_credit_bureau_consent` | Consentement du client au bureau du crédit, donné ou révoqué, daté |
+
+Quatre méthodes sont codées ; le reste est du paramétrage :
+
+| Méthode | Ce qu'elle produit |
+|---|---|
+| `ACCOUNTING_SITUATION` | La balance des comptes généraux à la fin de période, dans le sens naturel de chaque compte, exhaustive — un compte à solde nul y figure, son absence serait lue comme une inexistence |
+| `CREDIT_REGISTRY` | Les engagements **agrégés par client** : encours porté (bilan) et tranches planifiées non débloquées (hors bilan), avec la classe la plus dégradée de ses concours, au-delà du seuil |
+| `PAYMENT_INCIDENTS` | Les chèques impayés de la période, par compte, avec leur nombre — un incident se déclare quel que soit son montant |
+| `CREDIT_BUREAU` | Le même recensement, restreint aux clients **qui y ont consenti**, sans seuil |
+
+Quatre règles fixent la portée :
+
+- **Une seule vérité par période.** Deux états transmis pour le même mois seraient deux
+  déclarations contradictoires ; un index unique l'interdit. Reprendre un état suppose d'annuler
+  le précédent en le motivant, et **un état transmis ne s'annule pas** : il se rectifie par un
+  dépôt suivant.
+- **Produire n'est pas transmettre.** Le premier est un travail comptable, refait tant que rien
+  n'est parti. Le second engage la banque, se décide à deux et porte la référence rendue par le
+  destinataire — c'est elle qui prouve le dépôt.
+- **L'état est reproductible, et c'est vérifiable.** Le recalcul confronte le contenu figé à ce
+  que donnent les données aujourd'hui, sous le paramétrage de la production ; les écarts sont
+  nommés ligne par ligne. Un état qui ne se reproduit plus n'est pas une curiosité.
+- **Le retard est un manquement.** L'étape `REGULATORY_DEADLINES` du TFJ (non bloquante) remonte
+  douze périodes et nomme chaque échéance dépassée, en distinguant l'état non produit de l'état
+  produit mais non transmis : ce ne sont ni le même manquement ni le même rattrapage.
+
+| Opération | Portée | À deux | Rôles |
+|---|---|---|---|
+| `REGULATORY_DECLARATION_MANAGE` | Entité | oui | Comptable, responsable des risques |
+| `REGULATORY_REPORT_PRODUCE` | Entité | non | Comptable, responsable des risques |
+| `REGULATORY_REPORT_TRANSMIT` | Entité | oui | Comptable, responsable des risques |
+| `CREDIT_BUREAU_CONSENT` | Agence | non | Chargé de clientèle, chef d'agence |
+| `REGULATORY_READ` | Entité | non | Comptable, risques, auditeur, exploitant |
+
+Reste à faire : les formats de fichier attendus par chaque destinataire (la production rend les
+lignes, pas le fichier), les ratios prudentiels et les réserves obligatoires.
+
 ### Fiscalité
 
 Retenues à la source sur intérêts, TVA sur commissions, taxes locales sur opérations,

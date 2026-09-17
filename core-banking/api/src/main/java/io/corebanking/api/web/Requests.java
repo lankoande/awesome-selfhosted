@@ -225,6 +225,35 @@ public final class Requests {
     /** Rupture avant terme : le motif est la piece que lira le controle. */
     public record TermDepositBreak(String reason) {}
 
+    // ------------------------------------------------------------------ reglementaire
+
+    /**
+     * Declaration reglementaire.
+     *
+     * @param recipient {@code CENTRAL_BANK}, {@code BANKING_COMMISSION}, {@code CREDIT_BUREAU} ou
+     *     {@code TAX_AUTHORITY}
+     * @param method {@code ACCOUNTING_SITUATION}, {@code CREDIT_REGISTRY},
+     *     {@code PAYMENT_INCIDENTS} ou {@code CREDIT_BUREAU}
+     * @param deadlineDays delai de transmission apres la fin de periode, en jours
+     * @param thresholdAmount seuil de recensement, admis par la seule centrale des risques
+     */
+    public record DeclarationRequest(String code, String label, String recipient, String method,
+                                     String frequency, Integer deadlineDays,
+                                     BigDecimal thresholdAmount, LocalDate validFrom,
+                                     LocalDate validTo) {}
+
+    /** Production : la periode couverte est celle qui se termine a cette date. */
+    public record FilingRequest(LocalDate periodEnd) {}
+
+    /** Transmission : la reference rendue par le destinataire prouve le depot. */
+    public record TransmissionRequest(LocalDate transmittedOn, String reference) {}
+
+    /** Annulation d'un etat produit : le motif est la piece que lira le controle. */
+    public record FilingCancellation(String reason) {}
+
+    /** Consentement du client a la declaration au bureau d'information sur le credit. */
+    public record ConsentRequest(Boolean granted) {}
+
     // ------------------------------------------------------------------ LCB-FT
 
     /**

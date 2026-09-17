@@ -413,6 +413,20 @@ hors du domaine (1 à 3 650 jours), un seuil ou un facteur négatif rendent ce s
 anomalie nommée, sans arrêter les autres. Le profil déclaré se saisit en devise de tenue de
 compte, faute de quoi la comparaison n'aurait pas d'unité.
 
+### Déclarations réglementaires — `regulatory_declaration` ✅
+
+| Élément | Contenu |
+|---|---|
+| Déclaration | Code, libellé, destinataire (banque centrale, commission bancaire, bureau du crédit, administration fiscale), validité datée, deux signatures |
+| Méthode | `ACCOUNTING_SITUATION`, `CREDIT_REGISTRY`, `PAYMENT_INCIDENTS`, `CREDIT_BUREAU` — du code ; tout le reste est du paramétrage |
+| Périodicité, délai | `MONTHLY` / `QUARTERLY` / `YEARLY` et le délai de transmission en jours après la fin de période (1 à 365) : c'est lui qui fixe l'échéance |
+| Seuil | `threshold_amount` — admis par la seule centrale des risques : une balance seuillée serait fausse, un incident se déclare quel que soit son montant |
+| Consentement | `party_credit_bureau_consent` : donné ou révoqué, daté — sans lui, rien ne part au bureau du crédit |
+
+L'état produit recopie **la méthode et le seuil** sous lesquels il a été calculé : relire la
+déclaration six mois plus tard donnerait la règle d'aujourd'hui, et l'état ne serait plus
+reproductible.
+
 ### Référentiel ✅
 
 | Élément | Table | Contenu |
@@ -500,6 +514,7 @@ le code appelant.
 | Frais d'opération (retrait, virement) avec taxe | ✅ |
 | Plafonds d'opération par produit et par client | ⬜ |
 | Profil réglementaire régional et surcouche nationale ([11](11-profil-uemoa-bceao.md)) | ⬜ |
+| Déclarations réglementaires (destinataire, périodicité, délai, seuil) | ✅ |
 | Ratios prudentiels | ⬜ |
 | Mapping plan comptable interne → réglementaire | ⬜ |
 | Scénarios de surveillance LCB-FT | ✅ |

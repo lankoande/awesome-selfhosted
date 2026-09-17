@@ -31,6 +31,7 @@
     <module>loan-service</module>
     <module>compliance</module>
     <module>deposits</module>
+    <module>regulatory</module>
     <module>tfj</module>
     <module>benchmark</module>
     <module>api</module>

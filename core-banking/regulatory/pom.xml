@@ -6,50 +6,37 @@
   <parent>
     <groupId>io.corebanking</groupId><artifactId>core-banking</artifactId><version>0.1.0-SNAPSHOT</version>
   </parent>
-  <artifactId>tfj</artifactId>
-  <name>tfj</name>
-  <description>Moteur de traitement de fin de journee : orchestration, reprise, annulation, TFJ a blanc.</description>
+  <artifactId>regulatory</artifactId>
+  <name>regulatory</name>
+  <description>Declarations reglementaires : parametrage, production d'un etat fige, transmission, echeances declaratives.</description>
   <dependencies>
     <dependency><groupId>io.corebanking</groupId><artifactId>platform-kernel</artifactId></dependency>
     <dependency><groupId>io.corebanking</groupId><artifactId>ledger-domain</artifactId></dependency>
-    <dependency><groupId>io.corebanking</groupId><artifactId>interest-domain</artifactId></dependency>
-    <dependency>
-      <groupId>io.corebanking</groupId><artifactId>ledger-store</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.corebanking</groupId><artifactId>interest-service</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.corebanking</groupId><artifactId>fee-service</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.corebanking</groupId><artifactId>loan-service</artifactId>
-      <version>${project.version}</version>
-    </dependency>
     <dependency>
       <groupId>io.corebanking</groupId><artifactId>party</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>io.corebanking</groupId><artifactId>compliance</artifactId>
+      <groupId>io.corebanking</groupId><artifactId>ledger-store</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>io.corebanking</groupId><artifactId>regulatory</artifactId>
+      <groupId>io.corebanking</groupId><artifactId>calendar</artifactId>
+    </dependency>
+    <!--
+      Les etats reglementaires lisent les sous-livres du credit et des depots : encours par
+      contrat, engagements non debloques, classes de risque, incidents de paiement. La
+      dependance porte sur le schema que ces modules livrent, pas sur leur API Java — mais elle
+      est reelle, et la declarer vaut mieux que la subir : sans elle, un etat compile et echoue
+      en production sur une table absente.
+    -->
+    <dependency>
+      <groupId>io.corebanking</groupId><artifactId>loan-service</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>io.corebanking</groupId><artifactId>deposits</artifactId>
       <version>${project.version}</version>
-    </dependency>
-    <dependency><groupId>io.corebanking</groupId><artifactId>product-catalog</artifactId></dependency>
-    <dependency><groupId>io.corebanking</groupId><artifactId>calendar</artifactId></dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId><artifactId>slf4j-api</artifactId>
-      <version>${slf4j.version}</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId><artifactId>slf4j-simple</artifactId>

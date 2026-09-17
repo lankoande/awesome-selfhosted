@@ -1145,6 +1145,58 @@ banque, et une alerte qui empêcherait l'arrêté ferait de la conformité le pr
 comptabilité. Elle vient **après** les traitements comptables : ce qu'elle regarde est la journée
 telle qu'elle a été arrêtée, prélèvements et échéances compris.
 
+
+### 34. Ce qu'on doit au superviseur, c'est de pouvoir le lui reproduire
+
+**Un état réglementaire n'est pas un fichier : c'est un calcul qu'on doit pouvoir refaire.** Il
+se calcule depuis le journal et les sous-livres à la date de fin de période — jamais saisi, jamais
+lu dans un cliché. Et il est **figé** avec le paramétrage sous lequel il a été produit : le seuil
+du jour de la production, pas celui d'aujourd'hui. Sans cela, un état régénéré six mois plus tard
+sortirait différent sans qu'on puisse dire si ce sont les données ou la règle qui ont bougé — et
+c'est exactement la question que pose l'inspection. Le recalcul est offert à la lecture : il rend
+les écarts ligne par ligne (`a_regenerated_filing_is_compared_to_what_was_filed`).
+
+**Une seule vérité par période.** Deux états transmis pour le même mois seraient deux déclarations
+contradictoires, et le superviseur ne saurait pas laquelle croire ; la base l'interdit. Pour
+reprendre un état, on annule le précédent **en le motivant** — et un état déjà transmis ne
+s'annule pas : ce qui est parti est parti, on dépose un rectificatif, on ne réécrit pas l'histoire
+(`a_filing_covers_a_period_and_only_one_exists`).
+
+**Produire est un travail, transmettre est un engagement.** Le premier se refait tant que rien
+n'est parti, et un seul le fait. Le second engage la banque devant son superviseur, porte la
+référence que celui-ci a rendue — c'est elle qui prouve le dépôt — et se décide à deux
+(`transmission_takes_two_and_what_is_filed_stays_filed`).
+
+**La méthode est du code, la déclaration est du paramétrage.** Destinataires, périodicités, délais
+et seuils changent par circulaire, parfois deux fois dans l'année : les coder obligerait à livrer
+pour déplacer un seuil, et une banque qui attend la prochaine version est en retard déclaratif.
+Quatre méthodes sont codées : la situation comptable, le recensement des engagements, les
+incidents de paiement, l'historique de remboursement. Un seuil posé sur une méthode qui n'en admet
+pas est refusé **à la soumission** : une balance seuillée serait fausse, un incident de paiement se
+déclare quel que soit son montant (`an_ill_formed_declaration_is_refused`).
+
+**La centrale des risques est agrégée par client**, tous concours confondus, bilan et hors bilan.
+C'est la raison d'être du dédoublonnage du référentiel : un client en double se déclare deux fois
+sous le seuil au lieu d'une fois au-dessus, et la centrale ne voit plus le risque qu'elle est faite
+pour voir. Le bilan est l'encours réellement porté ; le hors bilan, ce que la banque s'est engagée
+à mettre à disposition sans l'avoir versé. Les additionner serait faux, les ignorer aussi — un
+engagement de financement se réalise à la demande du client, pas de la banque. La classe retenue
+est **la plus dégradée** de ses concours
+(`the_credit_registry_aggregates_by_customer_above_the_threshold`).
+
+**Rien ne sort vers le bureau du crédit sans consentement.** L'historique de remboursement est une
+donnée personnelle ; le déclarer sans accord est une faute, pas un oubli. Le consentement se
+révoque, et **la révocation vaut pour les états suivants** : elle ne réécrit pas ce qui a déjà été
+déclaré, parce que c'est la seule promesse que la banque puisse tenir
+(`nothing_reaches_the_credit_bureau_without_consent`).
+
+**Le retard déclaratif est en lui-même un manquement.** Il ne se découvre pas quand le superviseur
+appelle : l'arrêté le constate chaque nuit, avec la déclaration, la période et le nombre de jours.
+Une déclaration oubliée pendant trois mois est une sanction ; la même, vue le lendemain de
+l'échéance, est un rattrapage. L'étape ne bloque pas la journée — un état non transmis n'empêche
+pas la banque d'arrêter ses comptes, puisque c'est précisément l'arrêté qui produit les données de
+l'état (`an_overdue_declaration_is_an_anomaly_not_a_stop`).
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
@@ -1168,6 +1220,11 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
   de la cellule nationale — les scénarios paramétrés et leurs quatre méthodes, l'alerte avec ses
   pièces, l'instruction et le classement motivé, la déclaration à deux et sa transmission, eux,
   sont faits ;
+- reporting réglementaire : les formats de fichier attendus par chaque destinataire (la production
+  rend les lignes, pas le fichier), les ratios prudentiels et les réserves obligatoires — les
+  déclarations paramétrées, la situation comptable, la centrale des risques agrégée par client,
+  les incidents de paiement, le bureau du crédit sous consentement, l'état figé et reproductible,
+  la transmission à deux et la veille des échéances à l'arrêté, eux, sont faits ;
 - crédit : le moteur de score lui-même (le socle porte le score et sa source, il ne les calcule
   pas), le comité comme circuit à plus de deux yeux, et le recouvrement contentieux (dossier,
   frais, huissier, réalisation de sûreté) — la demande, l'instruction, la décision sous délégation,
@@ -1376,3 +1433,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Les alertes d'un arrêté annulé sont effacées, sauf celles prises en instruction | Une alerte sans fait derrière elle n'a plus d'objet ; défaire le travail de la conformité parce qu'une journée est rejouée serait pire |
 | La file LCB-FT ne se lit ni au guichet ni en gestion de portefeuille | Informer la personne surveillée est un délit : le socle ne doit pas offrir le chemin qui le rendrait possible par inadvertance |
 | Le contrat OpenAPI publié est écrit à clés ordonnées | Les tables de hachage du sérialiseur varient d'une exécution à l'autre : sans ordre, chaque régénération produirait un diff illisible où l'ajout d'une route se perdrait |
+| Un état réglementaire est figé avec le paramétrage qui l'a produit | Relire le seuil d'aujourd'hui six mois plus tard donnerait un autre état, et on ne saurait pas si ce sont les données ou la règle qui ont bougé |
+| Une seule déclaration en vigueur par période | Deux états transmis pour le même mois sont deux vérités ; le superviseur ne saurait pas laquelle croire |
+| Un état transmis ne s'annule pas : il se rectifie | Effacer ce que la banque a déclaré efface précisément ce que l'inspection vient vérifier |
+| La centrale des risques est agrégée par client, pas par contrat | Un client en double se déclare deux fois sous le seuil au lieu d'une fois au-dessus, et la centrale ne voit plus le risque |
+| Le retard déclaratif se constate à l'arrêté | Oublié trois mois, il devient une sanction ; vu le lendemain de l'échéance, c'est un rattrapage |

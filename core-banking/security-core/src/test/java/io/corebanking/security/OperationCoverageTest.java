@@ -69,6 +69,10 @@ class OperationCoverageTest {
         Map.entry("ActivityProfiles.declare", Operation.AML_PROFILE_DECLARE),
         Map.entry("AmlAlerts.assign / close", Operation.AML_ALERT_REVIEW),
         Map.entry("SuspiciousActivityReports.draft / transmit", Operation.AML_REPORT),
+        Map.entry("RegulatoryDeclarations.declare", Operation.REGULATORY_DECLARATION_MANAGE),
+        Map.entry("ReportingService.produce", Operation.REGULATORY_REPORT_PRODUCE),
+        Map.entry("ReportFilings.transmit / cancel", Operation.REGULATORY_REPORT_TRANSMIT),
+        Map.entry("ReportingService.recordConsent", Operation.CREDIT_BUREAU_CONSENT),
         Map.entry("LoanOrigination.submit / assess / addCondition", Operation.LOAN_APPLICATION),
         Map.entry("LoanOrigination.decide", Operation.LOAN_APPLICATION_DECIDE),
         Map.entry("LoanOrigination.clearCondition", Operation.LOAN_CONDITION_CLEAR),
@@ -108,7 +112,7 @@ class OperationCoverageTest {
         Operation.PARTY_READ, Operation.LOAN_READ, Operation.PAYMENT_READ, Operation.CHEQUE_READ,
         Operation.DIRECT_DEBIT_READ, Operation.SUSPENSE_READ, Operation.FX_READ,
         Operation.PARTY_FILE_READ, Operation.STANDING_ORDER_READ, Operation.TERM_DEPOSIT_READ,
-        Operation.AML_READ, Operation.AUDIT_READ);
+        Operation.AML_READ, Operation.REGULATORY_READ, Operation.AUDIT_READ);
 
     @Test
     @DisplayName("toute operation est reclamee par un point d'entree, ou est une consultation")
@@ -149,6 +153,8 @@ class OperationCoverageTest {
                                               Operation.KYC_POLICY_MANAGE,
                                               Operation.AML_SCENARIO_MANAGE,
                                               Operation.AML_REPORT,
+                                              Operation.REGULATORY_DECLARATION_MANAGE,
+                                              Operation.REGULATORY_REPORT_TRANSMIT,
                                               Operation.LOAN_APPLICATION_DECIDE,
                                               Operation.LOAN_CONDITION_CLEAR,
                                               Operation.LENDING_POLICY_MANAGE,

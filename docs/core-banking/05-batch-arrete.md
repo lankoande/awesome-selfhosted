@@ -106,6 +106,7 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | 14 | `KYC_REVIEW` | Échéances de revue périodique de la connaissance client ; expiration de documents : non fait | ✔ (non bloquante) |
 | 14b | `SUSPENSE_REVIEW` | Revue des suspens : ordres, remises, prélèvements non réglés, comptes d'attente non soldés, par ancienneté en jours ouvrés et responsable ; les retards en anomalies | ✔ (non bloquante) |
 | 14c | `AML_MONITORING` | Surveillance LCB-FT : les scénarios actifs appliqués à la journée arrêtée, alertes levées avec leurs pièces | ✔ (non bloquante) |
+| 14d | `REGULATORY_DEADLINES` | Échéances déclaratives dépassées : la déclaration, sa période, son retard | ✔ (non bloquante) |
 | 15 | `BALANCE_SNAPSHOT` | Snapshot des soldes par date comptable et par date de valeur, et par agence | ✔ |
 | 16 | `RECONCILIATION` | Contrôles d'intégrité (cf. §5), compensation inter-agences comprise | ✔ |
 | 17 | `REPORTING` | États quotidiens, extractions vers le datamart | |
@@ -119,7 +120,8 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` → `LOAN_CLOSURE` → `TERM_DEPOSIT_ACCRUAL` →
 > `TERM_DEPOSIT_MATURITY` → `INTEREST_ACCRUAL` →
 > `INTEREST_SETTLEMENT` → `FX_REVALUATION` → `DORMANCY` → `KYC_REVIEW` → `DOCUMENT_EXPIRY` →
-> `OFFER_EXPIRY` → `SUSPENSE_REVIEW` → `AML_MONITORING` → `BALANCE_SNAPSHOT` →
+> `OFFER_EXPIRY` → `SUSPENSE_REVIEW` → `AML_MONITORING` → `REGULATORY_DEADLINES` →
+> `BALANCE_SNAPSHOT` →
 > `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans toucher au moteur.
 >
 > `FX_RATES` vient avant tout calcul : une journée qui comptabiliserait des intérêts en devise,
@@ -201,6 +203,13 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > l'arrêté efface les alertes qu'il a levées, **sauf celles déjà prises en instruction ou
 > déclarées** : une alerte sans fait derrière elle n'a plus d'objet, mais défaire le travail de
 > la conformité parce qu'une journée est rejouée serait pire que de la garder.
+>
+> `REGULATORY_DEADLINES` constate ce que la banque doit à son superviseur et n'a pas envoyé : la
+> déclaration, la période close, l'échéance et le nombre de jours de retard, en distinguant l'état
+> non produit de l'état produit mais non transmis. Elle remonte douze périodes — au-delà, ce n'est
+> plus un retard, c'est un contentieux, et il ne se traite pas par une anomalie d'arrêté. Elle ne
+> bloque pas : un état non transmis n'empêche pas la banque d'arrêter ses comptes, puisque c'est
+> l'arrêté qui produit les données de l'état.
 >
 > Chaque frontière — lancement, reprise, étape, fin, annonce, annulation — est journalisée (SLF4J)
 > avec entité, journée, identifiant du traitement, étape, volumes lus et écrits, durée et

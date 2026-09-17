@@ -179,6 +179,15 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `POST /compliance/reports` | `AML_REPORT` | tiers, référence, exposé des faits, alertes couvertes — **202**, à deux ; les alertes citées passent à `REPORTED` et n'en ressortent pas, une alerte déjà déclarée ou d'un autre tiers est un `409` |
 | `POST /compliance/reports/{id}/transmission` | `AML_REPORT` | date et référence rendue par la cellule : c'est la preuve du dépôt ; une déclaration déjà transmise est un `409` |
 | `GET /compliance/reports` | `AML_READ` | les déclarations de l'entité et les alertes qu'elles couvrent ; lecture tracée |
+| `POST /regulatory/declarations` | `REGULATORY_DECLARATION_MANAGE` | code, libellé, destinataire, méthode, périodicité, délai de transmission, seuil — **202**, à deux ; méthode inconnue, délai absent ou seuil posé sur une méthode qui n'en admet pas sont refusés **à la soumission** (`422`) |
+| `GET /regulatory/declarations` | `REGULATORY_READ` | le catalogue de l'entité, en vigueur et passé |
+| `POST /regulatory/declarations/{id}/filings` | `REGULATORY_REPORT_PRODUCE` | la date de fin de la période couverte — l'état se calcule, il ne se saisit pas ; une date qui ne ferme pas de période, ou un second état sur la même période, sont des `409` |
+| `GET /regulatory/filings?status=` | `REGULATORY_READ` | les états de l'entité : produits, transmis, annulés |
+| `GET /regulatory/filings/{id}` | `REGULATORY_READ` | l'état, ses lignes figées, et — s'il a été transmis — les écarts de son recalcul, ligne par ligne |
+| `POST /regulatory/filings/{id}/transmission` | `REGULATORY_REPORT_TRANSMIT` | la référence rendue par le destinataire, et la date — **202**, à deux ; un état déjà transmis est un `409` |
+| `POST /regulatory/filings/{id}/cancellation` | `REGULATORY_REPORT_TRANSMIT` | motif obligatoire ; un état transmis ne s'annule pas (`409`), il se rectifie par un dépôt suivant |
+| `GET /regulatory/deadlines` | `REGULATORY_READ` | les échéances déclaratives dépassées à la date comptable, avec leur période et leur retard |
+| `POST /regulatory/parties/{partyId}/credit-bureau-consent` | `CREDIT_BUREAU_CONSENT` | consentement donné ou révoqué ; recueilli au guichet, il conditionne toute déclaration au bureau du crédit |
 | `POST /calendar/cutoffs` | `CALENDAR_MANAGE` | canal (vide : tous), heure limite `HH:mm` dans le fuseau de l'entité, `closesChannel`, validité — **202**, à deux ; l'heure se valide à la soumission (`422`) ; au-delà de l'heure, une opération du canal prend valeur depuis le jour ouvré suivant, ou est refusée (`409`) si le canal ferme |
 | `POST /suspense-policies`, `GET /suspense-policies` | `SUSPENSE_MANAGE` | nature (`SUSPENSE_ACCOUNT`, `PAYMENT_ORDER`, `CHEQUE_DEPOSIT`, `DIRECT_DEBIT`), ancienneté tolérée en jours ouvrés, responsable, validité — **202**, à deux ; nature, tolérance et responsable validés à la soumission (`422`) |
 | `GET /suspense` | `SUSPENSE_READ` | la revue à la date comptable : chaque suspens avec son compte, son montant, depuis quand, son ancienneté, la tolérance et le responsable de sa politique, `overdue` ; lecture tracée |

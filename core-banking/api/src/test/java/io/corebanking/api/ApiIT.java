@@ -2304,6 +2304,99 @@ class ApiIT {
             .extracting(r -> r.get("reference")).contains("DS-API-1");
     }
 
+    @Test
+    @Order(23)
+    @DisplayName("reglementaire : declaration à deux, état produit puis transmis à deux, échéance en retard lisible")
+    void reglementaire() throws Exception {
+        // Ce que la banque doit au superviseur se decide a deux : oublier une declaration, la
+        // dater trop large ou la seuiller trop haut sont trois facons de manquer a la meme
+        // obligation.
+        Map<String, Object> declaration = new LinkedHashMap<>();
+        declaration.put("code", "SITUATION-API");
+        declaration.put("label", "Situation comptable mensuelle");
+        declaration.put("recipient", "CENTRAL_BANK");
+        declaration.put("method", "ACCOUNTING_SITUATION");
+        declaration.put("frequency", "MONTHLY");
+        declaration.put("deadlineDays", 15);
+        declaration.put("validFrom", J.minusMonths(6).toString());
+
+        assertThat(post(teller, "/regulatory/declarations", null, declaration).status())
+            .as("le guichet ne fixe pas ce que la banque declare").isEqualTo(403);
+        Map<String, Object> seuillee = new LinkedHashMap<>(declaration);
+        seuillee.put("thresholdAmount", "1000");
+        assertThat(post(accountant, "/regulatory/declarations", null, seuillee).status())
+            .as("une balance seuillee serait fausse : refus a la soumission").isEqualTo(422);
+
+        Reponse proposee = post(accountant, "/regulatory/declarations", null, declaration);
+        assertThat(proposee.status()).as(String.valueOf(proposee.envelope())).isEqualTo(202);
+        Reponse declaree = post(riskOfficer, "/pending-operations/" + attente(proposee)
+                                + "/approve", null, Map.of());
+        assertThat(declaree.status()).as(String.valueOf(declaree.envelope())).isEqualTo(200);
+        Map<String, Object> vue = get(accountant, "/regulatory/declarations").items().stream()
+            .filter(d -> "SITUATION-API".equals(d.get("code"))).findFirst().orElseThrow();
+        UUID declarationId = UUID.fromString((String) vue.get("id"));
+
+        // L'etat se calcule sur la periode close : le mois precedent la date comptable.
+        LocalDate finDeMois = J.withDayOfMonth(1).minusDays(1);
+        assertThat(post(accountant, "/regulatory/declarations/" + declarationId + "/filings", null,
+                        Map.of("periodEnd", J.toString())).status())
+            .as("une date qui ne ferme pas de mois n'est pas une periode").isEqualTo(409);
+
+        Reponse produit = post(accountant, "/regulatory/declarations/" + declarationId
+                               + "/filings", null, Map.of("periodEnd", finDeMois.toString()));
+        assertThat(produit.status()).as(String.valueOf(produit.envelope())).isEqualTo(201);
+        UUID etat = UUID.fromString((String) produit.body().get("id"));
+        assertThat(produit.body().get("status")).isEqualTo("PRODUCED");
+        assertThat((Integer) produit.body().get("lineCount")).isPositive();
+
+        // Deux etats pour une periode seraient deux verites.
+        assertThat(post(accountant, "/regulatory/declarations/" + declarationId + "/filings", null,
+                        Map.of("periodEnd", finDeMois.toString())).status()).isEqualTo(409);
+
+        Reponse lecture = get(auditor, "/regulatory/filings/" + etat);
+        assertThat(lecture.status()).as(String.valueOf(lecture.envelope())).isEqualTo(200);
+        assertThat(((Map<?, ?>) lecture.body().get("filing")).get("declarationCode"))
+            .isEqualTo("SITUATION-API");
+        assertThat((List<?>) lecture.body().get("differences"))
+            .as("un etat non transmis n'a rien a reproduire").isEmpty();
+
+        // Transmettre engage la banque : a deux, avec la reference rendue.
+        assertThat(post(accountant, "/regulatory/filings/" + etat + "/transmission", null,
+                        Map.of("reference", " ")).status()).isEqualTo(422);
+        Reponse demande = post(accountant, "/regulatory/filings/" + etat + "/transmission", null,
+                               Map.of("reference", "BCEAO-API-0001"));
+        assertThat(demande.status()).as(String.valueOf(demande.envelope())).isEqualTo(202);
+        assertThat(post(accountant, "/pending-operations/" + attente(demande) + "/approve", null,
+                        Map.of()).status()).as("celui qui transmet ne valide pas").isEqualTo(403);
+        Reponse transmis = post(riskOfficer, "/pending-operations/" + attente(demande)
+                                + "/approve", null, Map.of());
+        assertThat(transmis.status()).as(String.valueOf(transmis.envelope())).isEqualTo(200);
+        assertThat(resultat(transmis.body()).get("transmissionReference"))
+            .isEqualTo("BCEAO-API-0001");
+
+        // Ce qui est parti ne s'annule pas : il se rectifie par un depot suivant.
+        assertThat(post(accountant, "/regulatory/filings/" + etat + "/cancellation", null,
+                        Map.of("reason", "on s'est trompe")).status()).isEqualTo(409);
+
+        // Le consentement au bureau du credit se recueille au guichet, pas a la comptabilite.
+        assertThat(post(accountant, "/regulatory/parties/" + party + "/credit-bureau-consent",
+                        null, Map.of("granted", true)).status()).isEqualTo(403);
+        Reponse consent = post(officer, "/regulatory/parties/" + party + "/credit-bureau-consent",
+                               null, Map.of("granted", true));
+        assertThat(consent.status()).as(String.valueOf(consent.envelope())).isEqualTo(200);
+
+        // Les echeances depassees se lisent : le retard declaratif est un manquement, et il se
+        // constate avant que le superviseur n'appelle.
+        Reponse echeances = get(accountant, "/regulatory/deadlines");
+        assertThat(echeances.status()).as(String.valueOf(echeances.envelope())).isEqualTo(200);
+        assertThat(echeances.items()).extracting(e -> e.get("declarationCode"))
+            .contains("SITUATION-API");
+        assertThat(get(teller, "/regulatory/deadlines").status())
+            .as("le guichet n'a rien a lire ici").isEqualTo(403);
+        assertThat(get(accountant, "/regulatory/filings?status=INCONNU").status())
+            .as("un statut inconnu se refuse au lieu de rendre une liste vide").isEqualTo(422);
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static UUID attente(Reponse reponse) {

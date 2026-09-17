@@ -24,6 +24,7 @@ import io.corebanking.tfj.steps.DormancyStep;
 import io.corebanking.tfj.steps.FxRatesStep;
 import io.corebanking.tfj.steps.FxRevaluationStep;
 import io.corebanking.tfj.steps.AmlMonitoringStep;
+import io.corebanking.tfj.steps.RegulatoryWatchStep;
 import io.corebanking.tfj.steps.SuspenseReviewStep;
 import io.corebanking.tfj.steps.TermDepositAccrualStep;
 import io.corebanking.tfj.steps.TermDepositMaturityStep;
@@ -170,6 +171,8 @@ public final class StandardTfj {
             new SuspenseReviewStep(database, calendar),
             new AmlMonitoringStep(
                 new io.corebanking.compliance.MonitoringService(database)),
+            new RegulatoryWatchStep(
+                new io.corebanking.regulatory.ReportingService(database)),
             new BalanceSnapshotStep(database),
             new ReconciliationStep(database, subLedgerChecks()),
             new OpenNextDayStep(database, calendar));
