@@ -40,6 +40,7 @@ public class RegulatoryController {
     private final RegulatoryUseCases.CancelFiling cancelFiling;
     private final RegulatoryUseCases.RecordConsent recordConsent;
     private final RegulatoryUseCases.ReadDeadlines readDeadlines;
+    private final RegulatoryUseCases.ReadTaxRules readTaxRules;
 
     public RegulatoryController(UseCaseExecutor executor,
                                 io.corebanking.ledger.store.Database database,
@@ -53,6 +54,7 @@ public class RegulatoryController {
         this.cancelFiling = new RegulatoryUseCases.CancelFiling(database);
         this.recordConsent = new RegulatoryUseCases.RecordConsent(database, reporting);
         this.readDeadlines = new RegulatoryUseCases.ReadDeadlines(database, reporting);
+        this.readTaxRules = new RegulatoryUseCases.ReadTaxRules(database);
     }
 
     // ------------------------------------------------------------------ catalogue
@@ -168,6 +170,34 @@ public class RegulatoryController {
             legalEntityId, partyId, body.granted(), Callers.actorId(caller)));
     }
 
+    // ------------------------------------------------------------------ fiscalite
+
+    @PostMapping("/tax-rules")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MakerChecker.View declareTax(Caller caller, @PathVariable UUID legalEntityId,
+                                        @RequestBody Requests.TaxRuleRequest body) {
+        io.corebanking.regulatory.TaxRules.Basis basis = basis(body.basis());
+        if (body.code() == null || body.code().isBlank() || body.label() == null
+            || body.label().isBlank() || body.collectionAccountId() == null
+            || body.validFrom() == null) {
+            throw new IllegalArgumentException("Une taxe porte son code, son libelle, son compte "
+                + "de collecte et sa date d'entree en vigueur");
+        }
+        io.corebanking.regulatory.TaxRules.requireRate(body.ratePercent());
+        return makerChecker.submit(caller, legalEntityId, "TAX_RULE_DECLARE", Payloads.of(
+            "code", body.code(), "label", body.label(), "basis", basis.name(),
+            "ratePercent", body.ratePercent().toPlainString(),
+            "collectionAccountId", body.collectionAccountId(),
+            "validFrom", body.validFrom(), "validTo", body.validTo()));
+    }
+
+    @GetMapping("/tax-rules")
+    public List<io.corebanking.regulatory.TaxRules.Rule> taxRules(
+            Caller caller, @PathVariable UUID legalEntityId) {
+        return executor.run(caller, readTaxRules,
+                            new RegulatoryUseCases.EntityQuery(legalEntityId));
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static RegulatoryDeclarations.Method method(String value) {
@@ -203,6 +233,19 @@ public class RegulatoryController {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Periodicite inconnue : " + value
                 + " (MONTHLY, QUARTERLY, YEARLY)");
+        }
+    }
+
+    private static io.corebanking.regulatory.TaxRules.Basis basis(String value) {
+        if (value == null) {
+            throw new IllegalArgumentException("Champ obligatoire absent : basis");
+        }
+        try {
+            return io.corebanking.regulatory.TaxRules.Basis.valueOf(
+                value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Assiette de taxe inconnue : " + value
+                + " (INTEREST_PAID, FEES_CHARGED, TRANSACTION)");
         }
     }
 

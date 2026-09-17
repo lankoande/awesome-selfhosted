@@ -160,6 +160,7 @@ public final class ReportingService {
             case CREDIT_BUREAU -> creditRegistry(c, entity, periodEnd, currency, null, true);
             case PAYMENT_INCIDENTS ->
                 paymentIncidents(c, entity, periodStart, periodEnd, currency);
+            case TAX_COLLECTION -> taxCollection(c, entity, periodStart, periodEnd, currency);
         };
     }
 
@@ -392,6 +393,60 @@ public final class ReportingService {
             }
         } catch (SQLException e) {
             throw new LedgerStoreException("Incidents de paiement de la periode", e);
+        }
+        return lines;
+    }
+
+    // ------------------------------------------------------------------ fiscalite
+
+    /**
+     * Les taxes collectees sur la periode, par taxe.
+     *
+     * <p>Le montant du n'est pas un calcul refait sur l'assiette : c'est <b>ce qui est passe sur
+     * le compte de collecte</b>. Recalculer reviendrait a declarer ce que la banque aurait du
+     * prelever, quand l'administration attend ce qu'elle a preleve — et l'ecart entre les deux,
+     * s'il existe, est un probleme de la banque, pas une variable de la declaration.
+     *
+     * <p>La contre-passation y compte comme partout : une commission annulee rend sa taxe, et la
+     * declaration doit le dire. Ne pas la compter ferait reverser une taxe que le client ne doit
+     * plus.
+     *
+     * <p>Une taxe sans mouvement sur la periode figure quand meme, a zero : son absence serait
+     * lue comme un oubli de declaration, ce qui est une infraction, la ou zero collecte n'en est
+     * pas une.
+     */
+    private List<ReportFilings.Line> taxCollection(Connection c, UUID entity,
+                                                   LocalDate periodStart, LocalDate periodEnd,
+                                                   CurrencyRef currency) {
+        List<ReportFilings.Line> lines = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement("""
+            SELECT t.id, t.code, t.label, t.rate_percent, t.basis,
+                   COALESCE(SUM(CASE WHEN l.direction = 'CREDIT' THEN l.functional_amount
+                                     ELSE -l.functional_amount END), 0) AS collecte
+              FROM tax_rule t
+              LEFT JOIN journal_line l ON l.account_id = t.collection_account_id
+                   AND l.booking_date BETWEEN ? AND ?
+             WHERE t.legal_entity_id = ? AND t.valid_from <= ?
+               AND (t.valid_to IS NULL OR t.valid_to >= ?)
+             GROUP BY t.id, t.code, t.label, t.rate_percent, t.basis
+             ORDER BY t.code
+            """)) {
+            ps.setObject(1, periodStart);
+            ps.setObject(2, periodEnd);
+            ps.setObject(3, entity);
+            ps.setObject(4, periodEnd);
+            ps.setObject(5, periodStart);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    lines.add(new ReportFilings.Line(ReportFilings.SubjectKind.GL_ACCOUNT,
+                        rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3),
+                        Money.of(rs.getBigDecimal(6), currency).roundToCurrency(), null,
+                        rs.getString(5), null, null,
+                        "taux de reference " + rs.getBigDecimal(4) + " %"));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Taxes collectees de la periode", e);
         }
         return lines;
     }

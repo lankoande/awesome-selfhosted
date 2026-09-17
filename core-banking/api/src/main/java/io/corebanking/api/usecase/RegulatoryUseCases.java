@@ -218,6 +218,30 @@ public final class RegulatoryUseCases {
         }
     }
 
+    // ------------------------------------------------------------------ fiscalite
+
+    public static final class ReadTaxRules
+            implements UseCase<EntityQuery, List<io.corebanking.regulatory.TaxRules.Rule>> {
+        private final Database database;
+
+        public ReadTaxRules(Database database) {
+            this.database = database;
+        }
+
+        @Override public Operation operation() { return Operation.REGULATORY_READ; }
+
+        @Override
+        public AccessTarget targetOf(EntityQuery query) {
+            return AccessTarget.inEntity(query.legalEntityId());
+        }
+
+        @Override
+        public List<io.corebanking.regulatory.TaxRules.Rule> execute(EntityQuery query) {
+            return database.inTransaction(
+                c -> io.corebanking.regulatory.TaxRules.all(c, query.legalEntityId()));
+        }
+    }
+
     // ------------------------------------------------------------------ outillage
 
     static ReportFilings.Filing require(Database database, UUID legalEntityId, UUID filingId) {

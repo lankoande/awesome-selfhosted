@@ -108,7 +108,8 @@ public final class DualControlHandlers {
                        new SubscribeTermDeposit(termDeposits, accounts),
                        new BreakTermDeposit(database, termDeposits, accounts),
                        new DeclareMonitoringScenario(database), new ReportSuspicion(database),
-                       new DeclareRegulatoryReport(database), new TransmitReport(database));
+                       new DeclareRegulatoryReport(database), new TransmitReport(database),
+                       new DeclareTaxRule(database, accounts));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -2478,6 +2479,65 @@ public final class DualControlHandlers {
             } catch (java.sql.SQLException e) {
                 throw new io.corebanking.ledger.store.LedgerStoreException("Date comptable", e);
             }
+        }
+    }
+
+
+    /**
+     * Taxe : assiette, taux de reference et compte de collecte.
+     *
+     * <p>A deux, parce qu'un taux produit des montants sur des comptes clients et engage la
+     * banque envers l'administration. Le compte de collecte est verifie a la soumission : il
+     * existe, il est de l'entite, et c'est un compte general — une taxe collectee sur un compte
+     * client serait de l'argent qui n'appartient a personne.
+     */
+    static final class DeclareTaxRule implements MakerChecker.Handler {
+        private final Database database;
+        private final AccountDirectory accounts;
+
+        DeclareTaxRule(Database database, AccountDirectory accounts) {
+            this.database = database;
+            this.accounts = accounts;
+        }
+
+        @Override public String name() { return "TAX_RULE_DECLARE"; }
+        @Override public Operation operation() { return Operation.TAX_RULE_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            java.util.UUID entity = uuid(payload, "legalEntityId");
+            io.corebanking.ledger.domain.account.Account compte =
+                accounts.require(uuid(payload, "collectionAccountId"));
+            if (!compte.legalEntityId().equals(entity)) {
+                throw new IllegalArgumentException("Compte de collecte inconnu : " + compte.id());
+            }
+            if (compte.kind() != io.corebanking.ledger.domain.account.AccountKind.GL) {
+                throw new IllegalArgumentException("Le compte de collecte d'une taxe est un "
+                    + "compte general : collectee sur un compte client, la taxe serait de "
+                    + "l'argent qui n'appartient a personne");
+            }
+            return AccessTarget.inEntity(entity);
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "code");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            String validTo = text(payload, "validTo");
+            return database.inTransaction(c -> io.corebanking.regulatory.TaxRules.declare(c,
+                new io.corebanking.regulatory.TaxRules.Draft(
+                    uuid(payload, "legalEntityId"), required(payload, "code"),
+                    required(payload, "label"),
+                    io.corebanking.regulatory.TaxRules.Basis.valueOf(required(payload, "basis")),
+                    new java.math.BigDecimal(required(payload, "ratePercent")),
+                    uuid(payload, "collectionAccountId"),
+                    java.time.LocalDate.parse(required(payload, "validFrom")),
+                    validTo == null || validTo.isBlank() ? null
+                        : java.time.LocalDate.parse(validTo),
+                    Callers.actorId(maker), Callers.actorId(checker))));
         }
     }
 

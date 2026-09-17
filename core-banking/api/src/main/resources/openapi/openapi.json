@@ -2398,7 +2398,7 @@
             "type" : "string"
           },
           "method" : {
-            "enum" : [ "ACCOUNTING_SITUATION", "CREDIT_REGISTRY", "PAYMENT_INCIDENTS", "CREDIT_BUREAU" ],
+            "enum" : [ "ACCOUNTING_SITUATION", "CREDIT_REGISTRY", "PAYMENT_INCIDENTS", "CREDIT_BUREAU", "TAX_COLLECTION" ],
             "type" : "string"
           },
           "recipient" : {
@@ -2522,7 +2522,7 @@
             "type" : "array"
           },
           "method" : {
-            "enum" : [ "ACCOUNTING_SITUATION", "CREDIT_REGISTRY", "PAYMENT_INCIDENTS", "CREDIT_BUREAU" ],
+            "enum" : [ "ACCOUNTING_SITUATION", "CREDIT_REGISTRY", "PAYMENT_INCIDENTS", "CREDIT_BUREAU", "TAX_COLLECTION" ],
             "type" : "string"
           },
           "periodEnd" : {
@@ -4239,6 +4239,35 @@
         },
         "type" : "object"
       },
+      "Requests.TaxRuleRequest" : {
+        "properties" : {
+          "basis" : {
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "collectionAccountId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "ratePercent" : {
+            "type" : "number"
+          },
+          "validFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "validTo" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Requests.TermDepositBreak" : {
         "properties" : {
           "reason" : {
@@ -4863,6 +4892,44 @@
             "type" : "string"
           },
           "transmittedOn" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "TaxRules.Rule" : {
+        "properties" : {
+          "basis" : {
+            "enum" : [ "INTEREST_PAID", "FEES_CHARGED", "TRANSACTION" ],
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "collectionAccountId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "legalEntityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "ratePercent" : {
+            "type" : "number"
+          },
+          "validFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "validTo" : {
             "format" : "date",
             "type" : "string"
           }
@@ -16272,6 +16339,147 @@
               }
             },
             "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/regulatory/tax-rules" : {
+      "get" : {
+        "operationId" : "Regulatory.taxRules",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "items" : {
+                        "$ref" : "#/components/schemas/TaxRules.Rule"
+                      },
+                      "type" : "array"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      },
+      "post" : {
+        "operationId" : "Regulatory.declareTax",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.TaxRuleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
           },
           "400" : {
             "$ref" : "#/components/responses/400"

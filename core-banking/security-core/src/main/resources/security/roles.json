@@ -48,7 +48,7 @@
     {
       "code": "accountant",
       "name": "Comptable",
-      "description": "Comptabilite generale : contre-passation, passage en perte a deux, arretes mensuel et annuel, exercices et affectation du resultat a deux, maquettes d'etats financiers, balance, grand livre, journal et etats financiers de l'entite ; suivi des paiements sortants, des remises de cheques et des prelevements ; politiques de suspens, cours de change et positions de change a deux, revue des suspens et des positions ; declarations reglementaires a deux, production des etats reglementaires et leur transmission a deux, veille des echeances declaratives.",
+      "description": "Comptabilite generale : contre-passation, passage en perte a deux, arretes mensuel et annuel, exercices et affectation du resultat a deux, maquettes d'etats financiers, balance, grand livre, journal et etats financiers de l'entite ; suivi des paiements sortants, des remises de cheques et des prelevements ; politiques de suspens, cours de change et positions de change a deux, revue des suspens et des positions ; declarations reglementaires a deux, production des etats reglementaires et leur transmission a deux, veille des echeances declaratives ; catalogue des taxes a deux (assiette, taux de reference, compte de collecte).",
       "isSystem": true,
       "category": "SIEGE",
       "attributes": {

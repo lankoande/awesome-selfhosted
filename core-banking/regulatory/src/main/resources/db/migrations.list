@@ -2,3 +2,4 @@
 # SchemaMigrator. Un script present ici mais absent de cette liste n'est jamais applique :
 # les tests du module le refusent.
 V54__declarations_reglementaires.sql
+V55__fiscalite.sql

@@ -427,6 +427,14 @@ L'état produit recopie **la méthode et le seuil** sous lesquels il a été cal
 déclaration six mois plus tard donnerait la règle d'aujourd'hui, et l'état ne serait plus
 reproductible.
 
+### Fiscalité — `tax_rule` ✅
+
+| Élément | Contenu |
+|---|---|
+| Taxe | Code, libellé, assiette (`INTEREST_PAID`, `FEES_CHARGED`, `TRANSACTION`), validité datée, deux signatures |
+| Taux de référence | `rate_percent` — celui qui se déclare ; il ne remplace pas celui qui a été appliqué, une taxe prélevée hier reste prélevée au taux d'hier |
+| Compte de collecte | `collection_account_id` — le compte général où la taxe s'accumule jusqu'à son reversement, et que la déclaration fiscale lit ; un seul par taxe en vigueur |
+
 ### Référentiel ✅
 
 | Élément | Table | Contenu |

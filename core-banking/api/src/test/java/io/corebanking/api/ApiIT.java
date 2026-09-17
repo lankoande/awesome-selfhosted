@@ -2395,6 +2395,48 @@ class ApiIT {
             .as("le guichet n'a rien a lire ici").isEqualTo(403);
         assertThat(get(accountant, "/regulatory/filings?status=INCONNU").status())
             .as("un statut inconnu se refuse au lieu de rendre une liste vide").isEqualTo(422);
+
+        // Fiscalite : la taxe se declare a deux, sur un compte general de collecte. Prelevee sur
+        // un compte client, elle serait de l'argent qui n'appartient a personne.
+        Map<String, Object> taxe = new LinkedHashMap<>();
+        taxe.put("code", "TVA-API");
+        taxe.put("label", "TVA sur commissions");
+        taxe.put("basis", "FEES_CHARGED");
+        taxe.put("ratePercent", "18");
+        taxe.put("collectionAccountId", reserves.id().toString());
+        taxe.put("validFrom", J.minusMonths(6).toString());
+
+        assertThat(post(teller, "/regulatory/tax-rules", null, taxe).status()).isEqualTo(403);
+        Map<String, Object> horsBornes = new LinkedHashMap<>(taxe);
+        horsBornes.put("ratePercent", "120");
+        assertThat(post(accountant, "/regulatory/tax-rules", null, horsBornes).status())
+            .as("un taux hors bornes se refuse a la soumission").isEqualTo(422);
+        Map<String, Object> surCompteClient = new LinkedHashMap<>(taxe);
+        surCompteClient.put("collectionAccountId", account.toString());
+        Reponse mauvaisCompte = post(accountant, "/regulatory/tax-rules", null, surCompteClient);
+        assertThat(mauvaisCompte.status())
+            .as("une taxe ne se collecte pas sur un compte client").isEqualTo(422);
+
+        Reponse proposeeTaxe = post(accountant, "/regulatory/tax-rules", null, taxe);
+        assertThat(proposeeTaxe.status()).as(String.valueOf(proposeeTaxe.envelope()))
+            .isEqualTo(202);
+        assertThat(post(riskOfficer, "/pending-operations/" + attente(proposeeTaxe) + "/approve",
+                        null, Map.of()).status())
+            .as("le taux de taxe releve de la comptabilite, pas du risque").isEqualTo(403);
+        Reponse posee = post(accountant2, "/pending-operations/" + attente(proposeeTaxe)
+                             + "/approve", null, Map.of());
+        assertThat(posee.status()).as(String.valueOf(posee.envelope())).isEqualTo(200);
+        assertThat(get(auditor, "/regulatory/tax-rules").items())
+            .extracting(t -> t.get("code")).contains("TVA-API");
+
+        // Deux taxes sur le meme compte de collecte : ce qui y passe serait declare deux fois.
+        Map<String, Object> doublon = new LinkedHashMap<>(taxe);
+        doublon.put("code", "TVA-API-BIS");
+        Reponse enDouble = post(accountant, "/regulatory/tax-rules", null, doublon);
+        assertThat(enDouble.status()).isEqualTo(202);
+        assertThat(post(accountant2, "/pending-operations/" + attente(enDouble) + "/approve", null,
+                        Map.of()).status())
+            .as("le refus vient a l'execution, avec son motif").isEqualTo(409);
     }
 
     // ------------------------------------------------------------------ outillage

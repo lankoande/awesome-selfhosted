@@ -588,6 +588,29 @@ Retenues à la source sur intérêts, TVA sur commissions, taxes locales sur op�
 déclarations périodiques. Toutes paramétrées par entité, historisées par période de validité
 et intégrées aux schémas comptables — jamais calculées a posteriori.
 
+**Implémenté — `tax_rule` (V55).** Le catalogue nomme chaque taxe : son assiette
+(`INTEREST_PAID`, `FEES_CHARGED`, `TRANSACTION`), son taux de référence, sa validité datée, deux
+signatures, et surtout **son compte de collecte**. Les taux continuent de vivre là où ils
+s'appliquent — la retenue avec les intérêts, la taxe sur commission avec le produit ; ce que le
+catalogue ajoute, c'est le compte où la taxe prélevée s'accumule jusqu'à son reversement, sans
+lequel la déclaration se fabrique à la main.
+
+| Règle | Pourquoi |
+|---|---|
+| Le montant déclaré est ce qui est **passé sur le compte de collecte**, contre-passations comprises | L'administration attend ce que la banque a prélevé, pas ce qu'elle aurait dû ; une commission annulée rend sa taxe |
+| Un compte de collecte par taxe en vigueur (contrainte d'exclusion) | Partagé, ce qui y passe appartiendrait à deux taxes et serait déclaré deux fois |
+| Le compte de collecte est un compte général | Collectée sur un compte client, la taxe serait de l'argent qui n'appartient à personne |
+| Une taxe sans mouvement figure à zéro | Son absence serait lue comme un oubli de déclaration, qui est une infraction — zéro collecte n'en est pas une |
+| Une déclaration fiscale ne se seuille pas | Une taxe collectée se reverse en entier ; la seuiller reviendrait à en garder une part |
+
+La déclaration fiscale (`TAX_COLLECTION`, destinataire `TAX_AUTHORITY`) passe par le moteur des
+états réglementaires : même état figé, même reproductibilité, même transmission à deux.
+`TAX_RULE_MANAGE` est réservée au comptable, à deux.
+
+Reste à faire : le reversement lui-même — c'est un paiement sortant ordinaire — et le
+rapprochement entre la taxe que les sous-livres disent avoir calculée et celle que le compte de
+collecte a reçue.
+
 ---
 
 ## 7. Continuité d'activité

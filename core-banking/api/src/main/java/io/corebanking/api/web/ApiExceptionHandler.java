@@ -146,7 +146,9 @@ public class ApiExceptionHandler {
                        io.corebanking.compliance.SuspiciousActivityReports
                            .ReportRefusedException.class,
                        io.corebanking.regulatory.ReportFilings
-                           .FilingRefusedException.class})
+                           .FilingRefusedException.class,
+                       io.corebanking.regulatory.TaxRules
+                           .TaxRuleRefusedException.class})
     ResponseEntity<ApiResponse<Void>> conflict(RuntimeException e, HttpServletRequest request) {
         return respond(HttpStatus.CONFLICT, "Operation refusee", e.getMessage(), request);
     }

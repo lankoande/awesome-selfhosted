@@ -46,7 +46,9 @@ public final class RegulatoryDeclarations {
         /** Incidents de paiement de la periode : cheques impayes. */
         PAYMENT_INCIDENTS,
         /** Historique de remboursement des clients qui y ont consenti. */
-        CREDIT_BUREAU
+        CREDIT_BUREAU,
+        /** Taxes collectees sur la periode, par taxe, lues sur leur compte de collecte. */
+        TAX_COLLECTION
     }
 
     public enum Frequency {
@@ -152,10 +154,12 @@ public final class RegulatoryDeclarations {
      */
     public static void requireThreshold(Method method, BigDecimal thresholdAmount) {
         boolean admits = method == Method.CREDIT_REGISTRY;
+        // Une declaration fiscale porte ce qui a ete collecte, a l'unite pres : la seuiller
+        // reviendrait a garder une part de la taxe des clients sans la reverser.
         if (thresholdAmount != null && !admits) {
             throw new IllegalArgumentException("La methode " + method + " ne se seuille pas : "
                 + "une situation comptable est exhaustive, un incident de paiement se declare "
-                + "quel que soit son montant");
+                + "quel que soit son montant, et une taxe collectee se reverse en entier");
         }
         if (thresholdAmount != null && thresholdAmount.signum() <= 0) {
             throw new IllegalArgumentException("Un seuil de declaration est positif : "

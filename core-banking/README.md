@@ -1216,6 +1216,38 @@ l'échéance, est un rattrapage. L'étape ne bloque pas la journée — un état
 pas la banque d'arrêter ses comptes, puisque c'est précisément l'arrêté qui produit les données de
 l'état (`an_overdue_declaration_is_an_anomaly_not_a_stop`).
 
+
+### 35. La taxe se déclare depuis le compte où elle a été collectée
+
+**Les taux vivent là où ils s'appliquent ; ce qui manquait, c'est le compte.** La retenue à la
+source est paramétrée avec les intérêts, la taxe sur commission avec le produit — et c'est juste,
+un taux se lit au moment où l'on calcule. Mais la taxe prélevée s'accumule ensuite quelque part
+jusqu'à son reversement, et sans un paramétrage qui désigne ce compte comme tel, la déclaration
+fiscale se fabrique à la main. Une déclaration fabriquée à la main est un redressement en
+puissance.
+
+**Le montant dû n'est pas un calcul refait sur l'assiette : c'est ce qui est passé sur le compte de
+collecte.** Recalculer reviendrait à déclarer ce que la banque *aurait dû* prélever, quand
+l'administration attend ce qu'elle *a* prélevé ; et l'écart entre les deux, s'il existe, est un
+problème de la banque, pas une variable de la déclaration. La contre-passation y compte : une
+commission annulée rend sa taxe, et ne pas la compter ferait reverser une taxe que le client ne
+doit plus (`the_tax_return_carries_what_the_collection_account_received`).
+
+**Un compte de collecte par taxe en vigueur.** Deux taxes qui le partageraient rendraient la
+déclaration ambiguë : ce qui y passe appartiendrait aux deux et serait déclaré deux fois. La base
+l'interdit par contrainte d'exclusion, pas seulement le code — c'est le genre d'erreur qu'une
+reprise de données introduit sans le dire (`two_taxes_do_not_share_a_collection_account`). Le
+compte doit être un compte général : collectée sur un compte client, la taxe serait de l'argent
+qui n'appartient à personne.
+
+**Une taxe sans mouvement figure quand même, à zéro.** Son absence serait lue comme un oubli de
+déclaration — ce qui est une infraction, là où zéro collecte n'en est pas une
+(`a_tax_without_movement_is_declared_at_zero`).
+
+**Une déclaration fiscale ne se seuille pas** : une taxe collectée se reverse en entier, et la
+seuiller reviendrait à en garder une part. Elle passe par le même moteur que les états
+réglementaires — même état figé, même reproductibilité, même transmission à deux.
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
@@ -1244,6 +1276,10 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
   déclarations paramétrées, la situation comptable, la centrale des risques agrégée par client,
   les incidents de paiement, le bureau du crédit sous consentement, l'état figé et reproductible,
   la transmission à deux et la veille des échéances à l'arrêté, eux, sont faits ;
+- fiscalité : le reversement lui-même (c'est un paiement sortant ordinaire) et le rapprochement
+  entre la taxe calculée par les sous-livres et la taxe collectée — le catalogue des taxes avec
+  leur assiette, leur taux de référence et leur compte de collecte, et la déclaration fiscale
+  produite sur le même moteur que les états réglementaires, eux, sont faits ;
 - crédit : le moteur de score lui-même (le socle porte le score et sa source, il ne les calcule
   pas), le comité comme circuit à plus de deux yeux, et le recouvrement contentieux (dossier,
   frais, huissier, réalisation de sûreté) — la demande, l'instruction, la décision sous délégation,
@@ -1457,3 +1493,5 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Un état transmis ne s'annule pas : il se rectifie | Effacer ce que la banque a déclaré efface précisément ce que l'inspection vient vérifier |
 | La centrale des risques est agrégée par client, pas par contrat | Un client en double se déclare deux fois sous le seuil au lieu d'une fois au-dessus, et la centrale ne voit plus le risque |
 | Le retard déclaratif se constate à l'arrêté | Oublié trois mois, il devient une sanction ; vu le lendemain de l'échéance, c'est un rattrapage |
+| La taxe déclarée est celle qui est passée sur son compte de collecte | L'administration attend ce que la banque a prélevé, pas ce qu'elle aurait dû prélever ; l'écart entre les deux est un problème de la banque, pas une variable de la déclaration |
+| Un compte de collecte par taxe en vigueur | Partagé, ce qui y passe appartiendrait à deux taxes et serait déclaré deux fois |

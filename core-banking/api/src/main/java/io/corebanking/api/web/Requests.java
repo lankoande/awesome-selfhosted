@@ -254,6 +254,17 @@ public final class Requests {
     /** Consentement du client a la declaration au bureau d'information sur le credit. */
     public record ConsentRequest(Boolean granted) {}
 
+    /**
+     * Taxe : ce que la banque preleve pour le compte de l'administration.
+     *
+     * @param basis {@code INTEREST_PAID}, {@code FEES_CHARGED} ou {@code TRANSACTION}
+     * @param collectionAccountId le compte ou la taxe collectee s'accumule : c'est lui que la
+     *     declaration fiscale lit
+     */
+    public record TaxRuleRequest(String code, String label, String basis, BigDecimal ratePercent,
+                                 UUID collectionAccountId, LocalDate validFrom,
+                                 LocalDate validTo) {}
+
     // ------------------------------------------------------------------ LCB-FT
 
     /**

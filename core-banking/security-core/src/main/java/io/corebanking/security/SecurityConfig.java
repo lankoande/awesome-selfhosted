@@ -315,6 +315,12 @@ public final class SecurityConfig {
         policy.put(Operation.CREDIT_BUREAU_CONSENT,
             AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER).within(Scope.OWN_BRANCH).build());
 
+        // Un taux de taxe produit des montants sur des comptes clients et engage la banque
+        // envers l'administration : il se pose a deux, comme le reste du parametrage qui compte.
+        policy.put(Operation.TAX_RULE_MANAGE,
+            AccessRule.allow(ACCOUNTANT).within(Scope.OWN_ENTITY)
+                .requiringSecondPerson().build());
+
         policy.put(Operation.REGULATORY_READ,
             AccessRule.allow(ACCOUNTANT, RISK_OFFICER, AUDITOR, OPERATOR)
                 .within(Scope.OWN_ENTITY).build());

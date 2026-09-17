@@ -115,7 +115,9 @@ public enum Operation {
     REGULATORY_REPORT_TRANSMIT,
     /** Consentement du client a la declaration au bureau d'information sur le credit. */
     CREDIT_BUREAU_CONSENT,
-    /** Consultation des declarations, des etats produits et des echeances. */
+    /** Taxe : assiette, taux de reference et compte de collecte, a deux. */
+    TAX_RULE_MANAGE,
+    /** Consultation des declarations, des etats produits, des echeances et des taxes. */
     REGULATORY_READ,
     /** Lecture du dossier a l'echelle de l'entite : politique declaree, dossiers incomplets. */
     PARTY_FILE_READ,
