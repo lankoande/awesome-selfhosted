@@ -96,6 +96,7 @@ public final class TaxRules {
     }
 
     public static UUID declare(Connection c, Draft draft) {
+        requireCollectionAccount(c, draft.legalEntityId(), draft.collectionAccountId());
         UUID id = Ids.newId();
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO tax_rule(id, legal_entity_id, code, label, basis, rate_percent,"
@@ -123,6 +124,38 @@ public final class TaxRules {
             throw new LedgerStoreException("Declaration d'une taxe", e);
         }
         return id;
+    }
+
+    /**
+     * Le compte de collecte existe, releve de l'entite, et est un compte general.
+     *
+     * <p>Le controle est ici et pas seulement a la frontiere : une taxe posee par une reprise de
+     * donnees ou par un autre appelant serait declaree sur un compte d'une autre banque, ou sur
+     * le compte d'un client — c'est-a-dire sur de l'argent qui n'appartient a personne.
+     */
+    private static void requireCollectionAccount(Connection c, UUID legalEntityId, UUID accountId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT legal_entity_id, account_kind, status FROM account WHERE id = ?")) {
+            ps.setObject(1, accountId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new TaxRuleRefusedException("Compte de collecte inconnu : " + accountId,
+                                                      null);
+                }
+                if (!legalEntityId.equals(rs.getObject(1, UUID.class))) {
+                    throw new TaxRuleRefusedException("Le compte de collecte " + accountId
+                        + " releve d'une autre entite : une taxe se collecte chez celui qui la "
+                        + "preleve.", null);
+                }
+                if (!"GL".equals(rs.getString(2))) {
+                    throw new TaxRuleRefusedException("Le compte de collecte d'une taxe est un "
+                        + "compte general : collectee sur un compte client, la taxe serait de "
+                        + "l'argent qui n'appartient a personne.", null);
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Compte de collecte de la taxe", e);
+        }
     }
 
     private static final String SELECT =

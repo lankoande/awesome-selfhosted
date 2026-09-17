@@ -1244,6 +1244,16 @@ qui n'appartient à personne.
 déclaration — ce qui est une infraction, là où zéro collecte n'en est pas une
 (`a_tax_without_movement_is_declared_at_zero`).
 
+**Un changement de taux en cours de période ne fait pas déclarer deux fois.** L'ancien taux cesse,
+le nouveau reprend le même compte de collecte : c'est le cas ordinaire d'un changement de loi. La
+lecture de chaque règle est donc bornée à l'intersection de la période et de sa propre validité —
+sinon les deux lignes compteraient tout le mois, et la banque déclarerait le double de ce qu'elle a
+prélevé (`a_rate_change_within_the_period_is_not_declared_twice`).
+
+**Le compte de collecte est vérifié par le service, pas seulement à la frontière.** Une taxe posée
+par une reprise de données serait sinon déclarée sur le compte d'une autre banque, ou sur celui
+d'un client (`the_collection_account_is_checked_by_the_service`).
+
 **Une déclaration fiscale ne se seuille pas** : une taxe collectée se reverse en entier, et la
 seuiller reviendrait à en garder une part. Elle passe par le même moteur que les états
 réglementaires — même état figé, même reproductibilité, même transmission à deux.

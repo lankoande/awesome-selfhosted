@@ -424,8 +424,13 @@ public final class ReportingService {
                    COALESCE(SUM(CASE WHEN l.direction = 'CREDIT' THEN l.functional_amount
                                      ELSE -l.functional_amount END), 0) AS collecte
               FROM tax_rule t
+              -- La lecture est bornee a l'intersection de la periode et de la validite de la
+              -- regle. Un taux qui change en cours de mois cede son compte de collecte a la
+              -- regle suivante ; lire tout le mois des deux cotes declarerait deux fois ce qui
+              -- est passe apres la bascule.
               LEFT JOIN journal_line l ON l.account_id = t.collection_account_id
-                   AND l.booking_date BETWEEN ? AND ?
+                   AND l.booking_date >= GREATEST(?, t.valid_from)
+                   AND l.booking_date <= LEAST(?, COALESCE(t.valid_to, DATE '9999-12-31'))
              WHERE t.legal_entity_id = ? AND t.valid_from <= ?
                AND (t.valid_to IS NULL OR t.valid_to >= ?)
              GROUP BY t.id, t.code, t.label, t.rate_percent, t.basis

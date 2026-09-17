@@ -602,6 +602,7 @@ lequel la déclaration se fabrique à la main.
 | Le compte de collecte est un compte général | Collectée sur un compte client, la taxe serait de l'argent qui n'appartient à personne |
 | Une taxe sans mouvement figure à zéro | Son absence serait lue comme un oubli de déclaration, qui est une infraction — zéro collecte n'en est pas une |
 | Une déclaration fiscale ne se seuille pas | Une taxe collectée se reverse en entier ; la seuiller reviendrait à en garder une part |
+| La lecture de chaque règle est bornée à l'intersection de la période et de sa validité | Un taux qui change en cours de mois cède son compte à la règle suivante ; lire tout le mois des deux côtés déclarerait le double de ce qui a été prélevé |
 
 La déclaration fiscale (`TAX_COLLECTION`, destinataire `TAX_AUTHORITY`) passe par le moteur des
 états réglementaires : même état figé, même reproductibilité, même transmission à deux.

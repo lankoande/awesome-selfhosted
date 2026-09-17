@@ -108,6 +108,54 @@ class TaxIT extends RegulatoryTestBase {
             .hasMessageContaining("se reverse en entier");
     }
 
+    @Test
+    @DisplayName("un taux qui change en cours de periode ne fait pas declarer deux fois ce qui est passe apres la bascule")
+    void a_rate_change_within_the_period_is_not_declared_twice() {
+        Account collecte = account("TAXE-BASCULE", AccountKind.GL, NormalBalance.CREDIT);
+        Account charge = account("CHARGE-BASCULE", AccountKind.GL, NormalBalance.DEBIT);
+        LocalDate bascule = FIN.minusDays(14);
+        // L'ancien taux cesse la veille de la bascule, le nouveau prend le meme compte de
+        // collecte a partir de ce jour-la : c'est le cas ordinaire d'un changement de loi.
+        database.inEntity(ENTITY, c -> TaxRules.declare(c, new TaxRules.Draft(
+            ENTITY, "TVA-AVANT", "TVA 18 %", TaxRules.Basis.FEES_CHARGED, new BigDecimal("18"),
+            collecte.id(), FIN.minusMonths(6), bascule.minusDays(1), ACTOR, APPROVER)));
+        database.inEntity(ENTITY, c -> TaxRules.declare(c, new TaxRules.Draft(
+            ENTITY, "TVA-APRES", "TVA 20 %", TaxRules.Basis.FEES_CHARGED, new BigDecimal("20"),
+            collecte.id(), bascule, null, ACTOR, APPROVER)));
+
+        collecter(charge, collecte, "18000", FIN.minusDays(20), "bascule-avant");
+        collecter(charge, collecte, "20000", FIN.minusDays(5), "bascule-apres");
+
+        UUID declaration = ReportingIT.declarer("FISCALE-BASCULE",
+            RegulatoryDeclarations.Method.TAX_COLLECTION,
+            RegulatoryDeclarations.Frequency.MONTHLY, 20, null);
+        UUID etat = service().produce(ENTITY, declaration, FIN, FIN.plusDays(1), ACTOR);
+
+        assertThat(lignes(etat, "TVA-AVANT").amount()).as("ce qui est passe sous l'ancien taux")
+            .isEqualTo(xof("18000"));
+        assertThat(lignes(etat, "TVA-APRES").amount()).as("ce qui est passe sous le nouveau")
+            .isEqualTo(xof("20000"));
+    }
+
+    @Test
+    @DisplayName("un compte de collecte d'une autre entite, ou un compte client, est refuse par le service et pas seulement par l'API")
+    void the_collection_account_is_checked_by_the_service() {
+        Account client = compte("CLI-TAXE", client("REG-TAXE"));
+        assertThatThrownBy(() -> database.inEntity(ENTITY, c -> TaxRules.declare(c,
+                new TaxRules.Draft(ENTITY, "TAXE-CLIENT", "Sur compte client",
+                    TaxRules.Basis.FEES_CHARGED, new BigDecimal("18"), client.id(),
+                    FIN.minusMonths(6), null, ACTOR, APPROVER))))
+            .isInstanceOf(TaxRules.TaxRuleRefusedException.class)
+            .hasMessageContaining("n'appartient a personne");
+
+        assertThatThrownBy(() -> database.inEntity(ENTITY, c -> TaxRules.declare(c,
+                new TaxRules.Draft(ENTITY, "TAXE-FANTOME", "Compte inexistant",
+                    TaxRules.Basis.FEES_CHARGED, new BigDecimal("18"), UUID.randomUUID(),
+                    FIN.minusMonths(6), null, ACTOR, APPROVER))))
+            .isInstanceOf(TaxRules.TaxRuleRefusedException.class)
+            .hasMessageContaining("inconnu");
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static void declarerTaxe(String code, TaxRules.Basis basis, String taux,
