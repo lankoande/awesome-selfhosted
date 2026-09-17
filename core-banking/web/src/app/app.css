@@ -51,4 +51,32 @@
 .reglage.cb-btn { color: var(--cb-bar-muted); font-size: var(--cb-fs-sm); }
 .reglage.cb-btn:hover:not(:disabled) { background: var(--cb-bar-sunken); color: var(--cb-bar-ink); }
 
+.demonstration {
+  flex-shrink: 0;
+  padding: var(--cb-space-2) var(--cb-gutter);
+  border-bottom: var(--cb-border) solid var(--cb-pending-line);
+  background: var(--cb-pending-soft);
+  color: var(--cb-pending);
+  font-size: var(--cb-fs-sm);
+  line-height: var(--cb-lh-base);
+}
+
 main { flex: 1 1 auto; min-height: 0; }
+
+/* ------------------------------------------------------------ responsivité */
+
+@media (max-width: 1099px) {
+  .barre { gap: var(--cb-space-3); padding: 0 var(--cb-space-3); }
+  .recherche { width: auto; }
+  .recherche span { display: none; }
+  .recherche cb-kbd { display: none; }
+}
+
+@media (max-width: 767px) {
+  .barre { height: auto; flex-wrap: wrap; row-gap: var(--cb-space-2); padding: var(--cb-space-2) var(--cb-space-3); }
+  .marque .nom { display: none; }
+  .ressort { flex-basis: 100%; }
+  /* Les réglages passent après le contenu : on ne perd pas la barre de
+     navigation pour deux préférences. */
+  .reglage.cb-btn { font-size: var(--cb-fs-xs); padding: 0 var(--cb-space-2); }
+}

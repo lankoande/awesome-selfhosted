@@ -36,6 +36,15 @@ export interface RuntimeConfig {
     readonly guichet: boolean;
     readonly siege: boolean;
   };
+  /**
+   * D'où viennent les données. `api` branche le socle ; `factice` fait tourner
+   * une source de démonstration locale, et l'application affiche alors un
+   * bandeau qui le dit — un écran de banque ne doit jamais laisser croire
+   * qu'un chiffre vient du registre quand il vient d'un jeu d'essai.
+   */
+  readonly sourceDonnees: SourceDonnees;
+  /** Entité juridique du poste, tant que le jeton ne la porte pas. */
+  readonly legalEntityId: string;
 }
 
 export interface Accent {
@@ -46,6 +55,7 @@ export interface Accent {
 
 export type Theme = 'light' | 'dark';
 export type Densite = 'comfortable' | 'compact';
+export type SourceDonnees = 'api' | 'factice';
 
 const ID_ACCENT = 'cb-accent';
 
@@ -67,6 +77,8 @@ export const CONFIG_PAR_DEFAUT: RuntimeConfig = {
   defauts: { theme: 'light', densite: 'comfortable' },
   affichage: { groupeCompte: 4, deviseParDefaut: 'XOF' },
   espaces: { guichet: true, siege: true },
+  sourceDonnees: 'factice',
+  legalEntityId: '00000000-0000-4000-8000-000000000001',
 };
 
 @Injectable({ providedIn: 'root' })
@@ -78,6 +90,9 @@ export class AppConfig {
   readonly apiBaseUrl = computed(() => this.etat().apiBaseUrl);
   readonly locale = computed(() => this.etat().locale);
   readonly banque = computed(() => this.etat().banque);
+  readonly sourceDonnees = computed(() => this.etat().sourceDonnees);
+  readonly legalEntityId = computed(() => this.etat().legalEntityId);
+  readonly demonstration = computed(() => this.etat().sourceDonnees === 'factice');
 
   /**
    * Charge `config.json`. Une configuration absente ou illisible n'empêche

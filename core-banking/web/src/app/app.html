@@ -8,6 +8,7 @@
   </div>
 
   <nav class="espaces" aria-label="Espaces">
+    <a routerLink="/guichet/versement" routerLinkActive="actif">Guichet</a>
     <a routerLink="/atelier" routerLinkActive="actif">Atelier</a>
   </nav>
 
@@ -29,5 +30,12 @@
     Thème : {{ apparence.theme() === 'dark' ? 'sombre' : 'clair' }}
   </button>
 </header>
+
+@if (config.demonstration()) {
+  <p class="demonstration" role="status">
+    <strong>Données de démonstration</strong> — aucun socle n'est branché. Les soldes, les écritures et
+    les refus viennent d'une source locale ; rien de ce qui s'affiche ici ne vient d'un registre.
+  </p>
+}
 
 <main><router-outlet /></main>

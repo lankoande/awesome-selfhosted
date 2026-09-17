@@ -8,7 +8,8 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "format": "prettier --write \"src/**/*.{ts,html,css,json}\"",
-    "api:generate": "npx --yes openapi-typescript@7 ../api/src/main/resources/openapi/openapi.json -o src/app/api/schema.ts"
+    "api:generate": "npx --yes openapi-typescript@7 ../api/src/main/resources/openapi/openapi.json -o src/app/api/schema.ts",
+    "check:largeurs": "node scripts/largeurs.mjs"
   },
   "private": true,
   "packageManager": "npm@11.12.1",

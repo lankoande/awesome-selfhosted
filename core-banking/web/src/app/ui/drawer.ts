@@ -28,7 +28,7 @@ export class CbDrawer {
   ): DialogRef<R, C> {
     return this.dialog.open<R, D, C>(composant, {
       data: options.donnees,
-      width: options.largeur ?? '420px',
+      width: options.largeur ?? 'min(420px, 100vw)',
       height: '100%',
       maxWidth: '100vw',
       panelClass: 'cb-drawer-panel',

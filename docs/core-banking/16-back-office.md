@@ -238,7 +238,7 @@ mécanique (commandes, organisation, garde-fous). Node ≥ 22.22.3 est requis pa
 | Étape du §7 | État |
 |---|---|
 | 1. Socle visuel | **Livré** — tokens, deux thèmes, deux densités, jeu fermé de 17 primitives, page atelier, budgets, types générés |
-| 2. Guichet — versement d'espèces | à faire |
+| 2. Guichet — versement d'espèces | **Livré** — bandeau client, billetage BCEAO contrôlé, imputation en projection puis reçu, idempotence conservée, refus lisible |
 | 3. File de validation | à faire |
 | 4. Reste du guichet, puis siège | à faire |
 

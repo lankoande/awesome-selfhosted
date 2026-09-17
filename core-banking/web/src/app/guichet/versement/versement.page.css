@@ -1,0 +1,60 @@
+:host { display: flex; flex-direction: column; min-height: 0; }
+
+.ecran {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+  align-items: start;
+  gap: var(--cb-gutter);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+
+.colonne-saisie,
+.colonne-suivi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  min-width: 0;
+}
+
+/* Le récapitulatif d'imputation reste sous les yeux pendant le comptage :
+   c'est la pièce que le guichetier doit lire avant de valider, pas une
+   récapitulation qu'on découvre après avoir fait défiler l'écran. */
+.colonne-suivi { position: sticky; top: var(--cb-space-4); }
+
+h2 { font-size: var(--cb-fs-lg); }
+
+.cle { display: flex; align-items: baseline; gap: var(--cb-space-2); min-width: 0; }
+.cle code { font-size: var(--cb-fs-xs); color: var(--cb-ink-2); overflow-wrap: anywhere; }
+.cle-etat { font-size: var(--cb-fs-xs); color: var(--cb-muted); }
+
+.trace { display: block; margin-top: var(--cb-space-1); font-size: var(--cb-fs-sm); color: var(--cb-muted); }
+
+.champs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--cb-space-3) var(--cb-space-4);
+}
+.pleine-largeur { grid-column: 1 / -1; }
+
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cb-space-3); }
+.activite { flex: 0 1 180px; }
+.obstacles { display: flex; flex-direction: column; gap: 2px; flex: 1 1 260px; }
+.obstacle { font-size: var(--cb-fs-sm); color: var(--cb-rejected); }
+.pret { font-size: var(--cb-fs-sm); color: var(--cb-muted); }
+
+@media (max-width: 1279px) {
+  .ecran { grid-template-columns: minmax(0, 1fr); }
+  .colonne-suivi { position: static; }
+}
+
+@media (max-width: 767px) {
+  /* Sur un écran étroit, ni la clé ni le raccourci clavier ne servent : ils
+     prennent la place du titre et de l'état, qui eux servent. */
+  .cle, .raccourci { display: none; }
+  .actions > button { width: 100%; }
+}
+
+/* Le reçu s'imprime seul : ni barre, ni tiroir, ni bouton. */
+@media print {
+  .actions, cb-billetage, cb-toolbar { display: none; }
+}

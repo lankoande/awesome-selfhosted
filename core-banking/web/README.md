@@ -6,12 +6,17 @@ ce code — architecture, sécurité, configurabilité, thèse de design, garde-
 sont dans [`docs/core-banking/16-back-office.md`](../../docs/core-banking/16-back-office.md).
 Ce README n'explique que la mécanique.
 
-## Ce que contient ce lot
+## Ce que contient ce dépôt
 
-Le **socle visuel**, et lui seul : tokens, typographie, densités, thèmes clair et
-sombre, jeu fermé de primitives, page atelier. Aucun écran métier, aucune
-authentification, aucun appel d'API — ils viennent ensuite, dans l'ordre fixé au
-§7 du document de décisions.
+Le **socle visuel** — tokens, typographie, densités, thèmes clair et sombre, jeu
+fermé de primitives, page atelier — et le **premier écran de guichet**, le
+versement d'espèces. Pas encore d'authentification : elle vient avec la file de
+validation, dans l'ordre fixé au §7 du document de décisions.
+
+Tant qu'aucun socle n'est branché (`sourceDonnees: "factice"` dans
+`public/config.json`), les données viennent d'une source de démonstration locale
+et un bandeau permanent le dit. `"api"` bascule sur le socle réel, sans
+recompilation.
 
 ## Prérequis
 
@@ -26,6 +31,7 @@ Node **≥ 22.22.3** (ou 24.15+), imposé par Angular 22. `npm ci` suffit ensuit
 | `npm test` | Tests unitaires, **garde-fous de l'atelier compris** |
 | `npm run api:generate` | Régénère `src/app/api/schema.ts` depuis `openapi.json` |
 | `npm run format` | Prettier |
+| `npm run check:largeurs -- <url>` | Ouvre chaque écran à sept largeurs : échoue sur un débordement horizontal ou une cible sous 24 px. Demande un navigateur (`npx playwright install chromium`), donc hors `npm test` |
 
 ## Organisation
 
@@ -34,8 +40,22 @@ src/styles/     tokens, base, contrôles natifs, polices — l'unique vocabulair
 src/app/core/   configuration de déploiement, apparence (thème, densité), formats
 src/app/ui/     le jeu fermé de primitives + son registre
 src/app/atelier/ la page atelier, vivante, servie par l'application elle-même
+src/app/guichet/ le guichet : modèle, port, implémentations, écrans
 src/app/api/    types générés depuis le contrat OpenAPI — ne jamais éditer à la main
+scripts/        contrôles qui demandent un navigateur
 ```
+
+### Le guichet : un port, deux implémentations
+
+`guichet.port.ts` décrit ce dont un écran a besoin. `guichet.api.ts` l'implémente
+sur les routes réelles du socle (`Idempotency-Key`, `X-Request-Id`, enveloppe
+`{ data, error, meta }`). `guichet.factice.ts` rejoue le comportement du socle
+localement pour que l'écran soit jugeable sans serveur ; son catalogue de comptes
+existe pour montrer chaque issue — nominal, plafond dépassé, second regard requis,
+compte bloqué, réseau tombé.
+
+**Le port n'expose aucun calcul de frais, de taxe ou de date de valeur.** Ce sont
+des paramètres du socle ; les recopier ici garantirait la divergence.
 
 ## Les garde-fous, et ce qu'ils empêchent
 

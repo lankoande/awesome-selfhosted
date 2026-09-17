@@ -1,0 +1,44 @@
+/* ---------------------------------------------------------------------------
+   Responsivité — les largeurs réelles d'un back-office d'agence.
+
+   Ce n'est pas un site : personne ne fait un versement sur un téléphone. Mais
+   les postes d'agence sont souvent des 1366×768, le chef d'agence consulte sur
+   tablette, et un écran qui casse à 1024 est un écran qu'on n'ouvre pas.
+
+     ≥ 1440  large    deux colonnes de travail + tiroir épinglable
+     1100    moyen    le tiroir passe en survol, la barre se resserre
+      768    étroit   une colonne, le sommaire et les libellés secondaires tombent
+     < 768   réduit   consultation : lisible, jamais de défilement horizontal
+
+   Les seuils sont écrits en dur : une requête média ne lit pas une propriété
+   personnalisée. Ils ne vivent qu'ici et dans ce commentaire.
+   --------------------------------------------------------------------------- */
+
+/* Une table comptable ne se replie pas en cartes : elle défile, en gardant ses
+   colonnes alignées et son en-tête. */
+.cb-table-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.cb-table-scroll > table { min-width: 640px; }
+
+@media (max-width: 1099px) {
+  :root {
+    --cb-gutter: 16px;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --cb-gutter: 12px;
+    --cb-space-5: 18px;
+    --cb-space-6: 24px;
+  }
+
+  /* Sous 768, la densité confortable ne l'est plus : on resserre les contrôles
+     sans descendre sous la cible tactile. */
+  :root, [data-density='comfortable'] {
+    --cb-control-h: 40px;
+    --cb-tap-h: 44px;
+  }
+}

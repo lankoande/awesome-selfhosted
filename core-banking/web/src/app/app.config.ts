@@ -4,6 +4,7 @@ import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from 
 import { routes } from './app.routes';
 import { AppConfig } from './core/config/runtime-config';
 import { Apparence } from './core/apparence/apparence';
+import { provideGuichet } from './guichet/guichet.providers';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -14,6 +15,7 @@ export const appConfig: ApplicationConfig = {
       withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
     ),
     provideHttpClient(withFetch()),
+    provideGuichet(),
     // La configuration de déploiement est lue avant le premier écran : l'accent
     // de la banque ne doit pas apparaître après coup.
     //
