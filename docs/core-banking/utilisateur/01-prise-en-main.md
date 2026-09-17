@@ -25,6 +25,8 @@ la recherche, deux réglages d'affichage, puis vous.
 Ces deux réglages sont personnels et restent sur votre poste. Ils ne changent rien à ce qui est
 comptabilisé.
 
+![La barre : les espaces à gauche, les réglages et le porteur à droite.](captures/01-barre.png)
+
 ## Verrouiller votre poste
 
 Le bouton **Verrouiller**, à l'extrême droite, couvre l'écran. Il ne vous déconnecte pas :
@@ -36,6 +38,8 @@ votre établissement.
 
 > **Verrouillez en vous levant.** C'est justement parce que le verrouillage ne vous fait rien
 > perdre qu'il n'y a aucune raison de ne pas le faire.
+
+![Le poste verrouillé. L'écran reste monté derrière le voile : la saisie en cours attend.](captures/01-verrou.png)
 
 ## Le bandeau « Données de démonstration »
 

@@ -8,6 +8,13 @@ Les choix de conception et leurs raisons sont ailleurs, dans
 [README du front](../../../core-banking/web/README.md). Ici, on explique **ce que vous voyez,
 ce que vous devez faire, et quoi répondre au client**.
 
+## Le guide au format Word
+
+Le même contenu, assemblé en un seul document avec les captures d'écran :
+[`guide-utilisateur-back-office.docx`](guide-utilisateur-back-office.docx). Il se
+régénère depuis ces `.md` — voir [`outils/`](outils/README.md). Le Markdown est la
+source ; une correction faite dans le Word serait perdue à la génération suivante.
+
 ## Qui lit quoi
 
 | Vous êtes | Lisez d'abord | Puis |

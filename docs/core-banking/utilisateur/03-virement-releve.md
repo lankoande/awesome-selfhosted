@@ -22,6 +22,8 @@ virement qui laisse le compte à quelques francs du disponible peut donc être r
 provision insuffisante une fois les frais appliqués. Ce n'est pas une erreur de l'écran : c'est
 pourquoi il annonce une projection et non un résultat.
 
+![Le virement interne : deux comptes, une seule écriture. Le panneau Provision montre le disponible avant et après.](captures/03-virement.png)
+
 ### Les issues
 
 Identiques au chapitre précédent : **Comptabilisé**, **Déjà comptabilisé**, **En attente de
@@ -48,6 +50,8 @@ crédit), le montant, et le solde après opération.
 - Une ligne marquée **Contre-passé** a été annulée par une écriture inverse. Les deux lignes
   restent visibles : en comptabilité bancaire on n'efface pas, on contre-passe. Si un client
   demande pourquoi il voit deux lignes, c'est la réponse.
+
+![Le relevé de compte. La consultation est enregistrée, et le bandeau le dit.](captures/03-releve.png)
 
 ### La pagination
 

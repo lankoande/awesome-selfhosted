@@ -23,6 +23,8 @@ montant :
 
 Le bouton **Contexte** ouvre le détail du compte sans quitter la saisie.
 
+![Le bandeau client. Le disponible (1 190 500) est inférieur au solde comptable (1 240 500) : une opposition judiciaire retient 50 000.](captures/02-bandeau-client.png)
+
 ## Versement d'espèces
 
 1. **Compte à créditer** — choisissez-le dans la liste.
@@ -38,6 +40,8 @@ Le bouton **Contexte** ouvre le détail du compte sans quitter la saisie.
 
 **L'agence et la caisse ne se saisissent pas** : elles viennent de votre poste.
 
+![L'écran de versement : la saisie à gauche, l'imputation en projection à droite.](captures/02-versement.png)
+
 ## Retrait d'espèces
 
 Même déroulé, avec deux différences :
@@ -45,6 +49,8 @@ Même déroulé, avec deux différences :
 - Le **billetage remis** est celui que vous allez décaisser ;
 - Le bandeau **Une part du solde est retenue** apparaît quand disponible et solde comptable
   diffèrent. Lisez-le avant d'annoncer un montant au client.
+
+![Le retrait. Le bandeau « Une part du solde est retenue » explique l'écart entre solde et disponible.](captures/02-retrait.png)
 
 ## Le panneau « Imputation », à droite
 
@@ -63,6 +69,8 @@ Une demande envoyée revient de trois façons, et une seule veut dire « c'est f
 ### ✅ Comptabilisé
 L'écriture est passée. Le panneau d'imputation affiche les montants réels, les frais, la taxe et
 la date de valeur. **Imprimez le reçu**, puis *Nouveau versement* / *Nouveau retrait*.
+
+![Après comptabilisation : l'écriture, les frais réels, la date de valeur et le solde après opération. Ce sont les chiffres du socle, plus une projection.](captures/02-comptabilise.png)
 
 ### ℹ️ Déjà comptabilisé — voici le premier reçu
 Vous avez rejoué une demande déjà passée (typiquement après un *Réessayer*). **Rien n'a été

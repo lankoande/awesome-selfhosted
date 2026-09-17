@@ -16,6 +16,8 @@ qu'elle contient à ce qu'elle contient vraiment.
 3. Le total compté s'affiche au fur et à mesure, et **l'écart** avec le solde théorique aussi.
 4. **Arrêter la caisse**.
 
+![L'arrêté de caisse : le solde théorique, le comptage physique, et l'écart affiché avant validation.](captures/04-arrete.png)
+
 ## L'écart
 
 L'écart est affiché avant que vous ne validiez, et il est enregistré avec l'arrêté. Il n'est ni

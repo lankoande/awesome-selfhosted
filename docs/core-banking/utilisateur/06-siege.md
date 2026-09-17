@@ -24,6 +24,8 @@ Un essai à blanc porte le bandeau **« Essai à blanc — rien n'a été écrit
 être annulé**, pour la raison évidente qu'il n'a rien fait : proposer son annulation laisserait
 croire le contraire.
 
+![L'écran de fin de journée avant tout lancement.](captures/06-exploitation.png)
+
 ### Suivre le passage
 
 Les 27 étapes s'affichent dans l'ordre réel du traitement, avec leur état. L'écran relit le
@@ -43,6 +45,8 @@ comportements possibles :
 L'échec le plus fréquent est `PRE_CHECKS` sur une **caisse mouvementée non arrêtée**. Il se
 débloque au guichet, pas au siège : c'est l'écran d'arrêté de caisse du guichetier concerné
 ([chapitre 4](04-arrete-de-caisse.md)).
+
+![Un essai à blanc arrêté sur PRE_CHECKS : une caisse mouvementée non arrêtée. Les 26 étapes suivantes n'ont jamais tourné — elles ne sont pas « en attente ».](captures/06-exploitation-passage.png)
 
 ### Annuler un passage
 
@@ -70,6 +74,8 @@ Avant les chiffres, l'écran répond à une seule question : **la balance s'équ
 - **Niveau** — *général* (les comptes collectifs) ou *détail* (les comptes élémentaires).
 - **Agence** — une agence, ou l'ensemble.
 - **Période**, puis **Afficher**.
+
+![La balance générale. L'équilibre est annoncé avant les chiffres, et les totaux sont rendus par devise.](captures/06-balance.png)
 
 ### Les totaux sont par devise
 

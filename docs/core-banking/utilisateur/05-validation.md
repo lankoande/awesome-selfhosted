@@ -14,6 +14,8 @@ Chaque ligne donne : la nature de l'opération, son montant, qui l'a soumise, qu
 Traitez par échéance, pas par montant. Une opération qui expire est une opération à resaisir
 entièrement par le guichetier, devant un client qui attend.
 
+![La file de validation. Chaque ligne porte son échéance ; « expire dans 24 h » est une opération à traiter aujourd'hui.](captures/05-file.png)
+
 ## Le détail
 
 En ouvrant une ligne, vous voyez **La requête soumise** — exactement ce que le guichetier a
@@ -48,6 +50,8 @@ la même opération.
 ### ⚠️ Vous avez soumis cette opération
 Vous ne pouvez pas approuver votre propre demande. C'est tout le sens du second regard, et la
 règle n'a pas d'exception — pas même pour un chef d'agence pressé. Passez la main.
+
+![Le refus d'auto-approbation : le second regard est quelqu'un d'autre, sans exception.](captures/05-auto-approbation.png)
 
 ### ℹ️ Déjà décidée
 Quelqu'un a décidé pendant que vous lisiez. La décision affichée est celle qui compte ;
