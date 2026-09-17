@@ -1,5 +1,6 @@
 import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideHttpClient, withFetch } from '@angular/common/http';
+import { DOCUMENT } from '@angular/common';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 import { routes } from './app.routes';
 import { AppConfig } from './core/config/runtime-config';
@@ -8,6 +9,9 @@ import { provideGuichet } from './guichet/guichet.providers';
 import { provideValidation } from './validation/validation.providers';
 import { provideCaisse } from './caisse/caisse.providers';
 import { provideSiege } from './siege/siege.providers';
+import { provideAuthentification } from './auth/auth.providers';
+import { AUTHENTIFICATION } from './auth/auth.port';
+import { jetonInterceptor } from './auth/jeton.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -17,7 +21,8 @@ export const appConfig: ApplicationConfig = {
       withComponentInputBinding(),
       withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
     ),
-    provideHttpClient(withFetch()),
+    provideHttpClient(withFetch(), withInterceptors([jetonInterceptor])),
+    provideAuthentification(),
     provideGuichet(),
     provideValidation(),
     provideCaisse(),
@@ -30,7 +35,15 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => {
       const config = inject(AppConfig);
       const apparence = inject(Apparence);
-      return config.charger().then(() => apparence.alignerSurConfig());
+      const authentification = inject(AUTHENTIFICATION);
+      const document = inject(DOCUMENT);
+      return config.charger().then(() => {
+        apparence.alignerSurConfig();
+        // Le retour d'autorisation a sa propre route : il ne faut surtout pas
+        // relancer une autorisation par-dessus, on perdrait le code.
+        if (document.location.pathname.endsWith('/auth/retour')) return;
+        return authentification.reprendre().then(() => undefined);
+      });
     }),
   ],
 };

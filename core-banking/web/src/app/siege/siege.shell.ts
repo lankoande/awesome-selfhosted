@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { AUTHENTIFICATION } from '../auth/auth.port';
+import { OPERATION_PAR_ECRAN, autorise } from '../auth/habilitations';
 
 /** L'espace siège et sa barre d'écrans, sur le modèle du guichet. */
 @Component({
@@ -8,7 +10,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     <nav class="ecrans" aria-label="Écrans du siège">
-      @for (ecran of ecrans; track ecran.chemin) {
+      @for (ecran of visibles(); track ecran.chemin) {
         <a [routerLink]="ecran.chemin" routerLinkActive="actif">{{ ecran.libelle }}</a>
       }
     </nav>
@@ -42,7 +44,20 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
   `,
 })
 export class SiegeShell {
-  protected readonly ecrans = [
+  private readonly authentification = inject(AUTHENTIFICATION);
+
+  /**
+   * On ne propose pas une porte qu'on sait fermée. Tant que le socle n'expose
+   * pas les opérations autorisées, on les montre toutes : cacher au hasard
+   * ferait croire qu'un écran n'existe pas.
+   */
+  protected readonly visibles = computed(() =>
+    this.ecrans.filter((ecran) =>
+      autorise(this.authentification.habilitations(), OPERATION_PAR_ECRAN['siege/' + ecran.chemin]),
+    ),
+  );
+
+  private readonly ecrans = [
     { chemin: 'exploitation', libelle: 'Fin de journée' },
     { chemin: 'balance', libelle: 'Balance générale' },
   ];

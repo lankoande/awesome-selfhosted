@@ -45,6 +45,21 @@ export interface RuntimeConfig {
   readonly sourceDonnees: SourceDonnees;
   /** Entité juridique du poste, tant que le jeton ne la porte pas. */
   readonly legalEntityId: string;
+  readonly auth: Auth;
+}
+
+/**
+ * L'authentification. Aucun secret ici : le client Keycloak est **public**, et
+ * PKCE remplace le secret par une preuve à usage unique. Seuls l'émetteur, le
+ * client et la portée sont publics — c'est la règle du §2, « aucun secret dans
+ * le bundle ».
+ */
+export interface Auth {
+  readonly issuer: string;
+  readonly clientId: string;
+  readonly scope: string;
+  /** Minutes d'inactivité avant verrouillage. 0 pour ne jamais verrouiller. */
+  readonly verrouillageMinutes: number;
 }
 
 export interface Accent {
@@ -79,6 +94,12 @@ export const CONFIG_PAR_DEFAUT: RuntimeConfig = {
   espaces: { guichet: true, siege: true },
   sourceDonnees: 'factice',
   legalEntityId: '00000000-0000-4000-8000-000000000001',
+  auth: {
+    issuer: 'https://keycloak.exemple.bf/realms/banque',
+    clientId: 'back-office',
+    scope: 'openid profile',
+    verrouillageMinutes: 15,
+  },
 };
 
 @Injectable({ providedIn: 'root' })
@@ -122,6 +143,7 @@ export class AppConfig {
       defauts: { ...CONFIG_PAR_DEFAUT.defauts, ...(partiel.defauts ?? {}) },
       affichage: { ...CONFIG_PAR_DEFAUT.affichage, ...(partiel.affichage ?? {}) },
       espaces: { ...CONFIG_PAR_DEFAUT.espaces, ...(partiel.espaces ?? {}) },
+      auth: { ...CONFIG_PAR_DEFAUT.auth, ...(partiel.auth ?? {}) },
     };
     this.etat.set(fusion);
     this.peindreAccent(fusion);

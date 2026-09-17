@@ -45,6 +45,7 @@ src/app/guichet/ le guichet : modèle, port, implémentations, écrans
 src/app/validation/ la double validation : le second regard
 src/app/caisse/  la caisse du guichetier et son arrêté
 src/app/siege/   exploitation comptable et restitutions
+src/app/auth/    session OAuth2 PKCE, jeton porté, verrouillage, habilitations
 src/app/api/    types générés depuis le contrat OpenAPI — ne jamais éditer à la main
 scripts/        contrôles qui demandent un navigateur
 ```
@@ -60,6 +61,27 @@ compte bloqué, réseau tombé.
 
 **Le port n'expose aucun calcul de frais, de taxe ou de date de valeur.** Ce sont
 des paramètres du socle ; les recopier ici garantirait la divergence.
+
+### L'authentification : mêmes règles, deux fournisseurs
+
+`auth.port.ts` décrit la session dont l'application a besoin. `auth.keycloak.ts`
+l'obtient par OAuth2 **code d'autorisation + PKCE** (S256), sans secret client et
+sans BFF ; `auth.factice.ts` ouvre une session locale pour que l'application
+tourne sans Keycloak — sans simuler de mot de passe.
+
+Ce qui est vrai des deux côtés :
+
+- **Aucun jeton ne quitte la mémoire.** Ni `localStorage`, ni `sessionStorage`,
+  ni cookie posé par le front. Un rechargement de page redemande une session ;
+  le rafraîchissement silencieux (`prompt=none`) la rend indolore.
+- **Le jeton ne part qu'aux appels du socle** (`jeton.interceptor.ts`, comparaison
+  d'origine avec `apiBaseUrl`) — jamais à une autre origine.
+- **Un 401 vaut un rafraîchissement, une seule fois**, puis l'erreur remonte.
+- **Verrouiller n'est pas déconnecter** : l'application reste montée, la saisie
+  intacte. Le délai vient de `config.json` (`auth.verrouillageMinutes`).
+- **Les habilitations inconnues laissent tout voir** : le socle n'expose pas encore
+  les opérations autorisées ; le menu montre tout et l'API refuse. `habilitations.ts`
+  porte déjà la table écran → opération pour le jour où il les exposera.
 
 ## Les garde-fous, et ce qu'ils empêchent
 

@@ -42,8 +42,11 @@
   align-items: center;
   gap: var(--cb-space-2);
   /* La recherche cède la place avant la navigation : une entrée de menu
-     tronquée fait disparaître un écran, un champ de recherche rétréci non. */
-  flex: 0 1 430px;
+     tronquée fait disparaître un écran, un champ de recherche rétréci non.
+     Le poids de rétrécissement (20 contre 1 pour la navigation) est ce qui
+     rend cette phrase vraie : à poids égal, les deux se serrent ensemble et
+     « Atelier » se coupe avant que la recherche n'ait cédé un pixel. */
+  flex: 0 20 430px;
   min-width: var(--cb-tap-h);
   height: var(--cb-tap-h);
   padding: 0 var(--cb-space-3);
@@ -62,6 +65,10 @@
 .ressort { flex: 1 1 auto; }
 
 .reglage.cb-btn { color: var(--cb-bar-muted); font-size: var(--cb-fs-sm); white-space: nowrap; }
+
+.porteur { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.nom-porteur { font-size: var(--cb-fs-sm); color: var(--cb-bar-ink); white-space: nowrap; }
+.poste { font-size: var(--cb-fs-xs); color: var(--cb-bar-muted); white-space: nowrap; }
 .reglage.cb-btn:hover:not(:disabled) { background: var(--cb-bar-sunken); color: var(--cb-bar-ink); }
 
 .demonstration {
@@ -85,6 +92,7 @@ main { flex: 1 1 auto; min-height: 0; }
 
 @media (max-width: 1099px) {
   .barre { gap: var(--cb-space-3); padding: 0 var(--cb-space-3); }
+  .porteur { display: none; }
 }
 
 @media (max-width: 767px) {

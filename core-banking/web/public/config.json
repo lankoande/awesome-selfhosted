@@ -27,5 +27,12 @@
     "siege": true
   },
   "sourceDonnees": "factice",
-  "legalEntityId": "00000000-0000-4000-8000-000000000001"
+  "legalEntityId": "00000000-0000-4000-8000-000000000001",
+  "auth": {
+    "_lisezMoi": "Client Keycloak public : PKCE remplace le secret. Aucun secret ne doit figurer ici.",
+    "issuer": "https://keycloak.exemple.bf/realms/banque",
+    "clientId": "back-office",
+    "scope": "openid profile",
+    "verrouillageMinutes": 15
+  }
 }

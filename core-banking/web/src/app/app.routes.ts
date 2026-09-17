@@ -64,6 +64,11 @@ export const routes: Routes = [
     loadComponent: () => import('./validation/file/file-validation.page').then((m) => m.FileValidation),
   },
   {
+    path: 'auth/retour',
+    title: 'Connexion',
+    loadComponent: () => import('./auth/retour.page').then((m) => m.AuthRetour),
+  },
+  {
     path: 'atelier',
     title: 'Atelier — socle visuel',
     loadComponent: () => import('./atelier/atelier').then((m) => m.Atelier),

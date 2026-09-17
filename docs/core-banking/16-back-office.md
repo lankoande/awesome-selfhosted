@@ -241,6 +241,7 @@ mécanique (commandes, organisation, garde-fous). Node ≥ 22.22.3 est requis pa
 | 2. Guichet — versement d'espèces | **Livré** — bandeau client, billetage BCEAO contrôlé, imputation en projection puis reçu, idempotence conservée, refus lisible |
 | 3. File de validation | **Livré** — file paginée, détail de la requête soumise, approbation qui exécute, rejet motivé, auto-approbation signalée, échec d'exécution après approbation |
 | 4. Reste du guichet, puis siège | **En cours** — guichet complet (versement, retrait, virement, relevé, arrêté de caisse) ; siège ouvert (fin de journée, balance générale) |
+| 5. Authentification et habilitations | **Livré** — OAuth2 PKCE contre Keycloak, jeton porté aux seuls appels du socle, rafraîchissement silencieux, verrouillage du poste, menu filtré par habilitations |
 
 Rien n'est figé : ce qui suit est ce qu'on sait aujourd'hui, pas un engagement. Les décisions
 prises pendant la construction du socle sont consignées ici pour qu'on puisse les défaire en
@@ -531,3 +532,69 @@ retrouver.
 
 **Les totaux sont rendus par devise.** Une balance ne s'additionne pas entre devises ; le faire
 produirait un nombre qui ne veut rien dire. Le socle totalise, le poste n'additionne rien.
+
+---
+
+## 14. L'authentification : ce qu'elle a tranché
+
+L'écran ne garde aucun secret durable. Le jeton d'accès et le jeton de rafraîchissement vivent en
+mémoire, dans un service, et disparaissent au rechargement — **jamais dans `localStorage`**, qui
+survit à la fermeture du navigateur et se lit depuis n'importe quel script chargé par la page. Le
+prix est connu : un rafraîchissement de page redemande une session. Le silencieux
+(`prompt=none` contre Keycloak) le rend indolore quand la session du fournisseur est encore
+ouverte, et honnête quand elle ne l'est plus.
+
+**PKCE est écrit ici, pas importé.** Le calcul tient en une soixantaine de lignes — un aléa de 32
+octets, son empreinte SHA-256, le tout en base64url — et il est testable sans navigateur. Embarquer
+une bibliothèque d'authentification pour cela contredirait le jeu fermé de primitives du §3 et
+ajouterait au poids embarqué ce qu'on refuse ailleurs. Le `state` est comparé **à temps constant** :
+un écart de durée sur une comparaison de chaîne est une fuite, petite mais gratuite à éviter.
+
+**Le jeton ne part qu'au socle.** L'intercepteur compare l'origine de chaque requête à
+`apiBaseUrl` et n'ajoute l'en-tête `Authorization` que si elles coïncident. Un intercepteur qui
+signe tout laisse filer le jeton vers le premier service tiers que le front appellera un jour ;
+c'est le genre de fuite qu'on n'écrit pas volontairement et qu'on constate trop tard.
+
+**Un 401 vaut un rafraîchissement, une fois.** Le jeton est renouvelé puis la requête rejouée ;
+si le renouvellement échoue, ou si le rejeu échoue encore, l'erreur remonte à l'écran. Il n'y a
+pas de seconde tentative, parce qu'une boucle de rafraîchissement sur un jeton mort tape le
+fournisseur d'identité en rafale et masque à l'opérateur ce qui se passe réellement.
+
+**Verrouiller n'est pas déconnecter.** Un guichetier qui s'absente verrouille ; l'application reste
+montée derrière le voile, la saisie en cours intacte, et elle repart où elle était. Une
+déconnexion perdrait le versement à moitié saisi, donc personne ne verrouillerait, donc le poste
+resterait ouvert — c'est ainsi qu'une mesure de sécurité se retourne. Le délai d'inactivité vient
+de `config.json` (`auth.verrouillageMinutes`) : une agence de quartier et un siège n'ont pas la
+même exposition.
+
+**Les habilitations inconnues laissent tout voir.** Le socle n'expose pas encore les opérations
+autorisées pour l'appelant (lacune de contrat n° 1, §8). Tant qu'il ne les expose pas, `autorise()`
+répond vrai : le menu montre tout et **l'API refuse**. Un menu deviné qui cache un écran auquel
+l'agent a droit produit un ticket de support ; un menu qui montre un écran auquel il n'a pas droit
+produit un refus explicite du socle. Le second est le bon défaut, et il disparaîtra le jour où le
+socle répondra. La table `OPERATION_PAR_ECRAN` — chaque écran vers l'opération réelle qu'il
+appelle (`CASH_OPERATION`, `TRANSFER`, `ACCOUNT_JOURNAL_READ`, `TILL_CLOSE`, `PERIOD_CLOSE`,
+`LEDGER_READ`) — est déjà écrite et testée : seule la source des droits manque.
+
+**Le mode démonstration ne simule pas un mot de passe.** Le fournisseur factice ouvre une session
+sans réseau et le dit ; il n'invente pas un écran de connexion qui accepterait n'importe quoi. Le
+bandeau de démonstration, lui, ne bouge pas.
+
+**La recherche cède avant la navigation.** L'arrivée du porteur et du bouton *Verrouiller* dans la
+barre a coupé « Atelier » à 1440 : la recherche et la navigation se serraient à poids égal. Le
+poids de rétrécissement est désormais explicite (20 contre 1), ce qui rend vraie la phrase que le
+code affirmait déjà. Le contrôle de largeurs ne l'attrape pas — il mesure le débordement, pas la
+troncature — c'est la relecture des captures qui l'a vu.
+
+### Lacune du contrat ajoutée à la liste
+
+- **`GET /v1/me/permissions`** — les opérations autorisées pour l'appelant. C'est la lacune qui
+  coûte le plus cher aujourd'hui : elle est la raison pour laquelle le menu montre tout. Le socle
+  connaît déjà la réponse — les habilitations sont dans sa base et il les applique à chaque appel
+  — il ne l'expose simplement pas. Le jour où il l'expose, `autorise()` cesse de répondre vrai par
+  défaut et rien d'autre ne bouge dans le front : c'est déjà branché.
+
+Rappel du principe qui rend cette lacune vivable : **déduire les droits du JWT côté navigateur
+serait faire du poste une source d'habilitation.** Les rôles Keycloak (`TELLER`,
+`BRANCH_MANAGER`) servent au fournisseur d'identité, pas au contrôle d'accès du socle ; les
+confondre donnerait un front qui se croit autorisé et un socle qui refuse, ou pire, l'inverse.

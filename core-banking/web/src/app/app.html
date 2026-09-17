@@ -8,8 +8,12 @@
   </div>
 
   <nav class="espaces" aria-label="Espaces">
-    <a routerLink="/guichet" routerLinkActive="actif">Guichet</a>
-    <a routerLink="/siege" routerLinkActive="actif">Siège</a>
+    @if (espaceVisible('guichet/')) {
+      <a routerLink="/guichet" routerLinkActive="actif">Guichet</a>
+    }
+    @if (espaceVisible('siege/')) {
+      <a routerLink="/siege" routerLinkActive="actif">Siège</a>
+    }
     <a routerLink="/validation" routerLinkActive="actif">Validation</a>
     <a routerLink="/atelier" routerLinkActive="actif">Atelier</a>
   </nav>
@@ -31,7 +35,21 @@
   <button type="button" cbButton="discret" class="reglage" (click)="apparence.basculerTheme()">
     Thème : {{ apparence.theme() === 'dark' ? 'sombre' : 'clair' }}
   </button>
+
+  @if (porteur(); as p) {
+    <div class="porteur">
+      <span class="nom-porteur">{{ p.nom }}</span>
+      @if (p.agence) {
+        <span class="poste cb-mono">{{ p.agence }}@if (p.caisse) { · {{ p.caisse }} }</span>
+      }
+    </div>
+    <button type="button" cbButton="discret" class="reglage" (click)="verrouiller()">Verrouiller</button>
+  }
 </header>
+
+@if (verrouille()) {
+  <cb-verrou />
+}
 
 @if (config.demonstration()) {
   <p class="demonstration" role="status">
