@@ -66,6 +66,7 @@ le code en est la mise en œuvre, et les écarts constatés à l'implémentation
 | 13 | [Mesures](13-mesures.md) | Débit, latence, durée de TFJ — mesurés, et ce qu'ils ne prouvent pas |
 | 14 | [Audit](14-audit.md) | Couverture fonctionnelle et robustesse : ce qui tient, ce qu'il faut corriger, compléter — priorisé |
 | 15 | [Multi-agences](15-multi-agences.md) | Comptabilité par agence, lignes de liaison générées, compensation inter-agences, périmètre de sécurité — étude préalable à l'API |
+| 16 | [Back-office agence](16-back-office.md) | Décisions d'architecture front, sécurité, configurabilité, thèse de design et garde-fous — étude préalable au développement |
 
 ---
 

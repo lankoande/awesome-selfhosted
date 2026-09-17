@@ -1,0 +1,229 @@
+# 16 — Back-office agence : décisions, garde-fous, thèse de design
+
+Ce document fixe ce qui a été décidé avant la première ligne de code du front. Il joue pour
+l'interface le rôle que les invariants jouent pour le socle : ce n'est pas une intention, c'est
+une contrainte qu'on ne renégocie pas écran par écran.
+
+**Périmètre** : le back-office **agence** — le poste de travail du guichetier, du chargé de
+clientèle, du chef d'agence, et les écrans de siège (comptabilité, conformité, exploitation,
+paramétrage) qui partagent la même application. Le portail client et le mobile ne sont pas ici.
+
+---
+
+## 1. Décisions d'architecture
+
+| Décision | Raison |
+|---|---|
+| **Angular + TypeScript, SPA** | L'API est déjà un contrat OpenAPI publié et testé ; le front en dérive ses types au lieu de les retaper |
+| **OAuth2 Authorization Code + PKCE** contre Keycloak, sans BFF pour l'instant | Le jeton reste porté par le navigateur ; un BFF s'ajoutera si une banque exige de ne jamais l'exposer — c'est un composant d'exploitation de plus, pas une évidence |
+| **Une seule application, deux espaces** — guichet et siège | Deux métiers, deux ergonomies, mais une seule authentification, un seul client d'API, un seul jeu de types. Deux applications les dupliqueraient et les feraient diverger |
+| **Nos propres composants, sur `@angular/cdk`** | Le CDK n'apporte aucun CSS : il apporte ce qu'on rate en écrivant soi-même — piège de focus, positionnement d'overlay, navigation clavier, défilement virtuel. Et il suit le train de release d'Angular, donc pas de décalage à la montée de version |
+| **Zoneless + signals** | Zone.js relance la détection de changement à chaque événement ; une table dense devient molle. C'est le premier levier de performance, et il est structurant — donc posé au départ |
+| **Pas d'écriture hors ligne** | Le registre est central et l'écriture est comptable. On traite la **résilience au réseau instable**, pas le mode déconnecté |
+
+### Ce que « nos propres composants » veut dire
+
+Ce qu'on écrit : tout le markup, tout le CSS, la densité, l'ergonomie clavier.
+
+Ce qu'on ne réécrit pas, et qu'on prend au CDK : `a11y` (piège de focus, `ListKeyManager`,
+annonceur), `overlay` (positionnement conscient du bord de l'écran), `scrolling` (défilement
+virtuel du journal), `table` (la logique, sans un seul `<td>` imposé).
+
+Ce qu'on ne fait pas du tout : un calendrier complet. Un guichetier tape `15/03/2026` plus vite
+qu'il ne clique — champ masqué avec validation, petit calendrier en appoint sur l'overlay du CDK.
+Écrire un sélecteur de date accessible et localisé coûte deux à trois semaines pour un gain nul
+au guichet.
+
+### Le coût des composants maison, et pourquoi il est borné
+
+Le noyau — bouton, champ texte / nombre / montant / date masquée, combobox, table, dialogue,
+tiroir, onglets, notice, badge d'état, pagination, barre d'outils — représente trois à quatre
+semaines de travail focalisé. Une bonne part du reste est de toute façon du **domaine**, qu'aucune
+librairie ne fournit : champ montant qui connaît l'échelle de la devise, sélecteur de compte qui
+montre le disponible, bandeau client avec statut KYC et blocages, récapitulatif d'imputation, file
+de validation.
+
+**Un composant maison mal écrit est plus lent qu'un composant de librairie bien écrit.** « Fait
+maison » n'est pas synonyme de rapide : ça l'est si, et seulement si, les leviers ci-dessous sont
+tenus.
+
+### Les leviers de performance, par ordre d'impact
+
+1. **Zoneless + signals** — seul ce qui a changé se recalcule.
+2. **Pagination serveur** — l'API pagine par curseur ; on ne charge jamais dix mille lignes.
+3. **Défilement virtuel** sur le journal et le grand livre.
+4. **Routes paresseuses par espace** — le guichet n'embarque pas les écrans de paramétrage.
+
+Le poids du bundle vient après : environ 300 Ko gzip pour l'application entière, contre 700 Ko à
+1 Mo avec une librairie de composants complète. Réel, pas décisif.
+
+---
+
+## 2. Sécurité
+
+**Le front n'est pas une frontière de sécurité.** L'interface cache ce qui est interdit ; c'est
+l'API qui l'empêche. Aucune règle métier de sécurité ne vit côté client.
+
+| Règle | Raison |
+|---|---|
+| Le menu se construit à partir des opérations autorisées **rendues par l'API** | Réimplémenter `SecurityConfig` côté front garantit la divergence. Une source, deux lecteurs |
+| **Jamais de jeton en `localStorage`** — jeton d'accès en mémoire, rafraîchissement en cookie `HttpOnly` / `SameSite` | Un XSS de back-office bancaire, c'est une session de guichetier volée |
+| **CSP stricte**, pas de `bypassSecurityTrust*` | Angular AOT s'en passe ; l'exception doit être une revue, pas une habitude |
+| **Verrouillage sur inactivité, pas déconnexion** | Le guichetier perdrait sa saisie. Re-saisie du mot de passe, la saisie survit |
+| **L'agence et la caisse viennent du jeton** | La règle est déjà celle du socle ; l'interface ne doit pas offrir de sélecteur qui laisse croire le contraire |
+| **Les exports passent par l'API** | Un CSV construit depuis une liste déjà chargée échappe à l'habilitation et à la trace |
+| Les écrans en **lecture tracée** le disent | Le socle trace déjà (LCB-FT, audit, dossier client) ; l'afficher est dissuasif et honnête |
+| **Aucun secret dans le bundle** | Client Keycloak public avec PKCE ; seules l'URL de l'API et le realm sont publics |
+| **La police est auto-hébergée** | Un réseau de banque bloque souvent les CDN externes, et une requête vers un tiers à chaque ouverture de session est une fuite de métadonnées |
+
+### À ajouter côté API
+
+- `GET /v1/me/permissions` — les opérations autorisées du porteur, dérivées de la politique.
+  Sans cela, le front devine, et il devinera faux.
+
+---
+
+## 3. Configurable — les trois niveaux, et le piège
+
+**Le front ne configure rien qui soit déjà configuré ailleurs : il le lit.**
+
+**Niveau 1 — ce que l'interface reflète.** Produits, familles, barèmes, devises et leurs échelles,
+calendriers, natures de pièces, motifs d'opposition, scénarios de surveillance, déclarations. Rien
+n'est retapé : **les types TypeScript se génèrent depuis `openapi.json`**. Le contrat est déjà
+versionné et tenu par un test ; un `npm run api:generate` et le front ne peut plus diverger.
+
+**Niveau 2 — ce qui se configure par déploiement.** Logo, couleur d'accent, libellés, format
+d'affichage des comptes, écrans activés, ordre du menu, langue. Chargé au démarrage, sans
+recompilation.
+
+**Niveau 3 — ce qui ne doit pas être configurable.** Les contrôles de saisie et les enchaînements
+d'écran. Vouloir les paramétrer produit un moteur de workflow maison, non typé et non testé. Un
+enchaînement différent, c'est du code — comme une nouvelle méthode de surveillance est une
+livraison.
+
+**L'exception qui se justifie** : le formulaire de paramétrage produit. Les familles déclarent déjà
+leurs paramètres obligatoires (`product/families.json`). Un formulaire générique y est légitime,
+**à condition d'être piloté par un descripteur exposé par l'API** — nom, type, unité, obligatoire,
+bornes — et non par une configuration front. La source de vérité reste le socle.
+
+### À ajouter côté API
+
+- Un descripteur de paramétrage par famille de produit, lisible, pour que le formulaire se rende
+  sans que le front connaisse les clés.
+
+---
+
+## 4. Thèse de design
+
+La concurrence — T24, Finacle, FLEXCUBE, Amplitude — partage une signature : chrome gris froid,
+onglets dans des onglets, modales en cascade, huit couleurs qui ne veulent rien dire, et un code
+d'erreur quand ça refuse. Ce sont des formulaires boulonnés sur une base de données.
+
+**On ne se démarque pas en étant spectaculaire. On se démarque en étant calme, dense et honnête.**
+Le back-office doit ressembler à ce que le registre croit : rigoureux, explicite, ne cachant jamais
+son état.
+
+### 4.1 La typographie fait le produit, pas la couleur
+
+**IBM Plex Sans** pour le texte, **IBM Plex Mono** pour les références, numéros de compte et
+identifiants d'écriture. Le choix se justifie sur quatre points : chiffres tabulaires excellents,
+caractère institutionnel plutôt que startup, licence libre et **auto-hébergeable** (un réseau de
+banque bloque les CDN), et une famille monospace assortie — ce qui compte quand la moitié des
+données affichées sont des références.
+
+Chiffres tabulaires partout : `font-variant-numeric: tabular-nums lining-nums`. Une colonne de
+montants ne danse jamais.
+
+### 4.2 Notre identité est dans la structure ; l'accent appartient à la banque
+
+Base papier tiède, pas de blanc pur ni de gris bleuté d'entreprise : ces écrans sont regardés huit
+heures par jour sous néon. **Une seule couleur d'accent, configurable par déploiement**, et une
+palette sémantique stricte réservée aux états. Quand tout est neutre sauf ce qui compte, ce qui
+compte se voit.
+
+C'est aussi ce qui rend la thématisation possible sans rien perdre : la banque prend l'accent,
+notre signature reste la structure, la typographie et la densité.
+
+### 4.3 Le montant est un objet de première classe
+
+Chiffres tabulaires, alignement sur le dernier chiffre, devise en graisse légère, signe explicite.
+**Jamais de rouge par défaut sur un solde négatif** : un découvert autorisé n'est pas une alarme.
+Le disponible est affiché à côté du solde comptable, avec le détail des blocages — un guichetier
+qui refuse un retrait sans pouvoir dire pourquoi, c'est un incident client.
+
+### 4.4 « En attente de validation » est un état à part entière
+
+C'est l'état le plus fréquent d'un back-office bancaire, et personne ne le traite : ni succès, ni
+échec. Il a sa couleur, sa place, et un vocabulaire d'états identique partout — **brouillon, en
+attente, comptabilisé, contre-passé, rejeté, bloqué**.
+
+Le maker-checker occupe deux écrans : « soumis, en attente » côté demandeur, une file côté
+valideur. Et l'interface dit ce que le socle fait — **la requête est rejouée à l'approbation**,
+donc l'exécution peut refuser ce que la saisie acceptait.
+
+### 4.5 Pas de modale pour travailler : un tiroir de contexte
+
+Il glisse à droite, la liste reste visible, l'opérateur ne perd jamais où il est. La modale est
+réservée à une seule chose : confirmer l'irréversible.
+
+### 4.6 La palette de commandes comme chemin le plus rapide
+
+`Ctrl+K` : « versement », « CLI-0042 », « arrêté de caisse ». Courant dans les outils de
+développeur, inexistant en banque. Un différenciateur réel, et il sert l'exigence de vitesse — un
+guichetier fait cent cinquante opérations par jour et connaît ses écrans par cœur. On n'optimise
+pas la découverte, on optimise la répétition.
+
+### 4.7 Le refus est un moment de design
+
+Le socle écrit déjà des refus faits pour être lus. Ils méritent mieux qu'un toast rouge qui
+disparaît : la raison, la règle, et quoi faire — à un endroit conçu pour ça. C'est là que le
+produit se distinguera le plus vite.
+
+### 4.8 Deux détails qui pèsent lourd
+
+**Densité au choix** — compacte ou confortable, persistée par utilisateur. Et **mode sombre
+dessiné**, pas inversé : les arrêtés se font le soir.
+
+### 4.9 Le réseau instable est un cas nominal
+
+La clé d'idempotence est générée côté client et **conservée**. « Réessayer » rejoue la même clé ;
+on ne re-saisit jamais une opération dont on ne sait pas si elle est partie.
+
+---
+
+## 5. Ce qu'on ne fait pas
+
+- Pas d'animation décorative — 120 ms, fonctionnel, rien qui rebondit.
+- Pas de bouton à icône seule hors barre d'outils ; le texte mène, l'icône accompagne.
+- Pas de dégradé, pas d'ombre portée molle, pas de carte arrondie flottante : ce vocabulaire dit
+  « tableau de bord marketing », pas « salle des comptes ».
+- Pas de défilement infini sur une liste comptable — la pagination à curseur existe.
+- Pas de toast éphémère pour confirmer une écriture : il faut une trace persistante, avec son
+  numéro.
+- Pas de graphique tant qu'il n'y a rien à comprendre d'un coup d'œil.
+- Pas de modales imbriquées.
+
+---
+
+## 6. Les garde-fous qui tiennent tout cela dans le temps
+
+Du même ordre que le test de contrat OpenAPI : des mécanismes, pas des intentions.
+
+| Garde-fou | Ce qu'il empêche |
+|---|---|
+| **Un jeu fermé de primitives**, documenté | Quarante variantes de bouton au bout d'un an |
+| **Une page atelier vivante dans l'application** — toutes les primitives, tous les états, les deux densités, les deux thèmes | Un composant qui n'y figure pas n'existe pas |
+| **Un budget de taille dans le build** (`budgets` d'`angular.json`) | Une régression de poids fait échouer la compilation, elle ne se découvre pas en production |
+| **Des tokens CSS** (propriétés personnalisées), pas d'utilitaires épars | Sur dix ans, ça se relit et ça se rethématise |
+| **Les types générés depuis le contrat** | Le front ne peut pas diverger de l'API en silence |
+
+---
+
+## 7. Ordre de construction
+
+1. **Socle visuel** : tokens, typographie, densités, thèmes clair et sombre, page atelier.
+2. **Premier écran de bout en bout** : guichet — **versement d'espèces**. Il contient tout ce que
+   la thèse doit prouver : bandeau client, solde et disponible, récapitulatif d'imputation avec
+   date de valeur et frais, clé d'idempotence, reçu, refus métier lisible.
+3. **File de validation** (maker-checker), qui éprouve le vocabulaire d'états.
+4. Le reste des écrans du guichet, puis l'espace siège.
