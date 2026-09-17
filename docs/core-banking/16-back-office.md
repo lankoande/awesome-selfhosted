@@ -239,7 +239,7 @@ mécanique (commandes, organisation, garde-fous). Node ≥ 22.22.3 est requis pa
 |---|---|
 | 1. Socle visuel | **Livré** — tokens, deux thèmes, deux densités, jeu fermé de 17 primitives, page atelier, budgets, types générés |
 | 2. Guichet — versement d'espèces | **Livré** — bandeau client, billetage BCEAO contrôlé, imputation en projection puis reçu, idempotence conservée, refus lisible |
-| 3. File de validation | à faire |
+| 3. File de validation | **Livré** — file paginée, détail de la requête soumise, approbation qui exécute, rejet motivé, auto-approbation signalée, échec d'exécution après approbation |
 | 4. Reste du guichet, puis siège | à faire |
 
 Rien n'est figé : ce qui suit est ce qu'on sait aujourd'hui, pas un engagement. Les décisions
@@ -339,3 +339,47 @@ programmée.
 - **Identité du remettant, structurée** — exigence LCB-FT que `Requests.CashOperation` ne porte pas.
 - **Lignes d'écriture du reçu** — le reçu donne les montants, pas les lignes. Un
   `GET /entries/{entryId}` permettrait d'afficher l'imputation réelle, pas seulement ses totaux.
+
+---
+
+## 10. La file de validation : ce qu'elle a tranché
+
+**Le vocabulaire d'états passe de six à neuf.** Le socle a six statuts d'opération en attente —
+`PENDING`, `APPROVED`, `REJECTED`, `EXPIRED`, `EXECUTED`, `FAILED` — et en écraser trois dans les
+six états d'origine cacherait exactement ce qu'un exploitant doit voir. Les trois nouveaux :
+
+| État | Ce qu'il dit |
+|---|---|
+| **approuvée, non confirmée** | Décidée, exécution non confirmée. Une anomalie d'exploitation ; la fondre dans « comptabilisé » la rendrait invisible le jour où elle compte |
+| **échouée** | Approuvée, mais l'exécution a refusé. La décision reste ; c'est le demandeur qui resoumet |
+| **expirée** | Le délai a couru sans que personne ne décide |
+
+Un rejet humain et un échec d'exécution partagent la couleur mais pas le libellé : dans les deux
+cas ça n'est pas passé, mais l'un se discute avec le valideur et l'autre avec l'état du compte.
+
+**L'avertissement de rejeu est sur la confirmation, pas en note de bas de page.** L'approbation
+exécute la requête telle qu'elle a été soumise ; le socle la rejoue, donc l'exécution peut refuser
+ce que la saisie acceptait. C'est écrit là où le valideur clique.
+
+**Une exécution refusée après approbation n'est pas un échec de l'approbation.** La décision est
+prise et reste tracée ; l'opération passe en échouée et l'écran le dit explicitement : ce n'est pas
+au valideur de corriger, c'est au demandeur de resoumettre. L'écran relit l'opération après le
+refus pour montrer son état réel, pas celui d'avant le clic.
+
+**L'échéance est calculée à l'affichage.** Le socle n'expire que paresseusement — il marque
+`EXPIRED` au moment où quelqu'un tente de décider. Une ligne dont l'échéance est passée reste donc
+`PENDING` en base, et l'afficher « en attente » enverrait un valideur sur une opération que plus
+personne ne peut décider. L'interface calcule l'état affiché ; elle ne réécrit rien.
+
+**Un rejet se motive, et le motif est la seule chose que le demandeur verra.** Le champ est
+obligatoire côté écran comme côté socle : sans motif, le demandeur resoumet la même demande.
+
+**L'auto-approbation est signalée avant le clic et refusée par l'API.** L'interface cache ce qui
+est interdit ; c'est l'API qui l'empêche. Quand le contrat ne dit pas qui porte le jeton, l'écran
+ne devine pas : il laisse l'API refuser.
+
+### Lacune du contrat ajoutée à la liste
+
+- **`GET /v1/me`** — le porteur du jeton. Sans lui, l'interface ne peut pas signaler
+  l'auto-approbation avant le clic, ni construire le menu à partir des opérations autorisées
+  (§2). Déduire l'identité du JWT côté front ferait du navigateur une source d'identité.

@@ -12,6 +12,11 @@ export const routes: Routes = [
     loadComponent: () => import('./guichet/versement/versement.page').then((m) => m.Versement),
   },
   {
+    path: 'validation',
+    title: 'File de validation',
+    loadComponent: () => import('./validation/file/file-validation.page').then((m) => m.FileValidation),
+  },
+  {
     path: 'atelier',
     title: 'Atelier — socle visuel',
     loadComponent: () => import('./atelier/atelier').then((m) => m.Atelier),

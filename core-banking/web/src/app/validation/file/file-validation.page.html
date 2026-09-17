@@ -1,0 +1,161 @@
+<div class="ecran">
+  <div class="colonne-file">
+    <cb-toolbar>
+      <h1>File de validation</h1>
+      <span class="compte">{{ enAttente() }} en attente sur cette page</span>
+      <button fin type="button" cbButton="secondaire" [disabled]="travaille()" (click)="charger()">Rafraîchir</button>
+    </cb-toolbar>
+
+    <p class="rappel">
+      Le second regard n'est pas une formalité : la requête est <strong>rejouée à l'approbation</strong>.
+      Ce qui a été saisi hier peut être refusé aujourd'hui, parce que l'état du compte a changé.
+    </p>
+
+    <cb-activity [enCours]="travaille()" libelle="Lecture de la file…" />
+
+    <div class="cb-table-scroll">
+      <table cbTable>
+        <caption class="cb-visually-hidden">Opérations soumises au second regard</caption>
+        <thead>
+          <tr>
+            <th scope="col">Référence</th>
+            <th scope="col">Opération</th>
+            <th scope="col">Demandeur</th>
+            <th scope="col">Soumise le</th>
+            <th scope="col">Échéance</th>
+            <th scope="col">État</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (ligne of lignes(); track ligne.id) {
+            <tr [class.choisie]="ligne.id === choisie()?.id">
+              <td class="cb-ref">
+                <button type="button" class="lien" (click)="ouvrir(ligne)">{{ ligne.id }}</button>
+              </td>
+              <td>
+                <span class="handler">{{ ligne.handler }}</span>
+                <span class="operation cb-mono">{{ ligne.operation }}</span>
+              </td>
+              <td class="cb-ref">{{ ligne.makerUsername }}</td>
+              <td class="cb-ref">{{ instant(ligne.madeAt) }}</td>
+              <td class="echeance" [class.echeance--passee]="etat(ligne) === 'expire'">{{ echeance(ligne) }}</td>
+              <td><cb-state-badge [etat]="etat(ligne)" /></td>
+            </tr>
+          } @empty {
+            @if (phase() === 'prete') {
+              <tr><td colspan="6" class="vide">Rien n'attend de second regard.</td></tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <cb-pagination
+      [position]="'Page ' + (page() + 1)"
+      [taille]="taille()"
+      [precedent]="precedent()"
+      [suivant]="suivant()"
+      (reculer)="changerPage(-1)"
+      (avancer)="changerPage(1)" />
+  </div>
+
+  <div class="colonne-detail">
+    @if (refus(); as r) {
+      <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+        @if (r.detail) { {{ r.detail }} }
+        @if (r.code === 'EXECUTION_REFUSEE') {
+          <span class="suite">
+            La décision reste prise : l'opération est passée en <strong>échouée</strong>. Ce n'est pas au
+            valideur de corriger — le demandeur resoumet une requête qui tient compte de l'état du jour.
+          </span>
+        }
+      </cb-notice>
+    }
+
+    @if (acquitte(); as message) {
+      <cb-notice nature="succes" titre="Décision enregistrée">{{ message }}</cb-notice>
+    }
+
+    @if (choisie(); as operation) {
+      <cb-section [titre]="operation.handler" [indication]="operation.id">
+        <div class="entete-detail">
+          <cb-state-badge [etat]="etat(operation)" />
+          <span class="cb-mono operation">{{ operation.operation }}</span>
+        </div>
+
+        <dl class="fiche">
+          <dt>Demandeur</dt><dd>{{ operation.makerUsername }}</dd>
+          <dt>Soumise le</dt><dd class="cb-mono">{{ instant(operation.madeAt) }}</dd>
+          <dt>Échéance</dt>
+          <dd class="cb-mono">
+            {{ instant(operation.expiresAt) }}@if (operation.status === 'PENDING') { · {{ echeance(operation) }}}
+          </dd>
+          @if (operation.decidedBy) {
+            <dt>Décidée par</dt><dd>{{ operation.decidedBy }}</dd>
+            <dt>Décidée le</dt><dd class="cb-mono">{{ instant(operation.decidedAt!) }}</dd>
+          }
+        </dl>
+
+        @if (operation.decisionReason) {
+          <p class="motif-rendu"><span class="cb-caps">Motif du rejet</span>{{ operation.decisionReason }}</p>
+        }
+        @if (operation.error) {
+          <p class="erreur-rendue"><span class="cb-caps">Échec d'exécution</span>{{ operation.error }}</p>
+        }
+      </cb-section>
+
+      <cb-section titre="La requête soumise" indication="rejouée telle quelle à l'approbation">
+        <dl class="payload">
+          @for (entree of entrees(operation.payload); track entree.cle) {
+            <dt>{{ entree.cle }}</dt><dd>{{ entree.valeur }}</dd>
+          }
+        </dl>
+      </cb-section>
+
+      @if (maSoumission()) {
+        <cb-notice nature="avertissement" titre="Vous avez soumis cette opération" code="AUTO_APPROBATION_INTERDITE">
+          Un second regard, c'est quelqu'un d'autre. L'interface le signale ici ; la politique
+          d'habilitation le refuse de toute façon, quelles que soient vos habilitations.
+        </cb-notice>
+      } @else if (operation.status !== 'PENDING') {
+        <cb-notice nature="information" titre="Déjà décidée">
+          Une décision ne se reprend pas : elle laisse une trace, et c'est une nouvelle demande qui la
+          remplace.
+        </cb-notice>
+      } @else if (!decidable()) {
+        <cb-notice nature="avertissement" titre="Échéance dépassée" code="OPERATION_NON_DECIDABLE">
+          Le délai a couru sans décision. Le demandeur resoumet.
+        </cb-notice>
+      }
+
+      @if (decidable()) {
+        <div class="decision">
+          <button type="button" cbButton="primaire" [disabled]="travaille()" (click)="approuver()">
+            Approuver et exécuter
+          </button>
+          @if (!motifOuvert()) {
+            <button type="button" cbButton="danger" [disabled]="travaille()" (click)="ouvrirMotif()">Rejeter…</button>
+          }
+        </div>
+
+        @if (motifOuvert()) {
+          <cb-section titre="Motif du rejet" indication="obligatoire">
+            <p class="pourquoi">
+              Le demandeur ne voit que ce motif. Sans lui, il resoumettra la même demande.
+            </p>
+            <textarea cbInput rows="3" id="motif" aria-label="Motif du rejet" [value]="motif()"
+                      (input)="majMotif($any($event.target).value)"></textarea>
+            <div class="decision">
+              <button type="button" cbButton="danger" [disabled]="travaille() || !motif().trim()" (click)="rejeter()">
+                Confirmer le rejet
+              </button>
+              <button type="button" cbButton="discret" (click)="motifOuvert.set(false)">Annuler</button>
+            </div>
+          </cb-section>
+        }
+      }
+    } @else if (phase() === 'prete') {
+      <p class="rien">Choisissez une ligne pour l'examiner.</p>
+    }
+  </div>
+</div>

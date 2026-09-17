@@ -34,6 +34,12 @@ import { EtatOperation, LIBELLE_ETAT } from './etat';
     :host([data-etat='comptabilise'])  { color: var(--cb-posted);    background: var(--cb-posted-soft);    border-color: var(--cb-posted-line); }
     :host([data-etat='contre-passe'])  { color: var(--cb-reversed);  background: var(--cb-reversed-soft);  border-color: var(--cb-reversed-line); }
     :host([data-etat='rejete'])        { color: var(--cb-rejected);  background: var(--cb-rejected-soft);  border-color: var(--cb-rejected-line); }
+    /* Une approbation non confirmée demande un regard : même famille que
+       l'attente. Un échec d'exécution est un échec : même famille qu'un rejet.
+       Une expiration n'est ni l'un ni l'autre : elle est neutre et empêchante. */
+    :host([data-etat='approuve'])      { color: var(--cb-pending);   background: var(--cb-pending-soft);   border-color: var(--cb-pending-line); }
+    :host([data-etat='echoue'])        { color: var(--cb-rejected);  background: var(--cb-rejected-soft);  border-color: var(--cb-rejected-line); }
+    :host([data-etat='expire'])        { color: var(--cb-blocked);   background: var(--cb-blocked-soft);   border-color: var(--cb-blocked-line); }
     :host([data-etat='bloque'])        { color: var(--cb-blocked);   background: var(--cb-blocked-soft);   border-color: var(--cb-blocked-line); }
   `,
 })

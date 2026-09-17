@@ -9,8 +9,8 @@ Ce README n'explique que la mécanique.
 ## Ce que contient ce dépôt
 
 Le **socle visuel** — tokens, typographie, densités, thèmes clair et sombre, jeu
-fermé de primitives, page atelier — et le **premier écran de guichet**, le
-versement d'espèces. Pas encore d'authentification : elle vient avec la file de
+fermé de primitives, page atelier — le **guichet** (versement d'espèces) et la
+**file de validation**. Pas encore d'authentification : elle vient avec la file de
 validation, dans l'ordre fixé au §7 du document de décisions.
 
 Tant qu'aucun socle n'est branché (`sourceDonnees: "factice"` dans
@@ -41,6 +41,7 @@ src/app/core/   configuration de déploiement, apparence (thème, densité), for
 src/app/ui/     le jeu fermé de primitives + son registre
 src/app/atelier/ la page atelier, vivante, servie par l'application elle-même
 src/app/guichet/ le guichet : modèle, port, implémentations, écrans
+src/app/validation/ la double validation : le second regard
 src/app/api/    types générés depuis le contrat OpenAPI — ne jamais éditer à la main
 scripts/        contrôles qui demandent un navigateur
 ```
