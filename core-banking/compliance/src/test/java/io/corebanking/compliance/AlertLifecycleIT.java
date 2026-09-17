@@ -164,6 +164,44 @@ class AlertLifecycleIT extends ComplianceTestBase {
         });
     }
 
+    @Test
+    @DisplayName("deux declarations concurrentes sur la meme alerte : une seule passe, l'autre voit la premiere")
+    void concurrent_reports_on_the_same_alert_are_serialised() throws Exception {
+        UUID client = client("LCB-CONCUR", RiskRating.MEDIUM);
+        UUID alertId = lever(client, "fait unique");
+
+        var depart = new java.util.concurrent.CountDownLatch(1);
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.function.Function<String, java.util.concurrent.Callable<Object>> redaction =
+            reference -> () -> {
+                depart.await();
+                try {
+                    return database.inNewTransaction(c -> SuspiciousActivityReports.draft(c,
+                        new SuspiciousActivityReports.Draft(ENTITY, client, reference, J,
+                            "Le meme fait, redige deux fois.", List.of(alertId), ACTOR, APPROVER)));
+                } catch (RuntimeException e) {
+                    return e;
+                }
+            };
+        var premiere = executor.submit(redaction.apply("DS-CONCUR-1"));
+        var seconde = executor.submit(redaction.apply("DS-CONCUR-2"));
+        depart.countDown();
+        List<Object> issues = List.of(premiere.get(), seconde.get());
+        executor.shutdown();
+
+        assertThat(issues).filteredOn(o -> o instanceof UUID)
+            .as("une seule declaration est deposee").hasSize(1);
+        assertThat(issues)
+            .filteredOn(o -> o instanceof SuspiciousActivityReports.ReportRefusedException)
+            .as("la seconde voit que l'alerte est deja couverte").hasSize(1);
+        database.inTransaction(c -> {
+            assertThat(AmlAlerts.require(c, alertId).status()).isEqualTo("REPORTED");
+            assertThat(SuspiciousActivityReports.reports(c, ENTITY))
+                .filteredOn(r -> r.reference().startsWith("DS-CONCUR")).hasSize(1);
+            return null;
+        });
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static UUID lever(UUID partyId, String detail) {

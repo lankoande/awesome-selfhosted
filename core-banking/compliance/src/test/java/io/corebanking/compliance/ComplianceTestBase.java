@@ -115,6 +115,48 @@ abstract class ComplianceTestBase {
                     PostingLine.credit(client.id(), xof(montant), on, null))));
     }
 
+    /** Un retrait d'especes au guichet. */
+    protected static void retrait(Account client, String montant, LocalDate on, String key) {
+        postingService.post(PostingCommand.online(
+            IdempotencyKey.of(key), ENTITY, on, "CASH_WITHDRAWAL", ACTOR,
+            List.of(PostingLine.debit(client.id(), xof(montant), on, null),
+                    PostingLine.credit(caisse.id(), xof(montant), on, null))));
+    }
+
+    /** Le cycle de vie du compte constate le reveil d'un dormant : c'est ce que la LCB-FT lit. */
+    protected static void reveiller(Account client, LocalDate on) {
+        database.inTransaction(c -> {
+            try (var ps = c.prepareStatement(
+                "INSERT INTO account_event(account_id, kind, occurred_on, actor_id)"
+                + " VALUES (?,'REACTIVATED',?,?)")) {
+                ps.setObject(1, client.id());
+                ps.setObject(2, on);
+                ps.setObject(3, ACTOR);
+                ps.executeUpdate();
+            } catch (java.sql.SQLException e) {
+                throw new io.corebanking.ledger.store.LedgerStoreException("Reveil du compte", e);
+            }
+            return null;
+        });
+    }
+
+    /**
+     * Rend un scenario inexecutable, comme une reprise de donnees peut le faire : une fenetre
+     * hors calendrier, que le service refuse a la declaration mais que la base seule accepte.
+     */
+    protected static void casser(String code) {
+        database.inTransaction(c -> {
+            try (var ps = c.prepareStatement(
+                "UPDATE monitoring_scenario SET window_days = 2000000000 WHERE code = ?")) {
+                ps.setString(1, code);
+                ps.executeUpdate();
+            } catch (java.sql.SQLException e) {
+                throw new io.corebanking.ledger.store.LedgerStoreException("Scenario casse", e);
+            }
+            return null;
+        });
+    }
+
     protected static void dater(LocalDate date) {
         database.inTransaction(c -> {
             try (var ps = c.prepareStatement(

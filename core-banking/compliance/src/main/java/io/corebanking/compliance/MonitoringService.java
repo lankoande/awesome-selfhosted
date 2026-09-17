@@ -16,6 +16,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Surveillance des operations : les scenarios en vigueur, passes sur la journee arretee.
@@ -39,6 +41,8 @@ import java.util.UUID;
 public final class MonitoringService {
 
     /** Les operations que les scenarios d'especes regardent. */
+    private static final Logger LOG = LoggerFactory.getLogger(MonitoringService.class);
+
     private static final String CASH_TYPES = "('CASH_DEPOSIT','CASH_WITHDRAWAL')";
 
     private final Database database;
@@ -47,8 +51,18 @@ public final class MonitoringService {
         this.database = database;
     }
 
-    /** Compte rendu d'une passe de surveillance. */
-    public record Result(int scenarios, int alerts) {}
+    /**
+     * Compte rendu d'une passe de surveillance.
+     *
+     * @param anomalies les scenarios qui n'ont pas pu s'executer, nommes — un defaut de
+     *     parametrage ou de donnee que personne ne verrait autrement avant l'inspection
+     */
+    public record Result(int scenarios, int alerts, List<String> anomalies) {
+
+        public Result {
+            anomalies = List.copyOf(anomalies == null ? List.of() : anomalies);
+        }
+    }
 
     /**
      * Passe de surveillance sur une entite.
@@ -63,19 +77,47 @@ public final class MonitoringService {
             List<MonitoringScenarios.Scenario> scenarios = database.inTransaction(
                 c -> MonitoringScenarios.activeOn(c, legalEntityId, businessDate));
             if (scenarios.isEmpty()) {
-                return new Result(0, 0);
+                return new Result(0, 0, List.of());
             }
             int raised = 0;
+            List<String> anomalies = new ArrayList<>();
             for (MonitoringScenarios.Scenario scenario : scenarios) {
-                raised += database.inTransaction(
-                    c -> apply(c, scenario, legalEntityId, businessDate, runId));
+                // Un scenario qui echoue est une anomalie nommee, pas la fin de la passe : les
+                // autres doivent tourner. Laisser un parametrage defaillant eteindre toute la
+                // surveillance de la nuit serait exactement la panne qu'on ne veut pas —
+                // silencieuse, et totale.
+                try {
+                    raised += database.inTransaction(
+                        c -> apply(c, scenario, legalEntityId, businessDate, runId));
+                } catch (RuntimeException e) {
+                    LOG.error("Surveillance LCB-FT {} : scenario {} en echec", businessDate,
+                              scenario.code(), e);
+                    anomalies.add("Scenario " + scenario.code() + " non execute : "
+                                  + rootCause(e));
+                }
             }
-            return new Result(scenarios.size(), raised);
+            return new Result(scenarios.size(), raised, anomalies);
         }
+    }
+
+    private static String rootCause(Throwable e) {
+        Throwable cause = e;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        String message = cause.getMessage();
+        return message == null ? cause.getClass().getSimpleName() : message.strip();
     }
 
     private int apply(Connection c, MonitoringScenarios.Scenario scenario, UUID legalEntityId,
                       LocalDate on, UUID runId) {
+        // Les parametres sont reverifies ici, et pas seulement a la declaration : la table se
+        // laisse aussi ecrire par une reprise de donnees ou une migration, et un scenario dont
+        // les parametres sont hors du domaine ne doit pas tourner sur une fenetre absurde. Il
+        // devient une anomalie nommee, ce que l'exploitation lit le lendemain.
+        MonitoringScenarios.requireParameters(scenario.method(), scenario.thresholdAmount(),
+                                              scenario.windowDays(), scenario.minimumCount(),
+                                              scenario.ratio());
         return switch (scenario.method()) {
             case CASH_THRESHOLD -> cashThreshold(c, scenario, legalEntityId, on, runId);
             case STRUCTURING -> structuring(c, scenario, legalEntityId, on, runId);
@@ -177,17 +219,25 @@ public final class MonitoringService {
     // ------------------------------------------------------------------ atypie
 
     /**
-     * Flux hors de proportion avec le profil declare.
+     * Flux hors de proportion avec le profil declare, <b>dans un sens comme dans l'autre</b>.
      *
      * <p>Le profil declare est ce qui rend cette question honnete : sans lui, on comparerait un
      * client a un autre, et les gros comptes seraient perpetuellement suspects d'etre gros. Le
-     * seuil est le flux mensuel annonce, ramene a la fenetre, multiplie par le facteur toleré.
+     * seuil est le flux mensuel annonce, ramene a la fenetre, multiplie par le facteur tolere.
+     *
+     * <p>Les deux sens comptent, et pas par symetrie : des entrees hors de proportion sont la
+     * question de l'origine des fonds, des sorties hors de proportion celle du compte de passage —
+     * l'argent entre et ressort aussitot, vers ailleurs. Ne regarder que le credit laisserait la
+     * seconde typologie invisible, et rendrait le flux debiteur declare inutile : un parametre que
+     * personne ne lit est un parametre que personne ne tient a jour.
      */
     private int atypicalActivity(Connection c, MonitoringScenarios.Scenario scenario, UUID entity,
                                  LocalDate on, UUID runId) {
         LocalDate from = on.minusDays(scenario.windowDays() - 1L);
         String sql = """
-            SELECT h.party_id, SUM(l.functional_amount) AS total
+            SELECT h.party_id,
+                   GREATEST(SUM(l.functional_amount) FILTER (WHERE l.direction = 'CREDIT'),
+                            SUM(l.functional_amount) FILTER (WHERE l.direction = 'DEBIT')) AS total
               FROM journal_line l
               JOIN journal_entry e ON e.id = l.entry_id AND e.booking_date = l.booking_date
               JOIN account a ON a.id = l.account_id
@@ -197,12 +247,14 @@ public final class MonitoringService {
               JOIN party p ON p.id = h.party_id
               JOIN party_activity_profile f ON f.party_id = h.party_id
              WHERE e.legal_entity_id = ? AND a.account_kind = 'CUSTOMER'
-               AND l.direction = 'CREDIT' AND e.reversal_of IS NULL
+               AND e.reversal_of IS NULL
                AND l.booking_date BETWEEN ? AND ?
                AND (?::text IS NULL OR p.risk_rating = ?)
-             GROUP BY h.party_id, f.expected_monthly_credit
-            HAVING SUM(l.functional_amount)
-                   > f.expected_monthly_credit * ? * (?::numeric / 30)
+             GROUP BY h.party_id, f.expected_monthly_credit, f.expected_monthly_debit
+            HAVING (COALESCE(SUM(l.functional_amount) FILTER (WHERE l.direction = 'CREDIT'), 0)
+                      > f.expected_monthly_credit * ? * (?::numeric / 30)
+                    OR COALESCE(SUM(l.functional_amount) FILTER (WHERE l.direction = 'DEBIT'), 0)
+                      > f.expected_monthly_debit * ? * (?::numeric / 30))
                AND SUM(l.functional_amount) FILTER (WHERE l.booking_date = ?) > 0
             """;
         return raiseForEach(c, sql, scenario, entity, on, from, runId, ps -> {
@@ -213,8 +265,10 @@ public final class MonitoringService {
             ps.setString(5, scenario.riskRating());
             ps.setBigDecimal(6, scenario.ratio());
             ps.setInt(7, scenario.windowDays());
-            ps.setObject(8, on);
-        }, total -> "Flux crediteurs de " + total + " sur " + scenario.windowDays()
+            ps.setBigDecimal(8, scenario.ratio());
+            ps.setInt(9, scenario.windowDays());
+            ps.setObject(10, on);
+        }, total -> "Flux de " + total + " sur " + scenario.windowDays()
                     + " jours, au-dela de " + scenario.ratio() + " fois le profil declare");
     }
 

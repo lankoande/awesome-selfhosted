@@ -31,6 +31,9 @@ public final class MonitoringScenarios {
 
     private MonitoringScenarios() {}
 
+    /** Dix ans : au-dela, une fenetre de surveillance ne surveille plus, elle archive. */
+    public static final int MAX_WINDOW_DAYS = 3650;
+
     /** Ce que le code sait compter. */
     public enum Method {
         /** Especes cumulees au-dela d'un montant, sur une fenetre. */
@@ -86,6 +89,18 @@ public final class MonitoringScenarios {
                                          Integer windowDays, Integer minimumCount,
                                          BigDecimal ratio) {
         Objects.requireNonNull(method, "method");
+        // Une fenetre se compte en jours de surveillance, pas en siecles : au-dela de dix ans
+        // elle ne veut plus rien dire, et le calcul de la date de depart sortirait du calendrier.
+        if (windowDays != null && (windowDays < 1 || windowDays > MAX_WINDOW_DAYS)) {
+            throw new IllegalArgumentException("Une fenetre de surveillance va de 1 a "
+                + MAX_WINDOW_DAYS + " jours : " + windowDays);
+        }
+        if (ratio != null && ratio.signum() <= 0) {
+            throw new IllegalArgumentException("Un facteur d'ecart est positif : " + ratio);
+        }
+        if (thresholdAmount != null && thresholdAmount.signum() <= 0) {
+            throw new IllegalArgumentException("Un seuil est positif : " + thresholdAmount);
+        }
         switch (method) {
             case CASH_THRESHOLD -> requireAll(method, thresholdAmount, windowDays);
             case STRUCTURING -> {

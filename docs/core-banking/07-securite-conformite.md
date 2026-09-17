@@ -482,7 +482,7 @@ sait regarder :
 | `ATYPICAL_ACTIVITY` | Flux hors de proportion avec le profil déclaré, selon un ratio |
 | `DORMANT_REACTIVATION` | Un compte dormant qui se remet à bouger au-delà d'un montant |
 
-Trois règles fixent la portée du dispositif :
+Cinq règles fixent la portée du dispositif :
 
 - **Seul le filtrage bloque.** Opérer avec une personne listée est l'infraction elle-même : le
   dossier est créé bloqué, en attente de levée de doute, et une alerte d'origine `SCREENING` ouvre
@@ -491,7 +491,17 @@ Trois règles fixent la portée du dispositif :
 - **Le même fait ne se réclame pas deux fois.** Une alerte déjà levée sur la fenêtre, ouverte ou
   classée, suffit ; sinon un scénario sur trente jours lèverait trente alertes pour un fait.
 - **La déclaration scelle les alertes qu'elle cite.** Elles passent à `REPORTED` et n'en ressortent
-  pas : leur sort est fixé par la déclaration, pas par un classement.
+  pas : leur sort est fixé par la déclaration, pas par un classement. Les alertes citées sont
+  verrouillées avant d'être lues : deux rédactions concurrentes sur le même fait franchiraient
+  toutes deux le contrôle « déjà couverte », et la banque déposerait deux dossiers pour un seul
+  fait.
+- **Un scénario qui échoue est une anomalie nommée, pas la fin de la passe.** Les autres tournent.
+  Les paramètres sont revérifiés à l'exécution — la table se laisse aussi écrire par une reprise
+  de données — et une fenêtre hors du domaine (1 à 3 650 jours) arrête ce scénario-là, pas la
+  surveillance.
+- **Le profil déclaré est en devise de tenue de compte.** Comparé à des flux d'une autre unité, il
+  ne se déclencherait jamais, ou toujours. L'atypie se mesure dans **les deux sens** : entrées hors
+  de proportion (origine des fonds) et sorties hors de proportion (compte de passage).
 
 L'habilitation dit le secret : `AML_READ` n'est ouvert qu'au responsable des risques et à
 l'auditeur, en lecture tracée. Ni le guichet ni la gestion de portefeuille n'accèdent aux alertes

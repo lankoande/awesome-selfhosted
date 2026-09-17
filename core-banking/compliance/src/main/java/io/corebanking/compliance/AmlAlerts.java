@@ -144,8 +144,26 @@ public final class AmlAlerts {
 
     // ------------------------------------------------------------------ instruction
 
+    /**
+     * Verrouille des alertes pour la duree de la transaction, dans un ordre stable.
+     *
+     * <p>L'ordre importe : deux transactions qui verrouilleraient les memes alertes chacune dans
+     * son ordre s'attendraient l'une l'autre. Trie, le verrouillage ne peut pas boucler.
+     */
+    static void lock(Connection c, List<UUID> alertIds) {
+        Object[] sorted = alertIds.stream().sorted().toArray();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id FROM aml_alert WHERE id = ANY (?) ORDER BY id FOR UPDATE")) {
+            ps.setArray(1, c.createArrayOf("uuid", sorted));
+            ps.executeQuery().close();
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Verrou sur les alertes", e);
+        }
+    }
+
     /** Prend l'alerte en charge : elle passe a l'instruction, et on sait qui l'instruit. */
     public static Alert assign(Connection c, UUID alertId, UUID toWhom) {
+        lock(c, List.of(alertId));
         Alert alert = require(c, alertId);
         if (!alert.open()) {
             throw new AlertStateException("L'alerte " + alertId + " est " + alert.status()
@@ -167,6 +185,7 @@ public final class AmlAlerts {
         if (reason == null || reason.isBlank()) {
             throw new IllegalArgumentException("Le classement d'une alerte porte son motif");
         }
+        lock(c, List.of(alertId));
         Alert alert = require(c, alertId);
         if (!alert.open()) {
             throw new AlertStateException("L'alerte " + alertId + " est deja " + alert.status());

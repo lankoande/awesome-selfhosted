@@ -75,6 +75,11 @@ public final class SuspiciousActivityReports {
 
     public static UUID draft(Connection c, Draft draft) {
         UUID id = Ids.newId();
+        // Les alertes citees sont verrouillees avant d'etre lues : deux declarations redigees en
+        // meme temps sur le meme fait passeraient toutes deux le controle « deja couverte », et
+        // la banque deposerait deux dossiers pour un seul fait — ce que ce controle est justement
+        // la pour empecher.
+        AmlAlerts.lock(c, draft.alertIds());
         for (UUID alertId : draft.alertIds()) {
             AmlAlerts.Alert alert = AmlAlerts.require(c, alertId);
             if (!alert.legalEntityId().equals(draft.legalEntityId())

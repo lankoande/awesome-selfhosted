@@ -37,6 +37,17 @@ public final class ActivityProfiles {
             throw new IllegalArgumentException("Les deux flux du profil sont dans la meme devise");
         }
         UUID entity = ComplianceDates.entityOf(c, partyId);
+        // Le profil se compare a des flux comptabilises en devise de tenue de compte. Dans une
+        // autre devise, la comparaison serait une soustraction de deux nombres sans rapport : le
+        // scenario ne se declencherait jamais, ou toujours, et personne ne saurait pourquoi.
+        String functional = functionalCurrency(c, entity);
+        if (!functional.equals(expectedMonthlyCredit.currency().code())) {
+            throw new IllegalArgumentException(
+                "Le profil d'activite se declare en devise de tenue de compte (" + functional
+                + ") : c'est la devise des flux auxquels il sera compare. Declare en "
+                + expectedMonthlyCredit.currency().code() + ", il serait compare a des montants "
+                + "qui n'ont pas la meme unite.");
+        }
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO party_activity_profile(party_id, legal_entity_id,"
             + " expected_monthly_credit, expected_monthly_debit, currency, declared_on,"
@@ -56,6 +67,21 @@ public final class ActivityProfiles {
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new LedgerStoreException("Declaration du profil d'activite", e);
+        }
+    }
+
+    private static String functionalCurrency(Connection c, UUID legalEntityId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT functional_currency FROM legal_entity WHERE id = ?")) {
+            ps.setObject(1, legalEntityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new IllegalArgumentException("Entite inconnue : " + legalEntityId);
+                }
+                return rs.getString(1);
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Devise de tenue de l'entite", e);
         }
     }
 

@@ -401,13 +401,17 @@ l'instruction en vigueur.
 | Scénario | Code, libellé, méthode (`CASH_THRESHOLD`, `STRUCTURING`, `ATYPICAL_ACTIVITY`, `DORMANT_REACTIVATION`), validité datée, deux signatures |
 | Seuil, fenêtre | `threshold_amount`, `window_days` — le montant au-delà duquel on alerte, et la période sur laquelle on cumule |
 | Nombre minimal | `minimum_count` — pour le fractionnement : combien d'opérations sous le seuil font une suite (au moins deux) |
-| Ratio | `ratio` — pour l'atypie : combien de fois le flux mensuel déclaré fait un écart |
+| Ratio | `ratio` — pour l'atypie : combien de fois le flux mensuel déclaré fait un écart, dans un sens comme dans l'autre |
 | Population visée | `risk_rating` — un seuil de dossiers renforcés ne noie pas la banque entière ; absent, le scénario vise tout le monde |
 | Profil déclaré | `party_activity_profile` : flux mensuels attendus au crédit et au débit, recueillis au guichet — la référence de l'atypie |
 
 La méthode est du code, tout le reste est du paramétrage : la base vérifie par contrainte que
 chaque méthode a les paramètres qu'elle exige, et le service les redit à la soumission — un
-scénario incomplet ne surveille rien, et personne ne s'en apercevrait.
+scénario incomplet ne surveille rien, et personne ne s'en apercevrait. Il les revérifie **à chaque
+exécution**, parce que la table se laisse aussi écrire par une reprise de données : une fenêtre
+hors du domaine (1 à 3 650 jours), un seuil ou un facteur négatif rendent ce scénario-là une
+anomalie nommée, sans arrêter les autres. Le profil déclaré se saisit en devise de tenue de
+compte, faute de quoi la comparaison n'aurait pas d'unité.
 
 ### Référentiel ✅
 

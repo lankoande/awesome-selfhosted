@@ -4,7 +4,6 @@ import io.corebanking.compliance.MonitoringService;
 import io.corebanking.tfj.StepResult;
 import io.corebanking.tfj.TfjContext;
 import io.corebanking.tfj.TfjStep;
-import java.util.List;
 
 /**
  * Surveillance LCB-FT de la journee arretee.
@@ -44,6 +43,6 @@ public final class AmlMonitoringStep implements TfjStep {
         MonitoringService.Result result = monitoring.run(context.legalEntityId(),
                                                          context.businessDate(), context.runId(),
                                                          context.actorId());
-        return new StepResult(result.scenarios(), result.alerts(), List.of());
+        return new StepResult(result.scenarios(), result.alerts(), result.anomalies());
     }
 }

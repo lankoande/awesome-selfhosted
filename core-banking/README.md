@@ -1116,6 +1116,29 @@ par inadvertance (`lcb_ft`). Le périmètre est l'entité, jamais l'agence : une
 par l'agence ne verrait pas le client qui répartit ses versements sur trois guichets — c'est-à-dire
 exactement ce qu'il faut voir.
 
+**Un scénario qui échoue ne fait pas taire les autres.** Il devient une anomalie nommée, et la
+passe continue : laisser un paramétrage défaillant éteindre toute la surveillance de la nuit
+serait exactement la panne qu'on ne veut pas — silencieuse, et totale. Les paramètres sont
+d'ailleurs revérifiés à l'exécution, pas seulement à la déclaration : la table se laisse aussi
+écrire par une reprise de données, et un scénario dont la fenêtre est hors du domaine ne doit pas
+tourner sur une fenêtre absurde (`a_failing_scenario_does_not_stop_the_others`).
+
+**L'atypie se lit dans les deux sens.** Des entrées hors de proportion posent la question de
+l'origine des fonds ; des sorties hors de proportion, celle du compte de passage — l'argent entre
+et ressort aussitôt, vers ailleurs. Ne regarder que le crédit laisserait la seconde typologie
+invisible et rendrait le flux débiteur déclaré inutile : un paramètre que personne ne lit est un
+paramètre que personne ne tient à jour
+(`atypical_activity_reads_both_directions`).
+
+**Le profil se déclare en devise de tenue de compte**, et rien d'autre n'est accepté. Comparé à
+des flux comptabilisés dans une autre unité, il ne se déclencherait jamais — ou toujours — et
+personne ne saurait pourquoi (`a_profile_in_another_currency_is_refused`).
+
+**Deux déclarations rédigées en même temps sur le même fait : une seule passe.** Les alertes
+citées sont verrouillées avant d'être lues, sinon les deux rédactions franchiraient le contrôle
+« déjà couverte » et la banque déposerait deux dossiers pour un seul fait — précisément ce que ce
+contrôle est là pour empêcher (`concurrent_reports_on_the_same_alert_are_serialised`).
+
 **L'étape de surveillance ne bloque pas l'arrêté.** Elle vient avec les revues — dormance,
 connaissance client, suspens — et pour la même raison : un client suspect n'est pas une panne de la
 banque, et une alerte qui empêcherait l'arrêté ferait de la conformité le premier obstacle à la
