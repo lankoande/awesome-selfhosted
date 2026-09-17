@@ -91,7 +91,7 @@ public final class PartyService {
             Parties.event(c, id, "CREATED", today, draft.actorId(), null, null, null);
 
             Optional<Screening.Match> match = screening.screen(new Screening.Subject(
-                draft.displayName(), draft.birthOrRegistrationDate(), draft.countryCode(),
+                id, draft.displayName(), draft.birthOrRegistrationDate(), draft.countryCode(),
                 draft.identifiers()));
             if (match.isPresent()) {
                 String detail = "filtrage : " + match.get().list() + " / " + match.get().reference()

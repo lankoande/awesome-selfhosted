@@ -29,6 +29,7 @@
     <module>interest-service</module>
     <module>fee-service</module>
     <module>loan-service</module>
+    <module>compliance</module>
     <module>deposits</module>
     <module>tfj</module>
     <module>benchmark</module>

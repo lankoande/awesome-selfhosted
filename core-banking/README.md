@@ -1046,6 +1046,82 @@ qui s'arrêterait, pour un compte que le client a fermé
 (`an_account_bound_to_a_live_deposit_does_not_close`).
 
 
+
+### 33. Une alerte n'est pas une sanction
+
+**Le filtrage bloque, la surveillance constate.** Deux dispositifs, deux conséquences opposées, et
+c'est délibéré. Opérer avec une personne listée est l'infraction elle-même : le filtrage crée donc
+le dossier **bloqué**, en attente de levée de doute. Un compteur statistique, lui, ne prouve rien :
+bloquer un compte parce qu'un cumul d'espèces a franchi un seuil priverait un client de son argent
+sur une présomption — et la banque ne saurait même pas dire laquelle. La surveillance rend une
+**file de travail**, pas une décision (`the_day_end_raises_alerts_without_blocking_and_cancelling_erases_them`).
+
+**La méthode est du code, le scénario est du paramétrage.** Ce que le socle sait compter — cumuler
+des espèces sur une fenêtre, reconnaître un fractionnement, confronter des flux à un profil
+déclaré, voir un compte oublié se réveiller — est du code, et en ajouter une est une livraison.
+Les seuils, les fenêtres et les populations, eux, changent d'une circulaire à l'autre : les coder
+condamnerait la banque à une livraison à chaque changement, et une conformité qui attend la
+prochaine version n'est pas une conformité. Un scénario incomplet est refusé **à la soumission** —
+un seuil sans fenêtre ne surveille rien, et personne ne s'en apercevrait
+(`an_incomplete_scenario_is_refused`).
+
+**Un scénario se déclare à deux**, parce qu'il décide de ce que la banque regarde et, ce qui est
+plus grave, de ce qu'elle ne regarde pas. Un seuil relevé d'un trait par une seule main éteint une
+typologie entière sans que rien ne le signale.
+
+**Le fractionnement ne se lit pas sur une opération.** C'est la typologie la plus ancienne et la
+plus vivace : celui qui connaît le seuil passe juste en dessous, plusieurs fois. Aucune des
+opérations n'est anormale ; leur suite l'est. Le scénario compte donc les opérations **chacune sous
+le seuil**, exige un nombre minimal, et regarde leur somme
+(`structuring_reads_the_sequence_not_the_operation`).
+
+**L'atypie se mesure contre le profil déclaré, jamais contre les autres clients.** Sans profil,
+« incohérent » n'aurait de sens qu'en comparant un client à un autre — c'est-à-dire en suspectant
+les gros comptes d'être gros. Un client qui n'a rien déclaré n'est donc pas suspect d'exister : il
+n'est simplement pas comparé (`atypical_activity_is_measured_against_the_declared_profile`). Le
+profil se recueille au guichet, avec le reste de la connaissance client ; il se relit à la
+conformité.
+
+**Une alerte porte ses pièces.** Les opérations qui l'ont déclenchée sont enregistrées avec elle :
+sans elles, l'instruction se ferait sur une intuition, et la décision de classer ne se contrôlerait
+pas. Elles sont bornées à ce qu'un analyste peut lire — au-delà, ce n'est plus une pièce, c'est un
+export.
+
+**Le même fait ne se réclame pas deux fois.** Un scénario qui compte sur trente jours lèverait
+l'alerte trente nuits de suite, et la conformité noierait le vrai signal sous le sien. Une alerte
+déjà levée sur la fenêtre suffit, qu'elle soit ouverte ou classée : classer est une décision, la
+reposer le lendemain la déferait
+(`cash_above_the_threshold_raises_one_alert_per_window`).
+
+**Une alerte disparaît avec la journée qui l'a produite** — sauf celle qu'on a déjà prise en
+instruction. Une alerte naît d'opérations ; si l'arrêté qui les a comptabilisées est annulé, elle
+n'a plus de fait derrière elle. Mais défaire le travail de la conformité parce qu'une journée est
+rejouée serait pire que la garder
+(`cancelling_a_run_erases_only_what_nobody_has_touched`).
+
+**Le classement porte son motif.** « Classée sans suite » sans raison écrite ne se contrôle pas, et
+c'est précisément ce que l'inspection vient lire.
+
+**La déclaration de soupçon se décide à deux, dans les deux sens.** Déclarer met en cause une
+personne et engage la banque ; ne pas déclarer l'engage autant. Elle cite les alertes qu'elle
+couvre — une déclaration qui ne renverrait à rien serait indéfendable — et ces alertes passent à
+`REPORTED` sans en ressortir : leur sort est scellé par la déclaration, pas par un classement. La
+transmission enregistre la référence rendue par la cellule : c'est elle qui prouve le dépôt
+(`a_report_seals_the_alerts_it_cites`).
+
+**Tout cela est secret, et l'habilitation le dit.** `AML_READ` n'est ouvert qu'au risque et à
+l'audit, en lecture tracée — jamais au guichet, jamais à la gestion de portefeuille. Informer la
+personne surveillée est un délit, et le socle ne doit pas offrir le chemin qui le rendrait possible
+par inadvertance (`lcb_ft`). Le périmètre est l'entité, jamais l'agence : une surveillance tronquée
+par l'agence ne verrait pas le client qui répartit ses versements sur trois guichets — c'est-à-dire
+exactement ce qu'il faut voir.
+
+**L'étape de surveillance ne bloque pas l'arrêté.** Elle vient avec les revues — dormance,
+connaissance client, suspens — et pour la même raison : un client suspect n'est pas une panne de la
+banque, et une alerte qui empêcherait l'arrêté ferait de la conformité le premier obstacle à la
+comptabilité. Elle vient **après** les traitements comptables : ce qu'elle regarde est la journée
+telle qu'elle a été arrêtée, prélèvements et échéances compris.
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
@@ -1064,6 +1140,11 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 - référentiel client : rescan périodique des listes de sanctions et matrice de restriction par
   opération — les pièces datées et leurs échéances, la politique de diligence, la complétude qui
   restreint l'ouverture, les bénéficiaires effectifs et les relations entre tiers, eux, sont faits ;
+- LCB-FT : le connecteur vers un fournisseur de listes (sanctions, PPE) reste à brancher sur
+  l'interface de filtrage, et la déclaration de soupçon n'a pas encore le format de transmission
+  de la cellule nationale — les scénarios paramétrés et leurs quatre méthodes, l'alerte avec ses
+  pièces, l'instruction et le classement motivé, la déclaration à deux et sa transmission, eux,
+  sont faits ;
 - crédit : le moteur de score lui-même (le socle porte le score et sa source, il ne les calcule
   pas), le comité comme circuit à plus de deux yeux, et le recouvrement contentieux (dossier,
   frais, huissier, réalisation de sûreté) — la demande, l'instruction, la décision sous délégation,
@@ -1266,3 +1347,9 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Aucun approbateur dans un corps de requête : le checker est le sujet de son jeton | Un identifiant d'approbateur fourni par le maker est une double validation que le maker fait seul |
 | Une opération en attente garde la requête, pas une commande construite | À l'approbation, la requête est rejouée contre l'état du moment : un compte fermé entre-temps refuse l'opération comme il l'aurait refusée au guichet |
 | Le maker ne valide pas sa propre opération : refusé par la politique et par la base | Deux barrières indépendantes, parce que c'est la fraude interne la plus simple à commettre |
+| Le filtrage bloque, la surveillance alerte | Opérer avec une personne listée est l'infraction elle-même ; un compteur statistique n'est qu'une présomption, et bloquer sur lui priverait un client de son argent sans que la banque sache dire pourquoi |
+| Les scénarios LCB-FT sont du paramétrage, leurs méthodes du code | Les seuils changent d'une circulaire à l'autre ; une conformité qui attend la prochaine livraison n'est pas une conformité |
+| Une alerte déjà levée sur la fenêtre ne se relève pas | Un scénario sur trente jours réclamerait le même fait trente fois, et le vrai signal disparaîtrait sous le sien |
+| Les alertes d'un arrêté annulé sont effacées, sauf celles prises en instruction | Une alerte sans fait derrière elle n'a plus d'objet ; défaire le travail de la conformité parce qu'une journée est rejouée serait pire |
+| La file LCB-FT ne se lit ni au guichet ni en gestion de portefeuille | Informer la personne surveillée est un délit : le socle ne doit pas offrir le chemin qui le rendrait possible par inadvertance |
+| Le contrat OpenAPI publié est écrit à clés ordonnées | Les tables de hachage du sérialiseur varient d'une exécution à l'autre : sans ordre, chaque régénération produirait un diff illisible où l'ajout d'une route se perdrait |

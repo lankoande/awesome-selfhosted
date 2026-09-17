@@ -225,6 +225,35 @@ public final class Requests {
     /** Rupture avant terme : le motif est la piece que lira le controle. */
     public record TermDepositBreak(String reason) {}
 
+    // ------------------------------------------------------------------ LCB-FT
+
+    /**
+     * Scenario de surveillance : la methode est du code, tout le reste est du parametrage.
+     *
+     * @param method {@code CASH_THRESHOLD}, {@code STRUCTURING}, {@code ATYPICAL_ACTIVITY} ou
+     *     {@code DORMANT_REACTIVATION}
+     * @param riskRating population visee par la notation de risque, absente pour tous les dossiers
+     */
+    public record MonitoringScenarioRequest(String code, String label, String method,
+                                            BigDecimal thresholdAmount, Integer windowDays,
+                                            Integer minimumCount, BigDecimal ratio,
+                                            String riskRating, LocalDate validFrom,
+                                            LocalDate validTo) {}
+
+    /** Classement d'une alerte : le motif est la piece que l'inspection viendra lire. */
+    public record AlertClosureRequest(String reason) {}
+
+    /** Profil d'activite declare par le client : c'est contre lui que l'atypie se mesure. */
+    public record ActivityProfileRequest(BigDecimal expectedMonthlyCredit,
+                                         BigDecimal expectedMonthlyDebit, String currency) {}
+
+    /** Declaration de soupcon : l'expose des faits est ce que la cellule lira. */
+    public record SuspicionReportRequest(UUID partyId, String reference, String narrative,
+                                         List<UUID> alertIds) {}
+
+    /** Transmission : la reference rendue par la cellule est la preuve du depot. */
+    public record ReportTransmissionRequest(LocalDate transmittedOn, String reference) {}
+
     // ------------------------------------------------------------------ fin de vie du credit
 
     /** Passage en perte : le motif est la piece que lira le controle. */

@@ -65,6 +65,10 @@ class OperationCoverageTest {
         Map.entry("Relationships.declare / BeneficialOwners.declare",
                   Operation.PARTY_RELATIONSHIP),
         Map.entry("KycPolicies.declare", Operation.KYC_POLICY_MANAGE),
+        Map.entry("MonitoringScenarios.declare", Operation.AML_SCENARIO_MANAGE),
+        Map.entry("ActivityProfiles.declare", Operation.AML_PROFILE_DECLARE),
+        Map.entry("AmlAlerts.assign / close", Operation.AML_ALERT_REVIEW),
+        Map.entry("SuspiciousActivityReports.draft / transmit", Operation.AML_REPORT),
         Map.entry("LoanOrigination.submit / assess / addCondition", Operation.LOAN_APPLICATION),
         Map.entry("LoanOrigination.decide", Operation.LOAN_APPLICATION_DECIDE),
         Map.entry("LoanOrigination.clearCondition", Operation.LOAN_CONDITION_CLEAR),
@@ -104,7 +108,7 @@ class OperationCoverageTest {
         Operation.PARTY_READ, Operation.LOAN_READ, Operation.PAYMENT_READ, Operation.CHEQUE_READ,
         Operation.DIRECT_DEBIT_READ, Operation.SUSPENSE_READ, Operation.FX_READ,
         Operation.PARTY_FILE_READ, Operation.STANDING_ORDER_READ, Operation.TERM_DEPOSIT_READ,
-        Operation.AUDIT_READ);
+        Operation.AML_READ, Operation.AUDIT_READ);
 
     @Test
     @DisplayName("toute operation est reclamee par un point d'entree, ou est une consultation")
@@ -143,6 +147,8 @@ class OperationCoverageTest {
                                               Operation.SUSPENSE_MANAGE,
                                               Operation.PARTY_RELATIONSHIP,
                                               Operation.KYC_POLICY_MANAGE,
+                                              Operation.AML_SCENARIO_MANAGE,
+                                              Operation.AML_REPORT,
                                               Operation.LOAN_APPLICATION_DECIDE,
                                               Operation.LOAN_CONDITION_CLEAR,
                                               Operation.LENDING_POLICY_MANAGE,

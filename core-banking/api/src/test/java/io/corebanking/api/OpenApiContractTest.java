@@ -38,7 +38,12 @@ class OpenApiContractTest {
     void the_published_contract_matches_the_controllers() throws Exception {
         List<Class<?>> controllers = controllers();
         assertThat(controllers).hasSizeGreaterThan(15);
-        ObjectMapper json = JsonMapper.builder().enable(SerializationFeature.INDENT_OUTPUT).build();
+        // Les cles sont ordonnees : le contrat verse se relit dans un diff, et une route ajoutee
+        // se voit a sa place au lieu de deplacer le document entier.
+        ObjectMapper json = JsonMapper.builder()
+            .enable(SerializationFeature.INDENT_OUTPUT)
+            .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
+            .build();
         String rendered = json.writeValueAsString(OpenApiDocument.generate(controllers)) + "\n";
 
         if (Boolean.getBoolean("openapi.update")) {

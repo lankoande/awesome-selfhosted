@@ -78,6 +78,7 @@ class TfjEngineIT extends TfjTestBase {
                              "TERM_DEPOSIT_MATURITY", "INTEREST_ACCRUAL",
                              "INTEREST_SETTLEMENT", "FX_REVALUATION", "DORMANCY", "KYC_REVIEW",
                              "DOCUMENT_EXPIRY", "OFFER_EXPIRY", "SUSPENSE_REVIEW",
+                             "AML_MONITORING",
                              "BALANCE_SNAPSHOT",
                              "RECONCILIATION", "OPEN_NEXT_DAY");
         assertThat(run.steps()).allMatch(

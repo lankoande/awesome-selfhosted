@@ -93,6 +93,20 @@ public enum Operation {
     PARTY_RELATIONSHIP,
     /** Politique de diligence : pieces exigees, beneficiaires effectifs, seuil de detention. */
     KYC_POLICY_MANAGE,
+    /** Scenario de surveillance LCB-FT : methode, seuils, fenetre, population, a deux. */
+    AML_SCENARIO_MANAGE,
+    /** Profil d'activite declare : ce contre quoi l'atypie se mesure. */
+    AML_PROFILE_DECLARE,
+    /** Instruction d'une alerte : prise en charge, classement motive. */
+    AML_ALERT_REVIEW,
+    /** Declaration de soupcon a la cellule de renseignement financier, a deux, et sa transmission. */
+    AML_REPORT,
+    /**
+     * Consultation des alertes, des scenarios et des declarations. Reservee a la conformite et a
+     * l'audit : informer la personne surveillee est un delit, et une lecture ouverte au guichet
+     * serait le chemin le plus court pour le commettre sans le vouloir.
+     */
+    AML_READ,
     /** Lecture du dossier a l'echelle de l'entite : politique declaree, dossiers incomplets. */
     PARTY_FILE_READ,
     /** Cotation d'un cours de reference, a deux : il controle tout cours applique. */

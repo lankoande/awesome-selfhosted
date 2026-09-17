@@ -681,6 +681,9 @@ public final class TfjEngine {
         io.corebanking.loan.service.LoanOrigination.cancelRun(connection, runId);
         io.corebanking.deposits.StandingOrderService.cancelRun(connection, runId, on);
         io.corebanking.deposits.TermDepositService.cancelRun(connection, runId);
+        // Une alerte nait d'operations : si la journee qui les a produites est defaite, elle n'a
+        // plus de fait derriere elle. Celles que la conformite a deja prises en charge restent.
+        io.corebanking.compliance.AmlAlerts.cancelRun(connection, runId);
         // Les prelevements executes par l'arrete redeviennent en attente ; leurs ecritures sont
         // deja contre-passees, leurs blocages tombent ici.
         io.corebanking.deposits.DirectDebitService.cancelRun(connection, runId, on, actorId);

@@ -99,6 +99,35 @@ Le moteur de correspondance approximative (phonétique, translittération, permu
 workflow de levée de doute ; il ne réimplémente pas l'algorithme de matching, domaine où un
 développement maison produit des taux de faux négatifs inacceptables.
 
+> **Implémenté** — l'interface `Screening` est appelée à la création d'un tiers ; une
+> correspondance crée le dossier **bloqué**, en attente de levée de doute (à deux), plutôt que de
+> ne pas le créer : la tentative elle-même est une information. Le décorateur `AlertingScreening`
+> (module `compliance`) l'enveloppe et lève, **dans la transaction qui crée le tiers**, une alerte
+> d'origine `SCREENING` : un dossier bloqué sans file d'instruction n'a personne pour lever le
+> doute, et l'inspection ne demande pas si le blocage a eu lieu — elle demande qui a décidé de le
+> lever, et sur quoi. Le connecteur vers un fournisseur de listes reste à brancher ; le rescan
+> périodique et le filtrage sur transaction ne sont pas faits.
+
+---
+
+### Surveillance LCB-FT (`compliance`)
+
+Le module `compliance` porte la surveillance des opérations et la déclaration de soupçon
+([07 §6](07-securite-conformite.md#lcb-ft) pour le détail des tables, des méthodes et des
+habilitations).
+
+- **Scénarios paramétrés, méthodes codées** : quatre façons de compter (seuil d'espèces,
+  fractionnement, atypie contre profil déclaré, réveil de compte dormant) ; seuils, fenêtres et
+  populations sont du paramétrage, déclaré à deux.
+- **Une alerte constate, elle n'empêche rien** : seul le filtrage bloque. L'alerte porte ses
+  pièces — les écritures qui l'ont déclenchée —, s'instruit, et se classe avec son motif.
+- **Profil d'activité déclaré** : recueilli au guichet avec la connaissance client, c'est la
+  seule référence contre laquelle l'atypie a un sens.
+- **Déclaration de soupçon** : à deux, elle cite les alertes qu'elle couvre et les scelle ; sa
+  transmission enregistre la référence rendue par la cellule.
+- **Dans l'arrêté** : l'étape `AML_MONITORING`, non bloquante, après les traitements comptables
+  ([05 §2](05-batch-arrete.md#2-séquence-du-tfj)).
+
 ---
 
 ## 2. Dépôts (`deposits`)

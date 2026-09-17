@@ -267,6 +267,31 @@ public final class SecurityConfig {
             AccessRule.allow(RISK_OFFICER).within(Scope.OWN_ENTITY)
                 .requiringSecondPerson().build());
 
+        // LCB-FT. Le scenario decide de ce que la banque regarde — et de ce qu'elle ne regarde
+        // pas : il se declare a deux. La declaration de soupcon engage la banque dans les deux
+        // sens, elle aussi. L'instruction, elle, est le travail quotidien d'un seul analyste.
+        policy.put(Operation.AML_SCENARIO_MANAGE,
+            AccessRule.allow(RISK_OFFICER).within(Scope.OWN_ENTITY)
+                .requiringSecondPerson().build());
+
+        // Le profil declare se recueille au guichet, avec le reste de la connaissance client.
+        policy.put(Operation.AML_PROFILE_DECLARE,
+            AccessRule.allow(CUSTOMER_OFFICER, BRANCH_MANAGER, RISK_OFFICER)
+                .within(Scope.OWN_BRANCH).build());
+
+        policy.put(Operation.AML_ALERT_REVIEW,
+            AccessRule.allow(RISK_OFFICER).within(Scope.OWN_ENTITY).build());
+
+        policy.put(Operation.AML_REPORT,
+            AccessRule.allow(RISK_OFFICER).within(Scope.OWN_ENTITY)
+                .requiringSecondPerson().build());
+
+        // Ni le guichet ni la gestion de portefeuille ne lisent ici : la surveillance ne se
+        // discute pas avec celui qui recoit le client.
+        policy.put(Operation.AML_READ,
+            AccessRule.allow(RISK_OFFICER, AUDITOR).within(Scope.OWN_ENTITY)
+                .tracedOnRead().build());
+
         // La politique declaree et la liste des dossiers incomplets se lisent a l'echelle de
         // l'entite : le guichetier doit savoir quelles pieces reclamer, la conformite et l'audit
         // ont besoin de la liste de travail — qu'aucun perimetre d'agence ne doit tronquer.

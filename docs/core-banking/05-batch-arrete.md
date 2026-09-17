@@ -105,6 +105,7 @@ PLANIFIÉ → EN_COURS → ┬→ TERMINÉ → (jour suivant ouvert)
 | 13c | `STANDING_ORDERS` | Ordres permanents à l'échéance : virement interne ou dépôt d'un ordre de paiement, rejets nommés retentés un nombre borné de fois | ✔ |
 | 14 | `KYC_REVIEW` | Échéances de revue périodique de la connaissance client ; expiration de documents : non fait | ✔ (non bloquante) |
 | 14b | `SUSPENSE_REVIEW` | Revue des suspens : ordres, remises, prélèvements non réglés, comptes d'attente non soldés, par ancienneté en jours ouvrés et responsable ; les retards en anomalies | ✔ (non bloquante) |
+| 14c | `AML_MONITORING` | Surveillance LCB-FT : les scénarios actifs appliqués à la journée arrêtée, alertes levées avec leurs pièces | ✔ (non bloquante) |
 | 15 | `BALANCE_SNAPSHOT` | Snapshot des soldes par date comptable et par date de valeur, et par agence | ✔ |
 | 16 | `RECONCILIATION` | Contrôles d'intégrité (cf. §5), compensation inter-agences comprise | ✔ |
 | 17 | `REPORTING` | États quotidiens, extractions vers le datamart | |
@@ -118,7 +119,7 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > `LOAN_LATE_CHARGES` → `LOAN_CLASSIFICATION` → `LOAN_CLOSURE` → `TERM_DEPOSIT_ACCRUAL` →
 > `TERM_DEPOSIT_MATURITY` → `INTEREST_ACCRUAL` →
 > `INTEREST_SETTLEMENT` → `FX_REVALUATION` → `DORMANCY` → `KYC_REVIEW` → `DOCUMENT_EXPIRY` →
-> `OFFER_EXPIRY` → `SUSPENSE_REVIEW` → `BALANCE_SNAPSHOT` →
+> `OFFER_EXPIRY` → `SUSPENSE_REVIEW` → `AML_MONITORING` → `BALANCE_SNAPSHOT` →
 > `RECONCILIATION` → `OPEN_NEXT_DAY`. Les étapes absentes s'insèrent sans toucher au moteur.
 >
 > `FX_RATES` vient avant tout calcul : une journée qui comptabiliserait des intérêts en devise,
@@ -189,6 +190,17 @@ laissent le run se poursuivre, avec restitution à la clôture.
 > comptabilisent rien et ne bloquent pas la journée — un dossier de revue en retard n'empêche pas
 > la banque d'arrêter ses comptes ; les dossiers expirés sont rendus en anomalies non bloquantes,
 > liste de travail du lendemain. Les trois sont défaites par l'annulation de l'arrêté.
+>
+> `AML_MONITORING` vient avec les revues, et pour la même raison : un client suspect n'est pas une
+> panne de la banque, et une alerte qui empêcherait l'arrêté ferait de la conformité le premier
+> obstacle à la comptabilité — l'étape ne bloque donc pas. Elle vient **après** les traitements
+> comptables : ce qu'elle regarde est la journée telle qu'elle a été arrêtée, prélèvements et
+> échéances comprises ; un scénario qui tournerait avant ignorerait la moitié des mouvements du
+> jour. Ce qui fait anomalie ici n'est pas une alerte, c'est un scénario qui ne s'exécute pas —
+> un défaut de paramétrage que personne ne verrait autrement avant l'inspection. L'annulation de
+> l'arrêté efface les alertes qu'il a levées, **sauf celles déjà prises en instruction ou
+> déclarées** : une alerte sans fait derrière elle n'a plus d'objet, mais défaire le travail de
+> la conformité parce qu'une journée est rejouée serait pire que de la garder.
 >
 > Chaque frontière — lancement, reprise, étape, fin, annonce, annulation — est journalisée (SLF4J)
 > avec entité, journée, identifiant du traitement, étape, volumes lus et écrits, durée et

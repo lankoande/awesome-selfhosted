@@ -106,7 +106,8 @@ public final class DualControlHandlers {
                        new ReviseLoanRate(database, loans),
                        new RegisterStandingOrder(database, standingOrders, accounts),
                        new SubscribeTermDeposit(termDeposits, accounts),
-                       new BreakTermDeposit(database, termDeposits, accounts));
+                       new BreakTermDeposit(database, termDeposits, accounts),
+                       new DeclareMonitoringScenario(database), new ReportSuspicion(database));
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -2201,6 +2202,157 @@ public final class DualControlHandlers {
             UUID id = uuid(payload, "termDepositId");
             return database.inTransaction(
                 c -> io.corebanking.deposits.TermDepositService.require(c, id));
+        }
+    }
+
+
+    /**
+     * Declaration d'un scenario de surveillance.
+     *
+     * <p>Elle se decide a deux parce qu'elle decide de ce que la banque regarde — et, ce qui est
+     * plus grave, de ce qu'elle ne regarde pas. Un seuil releve d'un trait par une seule main
+     * eteint une typologie entiere sans que rien ne le signale.
+     */
+    static final class DeclareMonitoringScenario implements MakerChecker.Handler {
+        private final Database database;
+
+        DeclareMonitoringScenario(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "AML_SCENARIO_DECLARE"; }
+        @Override public Operation operation() { return Operation.AML_SCENARIO_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "code");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            io.corebanking.compliance.MonitoringScenarios.Method method;
+            try {
+                method = io.corebanking.compliance.MonitoringScenarios.Method.valueOf(
+                    required(payload, "method").trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Methode de surveillance inconnue : "
+                    + text(payload, "method") + " (CASH_THRESHOLD, STRUCTURING, "
+                    + "ATYPICAL_ACTIVITY, DORMANT_REACTIVATION)");
+            }
+            return database.inTransaction(c ->
+                io.corebanking.compliance.MonitoringScenarios.declare(c,
+                    new io.corebanking.compliance.MonitoringScenarios.Draft(
+                        uuid(payload, "legalEntityId"), required(payload, "code"),
+                        required(payload, "label"), method,
+                        decimal(payload, "thresholdAmount"), count(payload, "windowDays"),
+                        count(payload, "minimumCount"), decimal(payload, "ratio"),
+                        rating(payload), date(payload, "validFrom"), date(payload, "validTo"),
+                        Callers.actorId(maker), Callers.actorId(checker))));
+        }
+
+        private static String rating(Map<String, Object> payload) {
+            String value = text(payload, "riskRating");
+            if (value == null || value.isBlank()) {
+                return null;
+            }
+            try {
+                return io.corebanking.party.RiskRating.valueOf(
+                    value.trim().toUpperCase(java.util.Locale.ROOT)).name();
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Notation de risque inconnue : " + value);
+            }
+        }
+
+        private static java.math.BigDecimal decimal(Map<String, Object> payload, String key) {
+            String value = text(payload, key);
+            return value == null || value.isBlank() ? null : new java.math.BigDecimal(value.trim());
+        }
+
+        private static Integer count(Map<String, Object> payload, String key) {
+            String value = text(payload, key);
+            if (value == null || value.isBlank()) {
+                return null;
+            }
+            try {
+                return Integer.parseInt(value.trim());
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Entier attendu pour " + key + " : " + value);
+            }
+        }
+
+        private static java.time.LocalDate date(Map<String, Object> payload, String key) {
+            String value = text(payload, key);
+            return value == null || value.isBlank() ? null
+                : java.time.LocalDate.parse(value.trim());
+        }
+    }
+
+    /**
+     * Redaction d'une declaration de soupcon.
+     *
+     * <p>Elle se decide a deux dans les deux sens : declarer met en cause une personne et engage
+     * la banque ; ne pas declarer l'engage autant. Elle cite les alertes qu'elle couvre, qui n'en
+     * ressortent plus — leur sort est scelle par la declaration, pas par un classement.
+     */
+    static final class ReportSuspicion implements MakerChecker.Handler {
+        private final Database database;
+
+        ReportSuspicion(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "AML_REPORT_DRAFT"; }
+        @Override public Operation operation() { return Operation.AML_REPORT; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "reference");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            java.util.List<java.util.UUID> alerts = new java.util.ArrayList<>();
+            for (String id : required(payload, "alertIds").split(",")) {
+                if (!id.isBlank()) {
+                    alerts.add(java.util.UUID.fromString(id.trim()));
+                }
+            }
+            java.util.UUID entity = uuid(payload, "legalEntityId");
+            return database.inTransaction(c -> {
+                java.time.LocalDate on = businessDate(c, entity);
+                java.util.UUID id = io.corebanking.compliance.SuspiciousActivityReports.draft(c,
+                    new io.corebanking.compliance.SuspiciousActivityReports.Draft(
+                        entity, uuid(payload, "partyId"), required(payload, "reference"), on,
+                        required(payload, "narrative"), alerts, Callers.actorId(maker),
+                        Callers.actorId(checker)));
+                return io.corebanking.compliance.SuspiciousActivityReports.require(c, id);
+            });
+        }
+
+        private static java.time.LocalDate businessDate(java.sql.Connection c,
+                                                        java.util.UUID legalEntityId) {
+            try (var ps = c.prepareStatement(
+                "SELECT current_business_date FROM legal_entity WHERE id = ?")) {
+                ps.setObject(1, legalEntityId);
+                try (var rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        throw new IllegalArgumentException("Entite inconnue : " + legalEntityId);
+                    }
+                    return rs.getObject(1, java.time.LocalDate.class);
+                }
+            } catch (java.sql.SQLException e) {
+                throw new io.corebanking.ledger.store.LedgerStoreException("Date comptable", e);
+            }
         }
     }
 

@@ -81,7 +81,7 @@
     {
       "code": "risk_officer",
       "name": "Responsable des risques",
-      "description": "Blocages de comptes, seconde validation du parametrage produit, politiques de diligence client et d'octroi de credit (endettement, montant, duree, apport, garantie) a deux.",
+      "description": "Blocages de comptes, seconde validation du parametrage produit, politiques de diligence client et d'octroi de credit (endettement, montant, duree, apport, garantie) a deux, dispositif LCB-FT : scenarios de surveillance a deux, instruction et classement motive des alertes, declaration de soupcon a deux et sa transmission.",
       "isSystem": true,
       "category": "CONTROLE",
       "attributes": {
@@ -103,7 +103,7 @@
     {
       "code": "auditor",
       "name": "Auditeur",
-      "description": "Consultation transverse aux entites, acces a la piste d'audit, balance, grand livre, journal, etats financiers, revue des suspens, positions de change et dossiers clients incomplets de son entite. Profil exclusif : ne se cumule avec aucun role operationnel.",
+      "description": "Consultation transverse aux entites, acces a la piste d'audit, balance, grand livre, journal, etats financiers, revue des suspens, positions de change, dossiers clients incomplets et dispositif LCB-FT (scenarios, alertes, declarations) de son entite, en lecture tracee. Profil exclusif : ne se cumule avec aucun role operationnel.",
       "isSystem": true,
       "category": "CONTROLE",
       "attributes": {

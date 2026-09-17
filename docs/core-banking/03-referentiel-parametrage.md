@@ -375,6 +375,14 @@ code, car elle implique des algorithmes différents. Les *seuils, taux, buckets 
 règles de contagion* sont du paramétrage. Cette séparation permet de couvrir un nouveau
 pays partageant une méthode existante sans aucune livraison.
 
+La **surveillance LCB-FT** suit exactement la même frontière, et pour la même raison. La façon de
+compter est du code — cumuler des espèces sur une fenêtre, reconnaître un fractionnement,
+confronter des flux à un profil déclaré, voir un compte oublié se réveiller ; ajouter une méthode
+est une livraison, parce qu'elle change ce que la banque sait regarder. Les seuils, les fenêtres,
+les nombres minimaux, les ratios et les populations visées sont du paramétrage, déclaré à deux et
+daté (`monitoring_scenario`, V53) : ils changent d'une circulaire à l'autre, et une conformité qui
+attend la prochaine version n'est pas une conformité.
+
 ---
 
 ## 8. Gouvernance du paramétrage

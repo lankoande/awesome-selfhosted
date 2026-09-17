@@ -23,6 +23,7 @@ import io.corebanking.tfj.steps.OfferExpiryStep;
 import io.corebanking.tfj.steps.DormancyStep;
 import io.corebanking.tfj.steps.FxRatesStep;
 import io.corebanking.tfj.steps.FxRevaluationStep;
+import io.corebanking.tfj.steps.AmlMonitoringStep;
 import io.corebanking.tfj.steps.SuspenseReviewStep;
 import io.corebanking.tfj.steps.TermDepositAccrualStep;
 import io.corebanking.tfj.steps.TermDepositMaturityStep;
@@ -105,6 +106,11 @@ import java.util.List;
  *       terme comprise ; et les interets qu'un terme verse sur un compte courant entrent dans le
  *       solde sur lequel ce compte est remunere le meme jour. L'ordre inverse remunererait un
  *       solde que le client n'a pas encore.</li>
+ *   <li><b>La surveillance LCB-FT apres les traitements comptables.</b> Ce qu'elle regarde est
+ *       la journee telle qu'elle a ete arretee, prelevements et echeances compris ; un scenario
+ *       qui tournerait avant ignorerait la moitie des mouvements du jour. Comme les autres
+ *       revues, elle ne comptabilise rien et ne bloque pas : un client suspect n'est pas une
+ *       panne de la banque.</li>
  *   <li><b>La reconciliation avant la bascule.</b> C'est tout le mecanisme : tant que les controles
  *       ne sont pas verts, la journee ne bascule pas, et le systeme refuse de travailler sur la
  *       suivante.</li>
@@ -162,6 +168,8 @@ public final class StandardTfj {
             new DocumentExpiryStep(database),
             new OfferExpiryStep(database),
             new SuspenseReviewStep(database, calendar),
+            new AmlMonitoringStep(
+                new io.corebanking.compliance.MonitoringService(database)),
             new BalanceSnapshotStep(database),
             new ReconciliationStep(database, subLedgerChecks()),
             new OpenNextDayStep(database, calendar));

@@ -461,6 +461,55 @@ anonymisée y est la fuite de données la plus fréquente du secteur.
 Les scénarios de surveillance sont **paramétrés**, pas codés : seuils, fenêtres temporelles
 et populations concernées évoluent avec la réglementation et les typologies locales.
 
+**Implémenté — module `compliance` (V53).** Ce qui est du code est la *façon de compter* ; tout le
+reste est du paramétrage.
+
+| Objet | Ce qu'il porte |
+|---|---|
+| `monitoring_scenario` | Code, libellé, méthode, seuil, fenêtre, nombre minimal, ratio, population visée (notation de risque), validité, deux signatures |
+| `party_activity_profile` | Flux mensuels attendus au crédit et au débit, déclarés au guichet — la référence de l'atypie |
+| `aml_alert` | Origine (`SCREENING` / `MONITORING`), scénario, date, détail, montant, statut, affectation, clôture motivée, déclaration, arrêté d'origine |
+| `aml_alert_item` | Les écritures qui ont déclenché l'alerte — ses pièces |
+| `suspicious_activity_report` | Référence, exposé des faits, deux signatures, date et référence de transmission |
+
+Quatre méthodes sont codées, et en ajouter une est une livraison — elle change ce que la banque
+sait regarder :
+
+| Méthode | Ce qu'elle compte |
+|---|---|
+| `CASH_THRESHOLD` | Espèces cumulées au-delà d'un montant sur une fenêtre, dans les deux sens |
+| `STRUCTURING` | Opérations **chacune sous le seuil**, assez nombreuses, dont la somme le franchit |
+| `ATYPICAL_ACTIVITY` | Flux hors de proportion avec le profil déclaré, selon un ratio |
+| `DORMANT_REACTIVATION` | Un compte dormant qui se remet à bouger au-delà d'un montant |
+
+Trois règles fixent la portée du dispositif :
+
+- **Seul le filtrage bloque.** Opérer avec une personne listée est l'infraction elle-même : le
+  dossier est créé bloqué, en attente de levée de doute, et une alerte d'origine `SCREENING` ouvre
+  la file d'instruction. La surveillance, elle, ne bloque rien — un compteur statistique ne prouve
+  rien, et priver un client de son argent sur une présomption n'est pas défendable.
+- **Le même fait ne se réclame pas deux fois.** Une alerte déjà levée sur la fenêtre, ouverte ou
+  classée, suffit ; sinon un scénario sur trente jours lèverait trente alertes pour un fait.
+- **La déclaration scelle les alertes qu'elle cite.** Elles passent à `REPORTED` et n'en ressortent
+  pas : leur sort est fixé par la déclaration, pas par un classement.
+
+L'habilitation dit le secret : `AML_READ` n'est ouvert qu'au responsable des risques et à
+l'auditeur, en lecture tracée. Ni le guichet ni la gestion de portefeuille n'accèdent aux alertes
+et aux déclarations — informer la personne surveillée est un délit. Le périmètre est l'entité,
+jamais l'agence : tronquée par l'agence, la surveillance ne verrait pas le client qui répartit ses
+versements sur trois guichets.
+
+| Opération | Portée | À deux | Rôles |
+|---|---|---|---|
+| `AML_SCENARIO_MANAGE` | Entité | oui | Responsable des risques |
+| `AML_PROFILE_DECLARE` | Agence | non | Chargé de clientèle, chef d'agence, responsable des risques |
+| `AML_ALERT_REVIEW` | Entité | non | Responsable des risques |
+| `AML_REPORT` | Entité | oui | Responsable des risques |
+| `AML_READ` | Entité, tracée | non | Responsable des risques, auditeur |
+
+Reste à faire : le connecteur vers un fournisseur de listes (l'interface `Screening` l'attend), le
+rescan périodique du portefeuille, et le format de transmission de la cellule nationale.
+
 ### Prudentiel et réglementaire
 
 Le moteur de reporting s'appuie sur le profil réglementaire de l'entité

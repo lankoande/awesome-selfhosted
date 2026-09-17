@@ -2195,6 +2195,115 @@ class ApiIT {
             .as("un statut inconnu se refuse au lieu de rendre une liste vide").isEqualTo(422);
     }
 
+    @Test
+    @Order(22)
+    @DisplayName("LCB-FT : scenario declare a deux, alerte instruite puis declaree a deux, secrete pour le guichet")
+    void lcb_ft() throws Exception {
+        // Le scenario decide de ce que la banque regarde — et surtout de ce qu'elle ne regarde
+        // pas : il se declare a deux.
+        Map<String, Object> scenario = new LinkedHashMap<>();
+        scenario.put("code", "API-ESPECES");
+        scenario.put("label", "Especes cumulees au-dela du seuil");
+        scenario.put("method", "CASH_THRESHOLD");
+        scenario.put("thresholdAmount", "100000");
+        scenario.put("windowDays", 30);
+        scenario.put("validFrom", J.minusMonths(1).toString());
+
+        assertThat(post(officer, "/compliance/scenarios", null, scenario).status())
+            .as("le guichet ne fixe pas ce que la conformite regarde").isEqualTo(403);
+        Map<String, Object> incomplet = new LinkedHashMap<>(scenario);
+        incomplet.remove("windowDays");
+        assertThat(post(riskOfficer, "/compliance/scenarios", null, incomplet).status())
+            .as("un scenario sans fenetre ne surveille rien : refus a la soumission")
+            .isEqualTo(422);
+
+        Reponse proposee = post(riskOfficer, "/compliance/scenarios", null, scenario);
+        assertThat(proposee.status()).as(String.valueOf(proposee.envelope())).isEqualTo(202);
+        Reponse declare = post(riskOfficer2, "/pending-operations/" + attente(proposee) + "/approve",
+                               null, Map.of());
+        assertThat(declare.status()).as(String.valueOf(declare.envelope())).isEqualTo(200);
+        assertThat(get(riskOfficer, "/compliance/scenarios").items())
+            .extracting(v -> v.get("code")).contains("API-ESPECES");
+
+        // Le profil declare se recueille au guichet, avec le reste de la connaissance client.
+        Reponse profil = post(officer, "/compliance/parties/" + party + "/activity-profile", null,
+            Map.of("expectedMonthlyCredit", "250000", "expectedMonthlyDebit", "200000",
+                   "currency", "XOF"));
+        assertThat(profil.status()).as(String.valueOf(profil.envelope())).isEqualTo(200);
+        assertThat(((Map<?, ?>) profil.body().get("expectedMonthlyCredit")).get("amount"))
+            .isEqualTo("250000");
+
+        // Un versement d'especes au-dela du seuil, puis la surveillance : elle leve l'alerte.
+        // C'est l'arrete qui l'appelle en exploitation (TfjAmlIT) ; ici on l'execute directement
+        // pour eprouver ce que l'API en fait.
+        Reponse versement = post(teller, "/accounts/" + account + "/deposits", "aml-api-1",
+            Map.of("amount", "150000", "currency", "XOF", "channel", "GUICHET"));
+        assertThat(versement.status()).as(String.valueOf(versement.envelope())).isEqualTo(201);
+        LocalDate jour = LocalDate.parse((String) get(teller, "/accounts/" + account + "/balance")
+                                             .body().get("asOf"));
+        io.corebanking.compliance.MonitoringService.Result surveillance =
+            new io.corebanking.compliance.MonitoringService(database)
+                .run(ENTITY, jour, UUID.randomUUID(), GUICHETIER);
+        assertThat(surveillance.alerts()).as("le versement franchit le seuil").isEqualTo(1);
+
+        // La file est secrete : ni le guichet ni la gestion de portefeuille n'y accedent.
+        assertThat(get(teller, "/compliance/alerts").status())
+            .as("prevenir la personne surveillee est un delit").isEqualTo(403);
+        assertThat(get(officer, "/compliance/alerts").status()).isEqualTo(403);
+        assertThat(get(auditor, "/compliance/alerts").status()).isEqualTo(200);
+
+        Reponse ouvertes = get(riskOfficer, "/compliance/alerts?status=OPEN");
+        assertThat(ouvertes.status()).as(String.valueOf(ouvertes.envelope())).isEqualTo(200);
+        Map<String, Object> alerte = ouvertes.items().stream()
+            .filter(a -> "API-ESPECES".equals(a.get("scenarioCode"))).findFirst().orElseThrow();
+        UUID alertId = UUID.fromString((String) alerte.get("id"));
+        assertThat(get(riskOfficer, "/compliance/alerts?status=INCONNU").status())
+            .as("un statut inconnu se refuse au lieu de rendre une liste vide").isEqualTo(422);
+
+        // Instruire est un acte a un ; classer aussi, mais le motif est obligatoire.
+        Reponse prise = post(riskOfficer, "/compliance/alerts/" + alertId + "/assignment", null,
+                             Map.of());
+        assertThat(prise.status()).as(String.valueOf(prise.envelope())).isEqualTo(200);
+        assertThat(prise.body().get("status")).isEqualTo("UNDER_REVIEW");
+        assertThat(post(riskOfficer, "/compliance/alerts/" + alertId + "/closure", null,
+                        Map.of("reason", " ")).status())
+            .as("classee sans suite sans motif ne se controle pas").isEqualTo(422);
+
+        // La declaration de soupcon se decide a deux : declarer engage la banque, ne pas
+        // declarer aussi.
+        Map<String, Object> declaration = new LinkedHashMap<>();
+        declaration.put("partyId", party.toString());
+        declaration.put("reference", "DS-API-1");
+        declaration.put("narrative", "Versements d'especes sans rapport avec l'activite declaree.");
+        declaration.put("alertIds", List.of(alertId.toString()));
+        Reponse redigee = post(riskOfficer, "/compliance/reports", null, declaration);
+        assertThat(redigee.status()).as(String.valueOf(redigee.envelope())).isEqualTo(202);
+        assertThat(post(riskOfficer, "/pending-operations/" + attente(redigee) + "/approve", null,
+                        Map.of()).status()).as("celui qui redige ne valide pas").isEqualTo(403);
+        Reponse deposee = post(riskOfficer2, "/pending-operations/" + attente(redigee) + "/approve",
+                               null, Map.of());
+        assertThat(deposee.status()).as(String.valueOf(deposee.envelope())).isEqualTo(200);
+        UUID declarationId = UUID.fromString((String) resultat(deposee.body()).get("id"));
+
+        // L'alerte citee est scellee par la declaration : elle ne se classe plus.
+        Reponse scellee = get(riskOfficer, "/compliance/alerts/" + alertId);
+        assertThat(scellee.body().get("status")).isEqualTo("REPORTED");
+        assertThat(post(riskOfficer, "/compliance/alerts/" + alertId + "/closure", null,
+                        Map.of("reason", "finalement rien")).status()).isEqualTo(409);
+
+        // La transmission enregistre la reference rendue par la cellule : c'est la preuve du depot.
+        Reponse transmise = post(riskOfficer,
+            "/compliance/reports/" + declarationId + "/transmission", null,
+            Map.of("reference", "CENTIF-API-1"));
+        assertThat(transmise.status()).as(String.valueOf(transmise.envelope())).isEqualTo(200);
+        assertThat(transmise.body().get("transmissionReference")).isEqualTo("CENTIF-API-1");
+        assertThat(post(riskOfficer, "/compliance/reports/" + declarationId
+                        + "/transmission", null, Map.of("reference", "CENTIF-BIS")).status())
+            .as("une declaration ne se depose pas deux fois").isEqualTo(409);
+        assertThat(get(riskOfficer, "/compliance/reports").items())
+            .extracting(r -> r.get("reference")).contains("DS-API-1");
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static UUID attente(Reponse reponse) {

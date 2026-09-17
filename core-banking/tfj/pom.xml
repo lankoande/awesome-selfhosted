@@ -34,6 +34,10 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>io.corebanking</groupId><artifactId>compliance</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
       <groupId>io.corebanking</groupId><artifactId>deposits</artifactId>
       <version>${project.version}</version>
     </dependency>

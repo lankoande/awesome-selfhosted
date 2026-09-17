@@ -107,8 +107,11 @@ public class PlatformConfiguration {
 
     @Bean
     PartyService partyService(Database database) {
-        // Le filtrage (sanctions, PPE) est une interface : brancher ici l'editeur retenu.
-        return new PartyService(database, Screening.NONE);
+        // Le filtrage (sanctions, PPE) est une interface : brancher ici l'editeur retenu. Il est
+        // enveloppe par AlertingScreening, qui laisse une alerte a instruire sur correspondance :
+        // un dossier bloque sans file de travail n'est la conformite de personne.
+        return new PartyService(database,
+            new io.corebanking.compliance.AlertingScreening(Screening.NONE, database));
     }
 
     @Bean

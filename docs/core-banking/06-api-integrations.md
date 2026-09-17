@@ -125,7 +125,10 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
   enveloppe avec `page` quand la donnée est une liste. Le document est versé dans
   `openapi/openapi.json` et servi tel quel à `GET /v1/openapi.json` ; `OpenApiContractTest` le
   régénère et le compare, en nommant les routes et schémas ajoutés, retirés ou modifiés — une
-  évolution voulue se reprend avec `-Dopenapi.update=true`, et se voit dans la revue.
+  évolution voulue se reprend avec `-Dopenapi.update=true`, et se voit dans la revue. Le document
+  est écrit **à clés ordonnées** : les tables de hachage du sérialiseur varient d'une exécution de
+  la machine virtuelle à l'autre, et sans cet ordre chaque régénération produirait un diff de
+  plusieurs milliers de lignes où l'ajout d'une route se perdrait.
 
 | Méthode et chemin (`/v1/entities/{entityId}` en préfixe) | Opération | Corps |
 |---|---|---|
@@ -167,6 +170,15 @@ Receipt withdraw(Caller caller, UUID legalEntityId, UUID accountId, IdempotencyK
 | `POST /term-deposits` | `TERM_DEPOSIT_SUBSCRIBE` | référence, compte de dépôt (produit `TERM_DEPOSIT`), compte de règlement, capital, durée en mois, taux consenti (facultatif, borné par le produit), service des intérêts (`AT_MATURITY` ou une périodicité), instruction de terme (`PAY_OUT`, `RENEW_PRINCIPAL`, `RENEW_ALL`) — **202**, à deux dans l'agence du compte, plafonnée par rôle sur le capital ; instruction et périodicité validées à la soumission (`422`), bornes du produit (montant, durée, plafond de taux) à l'exécution (`409`) |
 | `POST /term-deposits/{id}/break` | `TERM_DEPOSIT_BREAK` | motif — **202**, à deux ; les intérêts sont ramenés au taux de pénalité sur la période courue et l'excédent repris ; un contrat déjà dénoué ou arrivé à terme est un `409` |
 | `GET /term-deposits?status=`, `GET /term-deposits/{id}` | `TERM_DEPOSIT_READ` | la liste, ou le contrat avec ce que chaque échéance a donné : intérêts servis, terme, rupture ; lecture tracée |
+| `POST /compliance/scenarios` | `AML_SCENARIO_MANAGE` | code, libellé, méthode (`CASH_THRESHOLD`, `STRUCTURING`, `ATYPICAL_ACTIVITY`, `DORMANT_REACTIVATION`), seuil, fenêtre, nombre minimal, ratio, population visée, validité — **202**, à deux ; un scénario incomplet pour sa méthode est refusé **à la soumission** (`422`), pas découvert par le valideur |
+| `GET /compliance/scenarios` | `AML_READ` | les scénarios de l'entité, actifs et passés ; lecture tracée |
+| `GET /compliance/alerts?status=`, `GET /compliance/alerts/{id}` | `AML_READ` | la file de la conformité, ou l'alerte avec ses pièces — les écritures qui l'ont déclenchée ; ni le guichet ni la gestion de portefeuille n'y accèdent |
+| `POST /compliance/alerts/{id}/assignment` | `AML_ALERT_REVIEW` | prise en charge : l'alerte passe à `UNDER_REVIEW` et porte le nom de celui qui l'instruit ; une alerte classée ou déclarée est un `409` |
+| `POST /compliance/alerts/{id}/closure` | `AML_ALERT_REVIEW` | motif obligatoire (`422` sinon) : « classée sans suite » sans raison écrite ne se contrôle pas |
+| `POST /compliance/parties/{partyId}/activity-profile` | `AML_PROFILE_DECLARE` | flux mensuels attendus au crédit et au débit, et leur devise — recueilli au guichet, c'est la référence contre laquelle l'atypie se mesure |
+| `POST /compliance/reports` | `AML_REPORT` | tiers, référence, exposé des faits, alertes couvertes — **202**, à deux ; les alertes citées passent à `REPORTED` et n'en ressortent pas, une alerte déjà déclarée ou d'un autre tiers est un `409` |
+| `POST /compliance/reports/{id}/transmission` | `AML_REPORT` | date et référence rendue par la cellule : c'est la preuve du dépôt ; une déclaration déjà transmise est un `409` |
+| `GET /compliance/reports` | `AML_READ` | les déclarations de l'entité et les alertes qu'elles couvrent ; lecture tracée |
 | `POST /calendar/cutoffs` | `CALENDAR_MANAGE` | canal (vide : tous), heure limite `HH:mm` dans le fuseau de l'entité, `closesChannel`, validité — **202**, à deux ; l'heure se valide à la soumission (`422`) ; au-delà de l'heure, une opération du canal prend valeur depuis le jour ouvré suivant, ou est refusée (`409`) si le canal ferme |
 | `POST /suspense-policies`, `GET /suspense-policies` | `SUSPENSE_MANAGE` | nature (`SUSPENSE_ACCOUNT`, `PAYMENT_ORDER`, `CHEQUE_DEPOSIT`, `DIRECT_DEBIT`), ancienneté tolérée en jours ouvrés, responsable, validité — **202**, à deux ; nature, tolérance et responsable validés à la soumission (`422`) |
 | `GET /suspense` | `SUSPENSE_READ` | la revue à la date comptable : chaque suspens avec son compte, son montant, depuis quand, son ancienneté, la tolérance et le responsable de sa politique, `overdue` ; lecture tracée |
