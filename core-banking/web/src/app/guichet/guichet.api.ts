@@ -1,14 +1,18 @@
-import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AppConfig } from '../core/config/runtime-config';
-import { ContexteCompte, DemandeEspeces, IssueVersement, Recu, RefusMetier, SoldeCompte } from './modele/guichet.modele';
+import {
+  ContexteCompte, DemandeEspeces, DemandeVirement, IssueVersement, LigneReleve, PageReleve, Recu,
+  RefusMetier, SoldeCompte,
+} from './modele/guichet.modele';
 import { Guichet } from './guichet.port';
 
 /** Enveloppe de réponse du socle : `{ data, page, error, meta }`. */
 interface Enveloppe<T> {
   readonly data: T;
   readonly error: { type: string; title: string; status: number; detail?: string } | null;
+  readonly page?: { size: number; number: number | null; hasNext: boolean; hasPrevious: boolean } | null;
   readonly meta: { requestId: string; timestamp: string };
 }
 
@@ -59,6 +63,46 @@ export class GuichetApi implements Guichet {
     return this.operation(demande, 'withdrawals');
   }
 
+  async virer(demande: DemandeVirement): Promise<IssueVersement> {
+    return this.poster(
+      `${this.racine()}/entities/${demande.legalEntityId}/transfers`,
+      {
+        sourceAccountId: demande.sourceAccountId,
+        destinationAccountId: demande.destinationAccountId,
+        amount: demande.amount,
+        currency: demande.currency,
+        channel: demande.channel,
+        narrative: demande.narrative,
+      },
+      demande.cleIdempotence,
+    );
+  }
+
+  async releve(legalEntityId: string, accountId: string, du: string | null, au: string | null,
+               page: number, taille: number): Promise<PageReleve> {
+    const url = `${this.racine()}/entities/${legalEntityId}/accounts/${accountId}/journal`;
+    let parametres = new HttpParams().set('page', page).set('size', taille);
+    if (du) parametres = parametres.set('from', du);
+    if (au) parametres = parametres.set('to', au);
+    try {
+      const enveloppe = await firstValueFrom(
+        this.http.get<Enveloppe<LigneReleve[]>>(url, {
+          params: parametres,
+          headers: new HttpHeaders({ 'X-Request-Id': crypto.randomUUID() }),
+        }),
+      );
+      return {
+        lignes: enveloppe.data ?? [],
+        numero: enveloppe.page?.number ?? page,
+        taille: enveloppe.page?.size ?? taille,
+        precedent: enveloppe.page?.hasPrevious ?? page > 0,
+        suivant: enveloppe.page?.hasNext ?? false,
+      };
+    } catch (erreur) {
+      throw this.refus(erreur);
+    }
+  }
+
   private async operation(demande: DemandeEspeces, route: 'deposits' | 'withdrawals'): Promise<IssueVersement> {
     const url = `${this.racine()}/entities/${demande.legalEntityId}/accounts/${demande.accountId}/${route}`;
     const corps = {
@@ -67,8 +111,12 @@ export class GuichetApi implements Guichet {
       channel: demande.channel,
       narrative: demande.narrative,
     };
+    return this.poster(url, corps, demande.cleIdempotence);
+  }
+
+  private async poster(url: string, corps: unknown, cleIdempotence: string): Promise<IssueVersement> {
     const entetes = new HttpHeaders({
-      'Idempotency-Key': demande.cleIdempotence,
+      'Idempotency-Key': cleIdempotence,
       'X-Request-Id': crypto.randomUUID(),
     });
 

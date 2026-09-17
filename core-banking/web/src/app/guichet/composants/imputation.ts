@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, booleanAttribute, computed, input } from '@angular/core';
 import { CbAmount, CbSection } from '../../ui';
 import { Recu } from '../modele/guichet.modele';
 
@@ -124,8 +124,16 @@ interface LigneImputation {
   `,
 })
 export class Imputation {
-  /** Le sens décide de l'ordre débit/crédit : la caisse encaisse ou décaisse. */
-  readonly sens = input<'versement' | 'retrait'>('versement');
+  /**
+   * Le sens décide de l'ordre débit/crédit, débit d'abord. Au versement, la
+   * contrepartie est débitée ; au retrait et au virement, c'est le compte
+   * principal.
+   */
+  readonly sens = input<'versement' | 'retrait' | 'virement'>('versement');
+  /** La contrepartie : la caisse au guichet, le compte bénéficiaire au virement. */
+  readonly contrepartieLibelle = input<string>("Caisse de l'agence");
+  readonly contrepartieCompte = input<string>('compte choisi par le schéma comptable');
+  readonly contrepartieMono = input(false, { transform: booleanAttribute });
   readonly montant = input.required<number | null>();
   readonly devise = input.required<string>();
   readonly compteCode = input.required<string>();
@@ -147,8 +155,8 @@ export class Imputation {
   readonly lignes = computed<readonly LigneImputation[]>(() => {
     const versement = this.sens() === 'versement';
     const caisse: LigneImputation = {
-      cle: 'caisse', sens: versement ? 'D' : 'C', libelle: "Caisse de l'agence",
-      compte: 'compte choisi par le schéma comptable', compteMono: false,
+      cle: 'contrepartie', sens: versement ? 'D' : 'C', libelle: this.contrepartieLibelle(),
+      compte: this.contrepartieCompte(), compteMono: this.contrepartieMono(),
       montant: this.montant(), detail: false,
     };
     const client: LigneImputation = {

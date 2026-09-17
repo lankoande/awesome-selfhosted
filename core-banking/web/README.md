@@ -9,8 +9,8 @@ Ce README n'explique que la mécanique.
 ## Ce que contient ce dépôt
 
 Le **socle visuel** — tokens, typographie, densités, thèmes clair et sombre, jeu
-fermé de primitives, page atelier — le **guichet** (versement, retrait, arrêté de
-caisse) et la **file de validation**. Pas encore d'authentification : elle vient avec la file de
+fermé de primitives, page atelier — le **guichet** (versement, retrait, virement,
+relevé, arrêté de caisse) et la **file de validation**. Pas encore d'authentification : elle vient avec la file de
 validation, dans l'ordre fixé au §7 du document de décisions.
 
 Tant qu'aucun socle n'est branché (`sourceDonnees: "factice"` dans

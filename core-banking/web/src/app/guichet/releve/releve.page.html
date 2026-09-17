@@ -1,0 +1,112 @@
+<cb-bandeau-client [contexte]="contexte()" [solde]="solde()" (ouvrirContexte)="ouvrirContexte()" />
+
+<div class="ecran">
+  <cb-toolbar>
+    <h1>Relevé de compte</h1>
+    @if (solde(); as s) {
+      <span class="compte cb-mono">{{ s.code }}</span>
+    }
+    <span fin class="tracee">Lecture tracée</span>
+  </cb-toolbar>
+
+  <cb-notice nature="information" titre="Cette consultation est enregistrée">
+    La lecture d'un relevé laisse une trace au journal d'audit, avec votre identifiant et l'heure.
+    Le socle trace déjà ; l'afficher est honnête, et dissuasif.
+  </cb-notice>
+
+  <cb-section titre="Période" indication="le socle pagine ; on ne charge jamais tout">
+    <div class="filtres">
+      <cb-field etiquette="Compte" pour="j-compte">
+        <select cbInput id="j-compte" (change)="choisirCompte($any($event.target).value)">
+          @for (compte of catalogue(); track compte.accountId) {
+            <option [value]="compte.accountId" [selected]="compte.accountId === compteId()">
+              {{ compte.intitule }} — ····{{ compte.code.slice(-4) }}
+            </option>
+          }
+        </select>
+      </cb-field>
+      <cb-field etiquette="Du" pour="j-du">
+        <cb-date-input champId="j-du" [valeur]="du()" (valeurChange)="du.set($event)" />
+      </cb-field>
+      <cb-field etiquette="Au" pour="j-au">
+        <cb-date-input champId="j-au" [valeur]="au()" (valeurChange)="au.set($event)" />
+      </cb-field>
+      <button type="button" cbButton="secondaire" class="appliquer" [disabled]="chargement()"
+              (click)="appliquerPeriode()">Afficher</button>
+    </div>
+  </cb-section>
+
+  <cb-activity [enCours]="chargement()" libelle="Lecture du relevé…" />
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+      @if (r.detail) { {{ r.detail }} }
+    </cb-notice>
+  }
+
+  <div class="cb-table-scroll">
+    <table cbTable>
+      <caption class="cb-visually-hidden">Mouvements du compte</caption>
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">Valeur</th>
+          <th scope="col">Pièce</th>
+          <th scope="col">Libellé</th>
+          <th scope="col" class="cb-num">Débit</th>
+          <th scope="col" class="cb-num">Crédit</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (l of affichees(); track l.ligne.entryId + '-' + l.ligne.lineNumber) {
+          <tr [class.annulee]="l.annulee">
+            <td class="cb-ref">{{ jour(l.ligne.bookingDate) }}</td>
+            <td class="cb-ref">{{ jour(l.ligne.valueDate) }}</td>
+            <td class="cb-ref">{{ l.ligne.entryNumber }}</td>
+            <td class="libelle">
+              <span class="texte">{{ l.ligne.label }}</span>
+              <span class="marques">
+                @if (l.annulee) {
+                  <cb-state-badge etat="contre-passe" />
+                }
+                @if (l.annule; as a) {
+                  <span class="marque">
+                    @if (a.numero) {
+                      annule la pièce <span class="cb-mono">n° {{ a.numero }}</span>
+                    } @else {
+                      annule une écriture hors de cette page
+                    }
+                  </span>
+                }
+                @if (l.connueLe) {
+                  <span class="marque">passée le {{ jour(l.connueLe) }}, après le jour qu'elle affecte</span>
+                }
+              </span>
+            </td>
+            <td class="cb-num">
+              @if (l.debit) { <cb-amount [valeur]="l.debit" /> } @else { <span class="vide">—</span> }
+            </td>
+            <td class="cb-num">
+              @if (l.credit) { <cb-amount [valeur]="l.credit" /> } @else { <span class="vide">—</span> }
+            </td>
+          </tr>
+        } @empty {
+          @if (!chargement()) {
+            <tr><td colspan="6" class="vide-ligne">Aucun mouvement sur cette période.</td></tr>
+          }
+        }
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="4">Totaux de cette page — ce n'est pas un solde</td>
+          <td class="cb-num"><cb-amount [valeur]="totalDebit()" [devise]="devise()" /></td>
+          <td class="cb-num"><cb-amount [valeur]="totalCredit()" [devise]="devise()" /></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <cb-pagination [position]="'Page ' + (page() + 1)" [taille]="taille()"
+                 [precedent]="precedent()" [suivant]="suivant()"
+                 (reculer)="changerPage(-1)" (avancer)="changerPage(1)" />
+</div>

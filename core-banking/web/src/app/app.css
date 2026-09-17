@@ -41,7 +41,10 @@
   display: flex;
   align-items: center;
   gap: var(--cb-space-2);
-  width: min(430px, 34vw);
+  /* La recherche cède la place avant la navigation : une entrée de menu
+     tronquée fait disparaître un écran, un champ de recherche rétréci non. */
+  flex: 0 1 430px;
+  min-width: var(--cb-tap-h);
   height: var(--cb-tap-h);
   padding: 0 var(--cb-space-3);
   border: var(--cb-border) solid var(--cb-bar-rule);
@@ -58,7 +61,7 @@
 
 .ressort { flex: 1 1 auto; }
 
-.reglage.cb-btn { color: var(--cb-bar-muted); font-size: var(--cb-fs-sm); }
+.reglage.cb-btn { color: var(--cb-bar-muted); font-size: var(--cb-fs-sm); white-space: nowrap; }
 .reglage.cb-btn:hover:not(:disabled) { background: var(--cb-bar-sunken); color: var(--cb-bar-ink); }
 
 .demonstration {
@@ -75,11 +78,13 @@ main { flex: 1 1 auto; min-height: 0; }
 
 /* ------------------------------------------------------------ responsivité */
 
+@media (max-width: 1439px) {
+  .recherche span,
+  .recherche cb-kbd { display: none; }
+}
+
 @media (max-width: 1099px) {
   .barre { gap: var(--cb-space-3); padding: 0 var(--cb-space-3); }
-  .recherche { width: auto; }
-  .recherche span { display: none; }
-  .recherche cb-kbd { display: none; }
 }
 
 @media (max-width: 767px) {

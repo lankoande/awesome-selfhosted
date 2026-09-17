@@ -3,8 +3,11 @@ import { formaterMontant } from '../core/format/montant';
 import {
   ContexteCompte,
   DemandeEspeces,
+  DemandeVirement,
   IssueVersement,
+  LigneReleve,
   Montant,
+  PageReleve,
   Recu,
   RefusMetier,
   SoldeCompte,
@@ -267,6 +270,125 @@ export class GuichetFactice implements Guichet {
     this.dejaVu.set(demande.cleIdempotence, issue);
     this.retraits.set(compte.accountId, (this.retraits.get(compte.accountId) ?? 0) + valeur);
     return issue;
+  }
+
+  /**
+   * Le virement interne. Le socle débite et crédite dans la même transaction :
+   * il n'y a jamais d'instant où l'argent n'est nulle part. Les refus restent
+   * les siens — comptes distincts, même devise, disponible suffisant.
+   */
+  async virer(demande: DemandeVirement): Promise<IssueVersement> {
+    await this.latence();
+
+    const deja = this.dejaVu.get(demande.cleIdempotence);
+    if (deja) return this.marquerRejeu(deja);
+
+    if (demande.sourceAccountId === demande.destinationAccountId) {
+      throw new RefusMetier(422, 'COMPTES_IDENTIQUES', 'Le débiteur et le bénéficiaire sont le même compte.');
+    }
+
+    const source = this.compte(demande.sourceAccountId);
+    const destination = this.compte(demande.destinationAccountId);
+    for (const compte of [source, destination]) {
+      if (compte.statut !== 'ACTIVE') {
+        throw new RefusMetier(422, 'COMPTE_NON_ACTIF',
+          `Le compte ${compte.code.slice(-4)} est ${compte.statut === 'BLOCKED' ? 'bloqué' : 'clôturé'}.`,
+          "Un virement suppose deux comptes actifs : celui qui paie comme celui qui reçoit.");
+      }
+    }
+
+    const valeur = Number(demande.amount);
+    const frais = COMMISSION;
+    const taxe = Math.round(frais * TAUX_TAF);
+    const disponible = source.solde - source.blocage;
+    const aDebiter = valeur + frais + taxe;
+
+    if (aDebiter > disponible) {
+      throw new RefusMetier(422, 'PROVISION_INSUFFISANTE',
+        'Le disponible du débiteur ne couvre pas le virement.',
+        `Disponible ${formaterMontant(disponible)} ${DEVISE}, débit demandé ${formaterMontant(aDebiter)} ${DEVISE} `
+          + `(dont ${formaterMontant(frais + taxe)} ${DEVISE} de frais et taxe).`);
+    }
+
+    const recu: Recu = {
+      entryId: crypto.randomUUID(),
+      entryNumber: this.numeroEcriture++,
+      bookingDate: this.journee(),
+      valueDate: this.journee(),
+      amount: montant(valeur),
+      fee: montant(frais),
+      tax: montant(taxe),
+      balanceAfter: montant(source.solde - aDebiter),
+      branchId: 'OUA2',
+      remote: false,
+      replayed: false,
+    };
+    const issue: IssueVersement = { genre: 'comptabilise', recu };
+    this.dejaVu.set(demande.cleIdempotence, issue);
+    return issue;
+  }
+
+  /**
+   * Un relevé plausible : des opérations de guichet, des frais, une écriture
+   * contre-passée et sa contre-passation — toutes les deux présentes, parce
+   * qu'une contre-passation ne remplace pas, elle s'ajoute. Une ligne porte une
+   * date de connaissance postérieure à son jour comptable : c'est une écriture
+   * passée après coup, et le relevé doit le dire.
+   */
+  async releve(_entite: string, accountId: string, du: string | null, au: string | null,
+               page: number, taille: number): Promise<PageReleve> {
+    await this.latence();
+    this.compte(accountId);
+
+    const toutes = this.lignesDe(accountId)
+      .filter((l) => (du === null || l.bookingDate >= du) && (au === null || l.bookingDate <= au));
+    const debut = page * taille;
+    return {
+      lignes: toutes.slice(debut, debut + taille),
+      numero: page,
+      taille,
+      precedent: page > 0,
+      suivant: debut + taille < toutes.length,
+    };
+  }
+
+  private lignesDe(accountId: string): readonly LigneReleve[] {
+    const compte = this.compte(accountId);
+    const jour = (recul: number) => new Date(Date.now() - recul * 86_400_000).toISOString().slice(0, 10);
+    const contrepassee = 'ecr-4102';
+    const ligne = (
+      n: number, recul: number, direction: 'DEBIT' | 'CREDIT', valeur: number, label: string,
+      type: string, extra: Partial<LigneReleve> = {},
+    ): LigneReleve => ({
+      entryId: `ecr-${n}`,
+      entryNumber: n,
+      lineNumber: 1,
+      accountCode: compte.code,
+      bookingDate: jour(recul),
+      valueDate: jour(recul),
+      knowledgeTime: `${jour(recul)}T09:12:00Z`,
+      direction,
+      amount: montant(valeur),
+      label,
+      narrative: null,
+      transactionType: type,
+      reversalOf: null,
+      ...extra,
+    });
+
+    return [
+      ligne(4108, 0, 'CREDIT', 2500000, "Versement d'espèces", 'CASH_DEPOSIT'),
+      ligne(4107, 0, 'DEBIT', 1170, 'Commission de versement et TAF', 'FEE'),
+      ligne(4106, 1, 'DEBIT', 120000, "Retrait d'espèces", 'CASH_WITHDRAWAL'),
+      // Passée deux jours après le jour qu'elle affecte : le socle est bitemporel.
+      ligne(4105, 3, 'CREDIT', 85000, 'Virement reçu — OUEDRAOGO Salif', 'TRANSFER',
+            { knowledgeTime: `${jour(1)}T16:40:00Z` }),
+      ligne(4104, 4, 'DEBIT', 600000, "Contre-passation de l'écriture n° 4102", 'REVERSAL',
+            { reversalOf: contrepassee }),
+      ligne(4102, 4, 'CREDIT', 600000, 'Virement reçu — saisie erronée', 'TRANSFER'),
+      ligne(4101, 6, 'DEBIT', 2500, 'Frais de tenue de compte', 'FEE'),
+      ligne(4100, 8, 'CREDIT', 450000, "Versement d'espèces", 'CASH_DEPOSIT'),
+    ];
   }
 
   async verser(demande: DemandeEspeces): Promise<IssueVersement> {

@@ -1,5 +1,7 @@
 import { InjectionToken } from '@angular/core';
-import { ContexteCompte, DemandeEspeces, IssueVersement, SoldeCompte } from './modele/guichet.modele';
+import {
+  ContexteCompte, DemandeEspeces, DemandeVirement, IssueVersement, PageReleve, SoldeCompte,
+} from './modele/guichet.modele';
 
 /**
  * Le port du guichet. Une seule interface, deux implémentations : l'API du
@@ -31,6 +33,21 @@ export interface Guichet {
    * pouvoir dire pourquoi est un incident client.
    */
   retirer(demande: DemandeEspeces): Promise<IssueVersement>;
+
+  /**
+   * Virement interne. Une seule écriture, deux comptes : le socle débite l'un
+   * et crédite l'autre dans la même transaction — il n'y a jamais un instant où
+   * l'argent n'est nulle part.
+   */
+  virer(demande: DemandeVirement): Promise<IssueVersement>;
+
+  /**
+   * Le relevé d'un compte, borné à une période. Paginé par le socle : on ne
+   * charge jamais dix mille lignes, et on ne fait pas défiler un journal à
+   * l'infini.
+   */
+  releve(legalEntityId: string, accountId: string, du: string | null, au: string | null,
+         page: number, taille: number): Promise<PageReleve>;
 
   /**
    * Comptes proposés d'emblée. Seule la source de démonstration en offre :

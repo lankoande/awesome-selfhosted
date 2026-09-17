@@ -1,0 +1,31 @@
+.ecran {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-3);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+  max-width: 1320px;
+}
+
+h1 { font-size: var(--cb-fs-lg); }
+.compte { font-size: var(--cb-fs-sm); color: var(--cb-muted); }
+.tracee { font-size: var(--cb-fs-xs); letter-spacing: var(--cb-track-caps); text-transform: uppercase; color: var(--cb-muted); }
+
+.filtres { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--cb-space-3); }
+.filtres cb-field { min-width: 160px; }
+.appliquer { flex-shrink: 0; }
+
+/* Une ligne qui porte une marque — contre-passée, passée après coup — est plus
+   haute que les autres. Elle s'agrandit ; elle ne déborde pas sur sa voisine. */
+tbody td { height: auto; padding-block: var(--cb-space-2); }
+.libelle { display: flex; flex-direction: column; gap: 3px; }
+.marques { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cb-space-2); }
+.marque { font-size: var(--cb-fs-xs); color: var(--cb-muted); }
+/* Une écriture contre-passée reste lisible : on la marque, on ne la barre pas
+   au point de la rendre illisible — elle fait partie du compte. */
+tr.annulee .texte { color: var(--cb-muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.vide { color: var(--cb-faint); }
+.vide-ligne { color: var(--cb-muted); text-align: center; }
+
+@media (max-width: 767px) {
+  .filtres cb-field { min-width: 140px; }
+}

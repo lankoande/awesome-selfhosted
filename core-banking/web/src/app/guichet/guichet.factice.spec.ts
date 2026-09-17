@@ -135,3 +135,62 @@ describe('retrait d’espèces', () => {
     });
   });
 });
+
+describe('virement interne et relevé', () => {
+  let guichet: GuichetFactice;
+
+  beforeEach(() => {
+    guichet = new GuichetFactice();
+    guichet.latenceMs = 0;
+  });
+
+  function virement(source: string, destination: string, valeur: number, cle: string) {
+    return {
+      legalEntityId: ENTITE, sourceAccountId: source, destinationAccountId: destination,
+      amount: String(valeur), currency: 'XOF', channel: 'BRANCH',
+      narrative: 'Virement interne', cleIdempotence: cle,
+    };
+  }
+
+  it('refuse un virement vers le même compte', async () => {
+    await expect(guichet.virer(virement(compte(0), compte(0), 10000, 'v1'))).rejects.toMatchObject({
+      code: 'COMPTES_IDENTIQUES',
+    });
+  });
+
+  it('refuse un virement dont un des deux comptes n’est pas actif', async () => {
+    await expect(guichet.virer(virement(compte(0), compte(3), 10000, 'v2'))).rejects.toMatchObject({
+      code: 'COMPTE_NON_ACTIF',
+    });
+  });
+
+  it('bute sur le disponible du débiteur', async () => {
+    await expect(guichet.virer(virement(compte(0), compte(1), 1200000, 'v3'))).rejects.toMatchObject({
+      code: 'PROVISION_INSUFFISANTE',
+    });
+    const issue = await guichet.virer(virement(compte(0), compte(1), 100000, 'v4'));
+    expect(issue.genre).toBe('comptabilise');
+  });
+
+  it('rejoue la clé d’idempotence : le bénéficiaire n’est pas crédité deux fois', async () => {
+    const premier = await guichet.virer(virement(compte(0), compte(1), 50000, 'v5'));
+    const second = await guichet.virer(virement(compte(0), compte(1), 50000, 'v5'));
+    if (premier.genre !== 'comptabilise' || second.genre !== 'comptabilise') throw new Error('attendu comptabilisé');
+    expect(second.recu.entryNumber).toBe(premier.recu.entryNumber);
+    expect(second.recu.replayed).toBe(true);
+  });
+
+  it('rend un relevé paginé, avec la contre-passation et son écriture d’origine', async () => {
+    const page = await guichet.releve(ENTITE, compte(0), null, null, 0, 50);
+    const annulante = page.lignes.find((l) => l.reversalOf !== null);
+    expect(annulante).toBeTruthy();
+    expect(page.lignes.some((l) => l.entryId === annulante!.reversalOf)).toBe(true);
+  });
+
+  it('borne le relevé à la période demandée', async () => {
+    const aujourdHui = new Date().toISOString().slice(0, 10);
+    const page = await guichet.releve(ENTITE, compte(0), aujourdHui, aujourdHui, 0, 50);
+    expect(page.lignes.length).toBeGreaterThan(0);
+    expect(page.lignes.every((l) => l.bookingDate === aujourdHui)).toBe(true);
+  });
+});

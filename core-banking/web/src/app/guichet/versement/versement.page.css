@@ -58,3 +58,13 @@ h2 { font-size: var(--cb-fs-lg); }
 @media print {
   .actions, cb-billetage, cb-toolbar { display: none; }
 }
+
+/* Partagé avec le retrait et le virement, qui reprennent ce gabarit. */
+.provision {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--cb-space-1) var(--cb-space-3);
+  margin: 0;
+}
+.provision dt { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+.provision dd { margin: 0; }

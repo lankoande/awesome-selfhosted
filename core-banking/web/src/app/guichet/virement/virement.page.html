@@ -1,0 +1,140 @@
+<cb-bandeau-client [contexte]="contexte()" [solde]="source()" (ouvrirContexte)="ouvrirContexte()" />
+
+<div class="ecran">
+  <div class="colonne-saisie">
+    <cb-toolbar>
+      <h2>Virement interne</h2>
+      <cb-state-badge [etat]="etatOperation()" />
+      <span class="cle">
+        <span class="cb-caps">Clé d'idempotence</span>
+        @if (cleAffichee(); as valeur) {
+          <code class="cb-mono">{{ valeur }}</code>
+        }
+        <span class="cle-etat">{{ cleEtat() }}</span>
+      </span>
+      <span fin class="raccourci"><cb-kbd>Ctrl ⏎</cb-kbd></span>
+    </cb-toolbar>
+
+    @if (refus(); as r) {
+      <cb-notice nature="refus" titre="Opération refusée" [code]="r.code">
+        {{ r.titre }}
+        @if (r.detail) { {{ r.detail }} }
+        <ng-container actions>
+          @if (r.rejouable) {
+            <button type="button" cbButton="primaire" [disabled]="enCours()" (click)="reessayer()">
+              Réessayer avec la même clé
+            </button>
+          }
+          <button type="button" cbButton="secondaire" (click)="nouveau()">Reprendre la saisie</button>
+        </ng-container>
+      </cb-notice>
+    }
+
+    @if (phase() === 'comptabilise' && recu(); as r) {
+      <cb-notice [nature]="r.replayed ? 'information' : 'succes'"
+                 [titre]="r.replayed ? 'Déjà comptabilisé — voici le premier reçu' : 'Comptabilisé'"
+                 [code]="'écriture n° ' + r.entryNumber">
+        @if (r.replayed) {
+          Cette clé d'idempotence avait déjà été traitée : le socle a rendu le reçu de la première
+          opération. Le bénéficiaire n'a pas été crédité deux fois.
+        } @else {
+          Une seule écriture a débité {{ contexte()?.intitule }} et crédité {{ intituleDestination() }},
+          date de valeur du {{ jour(r.valueDate) }}.
+        }
+        <ng-container actions>
+          <button type="button" cbButton="primaire" (click)="imprimerRecu()">Imprimer le reçu</button>
+          <button type="button" cbButton="secondaire" (click)="nouveau()">Nouveau virement</button>
+        </ng-container>
+      </cb-notice>
+    }
+
+    @if (phase() === 'en-attente' && attente(); as a) {
+      <cb-notice nature="avertissement" titre="En attente de validation" [code]="a.operationId">
+        Rien n'est comptabilisé : l'opération attend {{ a.attenduDe }}. N'annoncez pas le virement au
+        bénéficiaire — le socle rejouera la demande à l'approbation et elle peut encore être refusée.
+        <ng-container actions>
+          <button type="button" cbButton="secondaire" (click)="nouveau()">Nouveau virement</button>
+        </ng-container>
+      </cb-notice>
+    }
+
+    <cb-section titre="Opération" indication="une seule écriture, deux comptes">
+      <div class="champs">
+        <cb-field etiquette="Compte à débiter" pour="v-source" [aide]="aideDisponible()">
+          <select cbInput id="v-source" [disabled]="enCours()" (change)="choisirSource($any($event.target).value)">
+            @for (compte of catalogue(); track compte.accountId) {
+              <option [value]="compte.accountId" [selected]="compte.accountId === sourceId()">
+                {{ compte.intitule }} — ····{{ compte.code.slice(-4) }}
+              </option>
+            }
+          </select>
+        </cb-field>
+
+        <cb-field etiquette="Compte à créditer" pour="v-destination"
+                  aide="Un virement interne ne fait pas le change : les deux comptes doivent être dans la même devise.">
+          <select cbInput id="v-destination" [disabled]="enCours() || termine()"
+                  (change)="choisirDestination($any($event.target).value)">
+            @for (compte of catalogue(); track compte.accountId) {
+              <option [value]="compte.accountId" [selected]="compte.accountId === destinationId()">
+                {{ compte.intitule }} — ····{{ compte.code.slice(-4) }}
+              </option>
+            }
+          </select>
+        </cb-field>
+
+        <cb-field etiquette="Montant" pour="v-montant" requis
+                  aide="Les frais et la taxe s'ajoutent au débit du donneur d'ordre.">
+          <cb-amount-input champId="v-montant" [valeur]="montant()" (valeurChange)="majMontant($event)"
+                           [devise]="devise()" [desactive]="enCours() || termine() || !sourceActive()" />
+        </cb-field>
+
+        <cb-field etiquette="Motif du virement" pour="v-libelle"
+                  [aide]="'Le libellé transmis sera : ' + narratif()">
+          <input cbInput id="v-libelle" type="text" [value]="libelle()" [disabled]="enCours() || termine()"
+                 (input)="majLibelle($any($event.target).value)" />
+        </cb-field>
+      </div>
+    </cb-section>
+
+    @if (source(); as s) {
+      <cb-section titre="Provision" indication="le disponible commande">
+        <dl class="provision">
+          <dt>Disponible du débiteur</dt>
+          <dd><cb-amount [valeur]="s.available.amount" [devise]="s.currency" ton="accent" /></dd>
+          <dt>Solde comptable</dt>
+          <dd><cb-amount [valeur]="s.current.amount" [devise]="s.currency" /></dd>
+          @if (destination(); as d) {
+            <dt>Devise du bénéficiaire</dt><dd class="cb-mono">{{ d.currency }}</dd>
+          }
+        </dl>
+      </cb-section>
+    }
+  </div>
+
+  <div class="colonne-suivi">
+    <cb-imputation sens="virement" [montant]="montant()" [devise]="devise()"
+                   [compteCode]="source()?.code ?? '—'" [intitule]="contexte()?.intitule ?? '—'"
+                   [contrepartieLibelle]="intituleDestination()" [contrepartieCompte]="codeDestination()"
+                   contrepartieMono [recu]="recu()" />
+
+    <div class="actions">
+      @if (!termine()) {
+        <button type="button" cbButton="primaire" [disabled]="!peutEnvoyer()" (click)="envoyer()">Comptabiliser</button>
+      } @else {
+        <button type="button" cbButton="primaire" (click)="nouveau()">Nouveau virement</button>
+      }
+      <cb-activity class="activite" [enCours]="phase() === 'envoi'" libelle="Envoi au socle…" />
+      <div class="obstacles">
+        @for (obstacle of obstacles(); track obstacle) {
+          <span class="obstacle">{{ obstacle }}</span>
+        } @empty {
+          @if (phase() === 'saisie') {
+            <span class="pret">Prêt à comptabiliser. Le socle applique ses contrôles à la réception.</span>
+          } @else if (phase() === 'refuse') {
+            <span class="pret">Le socle a refusé cette demande. Corrigez la saisie avant de la représenter.</span>
+          }
+        }
+      </div>
+    </div>
+  </div>
+</div>

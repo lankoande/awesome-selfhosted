@@ -97,6 +97,53 @@ export class RefusMetier extends Error {
   }
 }
 
+/** Miroir de `Requests.Transfer` : un virement cite ses deux comptes. */
+export interface DemandeVirement {
+  readonly legalEntityId: string;
+  readonly sourceAccountId: string;
+  readonly destinationAccountId: string;
+  readonly amount: string;
+  readonly currency: string;
+  readonly channel: string;
+  readonly narrative: string;
+  readonly cleIdempotence: string;
+}
+
+/**
+ * Miroir de `Journal.StatementLine` — une ligne de relevé.
+ *
+ * `reversalOf` désigne l'écriture contre-passée : une contre-passation ne
+ * remplace pas l'écriture d'origine, elle s'ajoute. Les deux restent au
+ * journal, et le relevé doit les montrer toutes les deux.
+ *
+ * `knowledgeTime` est la date de connaissance : le socle est bitemporel, et une
+ * écriture peut être passée après le jour qu'elle affecte. Quand les deux
+ * divergent, c'est une information d'audit, pas un détail.
+ */
+export interface LigneReleve {
+  readonly entryId: string;
+  readonly entryNumber: number;
+  readonly lineNumber: number;
+  readonly accountCode: string;
+  readonly bookingDate: string;
+  readonly valueDate: string;
+  readonly knowledgeTime: string;
+  readonly direction: 'DEBIT' | 'CREDIT';
+  readonly amount: Montant;
+  readonly label: string;
+  readonly narrative: string | null;
+  readonly transactionType: string;
+  readonly reversalOf: string | null;
+}
+
+export interface PageReleve {
+  readonly lignes: readonly LigneReleve[];
+  readonly numero: number;
+  readonly taille: number;
+  readonly precedent: boolean;
+  readonly suivant: boolean;
+}
+
 /** Blocage posé sur un compte : il ampute le disponible, pas le solde. */
 export interface Blocage {
   readonly id: string;

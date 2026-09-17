@@ -240,7 +240,7 @@ mécanique (commandes, organisation, garde-fous). Node ≥ 22.22.3 est requis pa
 | 1. Socle visuel | **Livré** — tokens, deux thèmes, deux densités, jeu fermé de 17 primitives, page atelier, budgets, types générés |
 | 2. Guichet — versement d'espèces | **Livré** — bandeau client, billetage BCEAO contrôlé, imputation en projection puis reçu, idempotence conservée, refus lisible |
 | 3. File de validation | **Livré** — file paginée, détail de la requête soumise, approbation qui exécute, rejet motivé, auto-approbation signalée, échec d'exécution après approbation |
-| 4. Reste du guichet, puis siège | **En cours** — retrait d'espèces et arrêté de caisse livrés ; virement interne, consultations et espace siège à faire |
+| 4. Reste du guichet, puis siège | **En cours** — guichet complet (versement, retrait, virement, relevé, arrêté de caisse) ; espace siège à faire |
 
 Rien n'est figé : ce qui suit est ce qu'on sait aujourd'hui, pas un engagement. Les décisions
 prises pendant la construction du socle sont consignées ici pour qu'on puisse les défaire en
@@ -434,3 +434,53 @@ usage légitime d'une modale : confirmer l'irréversible.
 - **Solde théorique d'une caisse** — sans lui, l'arrêté ne peut pas être présenté. Le recalculer
   côté poste serait réécrire le registre dans le navigateur ; l'implémentation HTTP refuse donc
   explicitement plutôt que de deviner, et l'écran affiche ce refus.
+
+---
+
+## 12. Virement, relevé, et la barre qui a dû grandir
+
+**La barre du haut porte les espaces, pas les écrans.** À sept entrées elle tronquait déjà le
+dernier nom — et une entrée de menu tronquée fait disparaître un écran. Les cinq écrans du guichet
+vivent donc sous une barre d'espace, et la barre du haut est revenue à trois entrées : Guichet,
+Validation, Atelier. C'est la structure annoncée au §1 — une application, deux espaces — appliquée
+au moment où elle devenait nécessaire plutôt qu'au moment où elle était théorique.
+
+### Le virement interne
+
+**Une seule écriture, deux comptes.** Le socle débite et crédite dans la même transaction : il n'y
+a jamais un instant où l'argent n'est nulle part. L'écran ne fait donc jamais deux appels, et le
+reçu parle d'une écriture, pas de deux.
+
+Comme au retrait, **le disponible du débiteur commande**. Et comme partout, le poste n'empêche que
+ce qui est certain : deux fois le même compte, deux devises différentes — un virement interne ne
+fait pas le change. Le reste appartient au socle.
+
+L'imputation reprend le même composant, avec la contrepartie paramétrée : la caisse au guichet, le
+compte bénéficiaire au virement. Débit d'abord, toujours.
+
+### Le relevé de compte
+
+Trois choses qu'un relevé doit dire et que la plupart taisent.
+
+**Une contre-passation ne remplace pas l'écriture d'origine, elle s'ajoute.** Les deux restent au
+journal et le relevé les montre toutes les deux : l'annulée marquée comme telle, l'annulante
+citant le numéro de pièce qu'elle annule. Et parce qu'on n'a lu qu'une page, on ne marque
+« contre-passée » que ce que la page montre — affirmer qu'une écriture est intacte sur la foi
+d'une page serait une affirmation qu'on ne peut pas tenir.
+
+**Une écriture peut être passée après le jour qu'elle affecte.** Le socle est bitemporel ; quand
+la date de connaissance diffère du jour comptable, la ligne le dit. C'est ce qui explique un solde
+qui a « changé » hier.
+
+**Les totaux sont ceux de la page, jamais un solde** — et le pied de table l'écrit. Un total de
+page présenté comme un solde est un mensonge par cadrage.
+
+La consultation d'un relevé est tracée par le socle ; l'écran l'affiche. C'est honnête, et
+dissuasif.
+
+### Un double de test partagé
+
+Les écrans de guichet parlent tous au même port. Leur double de test vit désormais dans un seul
+fichier : une classe à faire suivre quand le port grandit, au lieu d'une par écran qui diverge.
+Son compte par défaut porte un blocage — c'est là que solde et disponible divergent, et c'est ce
+que les écrans doivent savoir montrer.
