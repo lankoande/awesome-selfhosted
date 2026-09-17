@@ -15,7 +15,7 @@
  * barrière au même titre que les budgets de taille.
  */
 const BASE = process.argv[2] ?? 'http://127.0.0.1:8181/';
-const CHEMINS = ['atelier', 'guichet/versement', 'guichet/retrait', 'guichet/virement', 'guichet/releve', 'guichet/caisse', 'validation'];
+const CHEMINS = ['atelier', 'guichet/versement', 'guichet/retrait', 'guichet/virement', 'guichet/releve', 'guichet/caisse', 'siege/exploitation', 'siege/balance', 'validation'];
 const LARGEURS = [1920, 1440, 1366, 1100, 1024, 768, 390];
 /**
  * 24 px : le minimum du critère « Target Size (Minimum) » (WCAG 2.2, 2.5.8).

@@ -42,6 +42,23 @@ export const routes: Routes = [
     ],
   },
   {
+    path: 'siege',
+    loadComponent: () => import('./siege/siege.shell').then((m) => m.SiegeShell),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'exploitation' },
+      {
+        path: 'exploitation',
+        title: 'Siège — fin de journée',
+        loadComponent: () => import('./siege/exploitation/exploitation.page').then((m) => m.Exploitation),
+      },
+      {
+        path: 'balance',
+        title: 'Siège — balance générale',
+        loadComponent: () => import('./siege/balance/balance.page').then((m) => m.Balance),
+      },
+    ],
+  },
+  {
     path: 'validation',
     title: 'File de validation',
     loadComponent: () => import('./validation/file/file-validation.page').then((m) => m.FileValidation),

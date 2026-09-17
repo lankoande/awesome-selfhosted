@@ -240,7 +240,7 @@ mécanique (commandes, organisation, garde-fous). Node ≥ 22.22.3 est requis pa
 | 1. Socle visuel | **Livré** — tokens, deux thèmes, deux densités, jeu fermé de 17 primitives, page atelier, budgets, types générés |
 | 2. Guichet — versement d'espèces | **Livré** — bandeau client, billetage BCEAO contrôlé, imputation en projection puis reçu, idempotence conservée, refus lisible |
 | 3. File de validation | **Livré** — file paginée, détail de la requête soumise, approbation qui exécute, rejet motivé, auto-approbation signalée, échec d'exécution après approbation |
-| 4. Reste du guichet, puis siège | **En cours** — guichet complet (versement, retrait, virement, relevé, arrêté de caisse) ; espace siège à faire |
+| 4. Reste du guichet, puis siège | **En cours** — guichet complet (versement, retrait, virement, relevé, arrêté de caisse) ; siège ouvert (fin de journée, balance générale) |
 
 Rien n'est figé : ce qui suit est ce qu'on sait aujourd'hui, pas un engagement. Les décisions
 prises pendant la construction du socle sont consignées ici pour qu'on puisse les défaire en
@@ -484,3 +484,50 @@ Les écrans de guichet parlent tous au même port. Leur double de test vit déso
 fichier : une classe à faire suivre quand le port grandit, au lieu d'une par écran qui diverge.
 Son compte par défaut porte un blocage — c'est là que solde et disponible divergent, et c'est ce
 que les écrans doivent savoir montrer.
+
+---
+
+## 13. L'espace siège : exploitation et balance
+
+### Le traitement de fin de journée
+
+L'écran le plus lourd de conséquences de l'application, et il tient sur trois idées.
+
+**L'essai à blanc n'écrit rien, et c'est lui qui trouve le blocage.** Un exploitant passe en essai
+avant d'engager sa journée : les étapes s'exécutent, les anomalies sortent, le registre ne bouge
+pas. La distinction est portée par un bandeau permanent, pas par une case à cocher qu'on oublie.
+C'est pour cela que la source de démonstration fait échouer le **premier** passage, essai compris :
+un essai qui ne trouverait rien n'aurait aucune raison d'exister.
+
+**Un échec bloquant arrête la chaîne, et les étapes suivantes ne sont pas « en attente ».** Elles
+n'ont jamais été tentées. L'écran l'écrit, et compte combien : lire « en attente » sur un
+traitement terminé fait croire qu'il reste du travail en cours, alors qu'il n'y a plus rien qui
+tourne. La reprise repart de l'étape échouée, pas du début — l'écran le dit aussi, parce que c'est
+la première question qu'on se pose avant de cliquer.
+
+**Une anomalie non bloquante n'arrête rien et doit être lue.** Elle revient le lendemain, en plus
+gros. Elles sont comptées dans le bandeau du passage et détaillées sur leur étape.
+
+Deux gardes : **on n'annule pas un essai à blanc** — il n'a rien écrit, et le proposer laisserait
+croire le contraire ; et l'annulation d'un passage réel rappelle que le socle la refuse dès qu'une
+journée postérieure a tourné.
+
+L'écran relit le passage tant qu'il tourne, et seulement tant qu'il tourne : interroger un
+traitement terminé n'apprend rien.
+
+Les 27 étapes affichées sont **celles du socle, dans son ordre**, repris du test qui les épingle.
+Un exploitant qui apprend l'écran doit reconnaître son traitement, pas une liste plausible.
+
+Et la boucle se ferme : le refus de démonstration sur `PRE_CHECKS` est une caisse mouvementée non
+arrêtée. C'est exactement l'écran d'arrêté de caisse du guichet qui le débloque.
+
+### La balance générale
+
+**L'équilibre est l'information de tête, pas une colonne de plus.** Une balance qui ne s'équilibre
+pas veut dire que le registre ne se tient pas, et rien de ce qu'on en tire — état financier,
+déclaration réglementaire — ne vaut tant que ce n'est pas réglé. L'écran l'annonce avant les
+chiffres, et donne les deux colonnes : ce n'est pas un écran à corriger, c'est une écriture à
+retrouver.
+
+**Les totaux sont rendus par devise.** Une balance ne s'additionne pas entre devises ; le faire
+produirait un nombre qui ne veut rien dire. Le socle totalise, le poste n'additionne rien.

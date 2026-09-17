@@ -36,7 +36,8 @@ const MASQUE = 'jj/mm/aaaa';
   `,
   styles: `
     :host { display: flex; flex-direction: column; gap: var(--cb-space-1); min-width: 0; }
-    input { width: 100%; max-width: 11ch; }
+    /* 10 caractères plus les marges intérieures : « 17/09/2026 » ne se tronque pas. */
+    input { width: 100%; max-width: 16ch; }
     .erreur { font-size: var(--cb-fs-sm); color: var(--cb-rejected); }
   `,
 })

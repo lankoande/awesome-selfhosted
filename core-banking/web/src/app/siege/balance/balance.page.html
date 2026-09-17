@@ -1,0 +1,121 @@
+<div class="ecran">
+  <cb-toolbar>
+    <h1>Balance générale</h1>
+    <span fin class="tracee">Lecture tracée</span>
+  </cb-toolbar>
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+      @if (r.detail) { {{ r.detail }} }
+    </cb-notice>
+  }
+
+  @if (desequilibrees().length) {
+    <cb-notice nature="refus" titre="La balance ne s'équilibre pas" code="BALANCE_DESEQUILIBREE">
+      @for (t of desequilibrees(); track t.currency) {
+        <span class="ecart">
+          En {{ t.currency }} : débit <cb-amount [valeur]="t.closingDebit.amount" /> contre crédit
+          <cb-amount [valeur]="t.closingCredit.amount" />.
+        </span>
+      }
+      Tant que ce n'est pas réglé, rien de ce qui se tire du registre ne vaut : ni état financier, ni
+      déclaration. Ce n'est pas un écran à corriger, c'est une écriture à retrouver.
+    </cb-notice>
+  } @else if (equilibree()) {
+    <cb-notice nature="succes" titre="Balance équilibrée">
+      Débit et crédit se répondent dans chaque devise, à l'unité près.
+    </cb-notice>
+  }
+
+  <cb-section titre="Sélection" indication="le socle pagine et totalise ; le poste n'additionne rien">
+    <div class="filtres">
+      <cb-field etiquette="Du" pour="b-du">
+        <cb-date-input champId="b-du" [valeur]="du()" (valeurChange)="du.set($event)" />
+      </cb-field>
+      <cb-field etiquette="Au" pour="b-au">
+        <cb-date-input champId="b-au" [valeur]="au()" (valeurChange)="au.set($event)" />
+      </cb-field>
+      <cb-field etiquette="Nature de compte" pour="b-kind">
+        <select cbInput id="b-kind" (change)="majKind($any($event.target).value)">
+          <option value="" [selected]="kind() === null">Toutes</option>
+          @for (nature of natures; track nature[0]) {
+            <option [value]="nature[0]" [selected]="kind() === nature[0]">{{ nature[1] }}</option>
+          }
+        </select>
+      </cb-field>
+      <button type="button" cbButton="secondaire" [disabled]="chargement()" (click)="appliquer()">Afficher</button>
+    </div>
+  </cb-section>
+
+  <cb-activity [enCours]="chargement()" libelle="Lecture de la balance…" />
+
+  @for (t of totaux(); track t.currency) {
+    <cb-section [titre]="'Totaux — ' + t.currency" [indication]="t.accounts + ' comptes'">
+      <div class="totaux">
+        <div class="paire">
+          <span class="cb-caps">Ouverture</span>
+          <span class="cb-mono"><cb-amount [valeur]="t.openingDebit.amount" /> D</span>
+          <span class="cb-mono"><cb-amount [valeur]="t.openingCredit.amount" /> C</span>
+        </div>
+        <div class="paire">
+          <span class="cb-caps">Mouvements</span>
+          <span class="cb-mono"><cb-amount [valeur]="t.movementDebit.amount" /> D</span>
+          <span class="cb-mono"><cb-amount [valeur]="t.movementCredit.amount" /> C</span>
+        </div>
+        <div class="paire">
+          <span class="cb-caps">Clôture</span>
+          <span class="cb-mono"><cb-amount [valeur]="t.closingDebit.amount" ton="accent" /> D</span>
+          <span class="cb-mono"><cb-amount [valeur]="t.closingCredit.amount" ton="accent" /> C</span>
+        </div>
+      </div>
+    </cb-section>
+  }
+
+  <div class="cb-table-scroll">
+    <table cbTable>
+      <caption class="cb-visually-hidden">Balance générale des comptes</caption>
+      <thead>
+        <tr>
+          <th scope="col">Compte</th>
+          <th scope="col">Nature</th>
+          <th scope="col" class="cb-num">Ouverture D</th>
+          <th scope="col" class="cb-num">Ouverture C</th>
+          <th scope="col" class="cb-num">Mouvements D</th>
+          <th scope="col" class="cb-num">Mouvements C</th>
+          <th scope="col" class="cb-num">Clôture D</th>
+          <th scope="col" class="cb-num">Clôture C</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (l of lignes(); track l.accountId) {
+          <tr>
+            <td>
+              <span class="code cb-mono">{{ l.code }}</span>
+              @if (l.libelle) {
+                <span class="intitule">{{ l.libelle }}</span>
+              }
+            </td>
+            <td>
+              <span class="kind">{{ libelleKind(l.kind) }}</span>
+              <span class="nature">{{ libelleNature[l.nature] }}</span>
+            </td>
+            <td class="cb-num"><cb-amount [valeur]="l.openingDebit.amount" ton="discret" /></td>
+            <td class="cb-num"><cb-amount [valeur]="l.openingCredit.amount" ton="discret" /></td>
+            <td class="cb-num"><cb-amount [valeur]="l.movementDebit.amount" /></td>
+            <td class="cb-num"><cb-amount [valeur]="l.movementCredit.amount" /></td>
+            <td class="cb-num"><cb-amount [valeur]="l.closingDebit.amount" /></td>
+            <td class="cb-num"><cb-amount [valeur]="l.closingCredit.amount" /></td>
+          </tr>
+        } @empty {
+          @if (!chargement()) {
+            <tr><td colspan="8" class="vide">Aucun compte sur cette sélection.</td></tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <cb-pagination [position]="'Page ' + (page() + 1)" [taille]="taille()"
+                 [precedent]="precedent()" [suivant]="suivant()"
+                 (reculer)="changerPage(-1)" (avancer)="changerPage(1)" />
+</div>
