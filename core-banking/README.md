@@ -1297,6 +1297,11 @@ compte, et une créance et une dette de même montant y seraient toutes deux pos
 nommé, jamais absorbé — c'est une opération intra-groupe comptabilisée d'un seul côté, et c'est
 exactement ce qu'un commissaire aux comptes cherche.
 
+**Deux maquettes qui ne nomment pas les mêmes rubriques ne s'additionnent pas : elles se
+juxtaposent.** Le total du groupe serait faux sans que rien ne le dise. Chaque rubrique est donc
+comptée : celle que tous les membres agrégés ne portent pas est nommée
+(`members_with_different_layouts_are_named_not_silently_juxtaposed`).
+
 **L'entité qui publie figure à son propre périmètre**, et chacune une seule fois : sans elle,
 l'état présenterait le groupe sans sa tête ; deux fois, elle serait consolidée deux fois
 (`a_scope_is_declared_coherently`). **L'intégration globale reprend tout** : une quote-part qui n'en

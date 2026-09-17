@@ -141,6 +141,11 @@ public final class GroupReporting {
                 + "de route");
         }
         Map<String, Money> postes = new LinkedHashMap<>();
+        // Combien de membres agreges portent chaque rubrique. Deux entites dont les maquettes ne
+        // nomment pas les memes rubriques ne s'additionnent pas : elles se juxtaposent, et le
+        // total du groupe est faux sans que rien ne le dise. On compte, et on nomme l'ecart.
+        Map<String, Integer> porteurs = new LinkedHashMap<>();
+        int agreges = 0;
         List<String> anomalies = new ArrayList<>();
         Money zero = Money.zero(presentation);
 
@@ -189,12 +194,23 @@ public final class GroupReporting {
                         Money part = Money.of(line.amount().amount().multiply(quotePart)
                                                   .setScale(5, RoundingMode.HALF_UP),
                                               presentation).roundToCurrency();
-                        postes.merge(kind.name() + "/" + line.code() + "|" + line.label(), part,
-                                     Money::plus);
+                        String cle = kind.name() + "/" + line.code() + "|" + line.label();
+                        postes.merge(cle, part, Money::plus);
+                        porteurs.merge(cle, 1, Integer::sum);
                     }
                 }
                 return null;
             });
+            agreges++;
+        }
+
+        for (Map.Entry<String, Integer> porteur : porteurs.entrySet()) {
+            if (porteur.getValue() < agreges) {
+                anomalies.add("La rubrique " + porteur.getKey().split("\\|", 2)[0]
+                    + " n'est portee que par " + porteur.getValue() + " des " + agreges
+                    + " entites agregees : leurs maquettes ne nomment pas les memes rubriques, et "
+                    + "le total du groupe juxtapose au lieu d'additionner");
+            }
         }
 
         // Les eliminations : deux comptes qui se font face doivent se repondre. L'ecart est

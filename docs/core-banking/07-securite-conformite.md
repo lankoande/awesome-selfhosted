@@ -603,6 +603,9 @@ Quatre règles fixent la portée :
 - **Le socle ne fait pas semblant** : une mise en équivalence est nommée et non agrégée, une entité
   tenant ses comptes dans une autre devise est nommée et non convertie au hasard, et l'intégration
   globale exige 100 % faute de savoir présenter les intérêts minoritaires.
+- **Des maquettes qui ne nomment pas les mêmes rubriques se juxtaposent au lieu de s'additionner.**
+  Chaque rubrique est comptée : celle que tous les membres agrégés ne portent pas est nommée, sinon
+  le total du groupe serait faux sans que rien ne le dise.
 
 | Opération | Portée | À deux | Rôles |
 |---|---|---|---|

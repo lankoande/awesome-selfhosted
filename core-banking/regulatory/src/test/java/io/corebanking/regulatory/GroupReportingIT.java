@@ -286,6 +286,74 @@ class GroupReportingIT {
         assertThat(ligne(filing, "BALANCE_SHEET/A1").amount()).isEqualTo(xof("900000"));
     }
 
+    @Test
+    @DisplayName("deux maquettes qui ne nomment pas les memes rubriques ne s'additionnent pas : l'ecart est nomme")
+    void members_with_different_layouts_are_named_not_silently_juxtaposed() {
+        // Une troisieme entite, dont le bilan porte une rubrique que les autres n'ont pas : les
+        // agreger sans le dire juxtaposerait des colonnes au lieu de les additionner.
+        UUID tierce = UUID.fromString("00000000-0000-0000-0000-0000000000a3");
+        database.inTransaction(c -> {
+            Entities.insertLegalEntity(c, tierce, "GROUPE-BF", "Autre filiale", "BF",
+                                       Currencies.XOF, FIN);
+            Entities.openPeriod(c, tierce, FIN.minusMonths(6), FIN.plusMonths(3));
+            return null;
+        });
+        Account caisse = compte(tierce, "1-CAISSE", AccountNature.BALANCE_SHEET,
+                                NormalBalance.DEBIT);
+        Account capital = compte(tierce, "5-CAPITAL", AccountNature.BALANCE_SHEET,
+                                 NormalBalance.CREDIT);
+        exercice(tierce, compte(tierce, "5-RESULTAT", AccountNature.BALANCE_SHEET,
+                                NormalBalance.CREDIT));
+        database.inEntity(tierce, c -> {
+            UUID bilan = StatementLayouts.createDraft(c, new StatementLayouts.Draft(
+                tierce, Kind.BALANCE_SHEET, "BILAN", "Bilan", FIN.minusMonths(6), null,
+                List.of(new Line(1, "A1", "Caisse", 1, LineKind.DETAIL, Direction.DEBIT, null,
+                                 null),
+                        new Line(2, "PX", "Rubrique propre", 1, LineKind.DETAIL, Direction.CREDIT,
+                                 null, null),
+                        new Line(3, "PR", "Resultat de l'exercice", 1, LineKind.PROFIT_OR_LOSS,
+                                 Direction.CREDIT, null, null)),
+                List.of(new Rule(1, "A1", null, "1-", null),
+                        new Rule(2, "PX", null, "5-CAPITAL", null)),
+                ACTOR));
+            StatementLayouts.activate(c, bilan, APPROVER);
+            UUID resultat = StatementLayouts.createDraft(c, new StatementLayouts.Draft(
+                tierce, Kind.INCOME_STATEMENT, "RESULTAT", "Compte de resultat",
+                FIN.minusMonths(6), null,
+                List.of(new Line(1, "C1", "Charges", 1, LineKind.DETAIL, Direction.DEBIT, null,
+                                 null),
+                        new Line(2, "R1", "Commissions", 1, LineKind.DETAIL, Direction.CREDIT,
+                                 null, null)),
+                List.of(new Rule(1, "C1", null, "6-", null), new Rule(2, "R1", null, "7-", null)),
+                ACTOR));
+            StatementLayouts.activate(c, resultat, APPROVER);
+            return null;
+        });
+        ecriture(tierce, "tierce-capital", FIN.minusMonths(2), caisse, capital, "100000");
+
+        UUID scope = database.inEntity(MERE, c -> ConsolidationScopes.declare(c,
+            new ConsolidationScopes.Draft(MERE, "GROUPE-MAQUETTES", "Maquettes divergentes",
+                "XOF", List.of(
+                    new ConsolidationScopes.Member(MERE, ConsolidationScopes.Method.FULL,
+                                                   new BigDecimal("100")),
+                    new ConsolidationScopes.Member(tierce, ConsolidationScopes.Method.FULL,
+                                                   new BigDecimal("100"))),
+                FIN.minusMonths(6), null, ACTOR, APPROVER)));
+        assertThat(scope).isNotNull();
+
+        UUID declaration = declarer("CONSO-MAQUETTES",
+                                    RegulatoryDeclarations.Method.CONSOLIDATED_STATEMENTS,
+                                    "GROUPE-MAQUETTES");
+        UUID etat = new ReportingService(database).produce(MERE, declaration, FIN, FIN.plusDays(1),
+                                                           ACTOR);
+        ReportFilings.Filing filing = database.inEntity(MERE, c -> ReportFilings.require(c, etat));
+
+        assertThat(filing.anomalies())
+            .as("la rubrique propre a la tierce, et celles que la mere est seule a porter")
+            .anyMatch(a -> a.contains("BALANCE_SHEET/PX") && a.contains("juxtapose"));
+        assertThat(filing.anomalies()).anyMatch(a -> a.contains("BALANCE_SHEET/P2"));
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static UUID declarer(String code, RegulatoryDeclarations.Method method,
