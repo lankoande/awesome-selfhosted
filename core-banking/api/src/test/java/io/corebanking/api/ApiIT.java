@@ -2437,6 +2437,55 @@ class ApiIT {
         assertThat(post(accountant2, "/pending-operations/" + attente(enDouble) + "/approve", null,
                         Map.of()).status())
             .as("le refus vient a l'execution, avec son motif").isEqualTo(409);
+
+        // Liasse : un jeu d'etats declare comme un tout. Sans le compte de resultat, elle ne
+        // rapproche rien — et le refus vient a la soumission.
+        Map<String, Object> liasse = new LinkedHashMap<>();
+        liasse.put("code", "LIASSE-API");
+        liasse.put("label", "Liasse annuelle");
+        liasse.put("items", List.of("BALANCE_SHEET", "INCOME_STATEMENT"));
+        liasse.put("validFrom", J.minusMonths(6).toString());
+
+        Map<String, Object> partielle = new LinkedHashMap<>(liasse);
+        partielle.put("items", List.of("BALANCE_SHEET"));
+        assertThat(post(accountant, "/regulatory/statement-packs", null, partielle).status())
+            .as("une liasse sans compte de resultat ne rapproche rien").isEqualTo(422);
+
+        Reponse proposeeLiasse = post(accountant, "/regulatory/statement-packs", null, liasse);
+        assertThat(proposeeLiasse.status()).as(String.valueOf(proposeeLiasse.envelope()))
+            .isEqualTo(202);
+        assertThat(post(accountant2, "/pending-operations/" + attente(proposeeLiasse) + "/approve",
+                        null, Map.of()).status()).isEqualTo(200);
+        assertThat(get(auditor, "/regulatory/statement-packs").items())
+            .extracting(l -> l.get("code")).contains("LIASSE-API");
+
+        // Perimetre de consolidation : l'entite qui publie en fait partie.
+        Map<String, Object> perimetre = new LinkedHashMap<>();
+        perimetre.put("code", "GROUPE-API");
+        perimetre.put("label", "Perimetre du groupe");
+        perimetre.put("presentationCurrency", "XOF");
+        perimetre.put("members", List.of(
+            Map.of("entityId", ENTITY.toString(), "method", "FULL", "interestPercent", "100")));
+        perimetre.put("validFrom", J.minusMonths(6).toString());
+
+        Reponse proposePerimetre = post(accountant, "/regulatory/consolidation-scopes", null,
+                                        perimetre);
+        assertThat(proposePerimetre.status()).as(String.valueOf(proposePerimetre.envelope()))
+            .isEqualTo(202);
+        assertThat(post(accountant2, "/pending-operations/" + attente(proposePerimetre)
+                        + "/approve", null, Map.of()).status()).isEqualTo(200);
+        Map<String, Object> vuePerimetre = get(accountant, "/regulatory/consolidation-scopes")
+            .items().stream().filter(p -> "GROUPE-API".equals(p.get("code"))).findFirst()
+            .orElseThrow();
+        assertThat(vuePerimetre.get("presentationCurrency")).isEqualTo("XOF");
+
+        // Une methode de consolidation inconnue se refuse a la soumission.
+        Map<String, Object> methodeInconnue = new LinkedHashMap<>(perimetre);
+        methodeInconnue.put("code", "GROUPE-FAUX");
+        methodeInconnue.put("members", List.of(Map.of("entityId", ENTITY.toString(),
+            "method", "MIXTE", "interestPercent", "100")));
+        assertThat(post(accountant, "/regulatory/consolidation-scopes", null, methodeInconnue)
+                       .status()).isEqualTo(422);
     }
 
     // ------------------------------------------------------------------ outillage

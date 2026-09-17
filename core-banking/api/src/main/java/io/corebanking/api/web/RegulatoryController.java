@@ -9,6 +9,7 @@ import io.corebanking.security.UseCaseExecutor;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,6 +42,8 @@ public class RegulatoryController {
     private final RegulatoryUseCases.RecordConsent recordConsent;
     private final RegulatoryUseCases.ReadDeadlines readDeadlines;
     private final RegulatoryUseCases.ReadTaxRules readTaxRules;
+    private final RegulatoryUseCases.ReadStatementPacks readPacks;
+    private final RegulatoryUseCases.ReadConsolidationScopes readScopes;
 
     public RegulatoryController(UseCaseExecutor executor,
                                 io.corebanking.ledger.store.Database database,
@@ -55,6 +58,8 @@ public class RegulatoryController {
         this.recordConsent = new RegulatoryUseCases.RecordConsent(database, reporting);
         this.readDeadlines = new RegulatoryUseCases.ReadDeadlines(database, reporting);
         this.readTaxRules = new RegulatoryUseCases.ReadTaxRules(database);
+        this.readPacks = new RegulatoryUseCases.ReadStatementPacks(database);
+        this.readScopes = new RegulatoryUseCases.ReadConsolidationScopes(database);
     }
 
     // ------------------------------------------------------------------ catalogue
@@ -198,6 +203,82 @@ public class RegulatoryController {
                             new RegulatoryUseCases.EntityQuery(legalEntityId));
     }
 
+    // ------------------------------------------------------------------ liasse, groupe
+
+    @PostMapping("/statement-packs")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MakerChecker.View declarePack(Caller caller, @PathVariable UUID legalEntityId,
+                                         @RequestBody Requests.StatementPackRequest body) {
+        // La composition se valide a la soumission : un valideur ne doit pas decouvrir une
+        // liasse qui ne rapproche rien.
+        List<io.corebanking.ledger.store.StatementLayouts.Kind> items =
+            io.corebanking.regulatory.StatementPacks.requireComposition(kinds(body.items()));
+        if (body.code() == null || body.code().isBlank() || body.label() == null
+            || body.label().isBlank() || body.validFrom() == null) {
+            throw new IllegalArgumentException("Une liasse porte son code, son libelle et sa date "
+                + "d'entree en vigueur");
+        }
+        return makerChecker.submit(caller, legalEntityId, "STATEMENT_PACK_DECLARE", Payloads.of(
+            "code", body.code(), "label", body.label(),
+            "items", items.stream().map(Enum::name).collect(Collectors.joining(",")),
+            "validFrom", body.validFrom(), "validTo", body.validTo()));
+    }
+
+    @GetMapping("/statement-packs")
+    public List<io.corebanking.regulatory.StatementPacks.Pack> statementPacks(
+            Caller caller, @PathVariable UUID legalEntityId) {
+        return executor.run(caller, readPacks, new RegulatoryUseCases.EntityQuery(legalEntityId));
+    }
+
+    @PostMapping("/consolidation-scopes")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MakerChecker.View declareScope(Caller caller, @PathVariable UUID legalEntityId,
+                                          @RequestBody Requests.ConsolidationScopeRequest body) {
+        if (body.members() == null || body.members().isEmpty()) {
+            throw new IllegalArgumentException("Un perimetre de consolidation a des membres");
+        }
+        StringBuilder members = new StringBuilder();
+        for (Requests.ConsolidationMemberRequest member : body.members()) {
+            if (member.entityId() == null || member.interestPercent() == null) {
+                throw new IllegalArgumentException("Un membre porte son entite et sa quote-part");
+            }
+            if (!members.isEmpty()) {
+                members.append(';');
+            }
+            members.append(member.entityId()).append(':')
+                   .append(consolidationMethod(member.method()).name())
+                   .append(':').append(member.interestPercent().toPlainString());
+        }
+        return makerChecker.submit(caller, legalEntityId, "CONSOLIDATION_SCOPE_DECLARE",
+            Payloads.of("code", body.code(), "label", body.label(),
+                "presentationCurrency", body.presentationCurrency(),
+                "members", members.toString(),
+                "validFrom", body.validFrom(), "validTo", body.validTo()));
+    }
+
+    @PostMapping("/consolidation-scopes/{scopeId}/eliminations")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MakerChecker.View declareElimination(Caller caller, @PathVariable UUID legalEntityId,
+                                                @PathVariable UUID scopeId,
+                                                @RequestBody Requests.EliminationRequest body) {
+        if (body.label() == null || body.label().isBlank() || body.leftAccountId() == null
+            || body.rightAccountId() == null || body.leftEntityId() == null
+            || body.rightEntityId() == null) {
+            throw new IllegalArgumentException("Une elimination porte son libelle et les deux "
+                + "comptes qui se font face, avec leurs entites");
+        }
+        return makerChecker.submit(caller, legalEntityId, "CONSOLIDATION_ELIMINATION_DECLARE",
+            Payloads.of("scopeId", scopeId, "label", body.label(),
+                "leftEntityId", body.leftEntityId(), "leftAccountId", body.leftAccountId(),
+                "rightEntityId", body.rightEntityId(), "rightAccountId", body.rightAccountId()));
+    }
+
+    @GetMapping("/consolidation-scopes")
+    public List<io.corebanking.regulatory.ConsolidationScopes.Scope> consolidationScopes(
+            Caller caller, @PathVariable UUID legalEntityId) {
+        return executor.run(caller, readScopes, new RegulatoryUseCases.EntityQuery(legalEntityId));
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static RegulatoryDeclarations.Method method(String value) {
@@ -233,6 +314,38 @@ public class RegulatoryController {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Periodicite inconnue : " + value
                 + " (MONTHLY, QUARTERLY, YEARLY)");
+        }
+    }
+
+    private static List<io.corebanking.ledger.store.StatementLayouts.Kind> kinds(
+            List<String> values) {
+        if (values == null || values.isEmpty()) {
+            throw new IllegalArgumentException("Une liasse cite les etats qui la composent");
+        }
+        List<io.corebanking.ledger.store.StatementLayouts.Kind> kinds = new java.util.ArrayList<>();
+        for (String value : values) {
+            try {
+                kinds.add(io.corebanking.ledger.store.StatementLayouts.Kind.valueOf(
+                    value.trim().toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException | NullPointerException e) {
+                throw new IllegalArgumentException("Nature d'etat inconnue : " + value
+                    + " (BALANCE_SHEET, INCOME_STATEMENT, OFF_BALANCE_SHEET)");
+            }
+        }
+        return kinds;
+    }
+
+    private static io.corebanking.regulatory.ConsolidationScopes.Method consolidationMethod(
+            String value) {
+        if (value == null) {
+            throw new IllegalArgumentException("Champ obligatoire absent : method");
+        }
+        try {
+            return io.corebanking.regulatory.ConsolidationScopes.Method.valueOf(
+                value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Methode de consolidation inconnue : " + value
+                + " (FULL, PROPORTIONAL, EQUITY)");
         }
     }
 

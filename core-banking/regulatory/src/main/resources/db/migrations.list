@@ -3,3 +3,4 @@
 # les tests du module le refusent.
 V54__declarations_reglementaires.sql
 V55__fiscalite.sql
+V56__liasse_consolidation.sql

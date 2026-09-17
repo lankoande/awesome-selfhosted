@@ -1258,6 +1258,52 @@ d'un client (`the_collection_account_is_checked_by_the_service`).
 seuiller reviendrait à en garder une part. Elle passe par le même moteur que les états
 réglementaires — même état figé, même reproductibilité, même transmission à deux.
 
+
+### 36. Une liasse n'est pas une pile d'états, un groupe n'est pas une somme d'entités
+
+**Ce qui fait la liasse, c'est le rapprochement.** Le résultat que porte le compte de résultat est
+celui qu'annonce le bilan ; s'ils diffèrent, ce n'est pas une présentation à corriger, c'est une
+comptabilité à reprendre — et il vaut mieux l'apprendre avant de transmettre que du superviseur.
+Une liasse qui ne citerait pas les deux états est donc refusée : elle ne serait qu'une pile
+(`a_pack_is_declared_as_a_whole`).
+
+**Le compte de résultat d'une liasse court depuis l'ouverture de l'exercice**, pas depuis le début
+de la période déclarée. C'est la convention comptable, et c'est ce qui rend le rapprochement
+possible : le bilan présente le résultat depuis l'ouverture, et comparer deux fenêtres différentes
+ne voudrait rien dire.
+
+**La liasse cite des natures, pas des maquettes.** Elle dit « le bilan » ; c'est la maquette active
+à la date de production qui répond. Citer une maquette par son identifiant obligerait à redéclarer
+la liasse à chaque nouvelle version de présentation — et une liasse qu'on redéclare souvent est une
+liasse qu'on finit par ne plus relire.
+
+**Un état qui ne se tient pas se produit, mais ne se transmet pas.** C'est ainsi qu'on voit ce qui
+ne va pas : les anomalies sont figées avec l'état. Mais on ne déclare pas au superviseur des
+comptes dont on sait qu'ils sont faux — corriger, reprendre l'état, puis transmettre
+(`an_elimination_gap_is_named_and_blocks_transmission`).
+
+**La consolidation traverse le cloisonnement une entité à la fois.** Aucune requête ne lit deux
+entités : c'est la règle qui rend l'isolement sûr, et elle n'est pas levée pour consolider. Chaque
+membre est donc lu **dans sa propre portée**, et l'agrégation se fait en mémoire — ce qui est aussi
+la bonne façon de faire, puisque chaque entité tient ses comptes dans sa devise et que la
+conversion doit être explicite. Une transaction ne changeant pas d'entité, le calcul se fait avant
+d'ouvrir celle qui fige l'état (`consolidation_aggregates_each_entity_in_its_own_scope`).
+
+**Ce qui se fait face s'élimine — après s'être répondu.** La créance d'une entité du groupe sur une
+autre est la dette de celle-ci : les agréger sans les éliminer gonflerait le bilan du groupe de
+sommes qu'il se doit à lui-même. Les comptes qui se répondent sont déclarés par paires, et leurs
+soldes sont comparés **signés au débit** : le solde ordinaire est orienté dans le sens naturel du
+compte, et une créance et une dette de même montant y seraient toutes deux positives. Un écart est
+nommé, jamais absorbé — c'est une opération intra-groupe comptabilisée d'un seul côté, et c'est
+exactement ce qu'un commissaire aux comptes cherche.
+
+**L'entité qui publie figure à son propre périmètre**, et chacune une seule fois : sans elle,
+l'état présenterait le groupe sans sa tête ; deux fois, elle serait consolidée deux fois
+(`a_scope_is_declared_coherently`). **L'intégration globale reprend tout** : une quote-part qui n'en
+serait pas laisserait des intérêts minoritaires que le socle ne sait pas encore présenter — et il
+le dit plutôt que de faire semblant. **La mise en équivalence est nommée, pas agrégée**, pour la
+même raison (`equity_method_is_named_not_aggregated`).
+
 ## Ce qui n'est pas encore fait
 
 Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
@@ -1303,9 +1349,13 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
   commissions de découvert (mise en place, dépassement), base minimum ou moyenne pour l'épargne
   classique — la capitalisation et les agios, eux, sont faits ;
 - archivage des partitions (leur création, elle, est garantie par le TFJ) ;
-- clôture annuelle : les modèles de liasse réglementaire à livrer comme maquettes — la
-  détermination du résultat, la clôture, l'affectation du résultat et les états financiers
-  (bilan, compte de résultat, hors bilan, maquettes à deux), eux, sont faits ;
+- clôture annuelle : les modèles de liasse propres à chaque superviseur restent à charger comme
+  paramétrage — la détermination du résultat, la clôture, l'affectation du résultat, les états
+  financiers et **la liasse comme jeu d'états rapprochés entre eux**, eux, sont faits ;
+- consolidation : la conversion des entités qui tiennent leurs comptes dans une autre devise
+  (cours de clôture de consolidation), les intérêts minoritaires et la quote-part de situation
+  nette d'une mise en équivalence — le périmètre déclaré, l'agrégation entité par entité sous
+  quote-part et l'élimination contrôlée des opérations intra-groupe, eux, sont faits ;
 - change : cours acheteur et vendeur distincts du cours de référence, positions par agence,
   position de liquidité, rapprochement `camt.053` — le cours de référence, le contrôle du cours
   appliqué et la revalorisation à l'arrêté, eux, sont faits.
@@ -1505,3 +1555,8 @@ Restent, dans l'ordre du [plan](../docs/core-banking/10-roadmap.md) :
 | Le retard déclaratif se constate à l'arrêté | Oublié trois mois, il devient une sanction ; vu le lendemain de l'échéance, c'est un rattrapage |
 | La taxe déclarée est celle qui est passée sur son compte de collecte | L'administration attend ce que la banque a prélevé, pas ce qu'elle aurait dû prélever ; l'écart entre les deux est un problème de la banque, pas une variable de la déclaration |
 | Un compte de collecte par taxe en vigueur | Partagé, ce qui y passe appartiendrait à deux taxes et serait déclaré deux fois |
+| Une liasse cite au moins le bilan et le compte de résultat | C'est leur rapprochement qui la distingue d'une pile d'états |
+| Un état qui porte des anomalies se produit mais ne se transmet pas | On ne déclare pas au superviseur des comptes dont on sait qu'ils sont faux |
+| La consolidation lit chaque entité dans sa propre portée | Le cloisonnement par entité n'est pas levé pour consolider : il est traversé une entité à la fois |
+| Deux comptes qui s'éliminent sont comparés signés au débit | Orientés dans leur sens naturel, une créance et une dette de même montant seraient toutes deux positives et leur somme ferait le double |
+| Un écart d'élimination est nommé, jamais absorbé | C'est une opération intra-groupe comptabilisée d'un seul côté — la première chose que cherche un commissaire aux comptes |

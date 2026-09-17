@@ -53,11 +53,16 @@ public final class ReportFilings {
     }
 
     public record Filing(UUID id, UUID legalEntityId, UUID declarationId, String declarationCode,
-                         RegulatoryDeclarations.Method method, LocalDate periodStart,
-                         LocalDate periodEnd, LocalDate dueOn, LocalDate producedOn,
-                         BigDecimal thresholdUsed, int lineCount, Money totalAmount, Status status,
-                         LocalDate transmittedOn, String transmissionReference,
-                         LocalDate cancelledOn, String cancellationReason, List<Line> lines) {
+                         RegulatoryDeclarations.Method method, String subjectCode,
+                         LocalDate periodStart, LocalDate periodEnd, LocalDate dueOn,
+                         LocalDate producedOn, BigDecimal thresholdUsed, int lineCount,
+                         Money totalAmount, Status status, LocalDate transmittedOn,
+                         String transmissionReference, LocalDate cancelledOn,
+                         String cancellationReason, List<String> anomalies, List<Line> lines) {
+
+        public Filing {
+            anomalies = List.copyOf(anomalies == null ? List.of() : anomalies);
+        }
 
         public boolean transmitted() {
             return status == Status.TRANSMITTED;
@@ -86,8 +91,8 @@ public final class ReportFilings {
      * etat « du 12 au 12 » ne veut rien dire pour celui qui le recoit.
      */
     public static UUID produce(Connection c, RegulatoryDeclarations.Declaration declaration,
-                               LocalDate periodEnd, List<Line> lines, CurrencyRef currency,
-                               LocalDate producedOn, UUID producedBy) {
+                               LocalDate periodEnd, List<Line> lines, List<String> anomalies,
+                               CurrencyRef currency, LocalDate producedOn, UUID producedBy) {
         LocalDate periodStart = declaration.frequency().startOfPeriodEndingOn(periodEnd)
             .orElseThrow(() -> new FilingRefusedException("Le " + periodEnd + " ne ferme pas de "
                 + "periode " + declaration.frequency() + " : un etat se produit sur la periode "
@@ -106,8 +111,8 @@ public final class ReportFilings {
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO report_filing(id, legal_entity_id, declaration_id, declaration_code,"
             + " period_start, period_end, due_on, produced_on, threshold_used, method,"
-            + " line_count, total_amount, currency, produced_by)"
-            + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+            + " subject_code, anomalies, line_count, total_amount, currency, produced_by)"
+            + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
             ps.setObject(1, id);
             ps.setObject(2, declaration.legalEntityId());
             ps.setObject(3, declaration.id());
@@ -122,10 +127,13 @@ public final class ReportFilings {
                 ps.setBigDecimal(9, declaration.thresholdAmount());
             }
             ps.setString(10, declaration.method().name());
-            ps.setInt(11, lines.size());
-            ps.setBigDecimal(12, total.amount());
-            ps.setString(13, currency.code());
-            ps.setObject(14, producedBy);
+            ps.setString(11, declaration.subjectCode());
+            ps.setArray(12, c.createArrayOf("text",
+                anomalies == null ? new String[0] : anomalies.toArray(String[]::new)));
+            ps.setInt(13, lines.size());
+            ps.setBigDecimal(14, total.amount());
+            ps.setString(15, currency.code());
+            ps.setObject(16, producedBy);
             ps.executeUpdate();
         } catch (SQLException e) {
             if ("23505".equals(e.getSQLState())) {
@@ -198,6 +206,15 @@ public final class ReportFilings {
             throw new FilingRefusedException("Un etat ne se transmet pas avant d'etre produit : "
                 + on + " precede le " + filing.producedOn());
         }
+        // Un etat qui ne se tient pas peut se produire — c'est ainsi qu'on voit ce qui ne va
+        // pas — mais il ne se transmet pas : on ne declare pas au superviseur des comptes dont
+        // on sait qu'ils sont faux. Corriger, reprendre l'etat, puis transmettre.
+        if (!filing.anomalies().isEmpty()) {
+            throw new FilingRefusedException("L'etat " + filing.declarationCode() + " du "
+                + filing.periodEnd() + " porte " + filing.anomalies().size() + " anomalie(s) : "
+                + filing.anomalies().getFirst() + ". On ne declare pas des comptes dont on sait "
+                + "qu'ils sont faux : corriger, reprendre l'etat, puis transmettre.");
+        }
         update(c, "UPDATE report_filing SET status = 'TRANSMITTED', transmitted_on = ?,"
                   + " transmission_reference = ?, transmitted_by = ?, approved_by = ?"
                   + " WHERE id = ?", ps -> {
@@ -246,7 +263,8 @@ public final class ReportFilings {
         + " f.period_start, f.period_end, f.due_on, f.produced_on, f.threshold_used,"
         + " f.line_count, f.total_amount, f.currency, f.status, f.transmitted_on,"
         + " f.transmission_reference, f.cancelled_on, f.cancellation_reason, cur.scale,"
-        + " cur.rounding_mode FROM report_filing f JOIN currency cur ON cur.code = f.currency";
+        + " cur.rounding_mode, f.subject_code, f.anomalies"
+        + " FROM report_filing f JOIN currency cur ON cur.code = f.currency";
 
     public static Filing require(Connection c, UUID filingId) {
         return find(c, filingId).orElseThrow(
@@ -324,15 +342,17 @@ public final class ReportFilings {
                     UUID id = rs.getObject(1, UUID.class);
                     CurrencyRef currency = new CurrencyRef(rs.getString(13), rs.getInt(19),
                         RoundingMode.valueOf(rs.getString(20)));
+                    java.sql.Array anomalies = rs.getArray(22);
                     filings.add(new Filing(id, rs.getObject(2, UUID.class),
                         rs.getObject(3, UUID.class), rs.getString(4),
-                        RegulatoryDeclarations.Method.valueOf(rs.getString(5)),
+                        RegulatoryDeclarations.Method.valueOf(rs.getString(5)), rs.getString(21),
                         rs.getObject(6, LocalDate.class), rs.getObject(7, LocalDate.class),
                         rs.getObject(8, LocalDate.class), rs.getObject(9, LocalDate.class),
                         rs.getBigDecimal(10), rs.getInt(11),
                         Money.of(rs.getBigDecimal(12), currency).roundToCurrency(),
                         Status.valueOf(rs.getString(14)), rs.getObject(15, LocalDate.class),
                         rs.getString(16), rs.getObject(17, LocalDate.class), rs.getString(18),
+                        anomalies == null ? List.of() : List.of((String[]) anomalies.getArray()),
                         withLines ? lines(c, id) : List.of()));
                 }
             }

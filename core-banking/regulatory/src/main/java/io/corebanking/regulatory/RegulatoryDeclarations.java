@@ -48,7 +48,11 @@ public final class RegulatoryDeclarations {
         /** Historique de remboursement des clients qui y ont consenti. */
         CREDIT_BUREAU,
         /** Taxes collectees sur la periode, par taxe, lues sur leur compte de collecte. */
-        TAX_COLLECTION
+        TAX_COLLECTION,
+        /** Une liasse : les etats declares comme un tout, et confrontes entre eux. */
+        STATEMENT_PACK,
+        /** Les comptes du groupe : agregation par entite, quote-part, eliminations. */
+        CONSOLIDATED_STATEMENTS
     }
 
     public enum Frequency {
@@ -93,10 +97,15 @@ public final class RegulatoryDeclarations {
         }
     }
 
+    /**
+     * @param subjectCode ce que la declaration produit quand la methode vise un objet nomme —
+     *     une liasse, un perimetre de consolidation ; nul pour les methodes qui portent sur
+     *     toute l'entite
+     */
     public record Declaration(UUID id, UUID legalEntityId, String code, String label,
                               Recipient recipient, Method method, Frequency frequency,
-                              int deadlineDays, BigDecimal thresholdAmount, LocalDate validFrom,
-                              LocalDate validTo) {
+                              int deadlineDays, BigDecimal thresholdAmount, String subjectCode,
+                              LocalDate validFrom, LocalDate validTo) {
 
         /** L'echeance de transmission de la periode qui se termine ce jour-la. */
         public LocalDate dueOn(LocalDate periodEnd) {
@@ -106,8 +115,8 @@ public final class RegulatoryDeclarations {
 
     public record Draft(UUID legalEntityId, String code, String label, Recipient recipient,
                         Method method, Frequency frequency, Integer deadlineDays,
-                        BigDecimal thresholdAmount, LocalDate validFrom, LocalDate validTo,
-                        UUID createdBy, UUID approvedBy) {
+                        BigDecimal thresholdAmount, String subjectCode, LocalDate validFrom,
+                        LocalDate validTo, UUID createdBy, UUID approvedBy) {
 
         public Draft {
             Objects.requireNonNull(legalEntityId, "legalEntityId");
@@ -124,6 +133,7 @@ public final class RegulatoryDeclarations {
             }
             requireDeadline(deadlineDays);
             requireThreshold(method, thresholdAmount);
+            requireSubject(method, subjectCode);
             if (validTo != null && validTo.isBefore(validFrom)) {
                 throw new IllegalArgumentException("Une declaration ne cesse pas avant de "
                     + "commencer : " + validFrom + " a " + validTo);
@@ -152,6 +162,28 @@ public final class RegulatoryDeclarations {
      * n'est pas une balance. Un incident de paiement se declare quel que soit son montant : c'est
      * l'incident qui compte, pas la somme.
      */
+    /**
+     * Les methodes qui visent un objet nomme le disent, les autres n'ont rien a viser.
+     *
+     * <p>Une liasse ou un perimetre porte un code : sans lui, la declaration ne saurait pas
+     * lequel produire. Une situation comptable, elle, porte sur toute l'entite — lui donner un
+     * sujet laisserait croire qu'elle n'en couvre qu'une partie.
+     */
+    public static void requireSubject(Method method, String subjectCode) {
+        boolean needed = method == Method.STATEMENT_PACK
+                         || method == Method.CONSOLIDATED_STATEMENTS;
+        boolean given = subjectCode != null && !subjectCode.isBlank();
+        if (needed && !given) {
+            throw new IllegalArgumentException("La methode " + method + " produit un objet nomme : "
+                + "la declaration dit lequel (le code de la liasse ou du perimetre)");
+        }
+        if (!needed && given) {
+            throw new IllegalArgumentException("La methode " + method + " porte sur toute "
+                + "l'entite : lui donner un sujet laisserait croire qu'elle n'en couvre qu'une "
+                + "partie");
+        }
+    }
+
     public static void requireThreshold(Method method, BigDecimal thresholdAmount) {
         boolean admits = method == Method.CREDIT_REGISTRY;
         // Une declaration fiscale porte ce qui a ete collecte, a l'unite pres : la seuiller
@@ -171,8 +203,8 @@ public final class RegulatoryDeclarations {
         UUID id = Ids.newId();
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO regulatory_declaration(id, legal_entity_id, code, label, recipient,"
-            + " method, frequency, deadline_days, threshold_amount, valid_from, valid_to,"
-            + " created_by, approved_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+            + " method, frequency, deadline_days, threshold_amount, subject_code, valid_from,"
+            + " valid_to, created_by, approved_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
             ps.setObject(1, id);
             ps.setObject(2, draft.legalEntityId());
             ps.setString(3, draft.code());
@@ -186,10 +218,11 @@ public final class RegulatoryDeclarations {
             } else {
                 ps.setBigDecimal(9, draft.thresholdAmount());
             }
-            ps.setObject(10, draft.validFrom());
-            ps.setObject(11, draft.validTo());
-            ps.setObject(12, draft.createdBy());
-            ps.setObject(13, draft.approvedBy());
+            ps.setString(10, draft.subjectCode());
+            ps.setObject(11, draft.validFrom());
+            ps.setObject(12, draft.validTo());
+            ps.setObject(13, draft.createdBy());
+            ps.setObject(14, draft.approvedBy());
             ps.executeUpdate();
         } catch (SQLException e) {
             if ("23505".equals(e.getSQLState())) {
@@ -203,7 +236,7 @@ public final class RegulatoryDeclarations {
 
     private static final String SELECT =
         "SELECT id, legal_entity_id, code, label, recipient, method, frequency, deadline_days,"
-        + " threshold_amount, valid_from, valid_to FROM regulatory_declaration";
+        + " threshold_amount, subject_code, valid_from, valid_to FROM regulatory_declaration";
 
     public static List<Declaration> activeOn(Connection c, UUID legalEntityId, LocalDate on) {
         return query(c, SELECT + " WHERE legal_entity_id = ? AND valid_from <= ?"
@@ -244,7 +277,8 @@ public final class RegulatoryDeclarations {
                         rs.getObject(2, UUID.class), rs.getString(3), rs.getString(4),
                         Recipient.valueOf(rs.getString(5)), Method.valueOf(rs.getString(6)),
                         Frequency.valueOf(rs.getString(7)), rs.getInt(8), rs.getBigDecimal(9),
-                        rs.getObject(10, LocalDate.class), rs.getObject(11, LocalDate.class)));
+                        rs.getString(10), rs.getObject(11, LocalDate.class),
+                        rs.getObject(12, LocalDate.class)));
                 }
             }
         } catch (SQLException e) {

@@ -24,8 +24,8 @@ class TfjRegulatoryIT extends TfjTestBase {
             new RegulatoryDeclarations.Draft(ENTITY, "TFJ-SITUATION", "Situation comptable",
                 RegulatoryDeclarations.Recipient.CENTRAL_BANK,
                 RegulatoryDeclarations.Method.ACCOUNTING_SITUATION,
-                RegulatoryDeclarations.Frequency.MONTHLY, 7, null, jour.minusYears(1), null,
-                ACTOR, APPROVER)));
+                RegulatoryDeclarations.Frequency.MONTHLY, 7, null, null, jour.minusYears(1),
+                null, ACTOR, APPROVER)));
 
         TfjRun run = engine.run(ENTITY, jour, ACTOR, RunMode.REAL);
         assertThat(run.isCompleted()).as(run.summary()).isTrue();

@@ -71,7 +71,7 @@ class DeadlineWatchIT extends RegulatoryTestBase {
             new RegulatoryDeclarations.Draft(ENTITY, "VEILLE-RECENTE", "Recente",
                 RegulatoryDeclarations.Recipient.BANKING_COMMISSION,
                 RegulatoryDeclarations.Method.ACCOUNTING_SITUATION,
-                RegulatoryDeclarations.Frequency.MONTHLY, 15, null,
+                RegulatoryDeclarations.Frequency.MONTHLY, 15, null, null,
                 LocalDate.of(2026, 9, 1), null, ACTOR, APPROVER)));
         assertThat(declaration).isNotNull();
 

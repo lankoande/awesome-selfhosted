@@ -117,6 +117,10 @@ public enum Operation {
     CREDIT_BUREAU_CONSENT,
     /** Taxe : assiette, taux de reference et compte de collecte, a deux. */
     TAX_RULE_MANAGE,
+    /** Liasse : les etats declares comme un tout, a deux. */
+    STATEMENT_PACK_MANAGE,
+    /** Perimetre de consolidation : membres, methodes, quotes-parts, eliminations, a deux. */
+    CONSOLIDATION_MANAGE,
     /** Consultation des declarations, des etats produits, des echeances et des taxes. */
     REGULATORY_READ,
     /** Lecture du dossier a l'echelle de l'entite : politique declaree, dossiers incomplets. */

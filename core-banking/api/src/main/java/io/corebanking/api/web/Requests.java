@@ -265,6 +265,28 @@ public final class Requests {
                                  UUID collectionAccountId, LocalDate validFrom,
                                  LocalDate validTo) {}
 
+    /**
+     * Liasse : les etats declares comme un tout.
+     *
+     * @param items natures des etats — au moins {@code BALANCE_SHEET} et
+     *     {@code INCOME_STATEMENT}, dont le rapprochement fait l'interet de la liasse
+     */
+    public record StatementPackRequest(String code, String label, List<String> items,
+                                       LocalDate validFrom, LocalDate validTo) {}
+
+    /** Un membre du perimetre : son entite, sa methode, sa quote-part. */
+    public record ConsolidationMemberRequest(UUID entityId, String method,
+                                             BigDecimal interestPercent) {}
+
+    /** Perimetre de consolidation : qui entre dans les comptes du groupe, et comment. */
+    public record ConsolidationScopeRequest(String code, String label, String presentationCurrency,
+                                            List<ConsolidationMemberRequest> members,
+                                            LocalDate validFrom, LocalDate validTo) {}
+
+    /** Deux comptes qui se font face d'une entite a l'autre, et qui s'eliminent. */
+    public record EliminationRequest(String label, UUID leftEntityId, UUID leftAccountId,
+                                     UUID rightEntityId, UUID rightAccountId) {}
+
     // ------------------------------------------------------------------ LCB-FT
 
     /**

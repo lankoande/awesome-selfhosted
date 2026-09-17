@@ -242,6 +242,52 @@ public final class RegulatoryUseCases {
         }
     }
 
+    public static final class ReadStatementPacks
+            implements UseCase<EntityQuery, List<io.corebanking.regulatory.StatementPacks.Pack>> {
+        private final Database database;
+
+        public ReadStatementPacks(Database database) {
+            this.database = database;
+        }
+
+        @Override public Operation operation() { return Operation.REGULATORY_READ; }
+
+        @Override
+        public AccessTarget targetOf(EntityQuery query) {
+            return AccessTarget.inEntity(query.legalEntityId());
+        }
+
+        @Override
+        public List<io.corebanking.regulatory.StatementPacks.Pack> execute(EntityQuery query) {
+            return database.inTransaction(
+                c -> io.corebanking.regulatory.StatementPacks.all(c, query.legalEntityId()));
+        }
+    }
+
+    public static final class ReadConsolidationScopes
+            implements UseCase<EntityQuery,
+                               List<io.corebanking.regulatory.ConsolidationScopes.Scope>> {
+        private final Database database;
+
+        public ReadConsolidationScopes(Database database) {
+            this.database = database;
+        }
+
+        @Override public Operation operation() { return Operation.REGULATORY_READ; }
+
+        @Override
+        public AccessTarget targetOf(EntityQuery query) {
+            return AccessTarget.inEntity(query.legalEntityId());
+        }
+
+        @Override
+        public List<io.corebanking.regulatory.ConsolidationScopes.Scope> execute(
+                EntityQuery query) {
+            return database.inTransaction(
+                c -> io.corebanking.regulatory.ConsolidationScopes.all(c, query.legalEntityId()));
+        }
+    }
+
     // ------------------------------------------------------------------ outillage
 
     static ReportFilings.Filing require(Database database, UUID legalEntityId, UUID filingId) {

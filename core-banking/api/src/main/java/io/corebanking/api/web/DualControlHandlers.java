@@ -109,7 +109,13 @@ public final class DualControlHandlers {
                        new BreakTermDeposit(database, termDeposits, accounts),
                        new DeclareMonitoringScenario(database), new ReportSuspicion(database),
                        new DeclareRegulatoryReport(database), new TransmitReport(database),
-                       new DeclareTaxRule(database, accounts));
+                       new DeclareTaxRule(database, accounts), new DeclareStatementPack(database),
+                       new DeclareConsolidationScope(database),
+                       new DeclareElimination(database, accounts));
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private static int integer(Map<String, Object> payload, String key) {
@@ -2407,6 +2413,7 @@ public final class DualControlHandlers {
                         integer(payload, "deadlineDays"),
                         threshold == null || threshold.isBlank() ? null
                             : new java.math.BigDecimal(threshold),
+                        blankToNull(text(payload, "subjectCode")),
                         java.time.LocalDate.parse(required(payload, "validFrom")),
                         validTo == null || validTo.isBlank() ? null
                             : java.time.LocalDate.parse(validTo),
@@ -2538,6 +2545,149 @@ public final class DualControlHandlers {
                     validTo == null || validTo.isBlank() ? null
                         : java.time.LocalDate.parse(validTo),
                     Callers.actorId(maker), Callers.actorId(checker))));
+        }
+    }
+
+
+    /** Liasse : les etats declares comme un tout, et confrontes entre eux a la production. */
+    static final class DeclareStatementPack implements MakerChecker.Handler {
+        private final Database database;
+
+        DeclareStatementPack(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "STATEMENT_PACK_DECLARE"; }
+        @Override public Operation operation() { return Operation.STATEMENT_PACK_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "code");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            java.util.List<io.corebanking.ledger.store.StatementLayouts.Kind> items =
+                new java.util.ArrayList<>();
+            for (String item : required(payload, "items").split(",")) {
+                if (!item.isBlank()) {
+                    items.add(io.corebanking.ledger.store.StatementLayouts.Kind.valueOf(
+                        item.trim()));
+                }
+            }
+            String validTo = text(payload, "validTo");
+            return database.inTransaction(c -> io.corebanking.regulatory.StatementPacks.declare(c,
+                new io.corebanking.regulatory.StatementPacks.Draft(
+                    uuid(payload, "legalEntityId"), required(payload, "code"),
+                    required(payload, "label"), items,
+                    java.time.LocalDate.parse(required(payload, "validFrom")),
+                    validTo == null || validTo.isBlank() ? null
+                        : java.time.LocalDate.parse(validTo),
+                    Callers.actorId(maker), Callers.actorId(checker))));
+        }
+    }
+
+    /** Perimetre de consolidation : qui entre dans les comptes du groupe, et comment. */
+    static final class DeclareConsolidationScope implements MakerChecker.Handler {
+        private final Database database;
+
+        DeclareConsolidationScope(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "CONSOLIDATION_SCOPE_DECLARE"; }
+        @Override public Operation operation() { return Operation.CONSOLIDATION_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "code");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            java.util.List<io.corebanking.regulatory.ConsolidationScopes.Member> members =
+                new java.util.ArrayList<>();
+            for (String member : required(payload, "members").split(";")) {
+                String[] parts = member.split(":");
+                if (parts.length != 3) {
+                    throw new IllegalArgumentException("Membre de perimetre illisible : " + member);
+                }
+                members.add(new io.corebanking.regulatory.ConsolidationScopes.Member(
+                    java.util.UUID.fromString(parts[0].trim()),
+                    io.corebanking.regulatory.ConsolidationScopes.Method.valueOf(parts[1].trim()),
+                    new java.math.BigDecimal(parts[2].trim())));
+            }
+            String validTo = text(payload, "validTo");
+            return database.inTransaction(c ->
+                io.corebanking.regulatory.ConsolidationScopes.declare(c,
+                    new io.corebanking.regulatory.ConsolidationScopes.Draft(
+                        uuid(payload, "legalEntityId"), required(payload, "code"),
+                        required(payload, "label"), required(payload, "presentationCurrency"),
+                        members, java.time.LocalDate.parse(required(payload, "validFrom")),
+                        validTo == null || validTo.isBlank() ? null
+                            : java.time.LocalDate.parse(validTo),
+                        Callers.actorId(maker), Callers.actorId(checker))));
+        }
+    }
+
+    /**
+     * Elimination : deux comptes qui se font face d'une entite a l'autre.
+     *
+     * <p>A deux, comme le perimetre : declarer que deux comptes se repondent, c'est decider de
+     * faire disparaitre des comptes du groupe ce qu'ils portent.
+     */
+    static final class DeclareElimination implements MakerChecker.Handler {
+        private final Database database;
+        private final AccountDirectory accounts;
+
+        DeclareElimination(Database database, AccountDirectory accounts) {
+            this.database = database;
+            this.accounts = accounts;
+        }
+
+        @Override public String name() { return "CONSOLIDATION_ELIMINATION_DECLARE"; }
+        @Override public Operation operation() { return Operation.CONSOLIDATION_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            // Les comptes cites appartiennent bien aux entites annoncees : une elimination qui
+            // opposerait deux comptes d'ailleurs ferait disparaitre ce qui ne s'y trouve pas.
+            requireAccountOf(uuid(payload, "leftAccountId"), uuid(payload, "leftEntityId"));
+            requireAccountOf(uuid(payload, "rightAccountId"), uuid(payload, "rightEntityId"));
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        private void requireAccountOf(java.util.UUID accountId, java.util.UUID entityId) {
+            io.corebanking.ledger.domain.account.Account account = accounts.require(accountId);
+            if (!account.legalEntityId().equals(entityId)) {
+                throw new IllegalArgumentException("Le compte " + account.code()
+                    + " ne releve pas de l'entite " + entityId + " : une elimination ferait "
+                    + "disparaitre ce qui ne s'y trouve pas");
+            }
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "label");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            return database.inTransaction(c ->
+                io.corebanking.regulatory.ConsolidationScopes.eliminate(c,
+                    uuid(payload, "scopeId"), required(payload, "label"),
+                    uuid(payload, "leftEntityId"), uuid(payload, "leftAccountId"),
+                    uuid(payload, "rightEntityId"), uuid(payload, "rightAccountId")));
         }
     }
 

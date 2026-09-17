@@ -549,6 +549,92 @@
         },
         "type" : "object"
       },
+      "ConsolidationScopes.Elimination" : {
+        "properties" : {
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "leftAccountId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "leftEntityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "rightAccountId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "rightEntityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ConsolidationScopes.Member" : {
+        "properties" : {
+          "entityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "interestPercent" : {
+            "type" : "number"
+          },
+          "method" : {
+            "enum" : [ "FULL", "PROPORTIONAL", "EQUITY" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ConsolidationScopes.Scope" : {
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "eliminations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ConsolidationScopes.Elimination"
+            },
+            "type" : "array"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "legalEntityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "members" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ConsolidationScopes.Member"
+            },
+            "type" : "array"
+          },
+          "presentationCurrency" : {
+            "type" : "string"
+          },
+          "validFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "validTo" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "CurrencyRef" : {
         "properties" : {
           "code" : {
@@ -2398,11 +2484,14 @@
             "type" : "string"
           },
           "method" : {
-            "enum" : [ "ACCOUNTING_SITUATION", "CREDIT_REGISTRY", "PAYMENT_INCIDENTS", "CREDIT_BUREAU", "TAX_COLLECTION" ],
+            "enum" : [ "ACCOUNTING_SITUATION", "CREDIT_REGISTRY", "PAYMENT_INCIDENTS", "CREDIT_BUREAU", "TAX_COLLECTION", "STATEMENT_PACK", "CONSOLIDATED_STATEMENTS" ],
             "type" : "string"
           },
           "recipient" : {
             "enum" : [ "CENTRAL_BANK", "BANKING_COMMISSION", "CREDIT_BUREAU", "TAX_AUTHORITY" ],
+            "type" : "string"
+          },
+          "subjectCode" : {
             "type" : "string"
           },
           "thresholdAmount" : {
@@ -2485,6 +2574,12 @@
       },
       "ReportFilings.Filing" : {
         "properties" : {
+          "anomalies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "cancellationReason" : {
             "type" : "string"
           },
@@ -2522,7 +2617,7 @@
             "type" : "array"
           },
           "method" : {
-            "enum" : [ "ACCOUNTING_SITUATION", "CREDIT_REGISTRY", "PAYMENT_INCIDENTS", "CREDIT_BUREAU", "TAX_COLLECTION" ],
+            "enum" : [ "ACCOUNTING_SITUATION", "CREDIT_REGISTRY", "PAYMENT_INCIDENTS", "CREDIT_BUREAU", "TAX_COLLECTION", "STATEMENT_PACK", "CONSOLIDATED_STATEMENTS" ],
             "type" : "string"
           },
           "periodEnd" : {
@@ -2539,6 +2634,9 @@
           },
           "status" : {
             "enum" : [ "PRODUCED", "TRANSMITTED", "CANCELLED" ],
+            "type" : "string"
+          },
+          "subjectCode" : {
             "type" : "string"
           },
           "thresholdUsed" : {
@@ -2928,6 +3026,49 @@
         },
         "type" : "object"
       },
+      "Requests.ConsolidationMemberRequest" : {
+        "properties" : {
+          "entityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "interestPercent" : {
+            "type" : "number"
+          },
+          "method" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Requests.ConsolidationScopeRequest" : {
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "members" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Requests.ConsolidationMemberRequest"
+            },
+            "type" : "array"
+          },
+          "presentationCurrency" : {
+            "type" : "string"
+          },
+          "validFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "validTo" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Requests.CreateBranch" : {
         "properties" : {
           "code" : {
@@ -3176,6 +3317,30 @@
             "type" : "string"
           },
           "upfrontFees" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Requests.EliminationRequest" : {
+        "properties" : {
+          "label" : {
+            "type" : "string"
+          },
+          "leftAccountId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "leftEntityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "rightAccountId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "rightEntityId" : {
+            "format" : "uuid",
             "type" : "string"
           }
         },
@@ -4173,6 +4338,31 @@
         },
         "type" : "object"
       },
+      "Requests.StatementPackRequest" : {
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "items" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "validFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "validTo" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Requests.StatementRuleRequest" : {
         "properties" : {
           "accountKind" : {
@@ -4684,6 +4874,40 @@
           "ordinal" : {
             "format" : "int32",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "StatementPacks.Pack" : {
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "items" : {
+            "items" : {
+              "enum" : [ "BALANCE_SHEET", "INCOME_STATEMENT", "OFF_BALANCE_SHEET" ],
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "legalEntityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "validFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "validTo" : {
+            "format" : "date",
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -15676,6 +15900,230 @@
         "tags" : [ "Product" ]
       }
     },
+    "/v1/entities/{legalEntityId}/regulatory/consolidation-scopes" : {
+      "get" : {
+        "operationId" : "Regulatory.consolidationScopes",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "items" : {
+                        "$ref" : "#/components/schemas/ConsolidationScopes.Scope"
+                      },
+                      "type" : "array"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      },
+      "post" : {
+        "operationId" : "Regulatory.declareScope",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.ConsolidationScopeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/regulatory/consolidation-scopes/{scopeId}/eliminations" : {
+      "post" : {
+        "operationId" : "Regulatory.declareElimination",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "scopeId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.EliminationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      }
+    },
     "/v1/entities/{legalEntityId}/regulatory/deadlines" : {
       "get" : {
         "operationId" : "Regulatory.deadlines",
@@ -16339,6 +16787,147 @@
               }
             },
             "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/regulatory/statement-packs" : {
+      "get" : {
+        "operationId" : "Regulatory.statementPacks",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "items" : {
+                        "$ref" : "#/components/schemas/StatementPacks.Pack"
+                      },
+                      "type" : "array"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Regulatory" ]
+      },
+      "post" : {
+        "operationId" : "Regulatory.declarePack",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.StatementPackRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
           },
           "400" : {
             "$ref" : "#/components/responses/400"

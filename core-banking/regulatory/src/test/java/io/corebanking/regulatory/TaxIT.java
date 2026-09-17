@@ -102,7 +102,7 @@ class TaxIT extends RegulatoryTestBase {
         assertThatThrownBy(() -> new RegulatoryDeclarations.Draft(ENTITY, "FISCALE-SEUIL",
                 "Seuillee", RegulatoryDeclarations.Recipient.TAX_AUTHORITY,
                 RegulatoryDeclarations.Method.TAX_COLLECTION,
-                RegulatoryDeclarations.Frequency.MONTHLY, 20, new BigDecimal("1000"),
+                RegulatoryDeclarations.Frequency.MONTHLY, 20, new BigDecimal("1000"), null,
                 FIN.minusMonths(6), null, ACTOR, APPROVER))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("se reverse en entier");

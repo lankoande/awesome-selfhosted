@@ -579,8 +579,40 @@ Quatre règles fixent la portée :
 | `CREDIT_BUREAU_CONSENT` | Agence | non | Chargé de clientèle, chef d'agence |
 | `REGULATORY_READ` | Entité | non | Comptable, risques, auditeur, exploitant |
 
+**Liasse et consolidation (V56).** Deux méthodes de plus, qui regardent plus d'un état à la fois.
+
+| Objet | Ce qu'il porte |
+|---|---|
+| `statement_pack` / `statement_pack_item` | Une liasse et les **natures** d'états qu'elle cite — pas les maquettes : c'est celle active à la date qui répond |
+| `consolidation_scope` / `consolidation_member` | Le périmètre du groupe, sa devise de présentation, et pour chaque membre sa méthode (`FULL`, `PROPORTIONAL`, `EQUITY`) et sa quote-part |
+| `consolidation_elimination` | Les paires de comptes qui se font face d'une entité à l'autre |
+
+- **Le rapprochement fait la liasse.** Le résultat du compte de résultat est celui porté au bilan ;
+  une liasse qui ne citerait pas les deux états est refusée. Le compte de résultat y court depuis
+  **l'ouverture de l'exercice**, comme le résultat que présente le bilan — comparer deux fenêtres
+  différentes ne voudrait rien dire.
+- **Un état à anomalies se produit, mais ne se transmet pas.** Les anomalies sont figées avec lui :
+  c'est ainsi qu'on voit ce qui ne va pas. Mais on ne déclare pas des comptes dont on sait qu'ils
+  sont faux.
+- **La consolidation traverse le cloisonnement une entité à la fois.** Chaque membre est lu dans sa
+  propre portée et l'agrégation se fait en mémoire ; une transaction ne changeant pas d'entité, le
+  calcul précède celle qui fige l'état.
+- **Ce qui se fait face s'élimine après s'être répondu**, les soldes comparés **signés au débit** —
+  orientés dans leur sens naturel, une créance et une dette de même montant seraient toutes deux
+  positives. L'écart est nommé, jamais absorbé.
+- **Le socle ne fait pas semblant** : une mise en équivalence est nommée et non agrégée, une entité
+  tenant ses comptes dans une autre devise est nommée et non convertie au hasard, et l'intégration
+  globale exige 100 % faute de savoir présenter les intérêts minoritaires.
+
+| Opération | Portée | À deux | Rôles |
+|---|---|---|---|
+| `TAX_RULE_MANAGE` | Entité | oui | Comptable |
+| `STATEMENT_PACK_MANAGE` | Entité | oui | Comptable |
+| `CONSOLIDATION_MANAGE` | Entité | oui | Comptable |
+
 Reste à faire : les formats de fichier attendus par chaque destinataire (la production rend les
-lignes, pas le fichier), les ratios prudentiels et les réserves obligatoires.
+lignes, pas le fichier), les ratios prudentiels et les réserves obligatoires ; en consolidation,
+le cours de clôture, les intérêts minoritaires et la quote-part de situation nette.
 
 ### Fiscalité
 

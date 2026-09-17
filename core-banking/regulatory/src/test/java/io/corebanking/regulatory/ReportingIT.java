@@ -206,8 +206,8 @@ class ReportingIT extends RegulatoryTestBase {
                 ENTITY, "SANS-DELAI", "Sans delai",
                 RegulatoryDeclarations.Recipient.CENTRAL_BANK,
                 RegulatoryDeclarations.Method.ACCOUNTING_SITUATION,
-                RegulatoryDeclarations.Frequency.MONTHLY, null, null, FIN.minusMonths(6), null,
-                ACTOR, APPROVER))
+                RegulatoryDeclarations.Frequency.MONTHLY, null, null, null, FIN.minusMonths(6),
+                null, ACTOR, APPROVER))
             .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("delai");
 
         // Une situation comptable seuillee serait fausse : la balance est exhaustive.
@@ -215,14 +215,14 @@ class ReportingIT extends RegulatoryTestBase {
                 ENTITY, "SEUILLEE", "Balance seuillee",
                 RegulatoryDeclarations.Recipient.CENTRAL_BANK,
                 RegulatoryDeclarations.Method.ACCOUNTING_SITUATION,
-                RegulatoryDeclarations.Frequency.MONTHLY, 15, new BigDecimal("1000"),
+                RegulatoryDeclarations.Frequency.MONTHLY, 15, new BigDecimal("1000"), null,
                 FIN.minusMonths(6), null, ACTOR, APPROVER))
             .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("ne se seuille pas");
 
         assertThatThrownBy(() -> new RegulatoryDeclarations.Draft(
                 ENTITY, "SEUL", "Decidee seule", RegulatoryDeclarations.Recipient.CENTRAL_BANK,
                 RegulatoryDeclarations.Method.CREDIT_REGISTRY,
-                RegulatoryDeclarations.Frequency.MONTHLY, 15, new BigDecimal("1000"),
+                RegulatoryDeclarations.Frequency.MONTHLY, 15, new BigDecimal("1000"), null,
                 FIN.minusMonths(6), null, ACTOR, ACTOR))
             .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("a deux");
     }
@@ -326,7 +326,7 @@ class ReportingIT extends RegulatoryTestBase {
         return database.inEntity(ENTITY, c -> RegulatoryDeclarations.declare(c,
             new RegulatoryDeclarations.Draft(ENTITY, code, code,
                 RegulatoryDeclarations.Recipient.CENTRAL_BANK, method, frequency, deadlineDays,
-                threshold, FIN.minusMonths(6), null, ACTOR, APPROVER)));
+                threshold, null, FIN.minusMonths(6), null, ACTOR, APPROVER)));
     }
 
     static ReportFilings.Filing lire(UUID filingId) {

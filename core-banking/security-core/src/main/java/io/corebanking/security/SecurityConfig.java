@@ -321,6 +321,16 @@ public final class SecurityConfig {
             AccessRule.allow(ACCOUNTANT).within(Scope.OWN_ENTITY)
                 .requiringSecondPerson().build());
 
+        // Une liasse fixe ce que la banque presente de ses comptes, un perimetre ce que le
+        // groupe presente comme sien : deux decisions de presentation, deux personnes.
+        policy.put(Operation.STATEMENT_PACK_MANAGE,
+            AccessRule.allow(ACCOUNTANT).within(Scope.OWN_ENTITY)
+                .requiringSecondPerson().build());
+
+        policy.put(Operation.CONSOLIDATION_MANAGE,
+            AccessRule.allow(ACCOUNTANT).within(Scope.OWN_ENTITY)
+                .requiringSecondPerson().build());
+
         policy.put(Operation.REGULATORY_READ,
             AccessRule.allow(ACCOUNTANT, RISK_OFFICER, AUDITOR, OPERATOR)
                 .within(Scope.OWN_ENTITY).build());

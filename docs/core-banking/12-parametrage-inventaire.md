@@ -435,6 +435,15 @@ reproductible.
 | Taux de référence | `rate_percent` — celui qui se déclare ; il ne remplace pas celui qui a été appliqué, une taxe prélevée hier reste prélevée au taux d'hier |
 | Compte de collecte | `collection_account_id` — le compte général où la taxe s'accumule jusqu'à son reversement, et que la déclaration fiscale lit ; un seul par taxe en vigueur |
 
+### Liasse et consolidation — `statement_pack`, `consolidation_scope` ✅
+
+| Élément | Contenu |
+|---|---|
+| Liasse | Code, libellé, validité datée, deux signatures ; les **natures** d'états citées (au moins le bilan et le compte de résultat) — la maquette qui répond est celle active à la date |
+| Périmètre | Code, libellé, devise de présentation, validité datée, deux signatures |
+| Membre | Entité, méthode (`FULL`, `PROPORTIONAL`, `EQUITY`), pourcentage d'intérêt ; l'entité consolidante figure au périmètre, chacune une seule fois |
+| Élimination | Les paires de comptes qui se font face d'une entité à l'autre, un compte au plus par paire |
+
 ### Référentiel ✅
 
 | Élément | Table | Contenu |
@@ -524,6 +533,7 @@ le code appelant.
 | Profil réglementaire régional et surcouche nationale ([11](11-profil-uemoa-bceao.md)) | ⬜ |
 | Déclarations réglementaires (destinataire, périodicité, délai, seuil) | ✅ |
 | Ratios prudentiels | ⬜ |
+| Liasse (jeu d'états rapprochés) et périmètre de consolidation | ✅ |
 | Mapping plan comptable interne → réglementaire | ⬜ |
 | Scénarios de surveillance LCB-FT | ✅ |
 

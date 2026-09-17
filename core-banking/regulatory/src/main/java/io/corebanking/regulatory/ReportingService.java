@@ -58,20 +58,46 @@ public final class ReportingService {
      */
     public UUID produce(UUID legalEntityId, UUID declarationId, LocalDate periodEnd,
                         LocalDate producedOn, UUID producedBy) {
-        return database.inEntity(legalEntityId, c -> {
-            RegulatoryDeclarations.Declaration declaration =
-                RegulatoryDeclarations.require(c, declarationId);
-            if (!declaration.legalEntityId().equals(legalEntityId)) {
-                throw new IllegalArgumentException("Declaration inconnue : " + declarationId);
-            }
-            CurrencyRef currency = functionalCurrency(c, legalEntityId);
-            List<ReportFilings.Line> lines = compute(c, legalEntityId, declaration.method(),
-                                                     declaration.frequency(),
-                                                     declaration.thresholdAmount(), periodEnd,
-                                                     currency);
-            return ReportFilings.produce(c, declaration, periodEnd, lines, currency, producedOn,
-                                         producedBy);
-        });
+        RegulatoryDeclarations.Declaration declaration = database.inEntity(legalEntityId,
+            c -> RegulatoryDeclarations.require(c, declarationId));
+        if (!declaration.legalEntityId().equals(legalEntityId)) {
+            throw new IllegalArgumentException("Declaration inconnue : " + declarationId);
+        }
+        CurrencyRef currency = database.inEntity(legalEntityId,
+            c -> functionalCurrency(c, legalEntityId));
+        prepareConsolidation(legalEntityId, declaration, periodEnd, currency);
+        try {
+            return database.inEntity(legalEntityId, c -> {
+                GroupReporting.Result result = compute(c, legalEntityId, declaration.method(),
+                    declaration.frequency(), declaration.thresholdAmount(),
+                    declaration.subjectCode(), periodEnd, currency);
+                return ReportFilings.produce(c, declaration, periodEnd, result.lines(),
+                                             result.anomalies(), currency, producedOn, producedBy);
+            });
+        } finally {
+            consolidated.remove();
+        }
+    }
+
+    /**
+     * Calcule la consolidation <b>avant</b> d'ouvrir la transaction de l'entite consolidante.
+     *
+     * <p>Une transaction ne change pas d'entite : c'est la regle qui rend le cloisonnement sur.
+     * La consolidation, qui lit chaque membre dans sa propre portee, doit donc s'executer hors de
+     * la portee de celle qui publie — et ses lignes sont ensuite posees dans la transaction qui
+     * fige l'etat.
+     */
+    private void prepareConsolidation(UUID legalEntityId,
+                                      RegulatoryDeclarations.Declaration declaration,
+                                      LocalDate periodEnd, CurrencyRef currency) {
+        if (declaration.method() != RegulatoryDeclarations.Method.CONSOLIDATED_STATEMENTS) {
+            return;
+        }
+        LocalDate periodStart = declaration.frequency().startOfPeriodEndingOn(periodEnd)
+            .orElseThrow(() -> new ReportFilings.FilingRefusedException(
+                "Le " + periodEnd + " ne ferme pas de periode " + declaration.frequency()));
+        consolidated.set(new GroupReporting(database).consolidated(
+            legalEntityId, declaration.subjectCode(), periodStart, periodEnd, currency));
     }
 
     /**
@@ -83,6 +109,23 @@ public final class ReportingService {
      * quelque chose a bouge derriere lui.
      */
     public List<String> differences(UUID legalEntityId, UUID filingId) {
+        ReportFilings.Filing subject = database.inEntity(legalEntityId,
+            c -> ReportFilings.require(c, filingId));
+        RegulatoryDeclarations.Declaration asDeclared = database.inEntity(legalEntityId,
+            c -> RegulatoryDeclarations.require(c, subject.declarationId()));
+        CurrencyRef presentation = database.inEntity(legalEntityId,
+            c -> functionalCurrency(c, legalEntityId));
+        // Meme raison qu'a la production : la consolidation lit chaque membre dans sa portee, et
+        // ne peut pas le faire sous la portee de l'entite consolidante.
+        prepareConsolidation(legalEntityId, asDeclared, subject.periodEnd(), presentation);
+        try {
+            return differencesWithin(legalEntityId, filingId);
+        } finally {
+            consolidated.remove();
+        }
+    }
+
+    private List<String> differencesWithin(UUID legalEntityId, UUID filingId) {
         return database.inEntity(legalEntityId, c -> {
             ReportFilings.Filing filing = ReportFilings.require(c, filingId);
             RegulatoryDeclarations.Declaration declaration =
@@ -91,10 +134,10 @@ public final class ReportingService {
             // Le parametrage confronte est celui de la production — la methode et le seuil
             // recopies sur l'etat —, jamais celui d'aujourd'hui : un seuil deplace depuis ferait
             // croire a un ecart de donnees la ou il n'y a qu'un changement de regle.
-            List<ReportFilings.Line> now = compute(c, legalEntityId, filing.method(),
-                                                   declaration.frequency(), filing.thresholdUsed(),
-                                                   filing.periodEnd(), currency);
-            return compare(filing.lines(), now);
+            GroupReporting.Result now = compute(c, legalEntityId, filing.method(),
+                declaration.frequency(), filing.thresholdUsed(), filing.subjectCode(),
+                filing.periodEnd(), currency);
+            return compare(filing.lines(), now.lines());
         });
     }
 
@@ -145,23 +188,51 @@ public final class ReportingService {
         return differences;
     }
 
-    private List<ReportFilings.Line> compute(Connection c, UUID entity,
-                                             RegulatoryDeclarations.Method method,
-                                             RegulatoryDeclarations.Frequency frequency,
-                                             BigDecimal threshold, LocalDate periodEnd,
-                                             CurrencyRef currency) {
+    private GroupReporting.Result compute(Connection c, UUID entity,
+                                          RegulatoryDeclarations.Method method,
+                                          RegulatoryDeclarations.Frequency frequency,
+                                          BigDecimal threshold, String subjectCode,
+                                          LocalDate periodEnd, CurrencyRef currency) {
         LocalDate periodStart = frequency.startOfPeriodEndingOn(periodEnd)
             .orElseThrow(() -> new ReportFilings.FilingRefusedException(
                 "Le " + periodEnd + " ne ferme pas de periode " + frequency));
         return switch (method) {
-            case ACCOUNTING_SITUATION -> accountingSituation(c, entity, periodEnd, currency);
+            case ACCOUNTING_SITUATION ->
+                plain(accountingSituation(c, entity, periodEnd, currency));
             case CREDIT_REGISTRY ->
-                creditRegistry(c, entity, periodEnd, currency, threshold, false);
-            case CREDIT_BUREAU -> creditRegistry(c, entity, periodEnd, currency, null, true);
+                plain(creditRegistry(c, entity, periodEnd, currency, threshold, false));
+            case CREDIT_BUREAU ->
+                plain(creditRegistry(c, entity, periodEnd, currency, null, true));
             case PAYMENT_INCIDENTS ->
-                paymentIncidents(c, entity, periodStart, periodEnd, currency);
-            case TAX_COLLECTION -> taxCollection(c, entity, periodStart, periodEnd, currency);
+                plain(paymentIncidents(c, entity, periodStart, periodEnd, currency));
+            case TAX_COLLECTION ->
+                plain(taxCollection(c, entity, periodStart, periodEnd, currency));
+            case STATEMENT_PACK -> new GroupReporting(database)
+                .statementPack(c, entity, subjectCode, periodStart, periodEnd, currency);
+            // La consolidation traverse le cloisonnement une entite a la fois : elle ouvre ses
+            // propres portees, et ne peut donc pas s'executer dans la transaction de l'entite
+            // consolidante. Elle est calculee avant, et ses lignes sont posees ici.
+            case CONSOLIDATED_STATEMENTS -> consolidatedLines(entity, subjectCode, periodStart,
+                                                              periodEnd, currency);
         };
+    }
+
+    private static GroupReporting.Result plain(List<ReportFilings.Line> lines) {
+        return new GroupReporting.Result(lines, List.of());
+    }
+
+    /** Memoire de la consolidation calculee hors transaction, le temps d'une production. */
+    private final ThreadLocal<GroupReporting.Result> consolidated = new ThreadLocal<>();
+
+    private GroupReporting.Result consolidatedLines(UUID entity, String scopeCode,
+                                                    LocalDate periodStart, LocalDate periodEnd,
+                                                    CurrencyRef currency) {
+        GroupReporting.Result ready = consolidated.get();
+        if (ready != null) {
+            return ready;
+        }
+        return new GroupReporting(database)
+            .consolidated(entity, scopeCode, periodStart, periodEnd, currency);
     }
 
     // ------------------------------------------------------------------ situation comptable
