@@ -12,6 +12,16 @@ export const routes: Routes = [
     loadComponent: () => import('./guichet/versement/versement.page').then((m) => m.Versement),
   },
   {
+    path: 'guichet/retrait',
+    title: "Guichet — retrait d'espèces",
+    loadComponent: () => import('./guichet/retrait/retrait.page').then((m) => m.Retrait),
+  },
+  {
+    path: 'guichet/caisse',
+    title: 'Guichet — arrêté de caisse',
+    loadComponent: () => import('./caisse/arrete/arrete-caisse.page').then((m) => m.ArreteDeCaisse),
+  },
+  {
     path: 'validation',
     title: 'File de validation',
     loadComponent: () => import('./validation/file/file-validation.page').then((m) => m.FileValidation),

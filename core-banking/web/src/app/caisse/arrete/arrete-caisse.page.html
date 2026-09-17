@@ -1,0 +1,100 @@
+<div class="ecran">
+  <div class="colonne-comptage">
+    <cb-toolbar>
+      <h1>Arrêté de caisse</h1>
+      <cb-state-badge [etat]="etatOperation()" />
+      @if (etat(); as e) {
+        <span class="caisse cb-mono">{{ e.tillCode }} · journée {{ jour(e.businessDate) }}</span>
+      }
+    </cb-toolbar>
+
+    <p class="rappel">
+      Le traitement de fin de journée <strong>refuse de clore une journée dont une caisse mouvementée
+      n'est pas arrêtée</strong>. Tant que ce comptage n'est pas fait, l'agence attend.
+    </p>
+
+    <cb-activity [enCours]="enCours()" libelle="Lecture de la caisse…" />
+
+    @if (refus(); as r) {
+      <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+        @if (r.detail) { {{ r.detail }} }
+      </cb-notice>
+    }
+
+    @if (phase() === 'arretee' && arrete(); as a) {
+      <cb-notice [nature]="a.entryId ? 'avertissement' : 'succes'"
+                 [titre]="a.entryId ? 'Caisse arrêtée, avec écart' : 'Caisse arrêtée'"
+                 [code]="a.tillCode">
+        @if (a.entryId) {
+          L'écart a été imputé au compte d'écart de caisse par l'écriture
+          <span class="cb-mono">{{ a.entryId.slice(0, 8) }}</span>. Il reste à votre nom et se justifie
+          auprès du chef d'agence.
+        } @else {
+          Le comptage retrouve le solde théorique au franc près. La journée peut être clôturée.
+        }
+        <ng-container actions>
+          <button type="button" cbButton="primaire" (click)="imprimer()">Imprimer l'arrêté</button>
+        </ng-container>
+      </cb-notice>
+    }
+
+    @if (phase() === 'comptage' && coupures().length) {
+      <cb-billetage titre="Comptage physique" reference="le solde théorique" [facultatif]="false"
+                    [comptage]="comptage()" (comptageChange)="comptage.set($event)"
+                    [coupures]="coupures()" [devise]="devise()" [montantAnnonce]="theorique()" />
+    }
+  </div>
+
+  <div class="colonne-resultat">
+    <cb-section titre="Arrêté" [indication]="phase() === 'arretee' ? 'enregistré' : 'en cours de comptage'">
+      <div class="bloc">
+        <div class="ligne">
+          <span class="libelle">Solde théorique</span>
+          <span class="valeur"><cb-amount [valeur]="theorique()" [devise]="devise()" /></span>
+        </div>
+        <div class="ligne">
+          <span class="libelle">Comptage physique</span>
+          <span class="valeur"><cb-amount [valeur]="compte()" [devise]="devise()" /></span>
+        </div>
+        <div class="ligne ligne--ecart" [class.ligne--juste]="ecart() === 0 && !rienCompte()">
+          <span class="libelle">Écart</span>
+          <span class="valeur">
+            <cb-amount [valeur]="ecart()" [devise]="devise()" signe="toujours"
+                       [ton]="ecart() === 0 ? 'positif' : 'negatif'" />
+          </span>
+        </div>
+        <p class="lecture">
+          @if (rienCompte()) {
+            Comptez les coupures : l'écart se calcule au fur et à mesure.
+          } @else if (ecart() === 0) {
+            Le comptage retrouve le solde théorique au franc près.
+          } @else if (ecart() > 0) {
+            <strong>Excédent</strong> : il y a plus en caisse que ce que le registre annonce.
+          } @else {
+            <strong>Manquant</strong> : il y a moins en caisse que ce que le registre annonce.
+          }
+        </p>
+      </div>
+
+      @if (etat(); as e) {
+        <dl class="fiche">
+          <dt>Caisse</dt><dd class="cb-mono">{{ e.tillCode }}</dd>
+          <dt>Journée</dt><dd class="cb-mono">{{ jour(e.businessDate) }}</dd>
+          <dt>Mouvements</dt><dd class="cb-mono">{{ e.mouvements }}</dd>
+        </dl>
+      }
+    </cb-section>
+
+    @if (phase() === 'comptage') {
+      <div class="actions">
+        <button type="button" cbButton="primaire" [disabled]="enCours() || rienCompte()" (click)="arreterLaCaisse()">
+          Arrêter la caisse
+        </button>
+        <p class="avertissement">
+          L'arrêté est irréversible : un second comptage ne remplace pas le premier. Un écart s'impute au
+          compte d'écart de caisse et reste à votre nom — il se justifie, il ne se rattrape pas.
+        </p>
+      </div>
+    }
+  </div>
+</div>

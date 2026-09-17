@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AppConfig } from '../core/config/runtime-config';
-import { ContexteCompte, DemandeVersement, IssueVersement, Recu, RefusMetier, SoldeCompte } from './modele/guichet.modele';
+import { ContexteCompte, DemandeEspeces, IssueVersement, Recu, RefusMetier, SoldeCompte } from './modele/guichet.modele';
 import { Guichet } from './guichet.port';
 
 /** Enveloppe de réponse du socle : `{ data, page, error, meta }`. */
@@ -51,8 +51,16 @@ export class GuichetApi implements Guichet {
     };
   }
 
-  async verser(demande: DemandeVersement): Promise<IssueVersement> {
-    const url = `${this.racine()}/entities/${demande.legalEntityId}/accounts/${demande.accountId}/deposits`;
+  async verser(demande: DemandeEspeces): Promise<IssueVersement> {
+    return this.operation(demande, 'deposits');
+  }
+
+  async retirer(demande: DemandeEspeces): Promise<IssueVersement> {
+    return this.operation(demande, 'withdrawals');
+  }
+
+  private async operation(demande: DemandeEspeces, route: 'deposits' | 'withdrawals'): Promise<IssueVersement> {
+    const url = `${this.racine()}/entities/${demande.legalEntityId}/accounts/${demande.accountId}/${route}`;
     const corps = {
       amount: demande.amount,
       currency: demande.currency,

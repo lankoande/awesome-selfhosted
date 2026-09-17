@@ -6,6 +6,7 @@ import { AppConfig } from './core/config/runtime-config';
 import { Apparence } from './core/apparence/apparence';
 import { provideGuichet } from './guichet/guichet.providers';
 import { provideValidation } from './validation/validation.providers';
+import { provideCaisse } from './caisse/caisse.providers';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -18,6 +19,7 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withFetch()),
     provideGuichet(),
     provideValidation(),
+    provideCaisse(),
     // La configuration de déploiement est lue avant le premier écran : l'accent
     // de la banque ne doit pas apparaître après coup.
     //

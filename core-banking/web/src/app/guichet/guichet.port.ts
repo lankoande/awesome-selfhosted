@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import { ContexteCompte, DemandeVersement, IssueVersement, SoldeCompte } from './modele/guichet.modele';
+import { ContexteCompte, DemandeEspeces, IssueVersement, SoldeCompte } from './modele/guichet.modele';
 
 /**
  * Le port du guichet. Une seule interface, deux implémentations : l'API du
@@ -23,7 +23,14 @@ export interface Guichet {
    * Le reçu porte `replayed` quand la clé d'idempotence était déjà connue :
    * l'opération n'a pas été passée deux fois.
    */
-  verser(demande: DemandeVersement): Promise<IssueVersement>;
+  verser(demande: DemandeEspeces): Promise<IssueVersement>;
+
+  /**
+   * Retire des espèces. Le socle vérifie le **disponible**, pas le solde
+   * comptable : un blocage retient une part du solde, et refuser un retrait sans
+   * pouvoir dire pourquoi est un incident client.
+   */
+  retirer(demande: DemandeEspeces): Promise<IssueVersement>;
 
   /**
    * Comptes proposés d'emblée. Seule la source de démonstration en offre :

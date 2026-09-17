@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { formaterMontant } from '../core/format/montant';
 import {
   ContexteCompte,
-  DemandeVersement,
+  DemandeEspeces,
   IssueVersement,
   Montant,
   Recu,
@@ -39,6 +39,7 @@ interface CompteDemo {
   readonly kyc: { etat: string; revuLe: string };
   readonly cumulEspeces30j: number;
   readonly plafondEspeces30j: number;
+  readonly plafondRetraitJournalier: number;
   readonly scenario: 'nominal' | 'validation' | 'bloque' | 'panne';
   readonly pourquoi: string;
 }
@@ -62,6 +63,7 @@ export const COMPTES_DEMO: readonly CompteDemo[] = [
     kyc: { etat: 'À jour', revuLe: '2026-03-12' },
     cumulEspeces30j: 2100000,
     plafondEspeces30j: 10000000,
+    plafondRetraitJournalier: 500000,
     scenario: 'nominal',
     pourquoi: 'Cas nominal — un blocage judiciaire ampute le disponible.',
   },
@@ -79,6 +81,7 @@ export const COMPTES_DEMO: readonly CompteDemo[] = [
     kyc: { etat: 'À jour', revuLe: '2026-01-20' },
     cumulEspeces30j: 7900000,
     plafondEspeces30j: 10000000,
+    plafondRetraitJournalier: 2000000,
     scenario: 'nominal',
     pourquoi: 'Plafond espèces proche : au-delà de 2 100 000 le socle refuse.',
   },
@@ -96,6 +99,7 @@ export const COMPTES_DEMO: readonly CompteDemo[] = [
     kyc: { etat: 'À jour', revuLe: '2026-05-04' },
     cumulEspeces30j: 12000000,
     plafondEspeces30j: 60000000,
+    plafondRetraitJournalier: 10000000,
     scenario: 'validation',
     pourquoi: 'Le socle répond 202 : second regard requis avant comptabilisation.',
   },
@@ -113,6 +117,7 @@ export const COMPTES_DEMO: readonly CompteDemo[] = [
     kyc: { etat: 'Revue échue', revuLe: '2024-07-15' },
     cumulEspeces30j: 0,
     plafondEspeces30j: 10000000,
+    plafondRetraitJournalier: 200000,
     scenario: 'bloque',
     pourquoi: 'Compte bloqué : la saisie ne s’ouvre pas.',
   },
@@ -130,6 +135,7 @@ export const COMPTES_DEMO: readonly CompteDemo[] = [
     kyc: { etat: 'À jour', revuLe: '2025-12-01' },
     cumulEspeces30j: 300000,
     plafondEspeces30j: 10000000,
+    plafondRetraitJournalier: 200000,
     scenario: 'panne',
     pourquoi: 'Le socle tombe à la première tentative : « Réessayer » rejoue la même clé.',
   },
@@ -145,6 +151,7 @@ export class GuichetFactice implements Guichet {
   private readonly dejaVu = new Map<string, IssueVersement>();
   private readonly pannesConsommees = new Set<string>();
   private readonly cumuls = new Map<string, number>();
+  private readonly retraits = new Map<string, number>();
   private numeroEcriture = 4127;
 
   /** Latence simulée d'un aller-retour réseau. Mise à zéro par les tests. */
@@ -199,7 +206,70 @@ export class GuichetFactice implements Guichet {
     };
   }
 
-  async verser(demande: DemandeVersement): Promise<IssueVersement> {
+  /**
+   * Le retrait. Deux règles que le socle applique et que l'écran ne fait
+   * qu'afficher : le **disponible** commande — pas le solde comptable, dont une
+   * part peut être retenue par un blocage — et le plafond journalier de retrait
+   * du produit s'impose au-dessus.
+   */
+  async retirer(demande: DemandeEspeces): Promise<IssueVersement> {
+    await this.latence();
+
+    const deja = this.dejaVu.get(demande.cleIdempotence);
+    if (deja) return this.marquerRejeu(deja);
+
+    const compte = this.compte(demande.accountId);
+    const valeur = Number(demande.amount);
+
+    if (compte.statut !== 'ACTIVE') {
+      throw new RefusMetier(422, 'COMPTE_NON_ACTIF',
+        `Le compte est ${compte.statut === 'BLOCKED' ? 'bloqué' : 'clôturé'}.`,
+        "Aucune opération n\u2019est acceptée tant que le blocage n\u2019est pas levé par un agent habilité.");
+    }
+
+    const frais = COMMISSION;
+    const taxe = Math.round(frais * TAUX_TAF);
+    const disponible = compte.solde - compte.blocage;
+    const aDebiter = valeur + frais + taxe;
+
+    if (aDebiter > disponible) {
+      throw new RefusMetier(422, 'PROVISION_INSUFFISANTE',
+        'Le disponible ne couvre pas le retrait.',
+        `Disponible ${formaterMontant(disponible)} ${DEVISE}, débit demandé ${formaterMontant(aDebiter)} ${DEVISE} `
+          + `(dont ${formaterMontant(frais + taxe)} ${DEVISE} de frais et taxe)`
+          + (compte.blocage > 0
+              ? `. Le solde comptable est de ${formaterMontant(compte.solde)} ${DEVISE}, mais `
+                + `${formaterMontant(compte.blocage)} ${DEVISE} sont retenus par un blocage.`
+              : '.'));
+    }
+
+    if (valeur > compte.plafondRetraitJournalier) {
+      throw new RefusMetier(422, 'PLAFOND_RETRAIT_JOURNALIER_DEPASSE',
+        'Le plafond de retrait journalier du produit serait dépassé.',
+        `Plafond ${formaterMontant(compte.plafondRetraitJournalier)} ${DEVISE} pour ce produit. `
+          + "Au-delà, l\u2019opération passe par un virement ou par une dérogation du chef d\u2019agence.");
+    }
+
+    const recu: Recu = {
+      entryId: crypto.randomUUID(),
+      entryNumber: this.numeroEcriture++,
+      bookingDate: this.journee(),
+      valueDate: this.journee(),
+      amount: montant(valeur),
+      fee: montant(frais),
+      tax: montant(taxe),
+      balanceAfter: montant(compte.solde - aDebiter),
+      branchId: 'OUA2',
+      remote: false,
+      replayed: false,
+    };
+    const issue: IssueVersement = { genre: 'comptabilise', recu };
+    this.dejaVu.set(demande.cleIdempotence, issue);
+    this.retraits.set(compte.accountId, (this.retraits.get(compte.accountId) ?? 0) + valeur);
+    return issue;
+  }
+
+  async verser(demande: DemandeEspeces): Promise<IssueVersement> {
     await this.latence();
 
     const deja = this.dejaVu.get(demande.cleIdempotence);

@@ -1,18 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { AppConfig } from '../../core/config/runtime-config';
 import {
-  CbActivity,
-  CbAmountInput,
-  CbButton,
-  CbDrawer,
-  CbField,
-  CbInput,
-  CbKbd,
-  CbNotice,
-  CbSection,
-  CbStateBadge,
-  CbToolbar,
-  EtatOperation,
+  CbActivity, CbAmount, CbAmountInput, CbButton, CbDrawer, CbField, CbInput,
+  CbKbd, CbNotice, CbSection, CbStateBadge, CbToolbar, EtatOperation,
 } from '../../ui';
 import { BandeauClient } from '../composants/bandeau-client';
 import { Billetage } from '../composants/billetage';
@@ -23,53 +13,50 @@ import { ContexteCompte, SoldeCompte } from '../modele/guichet.modele';
 import { GUICHET } from '../guichet.port';
 import { Soumission } from '../soumission';
 
-type Remettant = 'titulaire' | 'tiers';
+type Porteur = 'titulaire' | 'mandataire';
 
 const LIBELLE_MAX = 140;
 
 /**
- * Guichet — versement d'espèces.
+ * Guichet — retrait d'espèces.
  *
- * L'écran tient trois promesses du document de décisions :
- *   le récapitulatif d'imputation montré avant de valider, sans jamais
- *   recalculer un barème qui appartient au socle ;
- *   la clé d'idempotence conservée, pour qu'un réseau qui tombe ne se solde
- *   jamais par un double versement ni par une re-saisie à l'aveugle ;
- *   un refus lisible, à une place fixe, avec sa raison et la suite à donner.
+ * Le versement et le retrait se ressemblent, et se jouent sur une différence
+ * qui coûte cher quand on la rate : **c'est le disponible qui commande, pas le
+ * solde comptable**. Un blocage retient une part du solde ; un guichetier qui
+ * refuse un retrait sans pouvoir dire pourquoi, c'est un incident client.
+ *
+ * Le poste vérifie ce qu'il sait — le montant demandé dépasse-t-il le
+ * disponible qu'on lui a donné — et laisse le socle décider du reste : les
+ * frais s'ajoutent au débit, et seul le socle connaît le barème.
  */
 @Component({
-  selector: 'cb-versement',
+  selector: 'cb-retrait',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     BandeauClient, Billetage, Imputation,
-    CbActivity, CbAmountInput, CbButton, CbField, CbInput, CbKbd,
+    CbActivity, CbAmount, CbAmountInput, CbButton, CbField, CbInput, CbKbd,
     CbNotice, CbSection, CbStateBadge, CbToolbar,
   ],
-  templateUrl: './versement.page.html',
-  styleUrl: './versement.page.css',
-  // Un raccourci annoncé à l'écran doit exister. Il est posé sur l'écran, pas
-  // sur la fenêtre : un raccourci global déclencherait aussi depuis un tiroir.
+  templateUrl: './retrait.page.html',
+  styleUrl: '../versement/versement.page.css',
   host: { '(keydown.control.enter)': 'envoyer()' },
 })
-export class Versement {
+export class Retrait {
   private readonly guichet = inject(GUICHET);
   private readonly tiroir = inject(CbDrawer);
   protected readonly config = inject(AppConfig);
 
-  // ------------------------------------------------------------- le compte
   protected readonly catalogue = signal<readonly { accountId: string; code: string; intitule: string; pourquoi: string }[]>([]);
   protected readonly compteId = signal<string>('');
   protected readonly solde = signal<SoldeCompte | null>(null);
   protected readonly contexte = signal<ContexteCompte | null>(null);
 
-  // -------------------------------------------------------------- la saisie
   protected readonly montant = signal<number | null>(null);
   protected readonly comptage = signal<Comptage>({});
-  protected readonly remettant = signal<Remettant>('titulaire');
+  protected readonly porteur = signal<Porteur>('titulaire');
   protected readonly identite = signal('');
   protected readonly libelle = signal('');
 
-  // -------------------------------------------------- l'issue et la clé
   protected readonly soumission = new Soumission(() => this.empreinte());
   protected readonly phase = this.soumission.phase;
   protected readonly recu = this.soumission.recu;
@@ -77,17 +64,17 @@ export class Versement {
   protected readonly refus = this.soumission.refus;
   protected readonly cleAffichee = this.soumission.cleAffichee;
   protected readonly cleEtat = this.soumission.cleEtat;
+  protected readonly enCours = this.soumission.enCours;
+  protected readonly termine = this.soumission.termine;
 
   protected readonly devise = computed(() => this.solde()?.currency ?? this.config.valeur().affichage.deviseParDefaut);
   protected readonly coupures = computed(() => coupuresDe(this.devise()));
   protected readonly compteActif = computed(() => this.solde()?.status === 'ACTIVE');
-  protected readonly enCours = this.soumission.enCours;
-  protected readonly termine = this.soumission.termine;
-
-  /** Ce qui identifie la demande : deux saisies différentes, deux clés. */
-  private empreinte(): string {
-    return JSON.stringify([this.compteId(), this.montant(), this.narratif()]);
-  }
+  protected readonly disponible = computed(() => Number(this.solde()?.available.amount ?? 0));
+  protected readonly retenu = computed(() => {
+    const solde = this.solde();
+    return solde ? Number(solde.current.amount) - Number(solde.available.amount) : 0;
+  });
 
   protected readonly ecartBilletage = computed(() => {
     const annonce = this.montant();
@@ -96,14 +83,22 @@ export class Versement {
     return compte - annonce;
   });
 
-  /** Ce que l'écran empêche est ergonomique ; ce qui est interdit, le socle le refuse. */
+  /**
+   * Le poste ne bloque que sur ce qu'il sait avec certitude. Un montant
+   * supérieur au disponible sera refusé quoi qu'il arrive : inutile de faire
+   * l'aller-retour. En dessous, les frais peuvent encore faire basculer — et
+   * c'est le socle qui tranche, pas le navigateur.
+   */
   protected readonly obstacles = computed<readonly string[]>(() => {
     const obstacles: string[] = [];
     if (!this.compteActif()) obstacles.push("Le compte n'est pas actif : aucune opération n'est acceptée.");
-    if ((this.montant() ?? 0) <= 0) obstacles.push('Le montant remis est obligatoire.');
+    if ((this.montant() ?? 0) <= 0) obstacles.push('Le montant à retirer est obligatoire.');
+    else if ((this.montant() ?? 0) > this.disponible()) {
+      obstacles.push('Le montant dépasse le disponible : le socle refusera.');
+    }
     if (this.ecartBilletage() !== 0) obstacles.push('Le comptage ne retrouve pas le montant annoncé.');
-    if (this.remettant() === 'tiers' && this.identite().trim().length < 3) {
-      obstacles.push("Un versement par un tiers exige l'identité du remettant.");
+    if (this.porteur() === 'mandataire' && this.identite().trim().length < 3) {
+      obstacles.push("Un retrait par un mandataire exige son identité et sa pièce.");
     }
     return obstacles;
   });
@@ -125,14 +120,12 @@ export class Versement {
     void this.demarrer();
   }
 
-  // ------------------------------------------------------------------ flux
-
   private async demarrer(): Promise<void> {
     const liste = (await this.guichet.catalogue?.()) ?? [];
     this.catalogue.set(liste);
     const premier = liste[0]?.accountId ?? '';
     if (premier) await this.choisirCompte(premier);
-    else this.phase.set('saisie');
+    else this.soumission.reinitialiser();
   }
 
   protected async choisirCompte(accountId: string): Promise<void> {
@@ -157,11 +150,11 @@ export class Versement {
 
   protected async envoyer(): Promise<void> {
     if (!this.peutEnvoyer()) return;
-    await this.soumission.envoyer((cle) => this.guichet.verser(this.demande(cle)));
+    await this.soumission.envoyer((cle) => this.guichet.retirer(this.demande(cle)));
   }
 
   protected async reessayer(): Promise<void> {
-    await this.soumission.reessayer((cle) => this.guichet.verser(this.demande(cle)));
+    await this.soumission.reessayer((cle) => this.guichet.retirer(this.demande(cle)));
   }
 
   private demande(cleIdempotence: string) {
@@ -176,7 +169,6 @@ export class Versement {
     };
   }
 
-  /** Nouvelle opération : nouvelle clé, saisie vidée, compte conservé. */
   protected nouveau(): void {
     this.viderLaSaisie();
     this.soumission.reinitialiser();
@@ -186,42 +178,33 @@ export class Versement {
     const contexte = this.contexte();
     const solde = this.solde();
     if (!contexte || !solde) return;
-    this.tiroir.ouvrir(ContexteCompteTiroir, {
-      donnees: { contexte, solde },
-      etiquette: 'Contexte du compte',
-    });
+    this.tiroir.ouvrir(ContexteCompteTiroir, { donnees: { contexte, solde }, etiquette: 'Contexte du compte' });
   }
 
   protected imprimerRecu(): void {
     window.print();
   }
 
-  // --------------------------------------------------------------- détails
-
   private viderLaSaisie(): void {
     this.montant.set(null);
     this.comptage.set({});
-    this.remettant.set('titulaire');
+    this.porteur.set('titulaire');
     this.identite.set('');
     this.libelle.set('');
   }
 
-  /**
-   * Le libellé d'écriture. Faute de champ dédié dans le contrat, l'identité du
-   * remettant y figure : c'est une exigence LCB-FT, et c'est de toute façon ce
-   * qu'un libellé d'écriture porte dans une agence.
-   */
+  private empreinte(): string {
+    return JSON.stringify([this.compteId(), this.montant(), this.narratif()]);
+  }
+
+  /** Le mandataire figure au libellé : c'est ce qu'une écriture de retrait porte. */
   protected narratif(): string {
-    const morceaux = ["Versement d'espèces"];
-    if (this.remettant() === 'tiers' && this.identite().trim()) {
-      morceaux.push(`remis par ${this.identite().trim()}`);
+    const morceaux = ["Retrait d'espèces"];
+    if (this.porteur() === 'mandataire' && this.identite().trim()) {
+      morceaux.push(`retiré par ${this.identite().trim()}`);
     }
     if (this.libelle().trim()) morceaux.push(this.libelle().trim());
     return morceaux.join(' — ').slice(0, LIBELLE_MAX);
-  }
-
-  protected majMontant(valeur: number | null): void {
-    this.montant.set(valeur);
   }
 
   protected jour(iso: string): string {
@@ -229,8 +212,12 @@ export class Versement {
     return `${jour}/${mois}/${annee}`;
   }
 
-  protected majRemettant(valeur: string): void {
-    this.remettant.set(valeur === 'tiers' ? 'tiers' : 'titulaire');
+  protected majMontant(valeur: number | null): void {
+    this.montant.set(valeur);
+  }
+
+  protected majPorteur(valeur: string): void {
+    this.porteur.set(valeur === 'mandataire' ? 'mandataire' : 'titulaire');
   }
 
   protected majIdentite(valeur: string): void {

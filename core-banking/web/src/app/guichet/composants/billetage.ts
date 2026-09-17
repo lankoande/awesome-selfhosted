@@ -14,7 +14,7 @@ import { Comptage, Coupure, nombreDeCoupures, totalComptage } from '../modele/co
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CbAmount, CbSection],
   template: `
-    <cb-section titre="Billetage" [indication]="indication()">
+    <cb-section [titre]="titre()" [indication]="indication()">
       <div class="colonnes">
         @for (groupe of groupes(); track groupe.genre) {
           <table class="grille">
@@ -54,13 +54,17 @@ import { Comptage, Coupure, nombreDeCoupures, totalComptage } from '../modele/co
       <div class="total" [class.total--ecart]="ecart() !== 0">
         <span class="libelle">
           @if (nombre() === 0) {
-            Comptage non saisi — le montant annoncé fera foi.
+            @if (facultatif()) {
+              Comptage non saisi — {{ reference() }} fera foi.
+            } @else {
+              Comptez les coupures : l'écart se calcule au fur et à mesure.
+            }
           } @else if (ecart() === 0) {
-            Comptage conforme au montant annoncé · {{ nombre() }} coupures
+            Le comptage retrouve {{ reference() }} · {{ nombre() }} coupures
           } @else if (ecart() > 0) {
-            Excédent de comptage : le comptage dépasse le montant annoncé.
+            Excédent : le comptage dépasse {{ reference() }}.
           } @else {
-            Manque au comptage : le comptage est inférieur au montant annoncé.
+            Manquant : {{ reference() }} n'est pas atteint.
           }
         </span>
         <span class="chiffres">
@@ -117,6 +121,16 @@ import { Comptage, Coupure, nombreDeCoupures, totalComptage } from '../modele/co
 })
 export class Billetage {
   readonly comptage = model.required<Comptage>();
+  /** « Billetage reçu » au versement, « billetage remis » au retrait. */
+  readonly titre = input<string>('Billetage');
+  /**
+   * Ce que le comptage doit retrouver, nommé au sujet : au guichet c'est le
+   * montant annoncé, à l'arrêté c'est le solde théorique. Le nommer juste évite
+   * de faire lire « montant annoncé » à un guichetier qui compte sa caisse.
+   */
+  readonly reference = input<string>('le montant annoncé');
+  /** Au guichet le comptage est un contrôle ; à l'arrêté, c'est l'opération. */
+  readonly facultatif = input(true, { transform: booleanAttribute });
   readonly coupures = input.required<readonly Coupure[]>();
   readonly devise = input.required<string>();
   /** Montant annoncé par le guichetier : c'est lui que le comptage doit retrouver. */
@@ -133,9 +147,10 @@ export class Billetage {
     return this.total() - annonce;
   });
 
-  readonly indication = computed(() =>
-    this.nombre() === 0 ? 'facultatif, mais contrôlé dès la première coupure' : `${this.nombre()} coupures comptées`,
-  );
+  readonly indication = computed(() => {
+    if (this.nombre() > 0) return `${this.nombre()} coupures comptées`;
+    return this.facultatif() ? 'facultatif, mais contrôlé dès la première coupure' : 'obligatoire';
+  });
 
   readonly groupes = computed(() => {
     const coupures = this.coupures();

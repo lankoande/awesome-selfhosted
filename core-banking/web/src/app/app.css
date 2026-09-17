@@ -14,7 +14,17 @@
 .marque { display: flex; align-items: center; gap: var(--cb-space-2); color: var(--cb-bar-muted); }
 .nom { font-family: var(--cb-font-mono); font-size: var(--cb-fs-sm); letter-spacing: 0.12em; color: var(--cb-bar-ink); text-transform: uppercase; }
 
-.espaces { display: flex; gap: var(--cb-space-1); }
+/* La navigation défile plutôt que de pousser la barre : sur un écran étroit,
+   cinq entrées ne tiennent pas, et les tronquer ferait disparaître des écrans. */
+.espaces {
+  display: flex;
+  gap: var(--cb-space-1);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.espaces::-webkit-scrollbar { display: none; }
+.espaces a { flex-shrink: 0; }
 .espaces a {
   display: inline-flex;
   align-items: center;
@@ -74,6 +84,7 @@ main { flex: 1 1 auto; min-height: 0; }
 
 @media (max-width: 767px) {
   .barre { height: auto; flex-wrap: wrap; row-gap: var(--cb-space-2); padding: var(--cb-space-2) var(--cb-space-3); }
+  .espaces { order: 3; flex-basis: 100%; }
   .marque .nom { display: none; }
   .ressort { flex-basis: 100%; }
   /* Les réglages passent après le contenu : on ne perd pas la barre de

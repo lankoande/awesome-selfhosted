@@ -2,6 +2,16 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { CbAmount, CbSection } from '../../ui';
 import { Recu } from '../modele/guichet.modele';
 
+interface LigneImputation {
+  readonly cle: string;
+  readonly sens: 'D' | 'C' | null;
+  readonly libelle: string;
+  readonly compte: string | null;
+  readonly compteMono: boolean;
+  readonly montant: number | string | null;
+  readonly detail: boolean;
+}
+
 /**
  * Le récapitulatif d'imputation : ce que la comptabilité va enregistrer, montré
  * avant de valider. C'est la pièce qui distingue ce back-office des autres.
@@ -22,42 +32,23 @@ import { Recu } from '../modele/guichet.modele';
   template: `
     <cb-section titre="Imputation" [indication]="indication()">
       <div class="bloc">
-        <div class="ligne">
-          <span class="glyphe glyphe--debit">D</span>
-          <span class="texte">
-            <span class="libelle">Caisse de l'agence</span>
-            <span class="compte">compte choisi par le schéma comptable</span>
-          </span>
-          <span class="montant"><cb-amount [valeur]="montant()" /></span>
-        </div>
-
-        <div class="ligne">
-          <span class="glyphe glyphe--credit">C</span>
-          <span class="texte">
-            <span class="libelle">{{ intitule() }}</span>
-            <span class="compte cb-mono">{{ compteCode() }}</span>
-          </span>
-          <span class="montant"><cb-amount [valeur]="montant()" /></span>
-        </div>
-
-        @if (recu(); as r) {
-          <div class="ligne">
-            <span class="glyphe glyphe--debit">D</span>
+        @for (ligne of lignes(); track ligne.cle) {
+          <div class="ligne" [class.ligne--detail]="ligne.detail">
+            @if (ligne.sens) {
+              <span class="glyphe" [class.glyphe--debit]="ligne.sens === 'D'"
+                    [class.glyphe--credit]="ligne.sens === 'C'">{{ ligne.sens }}</span>
+            } @else {
+              <span class="glyphe-vide"></span>
+            }
             <span class="texte">
-              <span class="libelle">Commission et taxe</span>
-              <span class="compte cb-mono">{{ compteCode() }}</span>
+              <span class="libelle">{{ ligne.libelle }}</span>
+              @if (ligne.compte) {
+                <span class="compte" [class.cb-mono]="ligne.compteMono">{{ ligne.compte }}</span>
+              }
             </span>
-            <span class="montant"><cb-amount [valeur]="fraisTotal()" /></span>
-          </div>
-          <div class="ligne ligne--detail">
-            <span class="glyphe-vide"></span>
-            <span class="texte"><span class="libelle">dont commission</span></span>
-            <span class="montant"><cb-amount [valeur]="r.fee.amount" ton="discret" /></span>
-          </div>
-          <div class="ligne ligne--detail">
-            <span class="glyphe-vide"></span>
-            <span class="texte"><span class="libelle">dont taxe sur activités financières</span></span>
-            <span class="montant"><cb-amount [valeur]="r.tax.amount" ton="discret" /></span>
+            <span class="montant">
+              <cb-amount [valeur]="ligne.montant" [ton]="ligne.detail ? 'discret' : 'neutre'" />
+            </span>
           </div>
         }
 
@@ -133,6 +124,8 @@ import { Recu } from '../modele/guichet.modele';
   `,
 })
 export class Imputation {
+  /** Le sens décide de l'ordre débit/crédit : la caisse encaisse ou décaisse. */
+  readonly sens = input<'versement' | 'retrait'>('versement');
   readonly montant = input.required<number | null>();
   readonly devise = input.required<string>();
   readonly compteCode = input.required<string>();
@@ -143,6 +136,38 @@ export class Imputation {
   readonly fraisTotal = computed(() => {
     const r = this.recu();
     return r ? Number(r.fee.amount) + Number(r.tax.amount) : 0;
+  });
+
+  /**
+   * Les lignes de l'écriture, débit d'abord. Les frais sont toujours au débit
+   * du compte client — le client paie la commission, qu'il verse ou qu'il
+   * retire — et ils n'apparaissent qu'une fois le reçu rendu : le poste ne les
+   * calcule pas.
+   */
+  readonly lignes = computed<readonly LigneImputation[]>(() => {
+    const versement = this.sens() === 'versement';
+    const caisse: LigneImputation = {
+      cle: 'caisse', sens: versement ? 'D' : 'C', libelle: "Caisse de l'agence",
+      compte: 'compte choisi par le schéma comptable', compteMono: false,
+      montant: this.montant(), detail: false,
+    };
+    const client: LigneImputation = {
+      cle: 'client', sens: versement ? 'C' : 'D', libelle: this.intitule(),
+      compte: this.compteCode(), compteMono: true, montant: this.montant(), detail: false,
+    };
+    const lignes = versement ? [caisse, client] : [client, caisse];
+
+    const r = this.recu();
+    if (!r) return lignes;
+    return [
+      ...lignes,
+      { cle: 'frais', sens: 'D', libelle: 'Commission et taxe', compte: this.compteCode(),
+        compteMono: true, montant: this.fraisTotal(), detail: false },
+      { cle: 'commission', sens: null, libelle: 'dont commission', compte: null,
+        compteMono: false, montant: r.fee.amount, detail: true },
+      { cle: 'taxe', sens: null, libelle: 'dont taxe sur activités financières', compte: null,
+        compteMono: false, montant: r.tax.amount, detail: true },
+    ];
   });
 
   readonly indication = computed(() =>

@@ -240,7 +240,7 @@ mécanique (commandes, organisation, garde-fous). Node ≥ 22.22.3 est requis pa
 | 1. Socle visuel | **Livré** — tokens, deux thèmes, deux densités, jeu fermé de 17 primitives, page atelier, budgets, types générés |
 | 2. Guichet — versement d'espèces | **Livré** — bandeau client, billetage BCEAO contrôlé, imputation en projection puis reçu, idempotence conservée, refus lisible |
 | 3. File de validation | **Livré** — file paginée, détail de la requête soumise, approbation qui exécute, rejet motivé, auto-approbation signalée, échec d'exécution après approbation |
-| 4. Reste du guichet, puis siège | à faire |
+| 4. Reste du guichet, puis siège | **En cours** — retrait d'espèces et arrêté de caisse livrés ; virement interne, consultations et espace siège à faire |
 
 Rien n'est figé : ce qui suit est ce qu'on sait aujourd'hui, pas un engagement. Les décisions
 prises pendant la construction du socle sont consignées ici pour qu'on puisse les défaire en
@@ -383,3 +383,54 @@ ne devine pas : il laisse l'API refuser.
 - **`GET /v1/me`** — le porteur du jeton. Sans lui, l'interface ne peut pas signaler
   l'auto-approbation avant le clic, ni construire le menu à partir des opérations autorisées
   (§2). Déduire l'identité du JWT côté front ferait du navigateur une source d'identité.
+
+---
+
+## 11. Retrait et arrêté de caisse : ce qu'ils ont tranché
+
+**Ce qui est identique entre deux opérations de guichet ne s'écrit qu'une fois.** La clé
+d'idempotence, son renouvellement, le rejeu et la distinction des trois issues du socle vivent
+dans une seule classe (`Soumission`), partagée par le versement et le retrait. C'est là qu'on se
+trompe ; le versement y est passé sans qu'un test bouge, ce qui est la meilleure preuve que la
+mécanique était bien isolée.
+
+**Au retrait, c'est le disponible qui commande, pas le solde comptable.** Un blocage retient une
+part du solde ; l'écran l'affiche en clair, avec le montant retenu et le renvoi au tiroir de
+contexte. Un guichetier qui refuse un retrait sans pouvoir dire pourquoi est un incident client.
+
+**Le poste ne bloque que sur ce qu'il sait avec certitude.** Un montant supérieur au disponible
+sera refusé quoi qu'il arrive : inutile de faire l'aller-retour. En dessous, les frais peuvent
+encore faire basculer — et c'est le socle qui tranche, pas le navigateur. La limite entre
+« empêcher » et « laisser refuser » est exactement là : le poste empêche ce qui est certain, il ne
+devine jamais un barème.
+
+**En attente de validation, on ne remet pas les espèces.** Un retrait mis en attente n'est pas
+comptabilisé ; l'écran le dit en toutes lettres, parce que c'est le seul écran où une mauvaise
+lecture fait sortir de l'argent du tiroir.
+
+**L'imputation connaît son sens.** Débit d'abord : caisse puis client au versement, client puis
+caisse au retrait. Les frais sont toujours au débit du compte client — le client paie la
+commission, qu'il verse ou qu'il retire.
+
+### L'arrêté de caisse
+
+C'est l'écran qui relie le guichet au cycle comptable : **le traitement de fin de journée refuse
+de clore une journée dont une caisse mouvementée n'a pas été arrêtée**. Tant que le comptage n'est
+pas fait, l'agence entière attend — et l'écran commence par le dire.
+
+Le solde théorique vient du registre, le comptage des doigts du guichetier, l'écart de la
+soustraction des deux. Il s'affiche au fur et à mesure, nommé : excédent quand il y a plus en
+caisse que ce que le registre annonce, manquant dans l'autre sens.
+
+**Un écart n'empêche pas l'arrêté — le cacher serait pire.** Mais il se confirme explicitement :
+l'écart s'impute au compte d'écart de caisse, reste au nom de celui qui a compté, et se justifie.
+La confirmation le dit, et rappelle que c'est le dernier moment pour recompter. C'est le seul
+usage légitime d'une modale : confirmer l'irréversible.
+
+### Lacunes du contrat ajoutées à la liste
+
+- **`GET /v1/me/till`** — la caisse du porteur. Le contrat crée une caisse et l'arrête, mais ne la
+  lit pas.
+- **Solde théorique d'une caisse** — sans lui, l'arrêté ne peut pas être présenté. Le recalculer
+  côté poste serait réécrire le registre dans le navigateur ; l'implémentation HTTP refuse donc
+  explicitement plutôt que de deviner, et l'écran affiche ce refus.

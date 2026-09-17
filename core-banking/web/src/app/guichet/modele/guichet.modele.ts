@@ -56,8 +56,12 @@ export type IssueVersement =
   | { readonly genre: 'comptabilise'; readonly recu: Recu }
   | { readonly genre: 'en-attente'; readonly operationId: string; readonly attenduDe: string };
 
-/** Miroir de `Requests.CashOperation`. */
-export interface DemandeVersement {
+/**
+ * Miroir de `Requests.CashOperation` : la même forme sert au versement et au
+ * retrait. Le sens n'est pas dans le corps de la requête, il est dans la route
+ * — `/deposits` ou `/withdrawals`.
+ */
+export interface DemandeEspeces {
   readonly legalEntityId: string;
   readonly accountId: string;
   /** Chaîne à l'échelle de la devise, jamais un flottant. */

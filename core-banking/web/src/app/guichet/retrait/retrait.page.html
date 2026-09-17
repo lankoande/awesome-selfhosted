@@ -1,0 +1,159 @@
+<cb-bandeau-client [contexte]="contexte()" [solde]="solde()" (ouvrirContexte)="ouvrirContexte()" />
+
+<div class="ecran">
+  <div class="colonne-saisie">
+    <cb-toolbar>
+      <h2>Retrait d'espèces</h2>
+      <cb-state-badge [etat]="etatOperation()" />
+      <span class="cle">
+        <span class="cb-caps">Clé d'idempotence</span>
+        @if (cleAffichee(); as valeur) {
+          <code class="cb-mono">{{ valeur }}</code>
+        }
+        <span class="cle-etat">{{ cleEtat() }}</span>
+      </span>
+      <span fin class="raccourci"><cb-kbd>Ctrl ⏎</cb-kbd></span>
+    </cb-toolbar>
+
+    @if (refus(); as r) {
+      <cb-notice nature="refus" titre="Opération refusée" [code]="r.code">
+        {{ r.titre }}
+        @if (r.detail) { {{ r.detail }} }
+        @if (r.requestId) {
+          <span class="trace">Référence de la demande : <span class="cb-mono">{{ r.requestId }}</span></span>
+        }
+        <ng-container actions>
+          @if (r.rejouable) {
+            <button type="button" cbButton="primaire" [disabled]="enCours()" (click)="reessayer()">
+              Réessayer avec la même clé
+            </button>
+          }
+          <button type="button" cbButton="secondaire" (click)="nouveau()">Reprendre la saisie</button>
+        </ng-container>
+      </cb-notice>
+    }
+
+    @if (phase() === 'comptabilise' && recu(); as r) {
+      <cb-notice [nature]="r.replayed ? 'information' : 'succes'"
+                 [titre]="r.replayed ? 'Déjà comptabilisé — voici le premier reçu' : 'Comptabilisé'"
+                 [code]="'écriture n° ' + r.entryNumber">
+        @if (r.replayed) {
+          Cette clé d'idempotence avait déjà été traitée : le socle a rendu le reçu de la première
+          opération. Rien n'a été décaissé une seconde fois.
+        } @else {
+          L'écriture est passée, date de valeur du {{ jour(r.valueDate) }}. Les espèces peuvent être remises.
+        }
+        <ng-container actions>
+          <button type="button" cbButton="primaire" (click)="imprimerRecu()">Imprimer le reçu</button>
+          <button type="button" cbButton="secondaire" (click)="nouveau()">Nouveau retrait</button>
+        </ng-container>
+      </cb-notice>
+    }
+
+    @if (phase() === 'en-attente' && attente(); as a) {
+      <cb-notice nature="avertissement" titre="En attente de validation" [code]="a.operationId">
+        Rien n'est comptabilisé : l'opération attend {{ a.attenduDe }}. <strong>Ne remettez pas les
+        espèces</strong> — le socle rejouera la demande à l'approbation, et elle peut encore être refusée.
+        <ng-container actions>
+          <button type="button" cbButton="secondaire" (click)="nouveau()">Nouveau retrait</button>
+        </ng-container>
+      </cb-notice>
+    }
+
+    @if (!compteActif() && solde()) {
+      <cb-notice nature="refus" titre="Compte non actif" [code]="solde()!.status">
+        Aucune opération n'est acceptée sur ce compte. La levée relève d'un agent habilité, pas du guichet.
+      </cb-notice>
+    }
+
+    @if (retenu() > 0 && compteActif()) {
+      <cb-notice nature="information" titre="Une part du solde est retenue">
+        Le solde comptable est de <cb-amount [valeur]="solde()!.current.amount" [devise]="devise()" />,
+        mais <cb-amount [valeur]="retenu()" [devise]="devise()" /> sont retenus par un blocage.
+        <strong>C'est le disponible qui commande</strong> :
+        <cb-amount [valeur]="disponible()" [devise]="devise()" ton="accent" />. Le détail du blocage est
+        dans le tiroir de contexte — un retrait refusé sans explication est un incident client.
+      </cb-notice>
+    }
+
+    <cb-section titre="Opération" indication="l'agence et la caisse viennent du poste">
+      <div class="champs">
+        <cb-field etiquette="Compte à débiter" pour="r-compte">
+          @if (catalogue().length) {
+            <select cbInput id="r-compte" [disabled]="enCours()" (change)="choisirCompte($any($event.target).value)">
+              @for (compte of catalogue(); track compte.accountId) {
+                <option [value]="compte.accountId" [selected]="compte.accountId === compteId()">
+                  {{ compte.intitule }} — ····{{ compte.code.slice(-4) }}
+                </option>
+              }
+            </select>
+          } @else {
+            <input cbInput mono id="r-compte" type="text" [value]="solde()?.code ?? ''" readonly />
+          }
+        </cb-field>
+
+        <cb-field etiquette="Montant à retirer" pour="r-montant" requis
+                  aide="Les frais et la taxe s'ajoutent au débit : le socle vérifie le disponible, commission comprise.">
+          <cb-amount-input champId="r-montant" [valeur]="montant()" (valeurChange)="majMontant($event)"
+                           [devise]="devise()" [desactive]="enCours() || termine() || !compteActif()" />
+        </cb-field>
+
+        <cb-field etiquette="Retiré par" pour="r-porteur"
+                  aide="Un mandataire exige la vérification de la procuration et de sa pièce.">
+          <select cbInput id="r-porteur" [disabled]="enCours() || termine()"
+                  (change)="majPorteur($any($event.target).value)">
+            <option value="titulaire" [selected]="porteur() === 'titulaire'">Le titulaire</option>
+            <option value="mandataire" [selected]="porteur() === 'mandataire'">Un mandataire</option>
+          </select>
+        </cb-field>
+
+        @if (porteur() === 'mandataire') {
+          <cb-field etiquette="Identité du mandataire" pour="r-identite" requis
+                    aide="Nom et pièce présentée. Reportée au libellé de l'écriture.">
+            <input cbInput id="r-identite" type="text" [value]="identite()" [disabled]="enCours() || termine()"
+                   placeholder="TRAORE Moussa · CNIB B1129044"
+                   (input)="majIdentite($any($event.target).value)" />
+          </cb-field>
+        }
+
+        <cb-field class="pleine-largeur" etiquette="Libellé complémentaire" pour="r-libelle"
+                  [aide]="'Facultatif. Le libellé transmis sera : ' + narratif()">
+          <input cbInput id="r-libelle" type="text" [value]="libelle()" [disabled]="enCours() || termine()"
+                 (input)="majLibelle($any($event.target).value)" />
+        </cb-field>
+      </div>
+    </cb-section>
+
+    @if (coupures().length) {
+      <cb-billetage titre="Billetage remis" [comptage]="comptage()" (comptageChange)="comptage.set($event)"
+                    [coupures]="coupures()" [devise]="devise()" [montantAnnonce]="montant()"
+                    [desactive]="enCours() || termine()" />
+    }
+  </div>
+
+  <div class="colonne-suivi">
+    <cb-imputation sens="retrait" [montant]="montant()" [devise]="devise()"
+                   [compteCode]="solde()?.code ?? '—'" [intitule]="contexte()?.intitule ?? '—'"
+                   [recu]="recu()" />
+
+    <div class="actions">
+      @if (!termine()) {
+        <button type="button" cbButton="primaire" [disabled]="!peutEnvoyer()" (click)="envoyer()">Comptabiliser</button>
+      } @else {
+        <button type="button" cbButton="primaire" (click)="nouveau()">Nouveau retrait</button>
+      }
+      <cb-activity class="activite" [enCours]="phase() === 'envoi'" libelle="Envoi au socle…" />
+      <div class="obstacles">
+        @for (obstacle of obstacles(); track obstacle) {
+          <span class="obstacle">{{ obstacle }}</span>
+        } @empty {
+          @if (phase() === 'saisie') {
+            <span class="pret">Prêt à comptabiliser. Le socle applique ses contrôles à la réception.</span>
+          } @else if (phase() === 'refuse') {
+            <span class="pret">Le socle a refusé cette demande. Corrigez la saisie avant de la représenter.</span>
+          }
+        }
+      </div>
+    </div>
+  </div>
+</div>

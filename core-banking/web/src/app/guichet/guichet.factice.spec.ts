@@ -1,9 +1,9 @@
 import { COMPTES_DEMO, GuichetFactice } from './guichet.factice';
-import { DemandeVersement, RefusMetier } from './modele/guichet.modele';
+import { DemandeEspeces, RefusMetier } from './modele/guichet.modele';
 
 const ENTITE = '00000000-0000-4000-8000-000000000001';
 
-function demande(accountId: string, montant: number, cle: string): DemandeVersement {
+function demande(accountId: string, montant: number, cle: string): DemandeEspeces {
   return {
     legalEntityId: ENTITE,
     accountId,
@@ -78,5 +78,60 @@ describe('source de démonstration du guichet', () => {
   it('le disponible retranche le blocage, le solde comptable non', async () => {
     const solde = await guichet.soldes(ENTITE, compte(0));
     expect(Number(solde.current.amount) - Number(solde.available.amount)).toBe(50000);
+  });
+});
+
+describe('retrait d’espèces', () => {
+  let guichet: GuichetFactice;
+
+  beforeEach(() => {
+    guichet = new GuichetFactice();
+    guichet.latenceMs = 0;
+  });
+
+  it('refuse sur le disponible, pas sur le solde comptable', async () => {
+    // Le compte 0 a 1 240 500 de solde et 50 000 bloqués : 1 190 500 disponibles.
+    const solde = await guichet.soldes(ENTITE, compte(0));
+    expect(Number(solde.current.amount)).toBe(1240500);
+    expect(Number(solde.available.amount)).toBe(1190500);
+
+    // Un montant couvert par le solde mais pas par le disponible est refusé,
+    // et le refus dit explicitement ce qui est retenu.
+    await expect(guichet.retirer(demande(compte(0), 1200000, 'r1'))).rejects.toMatchObject({
+      code: 'PROVISION_INSUFFISANTE',
+    });
+    await guichet.retirer(demande(compte(0), 1200000, 'r1')).catch((erreur) => {
+      expect(erreur.detail).toContain('retenus par un blocage');
+    });
+  });
+
+  it('compte les frais dans le disponible exigé', async () => {
+    // 1 190 500 disponibles, 1 170 de frais et taxe : 1 190 000 passe, 1 190 500 non.
+    await expect(guichet.retirer(demande(compte(0), 1190500, 'r2'))).rejects.toMatchObject({
+      code: 'PROVISION_INSUFFISANTE',
+    });
+    const recu = await guichet.retirer(demande(compte(0), 300000, 'r3'));
+    expect(recu.genre).toBe('comptabilise');
+  });
+
+  it('applique le plafond de retrait journalier du produit', async () => {
+    // Le compte 1 a 3 450 000 disponibles mais un plafond de 2 000 000.
+    await expect(guichet.retirer(demande(compte(1), 2500000, 'r4'))).rejects.toMatchObject({
+      code: 'PLAFOND_RETRAIT_JOURNALIER_DEPASSE',
+    });
+  });
+
+  it('rejoue la clé d’idempotence comme le versement', async () => {
+    const premier = await guichet.retirer(demande(compte(1), 100000, 'r5'));
+    const second = await guichet.retirer(demande(compte(1), 100000, 'r5'));
+    if (premier.genre !== 'comptabilise' || second.genre !== 'comptabilise') throw new Error('attendu comptabilisé');
+    expect(second.recu.replayed).toBe(true);
+    expect(second.recu.entryNumber).toBe(premier.recu.entryNumber);
+  });
+
+  it('refuse tout retrait sur un compte non actif', async () => {
+    await expect(guichet.retirer(demande(compte(3), 10000, 'r6'))).rejects.toMatchObject({
+      code: 'COMPTE_NON_ACTIF',
+    });
   });
 });

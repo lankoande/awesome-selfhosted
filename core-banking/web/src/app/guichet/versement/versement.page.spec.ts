@@ -3,7 +3,7 @@ import { ComponentFixture } from '@angular/core/testing';
 import { GUICHET, Guichet } from '../guichet.port';
 import {
   ContexteCompte,
-  DemandeVersement,
+  DemandeEspeces,
   IssueVersement,
   Recu,
   RefusMetier,
@@ -33,8 +33,8 @@ const RECU: Recu = {
 
 /** Un socle sous contrôle : chaque test décide de l'issue et relit la demande reçue. */
 class GuichetEspion implements Guichet {
-  readonly demandes: DemandeVersement[] = [];
-  issue: (demande: DemandeVersement) => Promise<IssueVersement> = async () => ({
+  readonly demandes: DemandeEspeces[] = [];
+  issue: (demande: DemandeEspeces) => Promise<IssueVersement> = async () => ({
     genre: 'comptabilise',
     recu: RECU,
   });
@@ -70,9 +70,13 @@ class GuichetEspion implements Guichet {
     };
   }
 
-  async verser(demande: DemandeVersement): Promise<IssueVersement> {
+  async verser(demande: DemandeEspeces): Promise<IssueVersement> {
     this.demandes.push(demande);
     return this.issue(demande);
+  }
+
+  async retirer(demande: DemandeEspeces): Promise<IssueVersement> {
+    return this.verser(demande);
   }
 }
 
