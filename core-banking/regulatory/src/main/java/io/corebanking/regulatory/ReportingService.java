@@ -98,6 +98,14 @@ public final class ReportingService {
         });
     }
 
+    /**
+     * Confronte deux versions d'un etat, ligne par ligne.
+     *
+     * <p>La comparaison porte sur <b>tout ce que la ligne dit</b>, pas seulement son montant : le
+     * hors bilan, la classe de risque, le retard et le nombre d'occurrences sont declares au meme
+     * titre. Ne comparer que le montant laisserait passer un engagement disparu ou une classe
+     * changee — c'est-a-dire precisement ce que le superviseur lit sur la ligne.
+     */
     static List<String> compare(List<ReportFilings.Line> filed, List<ReportFilings.Line> now) {
         List<String> differences = new ArrayList<>();
         if (filed.size() != now.size()) {
@@ -108,12 +116,30 @@ public final class ReportingService {
         for (int i = 0; i < common; i++) {
             ReportFilings.Line a = filed.get(i);
             ReportFilings.Line b = now.get(i);
+            String where = "Ligne " + (i + 1) + " — " + a.subjectReference() + " : ";
             if (!a.subjectId().equals(b.subjectId())) {
                 differences.add("Ligne " + (i + 1) + " : " + a.subjectReference() + " transmis, "
                                 + b.subjectReference() + " au recalcul");
-            } else if (!a.amount().equals(b.amount())) {
-                differences.add("Ligne " + (i + 1) + " — " + a.subjectReference() + " : "
-                                + a.amount() + " transmis, " + b.amount() + " au recalcul");
+                continue;
+            }
+            if (!a.amount().equals(b.amount())) {
+                differences.add(where + a.amount() + " transmis, " + b.amount() + " au recalcul");
+            }
+            if (!Objects.equals(a.offBalance(), b.offBalance())) {
+                differences.add(where + "hors bilan " + a.offBalance() + " transmis, "
+                                + b.offBalance() + " au recalcul");
+            }
+            if (!Objects.equals(a.classification(), b.classification())) {
+                differences.add(where + "classe " + a.classification() + " transmise, "
+                                + b.classification() + " au recalcul");
+            }
+            if (!Objects.equals(a.daysPastDue(), b.daysPastDue())) {
+                differences.add(where + "retard de " + a.daysPastDue() + " jours transmis, "
+                                + b.daysPastDue() + " au recalcul");
+            }
+            if (!Objects.equals(a.occurrences(), b.occurrences())) {
+                differences.add(where + a.occurrences() + " occurrences transmises, "
+                                + b.occurrences() + " au recalcul");
             }
         }
         return differences;
@@ -156,9 +182,7 @@ public final class ReportingService {
                                      ELSE -l.functional_amount END), 0) AS solde
               FROM account a
               LEFT JOIN journal_line l ON l.account_id = a.id AND l.booking_date <= ?
-              LEFT JOIN journal_entry e ON e.id = l.entry_id AND e.booking_date = l.booking_date
              WHERE a.legal_entity_id = ? AND a.account_kind IN ('GL','INTERNAL','NOSTRO','SUSPENSE')
-               AND (l.id IS NULL OR e.reversal_of IS NULL)
              GROUP BY a.id, a.code, a.normal_balance, a.nature
              ORDER BY a.code
             """)) {
@@ -205,6 +229,8 @@ public final class ReportingService {
         List<ReportFilings.Line> lines = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement("""
             WITH encours AS (
+                -- L'encours porte, lu dans le journal a la date : la contre-passation y compte
+                -- comme partout ailleurs, sans quoi l'etat contredirait la balance de la banque.
                 SELECT k.customer_id AS party_id,
                        SUM(COALESCE(b.solde, 0)) AS bilan
                   FROM loan_contract k
@@ -212,32 +238,46 @@ public final class ReportingService {
                       SELECT SUM(CASE WHEN l.direction = 'DEBIT' THEN l.functional_amount
                                       ELSE -l.functional_amount END) AS solde
                         FROM journal_line l
-                        JOIN journal_entry e ON e.id = l.entry_id
-                             AND e.booking_date = l.booking_date
-                       WHERE l.account_id = k.loan_account_id AND l.booking_date <= ?
-                         AND e.reversal_of IS NULL) b ON TRUE
+                       WHERE l.account_id = k.loan_account_id
+                         AND l.booking_date <= ?) b ON TRUE
                  WHERE k.legal_entity_id = ? AND k.customer_id IS NOT NULL
-                   AND k.status IN ('ACTIVE','WRITTEN_OFF') AND k.disbursed_on <= ?
+                   AND k.disbursed_on <= ?
                  GROUP BY k.customer_id),
             engagements AS (
+                -- Ce que la banque s'est engagee a mettre a disposition et n'a pas verse, tel
+                -- qu'on le savait a la fin de periode : une tranche debloquee ou annulee depuis
+                -- etait bien un engagement ce jour-la, et l'etat doit le redire a l'identique.
                 SELECT k.customer_id AS party_id,
                        SUM(t.planned_amount) AS hors_bilan
                   FROM loan_tranche t
                   JOIN loan_contract k ON k.id = t.contract_id
                   JOIN loan_mobilisation m ON m.contract_id = k.id
                  WHERE k.legal_entity_id = ? AND k.customer_id IS NOT NULL
-                   AND t.status = 'PLANNED' AND t.planned_on >= ?
+                   AND (t.released_on IS NULL OR t.released_on > ?)
+                   AND (t.cancelled_on IS NULL OR t.cancelled_on > ?)
                    AND (m.closed_on IS NULL OR m.closed_on > ?)
+                   -- L'engagement cesse avec le delai de tirage : au-dela, la banque n'est plus
+                   -- tenue de verser, et le recenser surestimerait son exposition.
+                   AND m.drawdown_deadline >= ?
                  GROUP BY k.customer_id),
             classe AS (
-                SELECT k.customer_id AS party_id,
-                       MAX(x.bucket_ordinal) AS pire,
-                       MAX(x.days_past_due) AS retard
-                  FROM loan_classification x
-                  JOIN loan_contract k ON k.id = x.contract_id
-                 WHERE k.legal_entity_id = ? AND k.customer_id IS NOT NULL
-                   AND x.status = 'ACTIVE' AND x.classified_on <= ?
-                 GROUP BY k.customer_id)
+                -- La classe de chaque concours <b>a la fin de periode</b> — la derniere connue a
+                -- cette date, pas la pire jamais atteinte : un credit revenu sain apres un retard
+                -- serait sinon declare douteux pour toujours. La pire de ces classes est retenue
+                -- pour le client : c'est la contagion, et c'est pourquoi le recensement est par
+                -- client et non par contrat.
+                SELECT derniere.customer_id AS party_id,
+                       MAX(derniere.bucket_ordinal) AS pire,
+                       MAX(derniere.days_past_due) AS retard
+                  FROM (SELECT DISTINCT ON (x.contract_id)
+                               k.customer_id, x.bucket_ordinal, x.days_past_due
+                          FROM loan_classification x
+                          JOIN loan_contract k ON k.id = x.contract_id
+                         WHERE k.legal_entity_id = ? AND k.customer_id IS NOT NULL
+                           AND x.status = 'ACTIVE' AND x.classified_on <= ?
+                         ORDER BY x.contract_id, x.classified_on DESC, x.created_at DESC)
+                       AS derniere
+                 GROUP BY derniere.customer_id)
             SELECT p.id, p.reference, p.display_name,
                    COALESCE(encours.bilan, 0) AS bilan,
                    COALESCE(engagements.hors_bilan, 0) AS hors_bilan,
@@ -263,14 +303,16 @@ public final class ReportingService {
             ps.setObject(4, entity);
             ps.setObject(5, periodEnd);
             ps.setObject(6, periodEnd);
-            ps.setObject(7, entity);
+            ps.setObject(7, periodEnd);
             ps.setObject(8, periodEnd);
             ps.setObject(9, entity);
-            ps.setBoolean(10, consentOnly);
-            ps.setObject(11, periodEnd);
-            ps.setObject(12, periodEnd);
-            ps.setBigDecimal(13, threshold);
-            ps.setBigDecimal(14, threshold);
+            ps.setObject(10, periodEnd);
+            ps.setObject(11, entity);
+            ps.setBoolean(12, consentOnly);
+            ps.setObject(13, periodEnd);
+            ps.setObject(14, periodEnd);
+            ps.setBigDecimal(15, threshold);
+            ps.setBigDecimal(16, threshold);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     int ordinal = rs.getInt(6);

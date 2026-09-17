@@ -559,7 +559,14 @@ Quatre règles fixent la portée :
   destinataire — c'est elle qui prouve le dépôt.
 - **L'état est reproductible, et c'est vérifiable.** Le recalcul confronte le contenu figé à ce
   que donnent les données aujourd'hui, sous le paramétrage de la production ; les écarts sont
-  nommés ligne par ligne. Un état qui ne se reproduit plus n'est pas une curiosité.
+  nommés ligne par ligne — montant, hors bilan, classe, retard, occurrences. Un état qui ne se
+  reproduit plus n'est pas une curiosité.
+- **Tout se lit à la date de la période, jamais au présent.** Le solde vient du journal à cette
+  date, contre-passations comprises — les écarter laisserait dans la balance transmise une
+  opération annulée, et l'état contredirait le grand livre. Une tranche débloquée ou annulée
+  depuis était un engagement ce jour-là ; la classe retenue est la dernière connue à cette date,
+  pas la pire jamais atteinte. Sans cela, le recalcul dénoncerait un écart là où il n'y a que du
+  temps qui passe.
 - **Le retard est un manquement.** L'étape `REGULATORY_DEADLINES` du TFJ (non bloquante) remonte
   douze périodes et nomme chaque échéance dépassée, en distinguant l'état non produit de l'état
   produit mais non transmis : ce ne sont ni le même manquement ni le même rattrapage.

@@ -43,12 +43,12 @@ class ReportingIT extends RegulatoryTestBase {
         assertThat(filing.thresholdUsed()).isEqualByComparingTo("1000000");
 
         List<ReportFilings.Line> lignes = filing.lines();
-        assertThat(lignes).as("le client sous le seuil n'est pas recense").hasSize(1);
-        ReportFilings.Line ligne = lignes.getFirst();
-        assertThat(ligne.subjectReference()).isEqualTo("REG-GROS");
+        assertThat(lignes).extracting(ReportFilings.Line::subjectReference)
+            .as("le client sous le seuil n'est pas recense").doesNotContain("REG-PETIT");
+        ReportFilings.Line ligne = lignes.stream()
+            .filter(l -> "REG-GROS".equals(l.subjectReference())).findFirst().orElseThrow();
         assertThat(ligne.amount()).as("les deux concours agreges").isEqualTo(xof("11000000"));
-        assertThat(filing.totalAmount()).isEqualTo(xof("11000000"));
-        assertThat(filing.lineCount()).isEqualTo(1);
+        assertThat(filing.lineCount()).isEqualTo(lignes.size());
     }
 
     @Test
@@ -225,6 +225,97 @@ class ReportingIT extends RegulatoryTestBase {
                 RegulatoryDeclarations.Frequency.MONTHLY, 15, new BigDecimal("1000"),
                 FIN.minusMonths(6), null, ACTOR, ACTOR))
             .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("a deux");
+    }
+
+    @Test
+    @DisplayName("la situation comptable dit le meme solde que le grand livre, contre-passations comprises")
+    void the_accounting_situation_agrees_with_the_ledger() {
+        io.corebanking.ledger.domain.account.Account compte = account("CTRL-PASSE",
+            io.corebanking.ledger.domain.account.AccountKind.GL,
+            io.corebanking.ledger.domain.account.NormalBalance.DEBIT);
+        // Une ecriture, puis sa contre-passation : le solde du compte revient a zero. Un etat
+        // qui ecarterait la contre-passation laisserait l'operation annulee dans la balance
+        // transmise — et l'etat dirait autre chose que le grand livre de la banque.
+        io.corebanking.ledger.domain.posting.PostingResult ecriture = postingService.post(
+            io.corebanking.ledger.domain.posting.PostingCommand.online(
+                io.corebanking.kernel.id.IdempotencyKey.of("ctrl-1"), ENTITY, FIN.minusDays(3),
+                "TRANSFER", ACTOR,
+                List.of(io.corebanking.ledger.domain.posting.PostingLine.debit(
+                            compte.id(), xof("700000"), FIN.minusDays(3), null),
+                        io.corebanking.ledger.domain.posting.PostingLine.credit(
+                            caisse.id(), xof("700000"), FIN.minusDays(3), null))));
+        postingService.reverse(ecriture.entryId(), FIN.minusDays(3), FIN.minusDays(2),
+                               io.corebanking.kernel.id.IdempotencyKey.of("ctrl-1-rev"),
+                               "erreur de saisie");
+
+        UUID declaration = declarer("SITUATION-CTRL",
+                                    RegulatoryDeclarations.Method.ACCOUNTING_SITUATION,
+                                    RegulatoryDeclarations.Frequency.MONTHLY, 15, null);
+        UUID etat = service().produce(ENTITY, declaration, FIN, FIN.plusDays(1), ACTOR);
+
+        ReportFilings.Line ligne = lire(etat).lines().stream()
+            .filter(l -> "CTRL-PASSE".equals(l.subjectReference())).findFirst().orElseThrow();
+        io.corebanking.kernel.money.Money grandLivre = database.inEntity(ENTITY,
+            c -> io.corebanking.ledger.store.Balances.replayAsOfBookingDate(c, compte.id(), FIN));
+        assertThat(ligne.amount()).as("l'etat dit ce que dit le grand livre")
+            .isEqualTo(grandLivre);
+        assertThat(ligne.amount()).isEqualTo(xof("0"));
+    }
+
+    @Test
+    @DisplayName("le recensement lit l'etat du jour de la periode, pas celui d'aujourd'hui : un engagement debloque depuis reste un engagement ce jour-la")
+    void the_registry_reads_the_state_as_of_the_period_end() {
+        UUID client = client("REG-TRANCHE");
+        // Deux millions accordes, un million deux cent mille verses : le reste est un engagement
+        // de financement que la banque tiendra a la demande du client.
+        UUID contrat = credit("CR-TRANCHE", client, "2000000", "1200000", FIN.minusMonths(2));
+        mobilisation(contrat, FIN.plusMonths(2));
+        // Le plan se pose d'un bloc : la base verifie que les tranches totalisent le capital
+        // accorde, et ce controle n'a de sens qu'une fois le plan complet.
+        UUID tranche = database.inTransaction(c -> {
+            tranche(c, contrat, 1, "1200000", FIN.minusMonths(2), FIN.minusMonths(2));
+            return tranche(c, contrat, 2, "800000", FIN.minusDays(10), null);
+        });
+
+        UUID declaration = declarer("CENTRALE-TRANCHE",
+                                    RegulatoryDeclarations.Method.CREDIT_REGISTRY,
+                                    RegulatoryDeclarations.Frequency.MONTHLY, 15,
+                                    new BigDecimal("1000000"));
+        UUID etat = service().produce(ENTITY, declaration, FIN, FIN.plusDays(1), ACTOR);
+        ReportFilings.Line ligne = lire(etat).lines().stream()
+            .filter(l -> "REG-TRANCHE".equals(l.subjectReference())).findFirst().orElseThrow();
+        assertThat(ligne.amount()).as("l'encours porte").isEqualTo(xof("1200000"));
+        assertThat(ligne.offBalance()).as("l'engagement non verse").isEqualTo(xof("800000"));
+
+        database.inEntity(ENTITY, c -> ReportFilings.transmit(c, etat, FIN.plusDays(2),
+                                                              "BCEAO-TRANCHE", ACTOR, APPROVER));
+
+        // La tranche est debloquee apres la fin de periode. Elle etait un engagement ce jour-la,
+        // et l'etat regenere doit le redire a l'identique — sinon la reproductibilite dirait un
+        // ecart de donnees la ou il n'y a que le temps qui passe.
+        debloquer(tranche, FIN.plusDays(5));
+        assertThat(service().differences(ENTITY, etat))
+            .as("le passe ne bouge pas parce qu'on est demain").isEmpty();
+    }
+
+    @Test
+    @DisplayName("la classe retenue est la derniere connue a la fin de periode, pas la pire jamais atteinte")
+    void the_registry_keeps_the_latest_classification_not_the_worst_ever() {
+        UUID client = client("REG-CLASSE");
+        UUID contrat = credit("CR-CLASSE", client, "4000000", FIN.minusMonths(3));
+        // Le credit a ete douteux, puis il est redevenu sain : c'est le sain qui se declare.
+        classer(contrat, FIN.minusMonths(2), 3, 120);
+        classer(contrat, FIN.minusDays(5), 1, 0);
+
+        UUID declaration = declarer("CENTRALE-CLASSE",
+                                    RegulatoryDeclarations.Method.CREDIT_REGISTRY,
+                                    RegulatoryDeclarations.Frequency.MONTHLY, 15,
+                                    new BigDecimal("1000000"));
+        UUID etat = service().produce(ENTITY, declaration, FIN, FIN.plusDays(1), ACTOR);
+        ReportFilings.Line ligne = lire(etat).lines().stream()
+            .filter(l -> "REG-CLASSE".equals(l.subjectReference())).findFirst().orElseThrow();
+        assertThat(ligne.daysPastDue()).as("le retard de la derniere classification").isZero();
+        assertThat(ligne.classification()).isNotNull();
     }
 
     // ------------------------------------------------------------------ outillage

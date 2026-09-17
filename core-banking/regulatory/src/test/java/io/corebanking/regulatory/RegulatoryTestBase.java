@@ -25,6 +25,7 @@ import io.corebanking.party.RiskRating;
 import io.corebanking.party.Screening;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import java.io.IOException;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
@@ -104,6 +105,15 @@ abstract class RegulatoryTestBase {
     /** Un credit debloque : le compte de pret porte l'encours, c'est lui que l'etat lit. */
     protected static UUID credit(String reference, UUID customer, String montant,
                                  LocalDate debloqueLe) {
+        return credit(reference, customer, montant, montant, debloqueLe);
+    }
+
+    /**
+     * Un credit dont une partie seulement est versee : le reste est un engagement de
+     * financement, porte au hors bilan tant qu'il n'est pas tire.
+     */
+    protected static UUID credit(String reference, UUID customer, String accorde, String verse,
+                                 LocalDate debloqueLe) {
         Account pret = account("PRET-" + reference, AccountKind.CUSTOMER, NormalBalance.DEBIT);
         Account reglement = compte("CC-" + reference, customer);
         UUID id = UUID.randomUUID();
@@ -120,7 +130,7 @@ abstract class RegulatoryTestBase {
                 ps.setString(5, "XOF");
                 ps.setObject(6, pret.id());
                 ps.setObject(7, reglement.id());
-                ps.setBigDecimal(8, new java.math.BigDecimal(montant));
+                ps.setBigDecimal(8, new java.math.BigDecimal(accorde));
                 ps.setObject(9, debloqueLe);
                 ps.setObject(10, customer);
                 ps.setObject(11, ACTOR);
@@ -131,12 +141,114 @@ abstract class RegulatoryTestBase {
             }
             return null;
         });
-        // Le deblocage : la caisse est creditee, le compte de pret debite de l'encours.
+        // Le deblocage : la caisse est creditee, le compte de pret debite de ce qui est verse.
         postingService.post(PostingCommand.online(
             IdempotencyKey.of("disb-" + reference), ENTITY, debloqueLe, "LOAN_DISBURSEMENT", ACTOR,
-            List.of(PostingLine.debit(pret.id(), xof(montant), debloqueLe, null),
-                    PostingLine.credit(caisse.id(), xof(montant), debloqueLe, null))));
+            List.of(PostingLine.debit(pret.id(), xof(verse), debloqueLe, null),
+                    PostingLine.credit(caisse.id(), xof(verse), debloqueLe, null))));
         return id;
+    }
+
+    /** Une ligne de mobilisation ouverte : la banque s'engage a mettre des fonds a disposition. */
+    protected static void mobilisation(UUID contractId, LocalDate delaiDeTirage) {
+        database.inTransaction(c -> {
+            try (var ps = c.prepareStatement(
+                "INSERT INTO loan_mobilisation(contract_id, drawdown_deadline, instalment_count,"
+                + " grace_instalments, first_due_date, interim_billed_through, opened_by,"
+                + " approved_by) VALUES (?,?,?,?,?,?,?,?)")) {
+                ps.setObject(1, contractId);
+                ps.setObject(2, delaiDeTirage);
+                ps.setInt(3, 12);
+                ps.setInt(4, 0);
+                ps.setObject(5, delaiDeTirage.plusMonths(1));
+                ps.setObject(6, delaiDeTirage.minusMonths(6));
+                ps.setObject(7, ACTOR);
+                ps.setObject(8, APPROVER);
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Mobilisation de test", e);
+            }
+            return null;
+        });
+    }
+
+    /**
+     * Une tranche du plan de deblocage. Non debloquee, c'est l'engagement porte au hors bilan ;
+     * la base exige que les tranches totalisent le capital accorde, et elle a raison — l'ecart
+     * serait debloque hors plan ou perdu.
+     */
+    protected static UUID tranche(Connection c, UUID contractId, int numero, String montant,
+                                  LocalDate prevue, LocalDate debloqueeLe) {
+        UUID id = UUID.randomUUID();
+        {
+            try (var ps = c.prepareStatement(
+                "INSERT INTO loan_tranche(id, contract_id, number, planned_on, planned_amount,"
+                + " status, released_on, released_amount, released_by, approved_by)"
+                + " VALUES (?,?,?,?,?,?,?,?,?,?)")) {
+                ps.setObject(1, id);
+                ps.setObject(2, contractId);
+                ps.setInt(3, numero);
+                ps.setObject(4, prevue);
+                ps.setBigDecimal(5, new java.math.BigDecimal(montant));
+                ps.setString(6, debloqueeLe == null ? "PLANNED" : "RELEASED");
+                ps.setObject(7, debloqueeLe);
+                if (debloqueeLe == null) {
+                    ps.setNull(8, java.sql.Types.NUMERIC);
+                    ps.setNull(9, java.sql.Types.OTHER);
+                    ps.setNull(10, java.sql.Types.OTHER);
+                } else {
+                    ps.setBigDecimal(8, new java.math.BigDecimal(montant));
+                    ps.setObject(9, ACTOR);
+                    ps.setObject(10, APPROVER);
+                }
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Tranche de test", e);
+            }
+        }
+        return id;
+    }
+
+    /** Le deblocage de la tranche : elle cesse d'etre un engagement ce jour-la. */
+    protected static void debloquer(UUID trancheId, LocalDate on) {
+        database.inTransaction(c -> {
+            try (var ps = c.prepareStatement(
+                "UPDATE loan_tranche SET status = 'RELEASED', released_on = ?,"
+                + " released_amount = planned_amount, released_by = ?, approved_by = ?"
+                + " WHERE id = ?")) {
+                ps.setObject(1, on);
+                ps.setObject(2, ACTOR);
+                ps.setObject(3, APPROVER);
+                ps.setObject(4, trancheId);
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Deblocage de test", e);
+            }
+            return null;
+        });
+    }
+
+    /** Une classification du credit a une date : c'est la derniere connue qui se declare. */
+    protected static void classer(UUID contractId, LocalDate on, int rang, int joursDeRetard) {
+        database.inTransaction(c -> {
+            try (var ps = c.prepareStatement(
+                "INSERT INTO loan_classification(id, contract_id, classified_on, days_past_due,"
+                + " bucket_code, bucket_ordinal, performing, reason, exposure, collateral,"
+                + " provision_base, provision_rate_percent, provision_amount)"
+                + " VALUES (?,?,?,?,?,?,?,'AGEING',0,0,0,0,0)")) {
+                ps.setObject(1, UUID.randomUUID());
+                ps.setObject(2, contractId);
+                ps.setObject(3, on);
+                ps.setInt(4, joursDeRetard);
+                ps.setString(5, "CLASSE-" + rang);
+                ps.setInt(6, rang);
+                ps.setBoolean(7, rang <= 1);
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Classification de test", e);
+            }
+            return null;
+        });
     }
 
     /** Un incident de paiement sur un cheque : c'est le fait qui se declare, pas le montant. */

@@ -1190,6 +1190,25 @@ révoque, et **la révocation vaut pour les états suivants** : elle ne réécri
 déclaré, parce que c'est la seule promesse que la banque puisse tenir
 (`nothing_reaches_the_credit_bureau_without_consent`).
 
+**Un état dit ce que dit le grand livre, contre-passations comprises.** Écarter les
+contre-passations d'un solde laisserait dans la balance transmise une opération que la banque a
+annulée — et l'état dirait autre chose que son propre grand livre. Ce filtre a sa place dans la
+surveillance LCB-FT, où une opération annulée n'est pas un mouvement d'espèces ; il n'en a aucune
+dans un solde (`the_accounting_situation_agrees_with_the_ledger`).
+
+**L'état lit l'état du jour de la période, pas celui d'aujourd'hui.** Une tranche débloquée depuis,
+un contrat clos depuis, une classe révisée depuis : tout cela était autrement à la date déclarée.
+Lire l'état courant ferait sortir un recalcul différent pour la seule raison que le temps a passé,
+et la vérification de reproductibilité crierait à la corruption là où il n'y a que du temps
+(`the_registry_reads_the_state_as_of_the_period_end`). La classe retenue est **la dernière connue
+à la date**, pas la pire jamais atteinte : un crédit redevenu sain après un retard serait sinon
+déclaré douteux pour toujours (`the_registry_keeps_the_latest_classification_not_the_worst_ever`).
+
+**Le recalcul compare tout ce que la ligne dit**, pas seulement son montant : le hors bilan, la
+classe, le retard, le nombre d'occurrences. Ne comparer que le montant laisserait passer un
+engagement disparu ou une classe changée — c'est-à-dire précisément ce que le superviseur lit sur
+la ligne.
+
 **Le retard déclaratif est en lui-même un manquement.** Il ne se découvre pas quand le superviseur
 appelle : l'arrêté le constate chaque nuit, avec la déclaration, la période et le nombre de jours.
 Une déclaration oubliée pendant trois mois est une sanction ; la même, vue le lendemain de
