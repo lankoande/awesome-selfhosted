@@ -1,0 +1,33 @@
+<header class="barre">
+  <div class="marque">
+    <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentcolor" stroke-width="1.3" aria-hidden="true">
+      <rect x="2.6" y="2.6" width="14.8" height="14.8"></rect>
+      <path d="M2.6 7.8h14.8M7.8 7.8v9.6"></path>
+    </svg>
+    <span class="nom">{{ config.banque().nom }}</span>
+  </div>
+
+  <nav class="espaces" aria-label="Espaces">
+    <a routerLink="/atelier" routerLinkActive="actif">Atelier</a>
+  </nav>
+
+  <button type="button" class="recherche" aria-label="Rechercher un client, un compte, une pièce">
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentcolor" stroke-width="1.4" aria-hidden="true">
+      <circle cx="7" cy="7" r="4.6"></circle>
+      <path d="M10.4 10.4L14 14"></path>
+    </svg>
+    <span>Rechercher un client, un compte, une pièce</span>
+    <cb-kbd>Ctrl K</cb-kbd>
+  </button>
+
+  <span class="ressort"></span>
+
+  <button type="button" cbButton="discret" class="reglage" (click)="apparence.basculerDensite()">
+    Densité : {{ apparence.densite() === 'compact' ? 'compacte' : 'confortable' }}
+  </button>
+  <button type="button" cbButton="discret" class="reglage" (click)="apparence.basculerTheme()">
+    Thème : {{ apparence.theme() === 'dark' ? 'sombre' : 'clair' }}
+  </button>
+</header>
+
+<main><router-outlet /></main>

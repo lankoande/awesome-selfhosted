@@ -227,3 +227,43 @@ Du même ordre que le test de contrat OpenAPI : des mécanismes, pas des intenti
    date de valeur et frais, clé d'idempotence, reçu, refus métier lisible.
 3. **File de validation** (maker-checker), qui éprouve le vocabulaire d'états.
 4. Le reste des écrans du guichet, puis l'espace siège.
+
+L'avancement réel est au §8.
+
+## 8. État de la construction
+
+Le code du front est dans [`core-banking/web`](../../core-banking/web) ; son README décrit la
+mécanique (commandes, organisation, garde-fous). Node ≥ 22.22.3 est requis par Angular 22.
+
+| Étape du §7 | État |
+|---|---|
+| 1. Socle visuel | **Livré** — tokens, deux thèmes, deux densités, jeu fermé de 17 primitives, page atelier, budgets, types générés |
+| 2. Guichet — versement d'espèces | à faire |
+| 3. File de validation | à faire |
+| 4. Reste du guichet, puis siège | à faire |
+
+Rien n'est figé : ce qui suit est ce qu'on sait aujourd'hui, pas un engagement. Les décisions
+prises pendant la construction du socle sont consignées ici pour qu'on puisse les défaire en
+connaissance de cause.
+
+### Ce que la construction a appris
+
+**L'accent est déclaré par thème, pas dérivé.** Une couleur lisible sur papier tiède ne l'est pas
+toujours sur fond sombre. `config.json` porte donc un accent clair et, facultativement, un accent
+sombre ; les valeurs sont écrites dans une règle CSS par thème — un style en ligne sur `<html>`
+l'emporterait sur `[data-theme='dark']` et figerait l'accent clair dans le thème sombre. Et parce
+que `config.json` est du contenu de déploiement et non du code, seules les valeurs qui ont la
+forme d'une couleur sont recopiées dans la feuille de style.
+
+**Le tiroir de contexte est modal aujourd'hui.** Le `Dialog` du CDK piège le focus : la liste
+reste lisible, pas manipulable. Le jour où un écran demandera de travailler la liste tiroir
+ouvert, ce sera un `Overlay` sans piège de focus — pas un `Dialog` auquel on retire le voile en
+faisant semblant.
+
+**Les polices sont réduites au latin.** Le cyrillique, le grec et le vietnamien triplaient le
+poids embarqué pour rien dans une agence de l'UEMOA. IBM Plex Sans est pris en fonte variable
+(une requête pour toutes les graisses), IBM Plex Mono en trois graisses fixes.
+
+**Le démarrage a son propre test.** Un initialiseur qui appelle `inject()` après un `await`
+compile, passe les tests de composants, et casse l'application au premier chargement (NG0203).
+Seule l'exécution de la séquence de démarrage le montre — elle est donc jouée par un test.

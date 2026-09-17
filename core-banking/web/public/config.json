@@ -1,0 +1,29 @@
+{
+  "_lisezMoi": "Niveau 2 de la configurabilité : ce qui se règle par déploiement, sans recompilation. Aucune règle métier ici — les contrôles de saisie et les enchaînements d'écran sont du code.",
+  "apiBaseUrl": "/v1",
+  "locale": "fr-FR",
+  "banque": {
+    "nom": "Socle bancaire",
+    "accent": "#1f4e46",
+    "accentContraste": "#fbf9f4",
+    "accentSurvol": "#123a34",
+    "logoUrl": null,
+    "sombre": {
+      "accent": "#6fb3a4",
+      "accentContraste": "#10201d",
+      "accentSurvol": "#8cc7ba"
+    }
+  },
+  "defauts": {
+    "theme": "light",
+    "densite": "comfortable"
+  },
+  "affichage": {
+    "groupeCompte": 4,
+    "deviseParDefaut": "XOF"
+  },
+  "espaces": {
+    "guichet": true,
+    "siege": true
+  }
+}

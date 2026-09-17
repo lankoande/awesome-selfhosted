@@ -1,0 +1,199 @@
+<div class="atelier">
+  <aside class="sommaire">
+    <p class="cb-caps">Primitives</p>
+    <nav>
+      @for (primitive of primitives; track primitive.id) {
+        <a [href]="'#' + primitive.id">{{ primitive.nom }}</a>
+      }
+    </nav>
+  </aside>
+
+  <div class="contenu">
+    <header class="intro">
+      <h1>Atelier</h1>
+      <p>
+        Le jeu fermé de primitives, tous leurs états, les deux densités et les deux thèmes — dans
+        l'application, pas dans un outil à côté qui dériverait. Un composant absent d'ici n'existe pas :
+        un test le vérifie à chaque build.
+      </p>
+      <p class="reglages">
+        Thème <strong>{{ apparence.theme() === 'dark' ? 'sombre' : 'clair' }}</strong> ·
+        densité <strong>{{ apparence.densite() === 'compact' ? 'compacte' : 'confortable' }}</strong> ·
+        accent <span class="cb-mono">{{ config.banque().accent }}</span> — les deux premiers se
+        basculent dans la barre du haut, le troisième vient de <span class="cb-mono">config.json</span>.
+      </p>
+    </header>
+
+    @for (primitive of primitives; track primitive.id) {
+      <section class="bloc" [id]="primitive.id">
+        <div class="titre-bloc">
+          <h2>{{ primitive.nom }}</h2>
+          <code class="cb-mono">{{ primitive.id }}</code>
+        </div>
+        <p class="role">{{ primitive.role }}</p>
+        <div class="demo">
+          @switch (primitive.id) {
+            @case ('button') {
+              <div class="rangee">
+                <button type="button" cbButton="primaire">Comptabiliser</button>
+                <button type="button" cbButton="secondaire">Enregistrer en brouillon</button>
+                <button type="button" cbButton="discret">Annuler</button>
+                <button type="button" cbButton="danger">Contre-passer</button>
+                <button type="button" cbButton="primaire" disabled>Indisponible</button>
+              </div>
+            }
+            @case ('input') {
+              <div class="grille">
+                <input cbInput type="text" value="SANKARA Aminata" aria-label="Nom" />
+                <input cbInput mono type="text" value="BF12 0010 2510 0000 0004 17" aria-label="Compte" />
+                <select cbInput aria-label="Nature">
+                  <option>Versement d'espèces</option>
+                  <option>Retrait d'espèces</option>
+                </select>
+                <input cbInput type="text" value="Compte clôturé" invalide aria-label="Champ en erreur" />
+                <input cbInput type="text" value="Lecture seule" readonly aria-label="Lecture seule" />
+                <textarea cbInput rows="2" aria-label="Motif">Motif de l'opposition</textarea>
+              </div>
+            }
+            @case ('field') {
+              <div class="grille">
+                <cb-field etiquette="Remettant" pour="at-remettant" aide="Un tiers déclenche le contrôle d'identité.">
+                  <input cbInput id="at-remettant" type="text" value="OUEDRAOGO Salif" />
+                </cb-field>
+                <cb-field etiquette="Pièce d'identité" pour="at-piece" requis erreur="Pièce expirée depuis le 04/2026.">
+                  <input cbInput id="at-piece" type="text" value="CNIB B0483921" invalide />
+                </cb-field>
+              </div>
+            }
+            @case ('amount') {
+              <div class="rangee">
+                <cb-amount [valeur]="2500000" devise="XOF" />
+                <cb-amount [valeur]="2500000" devise="XOF" ton="accent" />
+                <cb-amount [valeur]="-120000" devise="XOF" ton="discret" />
+                <cb-amount [valeur]="1170" devise="XOF" signe="toujours" ton="positif" />
+                <cb-amount [valeur]="1234.56" [echelle]="2" devise="EUR" />
+                <cb-amount [valeur]="null" devise="XOF" />
+              </div>
+            }
+            @case ('amount-input') {
+              <div class="rangee">
+                <cb-amount-input champId="at-montant" [(valeur)]="montant" devise="XOF" />
+                <span class="valeur-lue">valeur lue : <code class="cb-mono">{{ montant() ?? 'null' }}</code></span>
+              </div>
+            }
+            @case ('date-input') {
+              <div class="rangee">
+                <cb-date-input champId="at-date" [(valeur)]="date" />
+                <span class="valeur-lue">ISO : <code class="cb-mono">{{ date() ?? 'null' }}</code></span>
+              </div>
+            }
+            @case ('state-badge') {
+              <div class="rangee">
+                @for (etat of etats; track etat) {
+                  <cb-state-badge [etat]="etat" />
+                }
+              </div>
+            }
+            @case ('notice') {
+              <div class="colonne">
+                <cb-notice nature="refus" titre="Opération refusée" code="PLAFOND_ESPECES_30J_DEPASSE">
+                  Le cumul des versements en espèces de cette cliente sur 30 jours glissants atteindrait
+                  12 400 000 XOF pour un plafond déclaré de 10 000 000 XOF. Aucune écriture n'a été passée
+                  et la clé d'idempotence est conservée.
+                  <ng-container actions>
+                    <button type="button" cbButton="primaire">Joindre un justificatif</button>
+                    <button type="button" cbButton="secondaire">Demander une dérogation</button>
+                  </ng-container>
+                </cb-notice>
+                <cb-notice nature="avertissement" titre="Alerte de surveillance ouverte" code="AML-2026-01847">
+                  Une alerte n'est pas une sanction : seul le filtrage des sanctions interdit l'opération.
+                </cb-notice>
+                <cb-notice nature="succes" titre="Comptabilisé" code="VER-2026-09-17-004128">
+                  Écriture équilibrée de 2 501 170 XOF, date de valeur du 17/09/2026.
+                </cb-notice>
+                <cb-notice nature="information" titre="Lecture tracée">
+                  La consultation de ce dossier est enregistrée au journal d'audit.
+                </cb-notice>
+              </div>
+            }
+            @case ('section') {
+              <cb-section titre="Imputation" indication="ce que la comptabilité enregistrera">
+                <p class="corps-section">Le contenu d'une section vient ici, sans carte ni ombre portée.</p>
+              </cb-section>
+            }
+            @case ('table') {
+              <table cbTable>
+                <caption class="cb-visually-hidden">Mouvements du jour</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Heure</th>
+                    <th scope="col">Pièce</th>
+                    <th scope="col">Libellé</th>
+                    <th scope="col" class="cb-num">Montant</th>
+                    <th scope="col">État</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (ligne of lignes; track ligne.piece) {
+                    <tr>
+                      <td class="cb-ref">{{ ligne.heure }}</td>
+                      <td class="cb-ref">{{ ligne.piece }}</td>
+                      <td>{{ ligne.libelle }}</td>
+                      <td class="cb-num"><cb-amount [valeur]="ligne.montant" devise="XOF" /></td>
+                      <td><cb-state-badge [etat]="ligne.etat" /></td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="3">Solde des mouvements</td>
+                    <td class="cb-num"><cb-amount [valeur]="1930000" devise="XOF" signe="toujours" /></td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            }
+            @case ('toolbar') {
+              <cb-toolbar>
+                <h3>Journée du 17/09/2026</h3>
+                <cb-state-badge etat="en-attente" />
+                <button type="button" fin cbButton="secondaire">Exporter</button>
+              </cb-toolbar>
+            }
+            @case ('tabs') {
+              <cb-tabs [onglets]="onglets" [(actif)]="ongletActif" etiquette="Sections du poste" />
+              <p class="valeur-lue">onglet actif : <code class="cb-mono">{{ ongletActif() }}</code></p>
+            }
+            @case ('pagination') {
+              <cb-pagination position="Lignes 51 à 100" [(taille)]="taillePage" precedent suivant />
+            }
+            @case ('kbd') {
+              <div class="rangee">
+                <span>Rechercher <cb-kbd>Ctrl K</cb-kbd></span>
+                <span>Valider <cb-kbd>Ctrl ⏎</cb-kbd></span>
+                <span>Fermer <cb-kbd>Échap</cb-kbd></span>
+              </div>
+            }
+            @case ('drawer') {
+              <button type="button" cbButton="secondaire" (click)="ouvrirTiroir()">Ouvrir le tiroir de contexte</button>
+            }
+            @case ('dialog') {
+              <div class="rangee">
+                <button type="button" cbButton="danger" (click)="demanderConfirmation()">Contre-passer…</button>
+                <span class="valeur-lue">dernier choix : <code class="cb-mono">{{ dernierChoix() }}</code></span>
+              </div>
+            }
+            @case ('activity') {
+              <div class="rangee">
+                <button type="button" cbButton="secondaire" (click)="basculerActivite()">
+                  {{ travaille() ? 'Arrêter' : 'Simuler un appel' }}
+                </button>
+                <cb-activity class="activite" [enCours]="travaille()" libelle="Envoi au socle…" />
+              </div>
+            }
+          }
+        </div>
+      </section>
+    }
+  </div>
+</div>

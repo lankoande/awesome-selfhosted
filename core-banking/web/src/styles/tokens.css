@@ -1,0 +1,163 @@
+/* ---------------------------------------------------------------------------
+   Tokens — l'unique vocabulaire visuel de l'application.
+   Rien d'autre ne définit une couleur, une taille ou un espacement.
+   Trois axes indépendants :
+     - le thème   : :root (clair) et [data-theme="dark"] (sombre, dessiné)
+     - la densité : [data-density="comfortable" | "compact"]
+     - le déploiement : --cb-accent* écrasés au démarrage depuis config.json
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* ---- typographie ---- */
+  --cb-font-sans: 'IBM Plex Sans Variable', 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --cb-font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --cb-fs-micro: 0.625rem;   /* 10px — sur-titres, étiquettes capitales */
+  --cb-fs-xs: 0.6875rem;     /* 11px */
+  --cb-fs-sm: 0.75rem;       /* 12px */
+  --cb-fs-base: 0.8125rem;   /* 13px — corps du back-office */
+  --cb-fs-md: 0.875rem;      /* 14px — contrôles */
+  --cb-fs-lg: 1.0625rem;     /* 17px */
+  --cb-fs-xl: 1.4375rem;     /* 23px — titre d'écran */
+  --cb-fs-display: 1.6875rem;
+
+  --cb-lh-tight: 1.25;
+  --cb-lh-base: 1.5;
+  --cb-track-caps: 0.09em;
+
+  /* ---- couleur : base papier tiède, regardée huit heures sous néon ---- */
+  --cb-paper: #f4f1e9;
+  --cb-panel: #fbf9f4;
+  --cb-card: #fffdf9;
+  --cb-rail: #efebe0;
+  --cb-sunken: #eae5d8;
+
+  --cb-ink: #17150f;
+  --cb-ink-2: #3a362c;
+  --cb-muted: #5c564b;
+  --cb-faint: #7d7768;
+
+  --cb-rule: #ddd7c7;
+  --cb-rule-strong: #c8c0ac;
+
+  --cb-bar: #17150f;         /* barre d'application */
+  --cb-bar-ink: #e8e2d2;
+  --cb-bar-muted: #9a9283;
+  --cb-bar-rule: #3b372d;
+  --cb-bar-sunken: #221f17;
+
+  /* ---- accent : une seule couleur, propriété de la banque ---- */
+  --cb-accent: #1f4e46;
+  --cb-accent-hover: #123a34;
+  --cb-accent-ink: #fbf9f4;
+  --cb-accent-soft: #edf3f0;
+  --cb-accent-line: #b6ccc4;
+
+  /* ---- palette sémantique : réservée aux états, jamais décorative ----
+     Le vocabulaire est fermé : brouillon, en attente, comptabilisé,
+     contre-passé, rejeté, bloqué. */
+  --cb-draft: #5c564b;      --cb-draft-soft: #f1eee5;      --cb-draft-line: #c8c0ac;
+  --cb-pending: #8a5a0b;    --cb-pending-soft: #faf3e4;    --cb-pending-line: #e0c79a;
+  --cb-posted: #2f6b46;     --cb-posted-soft: #eaf1ec;     --cb-posted-line: #b3ccbc;
+  --cb-reversed: #5a4a7a;   --cb-reversed-soft: #f0ecf5;   --cb-reversed-line: #c9bede;
+  --cb-rejected: #8c2f1e;   --cb-rejected-soft: #fbefeb;   --cb-rejected-line: #ddb4a7;
+  --cb-blocked: #3f5566;    --cb-blocked-soft: #ecf0f3;    --cb-blocked-line: #bdc9d1;
+
+  /* ---- traits, ombres, rayons ---- */
+  --cb-radius: 2px;
+  --cb-border: 1px;
+  --cb-focus: 2px;
+  --cb-scrim: rgb(23 21 15 / 42%);
+  --cb-lift: 0 1px 0 rgb(23 21 15 / 6%);   /* pas d'ombre molle : un trait */
+
+  /* ---- mouvement : fonctionnel, jamais décoratif ---- */
+  --cb-motion: 120ms;
+  --cb-ease: cubic-bezier(0.2, 0, 0.2, 1);
+
+  /* ---- densité par défaut (reprise par [data-density]) ---- */
+  --cb-space-1: 4px;
+  --cb-space-2: 8px;
+  --cb-space-3: 12px;
+  --cb-space-4: 16px;
+  --cb-space-5: 24px;
+  --cb-space-6: 32px;
+  --cb-control-h: 36px;
+  --cb-row-h: 34px;
+  --cb-tap-h: 44px;
+  --cb-pad-x: 12px;
+  --cb-gutter: 24px;
+}
+
+/* --------------------------------------------------------------- densités */
+
+:root,
+[data-density='comfortable'] {
+  --cb-space-1: 4px;
+  --cb-space-2: 8px;
+  --cb-space-3: 12px;
+  --cb-space-4: 18px;
+  --cb-space-5: 24px;
+  --cb-space-6: 32px;
+  --cb-control-h: 40px;
+  --cb-row-h: 40px;
+  --cb-tap-h: 44px;
+  --cb-pad-x: 12px;
+  --cb-gutter: 28px;
+}
+
+[data-density='compact'] {
+  --cb-space-1: 3px;
+  --cb-space-2: 6px;
+  --cb-space-3: 9px;
+  --cb-space-4: 12px;
+  --cb-space-5: 16px;
+  --cb-space-6: 22px;
+  --cb-control-h: 32px;
+  --cb-row-h: 28px;
+  --cb-tap-h: 36px;
+  --cb-pad-x: 9px;
+  --cb-gutter: 18px;
+}
+
+/* ------------------------------------------------- thème sombre, dessiné
+   Ce n'est pas l'inverse du thème clair : la base reste tiède, les traits
+   restent lisibles, et les états gardent la même hiérarchie. Les arrêtés se
+   font le soir. */
+
+[data-theme='dark'] {
+  --cb-paper: #16150f;
+  --cb-panel: #1d1b15;
+  --cb-card: #23211a;
+  --cb-rail: #1a1813;
+  --cb-sunken: #12110c;
+
+  --cb-ink: #ece7d8;
+  --cb-ink-2: #cdc7b6;
+  --cb-muted: #a29b8a;
+  --cb-faint: #857e6e;
+
+  --cb-rule: #35322a;
+  --cb-rule-strong: #4a463b;
+
+  --cb-bar: #0f0e0a;
+  --cb-bar-ink: #e8e2d2;
+  --cb-bar-muted: #948d7e;
+  --cb-bar-rule: #2c2922;
+  --cb-bar-sunken: #1a1813;
+
+  --cb-accent: #6fb3a4;
+  --cb-accent-hover: #8cc7ba;
+  --cb-accent-ink: #10201d;
+  --cb-accent-soft: #1b2a27;
+  --cb-accent-line: #33544d;
+
+  --cb-draft: #a29b8a;      --cb-draft-soft: #242219;      --cb-draft-line: #4a463b;
+  --cb-pending: #e0b060;    --cb-pending-soft: #2a2318;    --cb-pending-line: #58472a;
+  --cb-posted: #79b894;     --cb-posted-soft: #1b2721;     --cb-posted-line: #32503f;
+  --cb-reversed: #b3a0d8;   --cb-reversed-soft: #221e2c;   --cb-reversed-line: #453c5c;
+  --cb-rejected: #e0897a;   --cb-rejected-soft: #2c1e1a;   --cb-rejected-line: #5c3a30;
+  --cb-blocked: #9fb6c6;    --cb-blocked-soft: #1c2227;    --cb-blocked-line: #384852;
+
+  --cb-scrim: rgb(0 0 0 / 60%);
+  --cb-lift: 0 1px 0 rgb(0 0 0 / 30%);
+}

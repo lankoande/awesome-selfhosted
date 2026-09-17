@@ -1,0 +1,157 @@
+/* Contrôles posés sur des éléments natifs (button, input, select, textarea,
+   table). Ils vivent ici plutôt que dans un composant parce qu'une directive
+   ne peut pas styler l'élément hôte d'un contenu projeté. */
+
+/* ------------------------------------------------------------------ bouton */
+
+.cb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cb-space-2);
+  height: var(--cb-tap-h);
+  padding: 0 calc(var(--cb-pad-x) + 6px);
+  border: var(--cb-border) solid transparent;
+  border-radius: var(--cb-radius);
+  background: transparent;
+  color: var(--cb-ink);
+  font-family: inherit;
+  font-size: var(--cb-fs-md);
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--cb-motion) var(--cb-ease),
+              border-color var(--cb-motion) var(--cb-ease),
+              color var(--cb-motion) var(--cb-ease);
+}
+
+/* Désactivé : un aplat mat, pas une opacité. Un bouton translucide sur un fond
+   coloré devient illisible, et « illisible » n'est pas « indisponible ». */
+.cb-btn:disabled {
+  cursor: not-allowed;
+  background: var(--cb-sunken);
+  border-color: var(--cb-rule);
+  color: var(--cb-faint);
+}
+
+.cb-btn--primaire {
+  background: var(--cb-accent);
+  border-color: var(--cb-accent);
+  color: var(--cb-accent-ink);
+  font-weight: 600;
+}
+.cb-btn--primaire:hover:not(:disabled) { background: var(--cb-accent-hover); border-color: var(--cb-accent-hover); }
+
+.cb-btn--secondaire {
+  background: var(--cb-card);
+  border-color: var(--cb-rule-strong);
+  color: var(--cb-ink);
+}
+.cb-btn--secondaire:hover:not(:disabled) { background: var(--cb-sunken); }
+
+.cb-btn--discret {
+  background: transparent;
+  border-color: transparent;
+  color: var(--cb-ink-2);
+}
+.cb-btn--discret:hover:not(:disabled) { background: var(--cb-sunken); }
+
+.cb-btn--danger {
+  background: var(--cb-card);
+  border-color: var(--cb-rejected-line);
+  color: var(--cb-rejected);
+}
+.cb-btn--danger:hover:not(:disabled) { background: var(--cb-rejected-soft); }
+
+/* Icône seule : tolérée uniquement dans une barre d'outils, et jamais sans
+   aria-label (la directive le vérifie en développement). */
+.cb-btn--icone { width: var(--cb-tap-h); padding: 0; }
+
+/* ------------------------------------------------------------------ saisie */
+
+.cb-input {
+  width: 100%;
+  height: var(--cb-control-h);
+  padding: 0 var(--cb-pad-x);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  background: var(--cb-card);
+  color: var(--cb-ink);
+  font-family: inherit;
+  font-size: var(--cb-fs-md);
+  transition: border-color var(--cb-motion) var(--cb-ease);
+}
+.cb-input::placeholder { color: var(--cb-faint); }
+.cb-input:hover:not(:disabled):not([readonly]) { border-color: var(--cb-rule-strong); }
+.cb-input:disabled { background: var(--cb-sunken); color: var(--cb-muted); cursor: not-allowed; }
+.cb-input[readonly] { background: var(--cb-sunken); color: var(--cb-ink-2); }
+.cb-input--invalide { border-color: var(--cb-rejected); }
+.cb-input--mono { font-family: var(--cb-font-mono); }
+.cb-input--nombre { text-align: right; font-family: var(--cb-font-mono); }
+
+textarea.cb-input { height: auto; min-height: calc(var(--cb-control-h) * 2); padding: var(--cb-space-2) var(--cb-pad-x); line-height: var(--cb-lh-base); }
+
+select.cb-input {
+  appearance: none;
+  padding-right: calc(var(--cb-pad-x) + 18px);
+  background-image: linear-gradient(45deg, transparent 50%, currentcolor 50%),
+                    linear-gradient(135deg, currentcolor 50%, transparent 50%);
+  background-position: right calc(var(--cb-pad-x) + 4px) center, right var(--cb-pad-x) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------------- table */
+
+.cb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--cb-fs-base);
+}
+.cb-table thead th {
+  height: var(--cb-row-h);
+  padding: 0 var(--cb-space-3);
+  border-bottom: var(--cb-border) solid var(--cb-rule-strong);
+  font-size: var(--cb-fs-micro);
+  font-weight: 600;
+  letter-spacing: var(--cb-track-caps);
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--cb-muted);
+  white-space: nowrap;
+}
+.cb-table tbody td {
+  height: var(--cb-row-h);
+  padding: 0 var(--cb-space-3);
+  border-bottom: var(--cb-border) solid var(--cb-rule);
+  vertical-align: middle;
+}
+.cb-table tbody tr:hover td { background: var(--cb-panel); }
+.cb-table .cb-num,
+.cb-table th.cb-num { text-align: right; font-family: var(--cb-font-mono); white-space: nowrap; }
+.cb-table .cb-ref { font-family: var(--cb-font-mono); color: var(--cb-ink-2); }
+.cb-table tfoot td {
+  height: var(--cb-row-h);
+  padding: 0 var(--cb-space-3);
+  border-top: var(--cb-border) solid var(--cb-rule-strong);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------- surfaces de l'overlay CDK */
+
+.cb-scrim { background: var(--cb-scrim); }
+
+.cb-drawer-panel {
+  display: flex;
+  height: 100%;
+  background: var(--cb-panel);
+  border-left: var(--cb-border) solid var(--cb-rule-strong);
+}
+
+.cb-dialog-panel {
+  background: var(--cb-card);
+  border: var(--cb-border) solid var(--cb-rule-strong);
+  border-radius: var(--cb-radius);
+  box-shadow: var(--cb-lift);
+}
