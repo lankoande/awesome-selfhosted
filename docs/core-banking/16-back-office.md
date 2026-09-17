@@ -235,6 +235,10 @@ L'avancement réel est au §8.
 Le code du front est dans [`core-banking/web`](../../core-banking/web) ; son README décrit la
 mécanique (commandes, organisation, garde-fous). Node ≥ 22.22.3 est requis par Angular 22.
 
+Ce document dit **pourquoi** les écrans sont ce qu'ils sont. Ce qu'un guichetier, un valideur ou
+un exploitant doit faire devant eux est dans le [guide de l'utilisateur](utilisateur/README.md),
+écrit pour être lu sans aucune connaissance technique.
+
 | Étape du §7 | État |
 |---|---|
 | 1. Socle visuel | **Livré** — tokens, deux thèmes, deux densités, jeu fermé de 17 primitives, page atelier, budgets, types générés |
