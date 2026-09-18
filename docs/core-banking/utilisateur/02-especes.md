@@ -94,7 +94,7 @@ Un bandeau rouge **Opération refusée** apparaît, avec le motif et son code. D
   transmission. Rejoue **la même** demande, sans risque de double comptabilisation.
 - **Reprendre la saisie** — revient au formulaire pour corriger.
 
-Le [chapitre 9](09-messages.md) donne le geste à faire pour chaque code.
+Le [chapitre 10](10-messages.md) donne le geste à faire pour chaque code.
 
 > **La clé d'idempotence couvre une demande, pas un écran.** Tant que vous ne modifiez rien, le
 > *Réessayer* rejoue la même opération. Dès que vous changez un champ, une nouvelle clé est

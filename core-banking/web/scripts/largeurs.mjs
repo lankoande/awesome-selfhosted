@@ -34,6 +34,11 @@ const CHEMINS = [
   // dense de l'application.
   'credit/contrats/c-sawadogo', 'credit/contrats/c-sawadogo/perte',
   'credit/contrats/c-compaore/perte',
+  // La conformité : la file, un dossier d'alerte de surveillance (avec ses
+  // pièces) et un de filtrage (sans aucune), la liste des déclarations et les
+  // scénarios — le tableau le plus large de l'application.
+  'conformite/alertes', 'conformite/alertes/al-especes', 'conformite/alertes/al-filtrage',
+  'conformite/declarations', 'conformite/scenarios',
   'siege/exploitation', 'siege/balance',
   'validation',
 ];

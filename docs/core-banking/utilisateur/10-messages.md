@@ -1,4 +1,4 @@
-# 9. Messages, refus et états
+# 10. Messages, refus et états
 
 La page à ouvrir quand quelque chose ne va pas. Chaque entrée dit **ce que c'est** et **le geste
 à faire**.
@@ -103,6 +103,36 @@ recouvre — voir le [chapitre 7](07-credit.md).
 ### Un contrat qui n'est pas en cours ne se rembourse pas par anticipation
 Un contrat non débloqué, soldé ou passé en perte n'accepte plus les actes de gestion courante.
 
+## Les refus à la conformité
+
+### Le classement d'une alerte porte son motif
+Une alerte classée sans raison écrite ne se contrôle pas. Écrivez le motif pour quelqu'un qui
+lira le dossier dans trois ans sans rien savoir du contexte.
+
+### Cette alerte est déjà couverte par une déclaration
+Elle a été citée par une déclaration de soupçon : son sort est scellé. La déclarer une seconde
+fois ferait deux dossiers pour un seul fait. Elle ne se reclasse pas non plus.
+
+### Une déclaration ne mélange pas deux dossiers
+Une des alertes citées ne porte pas sur le tiers déclaré. Décochez-la : elle fera l'objet de sa
+propre déclaration.
+
+### Une déclaration cite les alertes qu'elle couvre
+Aucune alerte cochée : rien ne rattacherait la déclaration à des faits. Cochez au moins celle
+depuis laquelle vous rédigez.
+
+### Un scénario porte déjà ce code
+Le code d'un scénario figure sur chaque alerte qu'il lève : deux scénarios ne peuvent pas le
+partager. Choisissez-en un autre, ou faites cesser l'ancien.
+
+### Ce paramètre est exigé par la méthode
+Chaque méthode de surveillance a besoin de ce qui la fait compter — un seuil, une fenêtre, un
+nombre minimal d'opérations, un facteur. L'écran ne demande que ceux-là, et les nomme quand il en
+manque un. Un scénario incomplet ne surveille rien.
+
+### Cette alerte est fermée
+Une alerte classée ou déclarée ne se reprend pas en charge.
+
 ## Les incidents techniques
 
 ### Le réseau est tombé pendant l'envoi
@@ -147,3 +177,4 @@ reconnectez-vous.
 | Balance déséquilibrée | Responsable comptable |
 | Bandeau **Données de démonstration** en production | Support applicatif, immédiatement |
 | Une opération est comptabilisée deux fois | Support applicatif, avec les deux numéros d'opération |
+| Un doute sur une alerte LCB-FT | Le responsable conformité — **jamais** le chargé de clientèle du tiers |

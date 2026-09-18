@@ -1,0 +1,45 @@
+:host { display: block; }
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+
+.restant {
+  font-size: var(--cb-fs-sm);
+  font-weight: 600;
+  color: var(--cb-pending);
+  white-space: nowrap;
+}
+
+/* `min-width: 0` n'est pas décoratif : `.corps` est une colonne flex, et un
+   élément flex ne descend pas sous la largeur de son contenu sans cela. Le
+   `overflow-x: auto` serait alors sans effet et c'est la page entière qui
+   déborderait — ce que le contrôle de largeurs a vu à 390 px. La table défile,
+   la page non : c'est la règle de `.cb-table-scroll`. */
+.tableau { overflow-x: auto; min-width: 0; }
+.nombre { text-align: right; }
+/* Les deux dernières colonnes ne s'étirent pas : la place va aux références,
+   qui sont ce qu'on lit et ce qu'on recopie. */
+.tableau th:nth-child(6), .tableau td:nth-child(6),
+.tableau th:nth-child(7), .tableau td:nth-child(7) { width: 1%; }
+.action { text-align: right; white-space: nowrap; }
+.activite { display: block; }
+.suite { margin-top: var(--cb-space-3); display: flex; gap: var(--cb-space-2); flex-wrap: wrap; }
+
+.saisie {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--cb-space-3);
+  margin-top: var(--cb-space-3);
+}
+
+@media (max-width: 1023px) {
+  /* Le nombre d'alertes et la date de rédaction sautent : ce qu'on cherche ici,
+     c'est ce qui n'est pas encore déposé. */
+  .tableau th:nth-child(2), .tableau td:nth-child(2),
+  .tableau th:nth-child(3), .tableau td:nth-child(3) { display: none; }
+}

@@ -1,19 +1,30 @@
-import { EnvironmentProviders, makeEnvironmentProviders } from '@angular/core';
+import { Provider, inject } from '@angular/core';
 import { AppConfig } from '../core/config/runtime-config';
 import { ClientsApi } from './clients.api';
 import { ClientsFactice } from './clients.factice';
-import { CLIENTS } from './clients.port';
+import { CLIENTS, Clients } from './clients.port';
 
-/** L'implémentation suit `sourceDonnees`, comme partout ailleurs. */
-export function provideClients(): EnvironmentProviders {
-  return makeEnvironmentProviders([
-    ClientsApi,
-    ClientsFactice,
-    {
-      provide: CLIENTS,
-      useFactory: (config: AppConfig, api: ClientsApi, factice: ClientsFactice) =>
-        (config.sourceDonnees() === 'api' ? api : factice),
-      deps: [AppConfig, ClientsApi, ClientsFactice],
+/**
+ * Les fournisseurs de l'espace client, portés par la coque des clients plutôt que par
+ * `app.config.ts`.
+ *
+ * `app.config.ts` est chargé au démarrage : tout ce qu'il importe entre dans le
+ * paquet initial — y compris la source de démonstration, que la production
+ * n'ouvrira jamais. Accrochés à la coque, chargée paresseusement, ils
+ * partent dans le morceau de l'espace.
+ *
+ * Le choix de la source se lit dans `config.json`, pas dans une variable de
+ * compilation : une démonstration se bascule sur un socle réel en changeant une
+ * ligne de déploiement, sans reconstruire.
+ */
+export const PROVIDERS_CLIENTS: readonly Provider[] = [
+  ClientsApi,
+  ClientsFactice,
+  {
+    provide: CLIENTS,
+    useFactory: (): Clients => {
+      const config = inject(AppConfig);
+      return config.sourceDonnees() === 'api' ? inject(ClientsApi) : inject(ClientsFactice);
     },
-  ]);
-}
+  },
+];

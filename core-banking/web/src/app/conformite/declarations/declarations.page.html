@@ -1,0 +1,107 @@
+<div class="corps">
+  <cb-toolbar>
+    <h2>Déclarations de soupçon</h2>
+    @if (nonTransmises() > 0) {
+      <span fin class="restant">
+        {{ nonTransmises() }} non déposée{{ nonTransmises() > 1 ? 's' : '' }}
+      </span>
+    }
+  </cb-toolbar>
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" titre="Le socle a refusé" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+      <p class="suite">
+        <button type="button" cbButton="secondaire" (click)="charger()">Réessayer</button>
+      </p>
+    </cb-notice>
+  }
+
+  <cb-activity class="activite" [enCours]="chargement()" libelle="Lecture des déclarations…" />
+
+  @if (declarations().length > 0) {
+    <div class="tableau">
+      <table cbTable>
+        <caption class="cb-visually-hidden">Déclarations de soupçon</caption>
+        <thead>
+          <tr>
+            <th scope="col">Référence</th>
+            <th scope="col">Rédigée le</th>
+            <th scope="col">Alertes</th>
+            <th scope="col">Déposée le</th>
+            <th scope="col">Récépissé</th>
+            <th scope="col">État</th>
+            <th scope="col">Dépôt</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (d of declarations(); track d.id) {
+            <tr>
+              <td class="cb-mono">{{ d.reference }}</td>
+              <td class="cb-mono">{{ jour(d.draftedOn) }}</td>
+              <td class="nombre">{{ d.alertIds.length }}</td>
+              <td class="cb-mono">{{ jour(d.transmittedOn) }}</td>
+              <td class="cb-mono">{{ d.transmissionReference ?? '—' }}</td>
+              <td>
+                <cb-state-badge [etat]="d.transmittedOn ? 'comptabilise' : 'en-attente'"
+                                [mot]="d.transmittedOn ? 'Déposée' : 'Rédigée'" />
+              </td>
+              <td class="action">
+                @if (!d.transmittedOn) {
+                  <button type="button" cbButton="secondaire"
+                          (click)="ouvrirTransmission(d)">Enregistrer le dépôt</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else if (lu() && !chargement()) {
+    <cb-notice nature="information" titre="Aucune déclaration">
+      <p>
+        Rien n'a été rédigé. Une déclaration se rédige depuis l'alerte qu'elle couvre, jamais
+        ici : un exposé des faits écrit loin des pièces ne vaut rien devant la cellule.
+      </p>
+    </cb-notice>
+  }
+
+  @if (enTransmission(); as d) {
+    <cb-section titre="Enregistrer le dépôt"
+                [indication]="'déclaration ' + d.reference">
+      <cb-notice nature="information" titre="Ce que cet enregistrement constate">
+        <p>
+          Le dépôt a déjà eu lieu : cet écran ne transmet rien à la cellule. Il enregistre le
+          <strong>récépissé</strong> qu'elle a rendu — la seule preuve que la banque pourra
+          produire si on lui demande un jour quand elle a déclaré.
+        </p>
+      </cb-notice>
+      <div class="saisie">
+        <cb-field etiquette="Récépissé de la cellule" pour="reference-depot" requis
+                  aide="La référence rendue par la cellule de renseignement financier.">
+          <input cbInput mono id="reference-depot" name="reference-depot" autocomplete="off"
+                 [value]="reference()" (input)="reference.set($any($event.target).value)" />
+        </cb-field>
+        <cb-field etiquette="Déposée le" pour="date-depot"
+                  aide="Facultative : la date comptable du jour par défaut.">
+          <cb-date-input champId="date-depot" [(valeur)]="dateDeDepot" />
+        </cb-field>
+      </div>
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="envoi() || reference().trim() === ''"
+                (click)="transmettre()">Enregistrer le dépôt</button>
+        <button type="button" cbButton="discret" (click)="fermerTransmission()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  <cb-notice nature="information" titre="Le secret">
+    <p>
+      Rien de ce qui est ici ne remonte au dossier client ni à une lecture d'agence.
+      <strong>Informer la personne déclarée est un délit</strong> — et c'est pourquoi cet écran
+      ne nomme pas les clients : l'identité se lit dans le dossier d'alerte, par qui l'instruit.
+    </p>
+  </cb-notice>
+</div>

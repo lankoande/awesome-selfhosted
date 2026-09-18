@@ -1,0 +1,260 @@
+@if (alerte(); as a) {
+  <header class="entete">
+    <div class="qui">
+      <h2>Alerte du {{ jour(a.raisedOn) }}</h2>
+      <p class="sous">
+        <span class="origine" [attr.data-origine]="a.origin">{{ LIBELLE_ORIGINE[a.origin] }}</span>
+        @if (a.scenarioCode) { · scénario <span class="cb-mono">{{ a.scenarioCode }}</span> }
+      </p>
+    </div>
+    <div class="chiffres">
+      @if (a.amount; as m) {
+        <div class="chiffre">
+          <span class="titre">Montant constaté</span>
+          <cb-amount [valeur]="m.amount" [devise]="m.currency" />
+        </div>
+      }
+      <div class="chiffre">
+        <span class="titre">État</span>
+        <cb-state-badge [etat]="etatDeLAlerte(a.status)" [mot]="LIBELLE_STATUT_ALERTE[a.status]" />
+      </div>
+    </div>
+  </header>
+}
+
+<div class="corps">
+  <cb-activity class="activite" [enCours]="chargement()" libelle="Lecture du dossier…" />
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" titre="Le socle a refusé" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+    </cb-notice>
+  }
+
+  @if (enAttente(); as operation) {
+    <cb-notice nature="avertissement" titre="Déclaration en attente de validation"
+               [code]="operation">
+      <p>
+        La rédaction est enregistrée ; <strong>rien n'est déposé</strong> tant qu'un second
+        regard ne l'a pas approuvée. Les alertes citées ne passeront à «&nbsp;déclarée&nbsp;»
+        qu'à ce moment-là. Ne resaisissez pas.
+      </p>
+    </cb-notice>
+  }
+
+  @if (alerte(); as a) {
+    <!-- Ce qui a été constaté. -->
+    <cb-section titre="Ce qui a été constaté"
+                [indication]="'levée le ' + jour(a.raisedOn) + ' par le ' +
+                              (a.origin === 'SCREENING' ? 'filtrage' : 'dispositif de surveillance')">
+      @if (a.detail) { <p class="constat">{{ a.detail }}</p> }
+      <p class="effet">{{ EFFET_ORIGINE[a.origin] }}</p>
+
+      @if (a.pieces.length > 0) {
+        <div class="tableau">
+          <table cbTable>
+            <caption class="cb-visually-hidden">Opérations ayant déclenché l'alerte</caption>
+            <thead>
+              <tr>
+                <th scope="col">Comptabilisée le</th>
+                <th scope="col">Compte</th>
+                <th scope="col">Sens</th>
+                <th scope="col" class="nombre">Montant</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of a.pieces; track p.entryId) {
+                <tr>
+                  <td class="cb-mono">{{ jour(p.bookingDate) }}</td>
+                  <td class="cb-mono">{{ p.accountId }}</td>
+                  <td>{{ p.direction === 'CREDIT' ? 'Crédit' : 'Débit' }}</td>
+                  <td class="nombre">
+                    @if (p.amount; as m) {
+                      <cb-amount [valeur]="m.amount" [devise]="m.currency" />
+                    } @else { — }
+                  </td>
+                </tr>
+              }
+            </tbody>
+            @if (total(); as t) {
+              <tfoot>
+                <tr>
+                  <td colspan="3">Total des pièces</td>
+                  <td class="nombre"><cb-amount [valeur]="t.amount" [devise]="t.currency" /></td>
+                </tr>
+              </tfoot>
+            }
+          </table>
+        </div>
+        <p class="nuance">
+          Une alerte porte ses pièces : sans elles, l'instruction se ferait sur une intuition,
+          et la décision de classer ne se contrôlerait pas.
+        </p>
+      } @else {
+        <p class="nuance">
+          Cette alerte ne porte aucune opération : elle vient du filtrage, qui compare des
+          identités, pas des mouvements.
+        </p>
+      }
+    </cb-section>
+
+    <!-- Ce qui a été décidé, ou ce qui reste à décider. -->
+    @if (a.status === 'CLOSED') {
+      <cb-notice nature="information" titre="Alerte classée">
+        <p>Classée le {{ jour(a.closedOn) }}.</p>
+        @if (a.closureReason) { <p class="motif-lu">{{ a.closureReason }}</p> }
+        <p class="nuance">
+          Le motif reste au dossier : c'est la pièce que l'inspection viendra lire.
+        </p>
+      </cb-notice>
+    } @else if (a.status === 'REPORTED') {
+      <cb-notice nature="avertissement" titre="Alerte couverte par une déclaration de soupçon">
+        <p>
+          Son sort est scellé par la déclaration, pas par un classement. Elle ne se reclasse pas
+          et ne se déclare pas une seconde fois : ce serait deux dossiers pour un seul fait.
+        </p>
+      </cb-notice>
+    } @else {
+      <cb-section titre="Ce qu'il y a à décider"
+                  indication="trois issues, et trois seulement">
+        <div class="issues">
+          @if (a.status === 'OPEN') {
+            <div class="issue">
+              <span class="issue-titre">Prendre en charge</span>
+              <p>
+                L'alerte passe à l'instruction et porte votre nom. C'est ce qui rend le dossier
+                traçable — et ce qui évite que deux analystes instruisent le même fait.
+              </p>
+              <button type="button" cbButton="primaire" [disabled]="envoi()"
+                      (click)="prendreEnCharge()">Prendre en charge</button>
+            </div>
+          } @else if (a.assignedTo) {
+            <div class="issue">
+              <span class="issue-titre">En instruction</span>
+              <p>Prise en charge par <span class="cb-mono">{{ a.assignedTo }}</span>.</p>
+            </div>
+          }
+
+          <div class="issue">
+            <span class="issue-titre">Classer</span>
+            <p>
+              Ce qui a été constaté s'explique. Le classement porte son motif — une alerte
+              classée sans raison écrite ne se contrôle pas, et le socle la refuse.
+            </p>
+            <button type="button" cbButton="secondaire" [disabled]="envoi() || !ouverte()"
+                    (click)="ouvrirVolet('classer')">Classer avec motif</button>
+          </div>
+
+          <div class="issue">
+            <span class="issue-titre">Déclarer</span>
+            <p>
+              Le soupçon tient. La déclaration part à la cellule de renseignement financier,
+              et elle <strong>se rédige à deux</strong>.
+            </p>
+            <button type="button" cbButton="secondaire" [disabled]="envoi() || !ouverte()"
+                    (click)="ouvrirVolet('declarer')">Rédiger une déclaration</button>
+          </div>
+        </div>
+      </cb-section>
+    }
+  }
+
+  <!-- Volets de saisie -->
+  @if (volet() === 'classer') {
+    <cb-section titre="Classer l'alerte"
+                indication="immédiat : instruire et classer sont le travail d'un seul">
+      <div class="saisie">
+        <cb-field etiquette="Motif du classement" pour="motif-classement" requis class="large"
+                  aide="Ce qui explique le constat. Il reste au dossier et se relit des années après.">
+          <input cbInput id="motif-classement" name="motif-classement" autocomplete="off"
+                 [value]="motif()" (input)="motif.set($any($event.target).value)" />
+        </cb-field>
+      </div>
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="envoi() || motif().trim().length < 3"
+                (click)="classer()">Classer l'alerte</button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  @if (volet() === 'declarer') {
+    <cb-section titre="Rédiger une déclaration de soupçon"
+                indication="à deux : déclarer engage la banque, ne pas déclarer l'engage autant">
+      <cb-notice nature="avertissement" titre="Ce que cette rédaction engage">
+        <p>
+          La déclaration met en cause une personne. Elle sera déposée auprès de la cellule de
+          renseignement financier, et les alertes citées passeront à «&nbsp;déclarée&nbsp;» :
+          elles ne se reclassent plus.
+        </p>
+        <p>
+          <strong>Le secret est absolu.</strong> Informer la personne déclarée est un délit.
+        </p>
+      </cb-notice>
+
+      <div class="saisie">
+        <cb-field etiquette="Référence" pour="reference-declaration" requis
+                  aide="La référence que la banque donne au dossier.">
+          <input cbInput id="reference-declaration" name="reference-declaration"
+                 autocomplete="off" [value]="reference()"
+                 (input)="reference.set($any($event.target).value)" />
+        </cb-field>
+        <cb-field etiquette="Exposé des faits" pour="expose-declaration" requis class="large"
+                  aide="C'est lui que la cellule lira, pas la liste des alertes.">
+          <textarea cbInput id="expose-declaration" name="expose-declaration" rows="6"
+                    [value]="expose()"
+                    (input)="expose.set($any($event.target).value)"></textarea>
+        </cb-field>
+      </div>
+
+      <h4 class="titre-liste">Alertes couvertes</h4>
+      <p class="nuance">
+        Une déclaration cite les alertes qu'elle couvre : sans elles, rien ne la rattache à des
+        faits. Toutes portent sur le même tiers — une déclaration ne mélange pas deux dossiers.
+      </p>
+      <ul class="citations">
+        @if (alerte(); as a) {
+          <li>
+            <label>
+              <input type="checkbox" [checked]="estCitee(a.id)"
+                     (change)="basculerCitation(a.id)" />
+              <span class="cb-mono">{{ jour(a.raisedOn) }}</span>
+              <span class="citation-detail">{{ a.detail ?? '—' }}</span>
+            </label>
+          </li>
+        }
+        @for (v of voisines(); track v.id) {
+          <li>
+            <label>
+              <input type="checkbox" [checked]="estCitee(v.id)"
+                     (change)="basculerCitation(v.id)" />
+              <span class="cb-mono">{{ jour(v.raisedOn) }}</span>
+              <span class="citation-detail">{{ v.detail ?? '—' }}</span>
+            </label>
+          </li>
+        }
+      </ul>
+
+      @if (obstacles().length > 0) {
+        <cb-notice nature="avertissement" titre="Il manque quelque chose">
+          <ul class="obstacles">
+            @for (obstacle of obstacles(); track obstacle) { <li>{{ obstacle }}</li> }
+          </ul>
+        </cb-notice>
+      }
+
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="envoi() || obstacles().length > 0"
+                (click)="declarer()">Soumettre la déclaration</button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  <p class="retour">
+    <button type="button" cbButton="discret" (click)="aLaFile()">← Revenir à la file</button>
+  </p>
+</div>

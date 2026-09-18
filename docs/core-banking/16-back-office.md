@@ -231,8 +231,10 @@ Du même ordre que le test de contrat OpenAPI : des mécanismes, pas des intenti
    menu ait un sens.
 6. **Le référentiel client**, prérequis de tout le reste : on n'ouvre pas un compte à personne.
 7. **Le crédit**, de la demande au contrat, puis sa fin de vie.
+8. **La conformité LCB-FT**, dont l'interface est elle-même un risque : ce qu'elle relie peut
+   constituer un délit.
 
-Cet ordre n'était pas écrit d'avance au-delà du point 4 : les points 5 à 7 se sont imposés en
+Cet ordre n'était pas écrit d'avance au-delà du point 4 : les points 5 à 8 se sont imposés en
 construisant. L'avancement réel est au §8.
 
 ## 8. État de la construction
@@ -253,11 +255,14 @@ un exploitant doit faire devant eux est dans le [guide de l'utilisateur](utilisa
 | 5. Authentification et habilitations | **Livré** — OAuth2 PKCE contre Keycloak, jeton porté aux seuls appels du socle, rafraîchissement silencieux, verrouillage du poste, menu filtré par les habilitations que le socle expose désormais (§16) |
 | 6. Référentiel client | **Livré** — recherche, dossier avec obstacles nommés, création, ouverture de compte (§15) |
 | 7. Crédit | **Livré** — demandes, dossier d'instruction, portefeuille, contrat (§17) ; fin de vie : remboursement anticipé, rééchelonnement, révision de taux, passage en perte et recouvrement (§18) |
-| — Conformité et réglementaire | **Pas commencé** — LCB-FT, déclarations, fiscalité, sûretés ; le socle les expose, l'interface pas encore |
+| 8. Conformité LCB-FT | **Livré** — file des alertes, dossier avec ses pièces, classement motivé, déclaration de soupçon et son dépôt, scénarios de surveillance (§19) |
+| — Réglementaire | **Pas commencé** — déclarations BCEAO, états, échéances, fiscalité, liasse ; le socle les expose, l'interface pas encore |
+| — Sûretés | **Bloqué par le contrat** — seuls des `POST` sont exposés ; sans lecture, rien ne peut s'afficher (§19) |
 | — Moyens de paiement | **Pas commencé** — chèques, prélèvements, virements sortants ; idem |
 
-**Vingt-quatre écrans** à sept largeurs, sans débordement horizontal ni cible tactile sous 24 px,
-vérifiés à chaque livraison par `scripts/largeurs.mjs`.
+**Vingt-quatre écrans**, visités à **vingt-neuf adresses** — plusieurs jeux de données par écran,
+choisis là où la mise en page se tend — à sept largeurs, sans débordement horizontal ni cible
+tactile sous 24 px, vérifiés à chaque livraison par `scripts/largeurs.mjs`.
 
 Rien n'est figé : ce qui suit est ce qu'on sait aujourd'hui, pas un engagement. Les décisions
 prises pendant la construction du socle sont consignées ici pour qu'on puisse les défaire en
@@ -969,3 +974,120 @@ Les sûretés (`/collaterals`, `/collateral-policies`) et le consentement au bur
 (`/regulatory/parties/{id}/credit-bureau-consent`). Les premières se rattachent à un dossier
 d'instruction, le second au référentiel client — deux rattachements différents, donc deux endroits
 à choisir avant de coder.
+
+---
+
+## 19. L'espace conformité : ce qu'il a tranché
+
+Le LCB-FT est le seul domaine du back-office où **l'interface elle-même est un risque** : ce
+qu'elle relie peut constituer un délit. Les décisions ci-dessous découlent toutes de là.
+
+### L'espace ne communique avec aucun autre
+
+Rien de la conformité ne renvoie au dossier client, et rien du dossier client n'y renvoie. Pas de
+lien, pas d'onglet, pas de pastille « ce client a une alerte ». Informer la personne surveillée
+est un délit, et une interface qui offre le chemin le rend possible par inadvertance — il suffit
+d'un chargé de clientèle qui voit la pastille et en parle.
+
+Conséquence visible : **la file des alertes et la liste des déclarations ne nomment pas les
+clients.** L'identité se lit dans le dossier d'alerte, par qui l'instruit. Une file d'alertes
+n'est pas un annuaire.
+
+L'habilitation suit : `AML_READ` n'est donné ni au guichet ni à la gestion de portefeuille. Le
+socle refuserait de toute façon ; l'écran ne propose pas la porte.
+
+### Une alerte constate, elle n'empêche rien
+
+Aucun geste sur un compte depuis cet espace. Pas de bouton « bloquer », pas de mise en opposition.
+Bloquer un compte sur un compteur statistique priverait quelqu'un de son argent sur une
+présomption, et la banque ne saurait même pas dire laquelle.
+
+La seule exception est portée par l'**origine** de l'alerte, et c'est pourquoi cette colonne est
+la plus visible de la file :
+
+| Origine | Ce qui s'est passé | Ce que l'écran doit faire comprendre |
+|---|---|---|
+| `SCREENING` | Correspondance avec une liste. | Le socle **a déjà refusé** l'opération : opérer avec une personne listée est l'infraction elle-même. |
+| `MONITORING` | Compteur franchi. | **Rien n'a été bloqué.** |
+
+Les confondre fait chercher un blocage qui n'existe pas — ou croire qu'il n'y en a pas alors
+qu'un client est arrêté au guichet. L'origine porte donc une couleur, et le dossier répète la
+distinction en une phrase.
+
+### Trois issues, et trois seulement
+
+Prendre en charge, classer avec motif, déclarer. Le dossier les présente **côte à côte**, sans
+hiérarchie : c'est l'instruction qui tranche, et un empilement suggérerait un ordre.
+
+Le motif de classement est obligatoire côté socle ; l'écran le redit en clair — *« une alerte
+classée sans raison écrite ne se contrôle pas »* — plutôt que d'afficher un astérisque. C'est la
+seule pièce que l'inspection viendra lire.
+
+### La déclaration se rédige depuis l'alerte, jamais depuis la liste
+
+Elle cite les alertes qu'elle couvre ; un exposé des faits écrit loin des pièces ne vaut rien.
+L'écran des déclarations sert donc à l'après : savoir ce qui est déposé et ce qui ne l'est pas.
+
+Deux refus du socle sont **anticipés à l'écran**, parce qu'ils se voient et qu'un valideur ne doit
+pas les découvrir : une déclaration qui mêlerait deux tiers, et une alerte déjà couverte. Le front
+ne décide pas à la place du socle — il ne fait pas soumettre ce qu'il sait déjà refusé.
+
+Après soumission, **rien n'est déposé** : les alertes citées ne passent à `REPORTED` qu'à
+l'approbation. L'écran le dit ainsi, au lieu du « enregistré » qui laisserait croire au dépôt.
+
+### La transmission n'est pas une transmission
+
+`POST /compliance/reports/{id}/transmission` n'envoie rien à la cellule : il enregistre le
+**récépissé** qu'elle a rendu. L'écran s'appelle donc *« Enregistrer le dépôt »* et l'écrit noir
+sur blanc. Un bouton « Transmettre » ferait croire à un canal qui n'existe pas, et une déclaration
+resterait sur un bureau en attendant un envoi automatique.
+
+### Le formulaire de scénario suit la méthode
+
+`MonitoringScenarios.requireParameters` dit ce que chaque méthode exige : un seuil et une fenêtre
+pour un cumul d'espèces, plus un nombre minimal pour un fractionnement, une fenêtre et un facteur
+pour l'atypie, un seuil seul pour un réveil de dormant. Le front tient la même table — non pour
+décider à la place du socle, mais pour **ne pas demander un seuil à une méthode qui n'en a pas**,
+et ne pas déranger un valideur avec un scénario qui ne surveille rien.
+
+Changer de méthode **efface les paramètres** de la précédente : les garder laisserait un seuil
+posé pour un cumul d'espèces partir avec un réveil de compte dormant, où il veut dire autre chose.
+
+Et le motif du second regard est écrit à l'écran, parce qu'il n'est pas celui qu'on attend : un
+scénario ne produit aucun montant sur aucun compte. **Il décide de ce que la banque ne regardera
+pas** — un seuil posé trop haut par une seule main éteint la surveillance sans que rien ne le
+signale.
+
+### Ce que ce lot a corrigé ailleurs
+
+Trois défauts trouvés par les barrières, pas à l'œil :
+
+- **Le budget de taille était déjà dépassé** avant ce lot (451 ko pour 450 alloués), et personne
+  ne l'avait vu : l'avertissement ne fait pas échouer le build. Cause : `app.config.ts` déclarait
+  les fournisseurs des six espaces, donc les six sources de démonstration entraient dans le paquet
+  initial — du code que la production n'ouvre jamais. Les fournisseurs vivent désormais sur la
+  **coque de chaque espace**, chargée paresseusement. L'initial passe de 451 à 391 ko, espace
+  conformité compris.
+- **Un `cb-visually-hidden` dans la dernière colonne d'une table qui défile** étire la page : il
+  est positionné en absolu, donc il sort du conteneur de défilement. Le contrôle de largeurs l'a
+  vu à 390 px. Les deux colonnes d'action portent maintenant un vrai libellé — un back-office n'a
+  pas à cacher un en-tête de colonne.
+- **La barre du haut ne tenait plus** avec un sixième espace : « Atelier » se tronquait à 1440 px,
+  exactement ce que le poids de rétrécissement de la recherche cherche à éviter. La recherche
+  redevient une icône sous 1800 px, et rend sa largeur en même temps que son texte.
+
+### Ce qui reste du domaine
+
+Le **réglementaire** : catalogue des déclarations, états produits et leur transmission, échéances,
+fiscalité, liasse et consolidation. Le socle les expose entièrement.
+
+Deux actes de la conformité n'appartiennent pas à cet espace, et c'est délibéré : le **profil
+d'activité déclaré** (`AML_PROFILE_DECLARE`, portée `OWN_BRANCH`) et le **consentement au bureau
+d'information** (`CREDIT_BUREAU_CONSENT`, portée `OWN_BRANCH`) se recueillent au guichet, avec le
+reste de la connaissance client. Ils iront au dossier client, pas ici — les mettre dans l'espace
+conformité obligerait à y donner accès au guichet, et ferait tomber la première règle de ce §19.
+
+Les **sûretés**, enfin, attendent une lecture côté socle : le contrat n'expose que des `POST`
+(`/collaterals`, ses allocations, sa mainlevée). Sans un `GET`, aucune interface ne peut afficher
+une sûreté ni retrouver l'identifiant qu'exigent l'affectation et la mainlevée. C'est une lacune
+de contrat, pas un manque d'écran.

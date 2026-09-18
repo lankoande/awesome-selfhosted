@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AUTHENTIFICATION } from '../auth/auth.port';
 import { OPERATION_PAR_ECRAN, autorise } from '../auth/habilitations';
+import { PROVIDERS_CREDIT } from './credit.providers';
 
 /**
  * L'espace crédit et sa barre d'écrans.
@@ -14,6 +15,10 @@ import { OPERATION_PAR_ECRAN, autorise } from '../auth/habilitations';
   selector: 'cb-credit',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  // Les fournisseurs de l'espace vivent ici : la coque est chargée
+  // paresseusement, donc l'adaptateur et la source de démonstration ne pèsent
+  // pas sur le paquet initial.
+  providers: [...PROVIDERS_CREDIT],
   template: `
     <nav class="ecrans" aria-label="Écrans du crédit">
       @for (ecran of visibles(); track ecran.chemin) {

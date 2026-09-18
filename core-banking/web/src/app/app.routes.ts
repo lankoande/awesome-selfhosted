@@ -129,9 +129,38 @@ export const routes: Routes = [
     ],
   },
   {
+    path: 'conformite',
+    loadComponent: () => import('./conformite/conformite.shell').then((m) => m.ConformiteShell),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'alertes' },
+      {
+        path: 'alertes',
+        title: 'Conformité — alertes',
+        loadComponent: () => import('./conformite/alertes/alertes.page').then((m) => m.Alertes),
+      },
+      {
+        path: 'declarations',
+        title: 'Conformité — déclarations de soupçon',
+        loadComponent: () =>
+          import('./conformite/declarations/declarations.page').then((m) => m.Declarations),
+      },
+      {
+        path: 'scenarios',
+        title: 'Conformité — scénarios de surveillance',
+        loadComponent: () =>
+          import('./conformite/scenarios/scenarios.page').then((m) => m.Scenarios),
+      },
+      // Le chemin fixe d'abord : sinon `:id` avalerait les autres écrans.
+      {
+        path: 'alertes/:id',
+        title: "Conformité — dossier d'alerte",
+        loadComponent: () => import('./conformite/alerte/alerte.page').then((m) => m.DossierAlerte),
+      },
+    ],
+  },
+  {
     path: 'validation',
-    title: 'File de validation',
-    loadComponent: () => import('./validation/file/file-validation.page').then((m) => m.FileValidation),
+    loadChildren: () => import('./validation/validation.routes').then((m) => m.ROUTES_VALIDATION),
   },
   {
     path: 'auth/retour',

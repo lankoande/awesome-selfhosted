@@ -1,0 +1,100 @@
+<div class="corps">
+  <cb-toolbar>
+    <h2>Alertes LCB-FT</h2>
+    <div class="filtres" role="group" aria-label="Filtrer par état">
+      @for (filtre of FILTRES; track filtre.valeur) {
+        <button type="button" class="filtre" [class.actif]="statut() === filtre.valeur"
+                [attr.aria-pressed]="statut() === filtre.valeur"
+                (click)="filtrer(filtre.valeur)">{{ filtre.libelle }}</button>
+      }
+    </div>
+    @if (restant() > 0) {
+      <span fin class="restant">{{ restant() }} à traiter</span>
+    }
+  </cb-toolbar>
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" titre="Le socle a refusé" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+      <p class="suite">
+        <button type="button" cbButton="secondaire" (click)="charger()">Réessayer</button>
+      </p>
+    </cb-notice>
+  }
+
+  <cb-activity class="activite" [enCours]="chargement()" libelle="Lecture des alertes…" />
+
+  @if (alertes().length > 0) {
+    <div class="tableau">
+      <table cbTable>
+        <caption class="cb-visually-hidden">Alertes de conformité</caption>
+        <thead>
+          <tr>
+            <th scope="col">Levée le</th>
+            <th scope="col">Origine</th>
+            <th scope="col">Scénario</th>
+            <th scope="col">Ce qui a été constaté</th>
+            <th scope="col" class="nombre">Montant</th>
+            <th scope="col">État</th>
+            <th scope="col">Prise en charge</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (a of alertes(); track a.id) {
+            <tr class="ligne" tabindex="0" role="button"
+                (click)="ouvrir(a)" (keydown.enter)="ouvrir(a)" (keydown.space)="ouvrir(a)">
+              <td class="cb-mono">{{ jour(a.raisedOn) }}</td>
+              <td>
+                <span class="origine" [attr.data-origine]="a.origin">
+                  {{ LIBELLE_ORIGINE[a.origin] }}
+                </span>
+              </td>
+              <td class="cb-mono">{{ a.scenarioCode ?? '—' }}</td>
+              <td class="constat">{{ a.detail ?? '—' }}</td>
+              <td class="nombre">
+                @if (a.amount; as m) {
+                  <cb-amount [valeur]="m.amount" [devise]="m.currency" />
+                } @else { — }
+              </td>
+              <td>
+                <cb-state-badge [etat]="etatDeLAlerte(a.status)"
+                                [mot]="LIBELLE_STATUT_ALERTE[a.status]" />
+              </td>
+              <td class="action">
+                @if (a.status === 'OPEN') {
+                  <button type="button" cbButton="secondaire" [disabled]="enCours() === a.id"
+                          (click)="prendre(a, $event)">Prendre en charge</button>
+                } @else if (a.assignedTo) {
+                  <span class="qui cb-mono">{{ a.assignedTo }}</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else if (lu() && !chargement()) {
+    <cb-notice nature="information" titre="Aucune alerte dans cet état">
+      <p>
+        Rien n'attend ici. Changez de filtre pour voir les autres états.
+      </p>
+    </cb-notice>
+  }
+
+  <cb-notice nature="information" titre="Ce que cette file est, et ce qu'elle n'est pas">
+    <p>
+      Une alerte <strong>constate</strong>. Elle n'empêche rien, et aucun compte n'est bloqué
+      parce qu'elle existe : priver quelqu'un de son argent sur un compteur statistique serait
+      la faute, et la banque ne saurait même pas dire lequel.
+    </p>
+    <p>
+      Seul le <strong>filtrage</strong> bloque, et pour une autre raison : opérer avec une
+      personne listée est l'infraction elle-même, pas un soupçon.
+    </p>
+    <p class="secret">
+      Rien de ce qui est ici ne remonte au dossier client ni à une lecture d'agence.
+      <strong>Informer la personne surveillée est un délit.</strong>
+    </p>
+  </cb-notice>
+</div>

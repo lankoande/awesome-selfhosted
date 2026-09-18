@@ -2,12 +2,17 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AUTHENTIFICATION } from '../auth/auth.port';
 import { OPERATION_PAR_ECRAN, autorise } from '../auth/habilitations';
+import { PROVIDERS_SIEGE } from './siege.providers';
 
 /** L'espace siège et sa barre d'écrans, sur le modèle du guichet. */
 @Component({
   selector: 'cb-siege',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  // Les fournisseurs de l'espace vivent ici : la coque est chargée
+  // paresseusement, donc l'adaptateur et la source de démonstration ne pèsent
+  // pas sur le paquet initial.
+  providers: [...PROVIDERS_SIEGE],
   template: `
     <nav class="ecrans" aria-label="Écrans du siège">
       @for (ecran of visibles(); track ecran.chemin) {

@@ -1,0 +1,79 @@
+:host { display: block; }
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+
+/* Les filtres sont des états, pas des onglets : ils ne changent pas d'écran,
+   ils restreignent ce que l'écran montre. */
+.filtres { display: flex; gap: var(--cb-space-1); flex-wrap: wrap; }
+.filtre {
+  height: var(--cb-tap-h);
+  padding: 0 var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  background: var(--cb-panel);
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+  cursor: pointer;
+}
+.filtre:hover { color: var(--cb-ink); border-color: var(--cb-rule-strong); }
+.filtre.actif {
+  color: var(--cb-ink);
+  font-weight: 600;
+  border-color: var(--cb-accent);
+  background: var(--cb-accent-soft, var(--cb-panel));
+}
+
+.restant {
+  font-size: var(--cb-fs-sm);
+  font-weight: 600;
+  color: var(--cb-pending);
+  white-space: nowrap;
+}
+
+/* `min-width: 0` n'est pas décoratif : `.corps` est une colonne flex, et un
+   élément flex ne descend pas sous la largeur de son contenu sans cela. Le
+   `overflow-x: auto` serait alors sans effet et c'est la page entière qui
+   déborderait — ce que le contrôle de largeurs a vu à 390 px. La table défile,
+   la page non : c'est la règle de `.cb-table-scroll`. */
+.tableau { overflow-x: auto; min-width: 0; }
+.nombre { text-align: right; }
+.constat { color: var(--cb-ink-2); max-width: 44ch; }
+/* Les deux dernières colonnes ne s'étirent pas : la place va au constat,
+   parce que c'est lui qu'on lit pour décider quoi prendre. */
+.tableau th:nth-child(6), .tableau td:nth-child(6),
+.tableau th:nth-child(7), .tableau td:nth-child(7) { width: 1%; }
+.action { text-align: right; white-space: nowrap; }
+.qui { font-size: var(--cb-fs-xs); color: var(--cb-muted); }
+.suite { margin-top: var(--cb-space-3); display: flex; gap: var(--cb-space-2); flex-wrap: wrap; }
+.activite { display: block; }
+.secret { margin-top: var(--cb-space-2); }
+
+/* L'origine porte une couleur parce qu'elle change ce qui s'est passé : un
+   filtrage a déjà bloqué une opération, une surveillance n'a rien bloqué. */
+.origine {
+  font-size: var(--cb-fs-xs);
+  font-weight: 600;
+  letter-spacing: var(--cb-track-caps);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.origine[data-origine='SCREENING'] { color: var(--cb-rejected); }
+.origine[data-origine='MONITORING'] { color: var(--cb-muted); }
+
+.ligne { cursor: pointer; }
+.ligne:hover td { background: var(--cb-panel); }
+.ligne:focus-visible { outline: 2px solid var(--cb-accent); outline-offset: -2px; }
+
+@media (max-width: 1023px) {
+  /* Le scénario et le montant sautent en premier : le constat les redit en
+     toutes lettres, et c'est lui qu'on lit pour décider quoi prendre. */
+  .tableau th:nth-child(3), .tableau td:nth-child(3),
+  .tableau th:nth-child(5), .tableau td:nth-child(5) { display: none; }
+  .constat { max-width: none; }
+}

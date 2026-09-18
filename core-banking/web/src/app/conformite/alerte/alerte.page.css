@@ -1,0 +1,125 @@
+:host { display: block; }
+
+.entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter);
+  border-bottom: var(--cb-border) solid var(--cb-rule);
+  background: var(--cb-panel);
+}
+.entete h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+.sous { margin-top: var(--cb-space-1); font-size: var(--cb-fs-sm); color: var(--cb-muted); }
+
+.origine {
+  font-size: var(--cb-fs-xs);
+  font-weight: 600;
+  letter-spacing: var(--cb-track-caps);
+  text-transform: uppercase;
+}
+.origine[data-origine='SCREENING'] { color: var(--cb-rejected); }
+.origine[data-origine='MONITORING'] { color: var(--cb-muted); }
+
+.chiffres { display: flex; gap: var(--cb-space-5); flex-wrap: wrap; }
+.chiffre { display: flex; flex-direction: column; gap: var(--cb-space-1); }
+.chiffre .titre {
+  font-size: var(--cb-fs-xs);
+  letter-spacing: var(--cb-track-caps);
+  text-transform: uppercase;
+  color: var(--cb-muted);
+}
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+.activite { display: block; }
+
+.constat { font-size: var(--cb-fs-md); }
+.effet { margin-top: var(--cb-space-2); color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+.nuance { margin-top: var(--cb-space-2); color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+.motif-lu {
+  margin-top: var(--cb-space-2);
+  padding-left: var(--cb-space-3);
+  border-left: 2px solid var(--cb-rule-strong);
+}
+
+.tableau { overflow-x: auto; margin-top: var(--cb-space-3); }
+.nombre { text-align: right; }
+
+/* Les trois issues côte à côte : elles ne se hiérarchisent pas, c'est
+   l'instruction qui tranche. Un empilement suggérerait un ordre. */
+.issues {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--cb-space-4);
+}
+.issue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-2);
+  align-items: flex-start;
+  padding: var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+}
+.issue-titre { font-weight: 600; font-size: var(--cb-fs-md); }
+.issue p { color: var(--cb-ink-2); font-size: var(--cb-fs-sm); }
+
+.saisie {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--cb-space-3);
+  margin-top: var(--cb-space-3);
+}
+.saisie .large { grid-column: 1 / -1; }
+/* Passé une certaine largeur, l'exposé se pose à droite de la référence : un
+   champ court seul sur sa ligne laissait une bande vide de toute la page. */
+@media (min-width: 1024px) {
+  .saisie .large { grid-column: 2 / -1; }
+}
+
+.titre-liste {
+  margin-top: var(--cb-space-4);
+  font-size: var(--cb-fs-md);
+  font-weight: 600;
+}
+.citations {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-1);
+  margin-top: var(--cb-space-2);
+  /* Ce sont des cases à cocher encadrées, pas une énumération : la puce
+     doublerait la case et décalerait l'alignement. */
+  list-style: none;
+}
+/* La case suit l'accent de la banque. Le bleu du navigateur est la seule
+   couleur de l'écran que le paramétrage ne commande pas. */
+.citations input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--cb-accent); }
+.citations label {
+  display: flex;
+  align-items: center;
+  gap: var(--cb-space-2);
+  min-height: var(--cb-tap-h);
+  padding: 0 var(--cb-space-2);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  cursor: pointer;
+}
+.citations label:hover { border-color: var(--cb-rule-strong); }
+.citation-detail { color: var(--cb-ink-2); font-size: var(--cb-fs-sm); }
+
+.obstacles { display: flex; flex-direction: column; gap: var(--cb-space-1); padding-left: var(--cb-space-4); }
+.obstacles li { list-style: disc; }
+
+.suite { margin-top: var(--cb-space-3); display: flex; gap: var(--cb-space-2); flex-wrap: wrap; }
+.retour { margin-top: var(--cb-space-2); }
+
+@media (max-width: 767px) {
+  .entete { flex-direction: column; }
+  .chiffres { gap: var(--cb-space-4); }
+}

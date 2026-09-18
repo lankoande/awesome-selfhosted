@@ -24,6 +24,14 @@ export const OPERATION_PAR_ECRAN: Readonly<Record<string, string>> = {
   'credit/dossier': 'LOAN_READ',
   'credit/contrat': 'LOAN_READ',
   'credit/perte': 'LOAN_READ',
+  // La conformité se lit avec AML_READ, qui n'est donné ni au guichet ni à la
+  // gestion de portefeuille : la surveillance ne se discute pas avec celui qui
+  // reçoit le client. Le dossier d'alerte n'est pas une entrée de barre — on y
+  // arrive depuis la file — mais il figure ici pour que l'espace reste visible.
+  'conformite/alertes': 'AML_READ',
+  'conformite/alerte': 'AML_READ',
+  'conformite/declarations': 'AML_READ',
+  'conformite/scenarios': 'AML_READ',
   'guichet/versement': 'CASH_OPERATION',
   'guichet/retrait': 'CASH_OPERATION',
   'guichet/virement': 'TRANSFER',

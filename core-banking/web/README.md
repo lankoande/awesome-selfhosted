@@ -45,6 +45,7 @@ src/app/atelier/ la page atelier, vivante, servie par l'application elle-même
 src/app/guichet/ le guichet : modèle, port, implémentations, écrans
 src/app/clients/ le référentiel client : recherche, dossier, création, ouverture de compte
 src/app/credit/  le crédit : demandes, dossier d'instruction, portefeuille, contrat
+src/app/conformite/ la conformité LCB-FT : alertes, déclarations de soupçon, scénarios
 src/app/validation/ la double validation : le second regard
 src/app/caisse/  la caisse du guichetier et son arrêté
 src/app/siege/   exploitation comptable et restitutions
@@ -164,7 +165,16 @@ silence le jour d'une mise à jour sans rapport.
   échouer les tests.
 - **Budgets de taille** dans `angular.json` : une régression de poids fait
   échouer la compilation, elle ne se découvre pas en production. Repère actuel :
-  366 Ko bruts, 97 Ko transférés pour l'application initiale.
+  392 Ko bruts, 104 Ko transférés pour l'application initiale.
+
+  Ce budget avait été franchi en silence — l'avertissement ne fait pas échouer
+  le build. Cause : `app.config.ts` déclarait les fournisseurs des six espaces,
+  donc les six sources de démonstration entraient dans le paquet initial, alors
+  que la production ne les ouvre jamais. **Les fournisseurs d'un espace vivent
+  désormais sur sa coque** (`*.shell.ts`), chargée paresseusement ; la file de
+  validation, qui n'a pas de coque, les porte sur sa route (`validation.routes.ts`)
+  et non sur son composant — des fournisseurs de composant l'emporteraient sur
+  ceux du banc de test, et le double de test ne serait plus jamais vu.
 - **Tokens CSS** : rien d'autre que `src/styles/tokens.css` ne définit une
   couleur, une taille ou un espacement. Les composants lisent des variables.
 - **Types générés** : `src/app/api/schema.ts` vient du contrat OpenAPI vérifié

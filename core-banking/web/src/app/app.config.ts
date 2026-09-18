@@ -5,12 +5,6 @@ import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from 
 import { routes } from './app.routes';
 import { AppConfig } from './core/config/runtime-config';
 import { Apparence } from './core/apparence/apparence';
-import { provideClients } from './clients/clients.providers';
-import { provideCredit } from './credit/credit.providers';
-import { provideGuichet } from './guichet/guichet.providers';
-import { provideValidation } from './validation/validation.providers';
-import { provideCaisse } from './caisse/caisse.providers';
-import { provideSiege } from './siege/siege.providers';
 import { provideAuthentification } from './auth/auth.providers';
 import { AUTHENTIFICATION } from './auth/auth.port';
 import { jetonInterceptor } from './auth/jeton.interceptor';
@@ -24,13 +18,10 @@ export const appConfig: ApplicationConfig = {
       withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
     ),
     provideHttpClient(withFetch(), withInterceptors([jetonInterceptor])),
+    // L'authentification reste ici : elle est armée avant le premier écran.
+    // Les fournisseurs des espaces, eux, sont portés par leurs coques — chargées
+    // paresseusement, donc hors du paquet initial.
     provideAuthentification(),
-    provideClients(),
-    provideCredit(),
-    provideGuichet(),
-    provideValidation(),
-    provideCaisse(),
-    provideSiege(),
     // La configuration de déploiement est lue avant le premier écran : l'accent
     // de la banque ne doit pas apparaître après coup.
     //

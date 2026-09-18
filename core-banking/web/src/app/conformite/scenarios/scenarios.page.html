@@ -1,0 +1,174 @@
+<div class="corps">
+  <cb-toolbar>
+    <h2>Scénarios de surveillance</h2>
+    <button fin type="button" cbButton="primaire" (click)="ouvrirVolet()">
+      Déclarer un scénario
+    </button>
+  </cb-toolbar>
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" titre="Le socle a refusé" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+      <p class="suite">
+        <button type="button" cbButton="secondaire" (click)="charger()">Réessayer</button>
+      </p>
+    </cb-notice>
+  }
+
+  @if (enAttente(); as operation) {
+    <cb-notice nature="avertissement" titre="Scénario en attente de validation" [code]="operation">
+      <p>
+        La déclaration est enregistrée ; <strong>le scénario ne surveille rien</strong> tant
+        qu'un second regard ne l'a pas approuvée. Ne resaisissez pas.
+      </p>
+    </cb-notice>
+  }
+
+  <cb-activity class="activite" [enCours]="chargement()" libelle="Lecture des scénarios…" />
+
+  @if (scenarios().length > 0) {
+    <div class="tableau">
+      <table cbTable>
+        <caption class="cb-visually-hidden">Scénarios de surveillance</caption>
+        <thead>
+          <tr>
+            <th scope="col">Code</th>
+            <th scope="col">Ce qu'il surveille</th>
+            <th scope="col">Méthode</th>
+            <th scope="col" class="nombre">Seuil</th>
+            <th scope="col" class="nombre">Fenêtre</th>
+            <th scope="col" class="nombre">Minimum</th>
+            <th scope="col" class="nombre">Facteur</th>
+            <th scope="col">En vigueur</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of scenarios(); track s.id) {
+            <tr>
+              <td class="cb-mono">{{ s.code }}</td>
+              <td class="objet">{{ s.label }}</td>
+              <td>{{ LIBELLE_METHODE[s.method] }}</td>
+              <td class="nombre">
+                @if (s.thresholdAmount) { <cb-amount [valeur]="s.thresholdAmount" devise="XOF" /> }
+                @else { — }
+              </td>
+              <td class="nombre">
+                @if (s.windowDays !== null) { {{ s.windowDays }} j } @else { — }
+              </td>
+              <td class="nombre">{{ s.minimumCount ?? '—' }}</td>
+              <td class="nombre">
+                @if (s.ratio) { × {{ taux(s.ratio) }} } @else { — }
+              </td>
+              <td class="cb-mono">
+                {{ jour(s.validFrom) }}@if (s.validTo) { → {{ jour(s.validTo) }} }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else if (lu() && !chargement()) {
+    <cb-notice nature="avertissement" titre="Aucun scénario déclaré">
+      <p>
+        Le dispositif de surveillance ne lève rien : aucune alerte de surveillance ne
+        remontera. Seul le filtrage des identités reste actif.
+      </p>
+    </cb-notice>
+  }
+
+  @if (volet()) {
+    <cb-section titre="Déclarer un scénario"
+                indication="à deux : il décide de ce que la banque regardera, et de ce qu'elle ne regardera pas">
+      <div class="methodes" role="group" aria-label="Méthode de surveillance">
+        @for (m of METHODES; track m) {
+          <button type="button" class="methode" [class.actif]="methode() === m"
+                  [attr.aria-pressed]="methode() === m" (click)="choisirMethode(m)">
+            <span class="methode-titre">{{ LIBELLE_METHODE[m] }}</span>
+            <span class="methode-detail">{{ EFFET_METHODE[m] }}</span>
+          </button>
+        }
+      </div>
+
+      <div class="saisie">
+        <cb-field etiquette="Code" pour="code-scenario" requis
+                  aide="Il figurera sur chaque alerte levée par ce scénario.">
+          <input cbInput mono id="code-scenario" name="code-scenario" autocomplete="off"
+                 [value]="code()" (input)="code.set($any($event.target).value); commence.set(true)" />
+        </cb-field>
+        <cb-field etiquette="Libellé" pour="libelle-scenario" requis class="large"
+                  aide="C'est ce que l'analyste lira sur l'alerte.">
+          <input cbInput id="libelle-scenario" name="libelle-scenario" autocomplete="off"
+                 [value]="libelle()"
+                 (input)="libelle.set($any($event.target).value); commence.set(true)" />
+        </cb-field>
+
+        @if (exige('thresholdAmount')) {
+          <cb-field etiquette="Seuil" pour="seuil-scenario" requis
+                    aide="Au-delà de ce montant, le scénario lève.">
+            <cb-amount-input champId="seuil-scenario" [(valeur)]="seuil" devise="XOF" />
+          </cb-field>
+        }
+        @if (exige('windowDays')) {
+          <cb-field etiquette="Fenêtre (jours)" pour="fenetre-scenario" requis
+                    aide="Sur combien de jours le compteur cumule.">
+            <input cbInput nombre type="number" min="1" max="3650" id="fenetre-scenario"
+                   name="fenetre-scenario" [value]="fenetre() ?? ''"
+                   (input)="fenetre.set(nombre($any($event.target).value)); commence.set(true)" />
+          </cb-field>
+        }
+        @if (exige('minimumCount')) {
+          <cb-field etiquette="Nombre minimal d'opérations" pour="minimum-scenario" requis
+                    aide="Un fractionnement se compte à partir de deux opérations.">
+            <input cbInput nombre type="number" min="2" id="minimum-scenario"
+                   name="minimum-scenario" [value]="nombreMinimal() ?? ''"
+                   (input)="nombreMinimal.set(nombre($any($event.target).value)); commence.set(true)" />
+          </cb-field>
+        }
+        @if (exige('ratio')) {
+          <cb-field etiquette="Facteur d'écart" pour="facteur-scenario" requis
+                    aide="Combien de fois le profil déclaré au dossier. 3 = flux triples.">
+            <input cbInput nombre id="facteur-scenario" name="facteur-scenario" inputmode="decimal"
+                   autocomplete="off" [value]="facteur()"
+                   (input)="facteur.set($any($event.target).value); commence.set(true)" />
+          </cb-field>
+        }
+
+        <cb-field etiquette="En vigueur à partir du" pour="effet-scenario" requis>
+          <cb-date-input champId="effet-scenario" [(valeur)]="dateDEffet" />
+        </cb-field>
+        <cb-field etiquette="Jusqu'au" pour="fin-scenario"
+                  aide="Facultative : un scénario sans fin reste en vigueur.">
+          <cb-date-input champId="fin-scenario" [(valeur)]="dateDeFin" />
+        </cb-field>
+      </div>
+
+      @if (commence() && obstacles().length > 0) {
+        <cb-notice nature="avertissement" titre="Il manque quelque chose">
+          <ul class="obstacles">
+            @for (obstacle of obstacles(); track obstacle) { <li>{{ obstacle }}</li> }
+          </ul>
+        </cb-notice>
+      }
+
+      <p class="suite">
+        <button type="button" cbButton="primaire" [disabled]="envoi()"
+                (click)="declarer()">Soumettre le scénario</button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  <cb-notice nature="information" titre="Pourquoi un scénario se déclare à deux">
+    <p>
+      Il ne produit aucun montant sur aucun compte. Il décide de ce que la banque regarde —
+      et surtout de ce qu'elle <strong>ne regardera pas</strong> : un seuil posé trop haut par
+      une seule main éteint la surveillance sans que rien ne le signale.
+    </p>
+    <p class="nuance">
+      La méthode est du code, les seuils sont du paramétrage. Les seuils changent d'une
+      circulaire à l'autre ; une conformité qui attend la prochaine version n'est pas une
+      conformité.
+    </p>
+  </cb-notice>
+</div>

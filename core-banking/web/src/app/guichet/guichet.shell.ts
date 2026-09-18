@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AUTHENTIFICATION } from '../auth/auth.port';
 import { OPERATION_PAR_ECRAN, autorise } from '../auth/habilitations';
+import { PROVIDERS_CAISSE } from '../caisse/caisse.providers';
+import { PROVIDERS_GUICHET } from './guichet.providers';
 
 /**
  * L'espace guichet et sa barre d'écrans.
@@ -14,6 +16,11 @@ import { OPERATION_PAR_ECRAN, autorise } from '../auth/habilitations';
   selector: 'cb-guichet',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  // La caisse vient avec : l'arrêté de caisse est un écran du guichet.
+  // Les fournisseurs de l'espace vivent ici : la coque est chargée
+  // paresseusement, donc l'adaptateur et la source de démonstration ne pèsent
+  // pas sur le paquet initial.
+  providers: [...PROVIDERS_GUICHET, ...PROVIDERS_CAISSE],
   template: `
     <nav class="ecrans" aria-label="Écrans du guichet">
       @for (ecran of visibles(); track ecran.chemin) {

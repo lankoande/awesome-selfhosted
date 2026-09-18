@@ -85,9 +85,18 @@ main { flex: 1 1 auto; min-height: 0; }
 
 /* ------------------------------------------------------------ responsivité */
 
-@media (max-width: 1439px) {
+/* Le seuil suit le nombre d'espaces, pas un chiffre rond. À six espaces —
+   guichet, clients, crédit, conformité, siège, validation, plus l'atelier — la
+   barre ne tient plus sous 1800 avec la recherche déployée, et c'est « Atelier »
+   qui se tronquait : exactement ce que le poids de rétrécissement ci-dessus
+   cherche à éviter. La recherche cède d'abord, en redevenant une icône. */
+@media (max-width: 1799px) {
   .recherche span,
   .recherche cb-kbd { display: none; }
+  /* Et elle rend sa largeur, pas seulement son texte : un bouton de 430 px de
+     base qui n'affiche plus qu'une loupe garde la place de sept entrées de
+     menu. C'est ce qui tronquait encore « Atelier ». */
+  .recherche { flex: 0 0 var(--cb-tap-h); padding: 0; justify-content: center; }
 }
 
 @media (max-width: 1099px) {

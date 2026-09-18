@@ -171,7 +171,7 @@ enfants.push(
 // ------------------------------------------------------------------ chapitres
 const CHAPITRES = ['README.md', '01-prise-en-main.md', '02-especes.md', '03-virement-releve.md',
   '04-arrete-de-caisse.md', '05-validation.md', '06-clients.md', '07-credit.md', '08-siege.md',
-  '09-messages.md'];
+  '09-conformite.md', '10-messages.md'];
 
 for (const [n, nom] of CHAPITRES.entries()) {
   if (n > 0) enfants.push(new Paragraph({ children: [new PageBreak()] }));
