@@ -227,8 +227,13 @@ Du même ordre que le test de contrat OpenAPI : des mécanismes, pas des intenti
    date de valeur et frais, clé d'idempotence, reçu, refus métier lisible.
 3. **File de validation** (maker-checker), qui éprouve le vocabulaire d'états.
 4. Le reste des écrans du guichet, puis l'espace siège.
+5. **Authentification et habilitations**, une fois qu'il y a assez d'écrans pour que filtrer un
+   menu ait un sens.
+6. **Le référentiel client**, prérequis de tout le reste : on n'ouvre pas un compte à personne.
+7. **Le crédit**, de la demande au contrat, puis sa fin de vie.
 
-L'avancement réel est au §8.
+Cet ordre n'était pas écrit d'avance au-delà du point 4 : les points 5 à 7 se sont imposés en
+construisant. L'avancement réel est au §8.
 
 ## 8. État de la construction
 
@@ -244,8 +249,15 @@ un exploitant doit faire devant eux est dans le [guide de l'utilisateur](utilisa
 | 1. Socle visuel | **Livré** — tokens, deux thèmes, deux densités, jeu fermé de 17 primitives, page atelier, budgets, types générés |
 | 2. Guichet — versement d'espèces | **Livré** — bandeau client, billetage BCEAO contrôlé, imputation en projection puis reçu, idempotence conservée, refus lisible |
 | 3. File de validation | **Livré** — file paginée, détail de la requête soumise, approbation qui exécute, rejet motivé, auto-approbation signalée, échec d'exécution après approbation |
-| 4. Reste du guichet, puis siège | **En cours** — guichet complet (versement, retrait, virement, relevé, arrêté de caisse) ; siège ouvert (fin de journée, balance générale) |
-| 5. Authentification et habilitations | **Livré** — OAuth2 PKCE contre Keycloak, jeton porté aux seuls appels du socle, rafraîchissement silencieux, verrouillage du poste, menu filtré par habilitations |
+| 4. Reste du guichet, puis siège | **Livré** — guichet complet (versement, retrait, virement, relevé, arrêté de caisse) ; siège ouvert (fin de journée, balance générale) |
+| 5. Authentification et habilitations | **Livré** — OAuth2 PKCE contre Keycloak, jeton porté aux seuls appels du socle, rafraîchissement silencieux, verrouillage du poste, menu filtré par les habilitations que le socle expose désormais (§16) |
+| 6. Référentiel client | **Livré** — recherche, dossier avec obstacles nommés, création, ouverture de compte (§15) |
+| 7. Crédit | **Livré** — demandes, dossier d'instruction, portefeuille, contrat (§17) ; fin de vie : remboursement anticipé, rééchelonnement, révision de taux, passage en perte et recouvrement (§18) |
+| — Conformité et réglementaire | **Pas commencé** — LCB-FT, déclarations, fiscalité, sûretés ; le socle les expose, l'interface pas encore |
+| — Moyens de paiement | **Pas commencé** — chèques, prélèvements, virements sortants ; idem |
+
+**Vingt-quatre écrans** à sept largeurs, sans débordement horizontal ni cible tactile sous 24 px,
+vérifiés à chaque livraison par `scripts/largeurs.mjs`.
 
 Rien n'est figé : ce qui suit est ce qu'on sait aujourd'hui, pas un engagement. Les décisions
 prises pendant la construction du socle sont consignées ici pour qu'on puisse les défaire en

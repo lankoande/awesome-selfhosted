@@ -20,9 +20,11 @@ source ; une correction faite dans le Word serait perdue à la génération suiv
 | Vous êtes | Lisez d'abord | Puis |
 |---|---|---|
 | Guichetier | [1. Prise en main](01-prise-en-main.md) | [2. Espèces](02-especes.md), [3. Virement et relevé](03-virement-releve.md), [4. Arrêté de caisse](04-arrete-de-caisse.md) |
+| Chargé de clientèle | [1. Prise en main](01-prise-en-main.md) | [6. Les clients](06-clients.md) |
+| Chargé de crédit | [1. Prise en main](01-prise-en-main.md) | [7. Le crédit](07-credit.md), [6. Les clients](06-clients.md) |
 | Chef d'agence, valideur | [1. Prise en main](01-prise-en-main.md) | [5. La file de validation](05-validation.md) |
-| Exploitant comptable, siège | [1. Prise en main](01-prise-en-main.md) | [6. L'espace siège](06-siege.md) |
-| Tout le monde, quand ça coince | [7. Messages, refus et états](07-messages.md) | — |
+| Exploitant comptable, siège | [1. Prise en main](01-prise-en-main.md) | [8. L'espace siège](08-siege.md) |
+| Tout le monde, quand ça coince | [9. Messages, refus et états](09-messages.md) | — |
 
 ## Trois choses à savoir avant tout le reste
 
@@ -32,16 +34,28 @@ est annoncé comme une **projection** ; les chiffres qui font foi sont ceux du r
 comptabilisation. Si les deux diffèrent, c'est le reçu qui a raison, et il faut le signaler.
 
 **2. Un refus n'est pas une panne.** Quand le socle refuse, il dit pourquoi, et l'écran vous
-montre sa raison telle quelle, avec son code. Le [chapitre 7](07-messages.md) traduit ces codes
+montre sa raison telle quelle, avec son code. Le [chapitre 9](09-messages.md) traduit ces codes
 en gestes. Ne recommencez pas une opération refusée « pour voir » : lisez le motif.
 
-**3. Le réseau peut tomber sans que l'opération soit perdue.** Chaque demande porte une **clé
-d'idempotence** : si l'envoi échoue sans réponse, le bouton *Réessayer avec la même clé* rejoue
-**la même** demande. Le socle reconnaît la clé et ne comptabilise jamais deux fois. C'est le
-seul bouton à utiliser dans ce cas — refaire la saisie créerait une seconde opération.
+**3. Le réseau peut tomber, et l'écran vous dira quoi faire.** Selon l'opération, deux conduites,
+et **l'écran choisit pour vous** — suivez ce qu'il propose, ne cherchez pas l'autre.
+
+- **Au guichet** (espèces, virement), chaque demande porte une **clé d'idempotence**. Si l'envoi
+  échoue sans réponse, le bouton *Réessayer avec la même clé* rejoue **la même** demande ; le
+  socle reconnaît la clé et ne comptabilise jamais deux fois. C'est le seul bouton à utiliser —
+  refaire la saisie créerait une seconde opération.
+- **Ailleurs** (créer un client, ouvrir un compte, déposer une demande de crédit), le socle ne
+  reconnaît pas encore les envois en double. L'écran **ne vous propose donc aucun rejeu** : il
+  vous renvoie vérifier — à la recherche, ou à la file de validation. Renvoyer à l'aveugle
+  créerait un doublon, et un doublon de client ou de compte se paie ensuite en corrections
+  manuelles.
+
+Quand l'écran affiche « La demande a peut-être été enregistrée », c'est ce second cas : allez
+voir avant de recommencer.
 
 ## Ce qui n'est pas encore dans l'application
 
 Dit franchement, pour que personne ne le cherche : la **conformité** (alertes LCB-FT,
-déclarations) et le **paramétrage produit** ne sont pas encore des écrans. Ils passent
-aujourd'hui par le système central directement.
+déclarations réglementaires, fiscalité), le **paramétrage produit**, les **sûretés** et les
+**moyens de paiement** (chèques, prélèvements, virements sortants) ne sont pas encore des écrans.
+Ils passent aujourd'hui par le système central directement.

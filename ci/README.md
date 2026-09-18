@@ -14,8 +14,8 @@ plutôt que contournée.
 | `documentation` | `python:3.12-slim` | Un lien interne ou une ancre qui ne résout pas |
 
 Mesuré sur une machine de développement, dépôt Maven et `node_modules` déjà peuplés :
-**213 s** pour les 699 tests du socle, **~95 s** pour le front (161 tests, compilation,
-quatorze écrans à sept largeurs), **< 1 s** pour les liens. Un coureur part d'un cache
+**~215 s** pour les 697 tests du socle, **~100 s** pour le front (200 tests, compilation,
+vingt-quatre écrans à sept largeurs), **< 1 s** pour les liens. Un coureur part d'un cache
 froid et télécharge d'abord ; les délais d'expiration sont posés avec de la marge.
 
 ## Trois décisions à connaître
@@ -40,7 +40,7 @@ GitLab, ni conteneur annexe, ni installation. Chaque base de test est montée pa
 exercé à chaque pipeline**, pas seulement le jour du déploiement.
 
 Le coureur tourne en `root` ; zonky le détecte et lance le serveur sous un compte
-non privilégié, PostgreSQL refusant de tourner en `root`. Vérifié : les 699 tests
+non privilégié, PostgreSQL refusant de tourner en `root`. Vérifié : les 697 tests
 passent sous `root`.
 
 ### Les mesures ne sont pas dans la chaîne

@@ -1,6 +1,6 @@
 # Fabrication du guide au format Word
 
-`guide-docx.mjs` assemble les sept chapitres Markdown du dossier parent en un seul
+`guide-docx.mjs` assemble les neuf chapitres Markdown du dossier parent en un seul
 `.docx` : page de garde, sommaire (champ Word, mis à jour à l'ouverture), titres,
 tableaux, listes, encadrés, et les captures numérotées avec leur légende.
 

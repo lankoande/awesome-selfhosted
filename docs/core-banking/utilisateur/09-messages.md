@@ -1,4 +1,4 @@
-# 7. Messages, refus et états
+# 9. Messages, refus et états
 
 La page à ouvrir quand quelque chose ne va pas. Chaque entrée dit **ce que c'est** et **le geste
 à faire**.
@@ -64,6 +64,44 @@ La balance générale ne s'équilibre pas. Ce n'est pas un problème d'affichage
 chiffre qui en découle et remontez au responsable comptable.
 
 ---
+
+## Les refus au référentiel client
+
+### Ce client ne peut pas recevoir de nouveau compte
+Le client est bloqué, sa connaissance client n'est pas vérifiée, ou son dossier est incomplet. Le
+[chapitre 6](06-clients.md) explique ce qui est nommé comme obstacle. **Ses comptes existants
+continuent de fonctionner** : c'est l'ouverture qui est arrêtée, pas l'activité du client — un
+client vous posera la question.
+
+### Pièce manquante, pièce expirée
+Le dossier nomme la pièce et sa nature. Réclamez-la au client ; une fois versée et vérifiée,
+l'obstacle disparaît de lui-même.
+
+### Bénéficiaire non vérifié
+Sur une personne morale. Tant que la conformité n'a pas vérifié un bénéficiaire effectif déclaré,
+aucun compte ne s'ouvre. Ce n'est pas une décision du comptoir.
+
+## Les refus au crédit
+
+### Toutes les conditions suspensives ne sont pas levées
+Le contrat ne peut pas être établi. Le dossier liste celles qui manquent. Attention : une
+condition **résolutoire** non levée ne bloque rien — si le refus persiste alors que vous pensiez
+tout avoir levé, vérifiez que vous regardiez bien la bonne section.
+
+### Une décision sans analyse ne se motive pas
+Le bouton *Décider* n'apparaît pas tant qu'aucune analyse n'a été versée au dossier. Versez-la
+d'abord : sans elle, la décision ne tiendrait pas devant un contrôle.
+
+### Ce contrat est déjà débloqué
+Le déblocage a déjà eu lieu, ou une demande est en attente de validation. Regardez la
+[file de validation](05-validation.md) avant de recommencer.
+
+### Ce contrat est déjà passé en perte
+Un passage en perte ne se fait qu'une fois. Ce qui reste dû se suit au hors bilan, et se
+recouvre — voir le [chapitre 7](07-credit.md).
+
+### Un contrat qui n'est pas en cours ne se rembourse pas par anticipation
+Un contrat non débloqué, soldé ou passé en perte n'accepte plus les actes de gestion courante.
 
 ## Les incidents techniques
 
