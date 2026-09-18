@@ -25,6 +25,13 @@
       La recherche porte sur le nom, la raison sociale et la référence. Si le client
       n'existe pas encore, créez-le : son dossier se constituera ensuite.
     </p>
+    @if (perimetre(); as ou) {
+      <p class="perimetre">
+        <strong>Votre profil ne voit que les clients de {{ ou }}.</strong> Un client d'une autre
+        agence ne remontera pas ici — et le recréer ferait un doublon. Dans le doute,
+        demandez à l'agence qui le gère.
+      </p>
+    }
     <p class="suite">
       <button type="button" cbButton="primaire" (click)="creer()">Créer ce client</button>
     </p>

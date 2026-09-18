@@ -14,6 +14,16 @@ Chaque ligne donne : la nature de l'opération, son montant, qui l'a soumise, qu
 Traitez par échéance, pas par montant. Une opération qui expire est une opération à resaisir
 entièrement par le guichetier, devant un client qui attend.
 
+Le titre compte deux nombres : *« 3 en attente sur cette page, **2 pour vous** »*. Le second ne
+retient que les demandes que **votre profil** peut décider — approuver une opération, c'est
+l'exécuter, et il faut en porter le droit. Le bouton **Ce que je peux décider** masque les autres
+le temps de traiter les vôtres.
+
+La file n'est pas filtrée par défaut, et c'est voulu : elle est partagée. Une file qui cacherait
+les lignes qui ne vous concernent pas ferait croire la banque à jour alors qu'une demande attend
+un autre valideur. Les lignes hors de vos droits restent donc visibles, en retrait, marquées
+*hors de vos droits*.
+
 ![La file de validation. Chaque ligne porte son échéance ; « expire dans 24 h » est une opération à traiter aujourd'hui.](captures/05-file.png)
 
 ## Le détail
@@ -45,13 +55,19 @@ demandeur.
 compte de son épouse »* vaut mieux que *« non conforme »*. Un motif vide de sens fait resoumettre
 la même opération.
 
-## Les trois bandeaux qui vous arrêtent
+## Les bandeaux qui vous arrêtent
 
 ### ⚠️ Vous avez soumis cette opération
 Vous ne pouvez pas approuver votre propre demande. C'est tout le sens du second regard, et la
 règle n'a pas d'exception — pas même pour un chef d'agence pressé. Passez la main.
 
 ![Le refus d'auto-approbation : le second regard est quelqu'un d'autre, sans exception.](captures/05-auto-approbation.png)
+
+### ℹ️ Cette demande n'est pas pour vous
+Votre profil ne porte pas l'opération soumise. Les boutons de décision disparaissent : il n'y a
+rien à tenter, le socle refuserait de toute façon. La demande reste dans la file — elle attend
+quelqu'un d'autre, pas une action de votre part. Ne la signalez au demandeur que si elle
+approche de son échéance.
 
 ### ℹ️ Déjà décidée
 Quelqu'un a décidé pendant que vous lisiez. La décision affichée est celle qui compte ;

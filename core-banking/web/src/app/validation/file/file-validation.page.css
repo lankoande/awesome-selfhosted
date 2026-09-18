@@ -86,3 +86,32 @@ dd { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 767px) {
   .decision > button { width: 100%; }
 }
+
+/* Une demande hors de vos droits reste visible : la file est partagée, et la
+   masquer ferait croire la banque à jour. Elle est simplement en retrait. */
+.hors-droits td { color: var(--cb-muted); }
+.hors-portee {
+  display: block;
+  font-size: var(--cb-fs-xs);
+  font-style: italic;
+  color: var(--cb-muted);
+}
+
+/* Le filtre est un état, pas un onglet : il restreint ce que l'écran montre. */
+.filtre {
+  height: var(--cb-tap-h);
+  padding: 0 var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  background: var(--cb-panel);
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+  cursor: pointer;
+}
+.filtre:hover { color: var(--cb-ink); border-color: var(--cb-rule-strong); }
+.filtre.actif {
+  color: var(--cb-ink);
+  font-weight: 600;
+  border-color: var(--cb-accent);
+  background: var(--cb-accent-soft, var(--cb-panel));
+}

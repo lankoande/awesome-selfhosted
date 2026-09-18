@@ -1284,9 +1284,35 @@ Pour montrer l'autre moitié du sujet, `config.json` porte
 `demonstration.droitsRetires` : la liste des opérations à retirer. Vide par défaut. En mode `api`,
 rien de tout cela n'est lu — les droits viennent du socle, et de lui seul.
 
+### La file de validation lit le droit de chaque ligne
+
+Une file de validation n'est pas un écran à un droit : **chaque ligne porte le sien**, celui de
+l'opération soumise. Approuver, c'est exécuter — le valideur doit porter le droit de l'acte, pas
+seulement celui de lire la file.
+
+Le poste le lit ligne par ligne. Le titre compte donc deux nombres — *« 3 en attente sur cette
+page, 2 pour vous »* —, un bouton **Ce que je peux décider** masque le reste, et la ligne hors
+droits reste visible, en retrait, marquée. Sur le détail, les boutons de décision cèdent la place
+à un avis qui dit la règle : *approuver une opération, c'est l'exécuter*.
+
+**La file n'est pas filtrée par défaut, et c'est une décision.** C'est une file partagée : la
+filtrer d'office ferait croire la banque à jour alors qu'une demande attend un autre valideur. Le
+filtre est offert, jamais imposé.
+
+### La portée explique une liste qui paraît incomplète
+
+Une recherche client sans résultat a deux causes très différentes : le client n'existe pas, ou il
+existe **ailleurs**. La seconde est invisible, et c'est la dangereuse : l'opérateur crée un second
+dossier pour la même personne, avec sa propre connaissance client et son propre risque.
+
+Quand la portée de `PARTY_READ` vaut `OWN_BRANCH`, l'avis d'absence le dit et nomme le risque —
+*le recréer ferait un doublon* —, puis oriente vers l'agence qui gère le client. C'est le premier
+usage de la portée, et le modèle des suivants : elle ne ferme rien, elle **explique un vide**.
+
 ### Ce qui reste
 
-L'écran de validation ne lit pas encore le droit de l'opération qu'il présente : il montre la file
-entière et laisse le socle refuser l'approbation. C'est correct, mais un valideur gagnerait à voir
-d'abord ce qu'il peut décider. La **portée** (`OWN_BRANCH`, `OWN_ENTITY`) est lue et disponible,
-mais aucun écran ne s'en sert encore pour expliquer une liste qui paraît incomplète.
+Les **sûretés** et la **consolidation** restent bloquées par les lacunes de contrat déjà nommées
+(§20). Les **moyens de paiement** — chèques, prélèvements, virements sortants — n'ont pas
+d'interface, alors que le socle les porte entièrement. Le **profil d'activité déclaré** et le
+**consentement au bureau d'information du crédit** appartiennent au dossier client et n'y sont pas
+encore.

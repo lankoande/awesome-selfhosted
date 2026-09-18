@@ -32,3 +32,4 @@ h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
   .liste th:nth-child(3), .liste td:nth-child(3) { display: none; }
   .quete { flex-basis: 100%; max-width: none; }
 }
+.perimetre { margin-top: var(--cb-space-2); }

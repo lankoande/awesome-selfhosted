@@ -2,7 +2,15 @@
   <div class="colonne-file">
     <cb-toolbar>
       <h1>File de validation</h1>
-      <span class="compte">{{ enAttente() }} en attente sur cette page</span>
+      <span class="compte">
+        {{ enAttente() }} en attente sur cette page@if (pourMoi() !== enAttente()) {,
+        <strong>{{ pourMoi() }} pour vous</strong>}
+      </span>
+      <button type="button" class="filtre" [class.actif]="filtreLesMiennes()"
+              [attr.aria-pressed]="filtreLesMiennes()"
+              (click)="filtreLesMiennes.set(!filtreLesMiennes())">
+        Ce que je peux décider
+      </button>
       <button fin type="button" cbButton="secondaire" [disabled]="travaille()" (click)="charger()">Rafraîchir</button>
     </cb-toolbar>
 
@@ -27,14 +35,18 @@
           </tr>
         </thead>
         <tbody>
-          @for (ligne of lignes(); track ligne.id) {
-            <tr [class.choisie]="ligne.id === choisie()?.id">
+          @for (ligne of visibles(); track ligne.id) {
+            <tr [class.choisie]="ligne.id === choisie()?.id"
+                [class.hors-droits]="!aLeDroitDeDecider(ligne)">
               <td class="cb-ref">
                 <button type="button" class="lien" (click)="ouvrir(ligne)">{{ ligne.id }}</button>
               </td>
               <td>
                 <span class="handler">{{ ligne.handler }}</span>
                 <span class="operation cb-mono">{{ ligne.operation }}</span>
+                @if (!aLeDroitDeDecider(ligne)) {
+                  <span class="hors-portee">hors de vos droits</span>
+                }
               </td>
               <td class="cb-ref">{{ ligne.makerUsername }}</td>
               <td class="cb-ref">{{ instant(ligne.madeAt) }}</td>
@@ -43,7 +55,14 @@
             </tr>
           } @empty {
             @if (phase() === 'prete') {
-              <tr><td colspan="6" class="vide">Rien n'attend de second regard.</td></tr>
+              <tr><td colspan="6" class="vide">
+                @if (filtreLesMiennes()) {
+                  Rien n'attend <em>votre</em> second regard. La file en porte peut-être
+                  d'autres : retirez le filtre pour les voir.
+                } @else {
+                  Rien n'attend de second regard.
+                }
+              </td></tr>
             }
           }
         </tbody>
@@ -121,6 +140,18 @@
         <cb-notice nature="information" titre="Déjà décidée">
           Une décision ne se reprend pas : elle laisse une trace, et c'est une nouvelle demande qui la
           remplace.
+        </cb-notice>
+      } @else if (!droitSurLaChoisie()) {
+        <cb-notice nature="information" titre="Cette demande n'est pas pour vous">
+          <p>
+            <strong>Approuver une opération, c'est l'exécuter</strong> : il faut en porter le
+            droit, pas seulement celui de lire la file. Votre profil ne porte pas
+            <span class="cb-mono">{{ operation.operation }}</span>.
+          </p>
+          <p>
+            La demande reste dans la file : elle attend quelqu'un d'autre, pas une action de
+            votre part.
+          </p>
         </cb-notice>
       } @else if (!decidable()) {
         <cb-notice nature="avertissement" titre="Échéance dépassée" code="OPERATION_NON_DECIDABLE">

@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, effect, inject, input, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Router } from '@angular/router';
+import { Droits } from '../../auth/habilitations';
 import { AppConfig } from '../../core/config/runtime-config';
 import { RefusMetier } from '../../guichet/modele/guichet.modele';
 import { CbActivity, CbButton, CbInput, CbNotice, CbPagination, CbStateBadge, CbTable, CbToolbar } from '../../ui';
@@ -34,6 +35,7 @@ import {
 export class RechercheClient {
   private readonly clients = inject(CLIENTS);
   private readonly config = inject(AppConfig);
+  private readonly droits = inject(Droits);
   private readonly router = inject(Router);
 
   /**
@@ -53,6 +55,20 @@ export class RechercheClient {
   protected readonly refus = signal<RefusMetier | null>(null);
   /** Faux tant qu'aucune recherche n'a abouti : « aucun résultat » ne se dit qu'après. */
   protected readonly cherche = signal(false);
+
+  /**
+   * Le périmètre de lecture, quand il est plus étroit que la banque.
+   *
+   * `PARTY_READ` est donné par agence : un chargé de clientèle ne voit pas les
+   * clients d'à côté. Une recherche qui ne rend rien laisse alors croire que le
+   * client n'existe pas, alors qu'il est simplement ailleurs — et l'agent le
+   * recrée, ce qui fait un doublon que personne ne rattrapera.
+   *
+   * Vide quand la portée est l'établissement entier, ou qu'on ne la connaît
+   * pas : on ne dit une restriction que lorsqu'on en est sûr.
+   */
+  protected readonly perimetre = computed(() =>
+    (this.droits.portee('PARTY_READ') === 'OWN_BRANCH' ? 'votre agence' : null));
 
   /**
    * L'entrée de route n'est pas encore posée à la construction : la lire là

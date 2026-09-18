@@ -124,9 +124,9 @@ Ce qui est vrai des deux côtés :
 - **Un 401 vaut un rafraîchissement, une seule fois**, puis l'erreur remonte.
 - **Verrouiller n'est pas déconnecter** : l'application reste montée, la saisie
   intacte. Le délai vient de `config.json` (`auth.verrouillageMinutes`).
-- **Les habilitations inconnues laissent tout voir** : le socle n'expose pas encore
-  les opérations autorisées ; le menu montre tout et l'API refuse. `habilitations.ts`
-  porte déjà la table écran → opération pour le jour où il les exposera.
+- **Les habilitations inconnues laissent tout voir** : tant que `/v1/me/permissions`
+  n'a pas répondu, `connues` vaut faux, le menu montre tout et l'API refuse. Un poste
+  qui cacherait par ignorance ferait croire à une fonction absente.
 
 ### Les adresses viennent du contrat, pas de la mémoire
 
@@ -210,6 +210,12 @@ Trois règles à tenir :
    de laisser annoncer au client un compte qui n'existe pas encore).
 3. **Un plafond se bloque, jamais à tort.** Celui qu'on lit est le plus favorable, en
    agence ; le socle, qui sait si l'opération est déplacée, tranche toujours.
+4. **Une liste ne se filtre pas d'office sur les droits.** La file de validation lit le
+   droit de *chaque ligne* (approuver, c'est exécuter) : elle le compte, l'offre en
+   filtre, marque la ligne hors droits — mais ne la cache pas, sinon la banque se croit
+   à jour. La portée sert de même à **expliquer un vide** : `PARTY_READ` en `OWN_BRANCH`
+   fait dire à la recherche sans résultat que le client existe peut-être ailleurs, et
+   que le recréer ferait un doublon.
 
 Le profil de démonstration est dans `auth/habilitations.demonstration.ts` — une copie de
 `SecurityConfig` pour un chef d'agence, **chargée à la demande** pour rester hors du

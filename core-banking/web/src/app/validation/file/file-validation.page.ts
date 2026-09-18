@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { Droits } from '../../auth/habilitations';
 import { AppConfig } from '../../core/config/runtime-config';
 import { RefusMetier } from '../../guichet/modele/guichet.modele';
 import {
@@ -35,6 +36,7 @@ export class FileValidation {
   private readonly validation = inject(VALIDATION);
   private readonly confirmation = inject(CbConfirm);
   private readonly config = inject(AppConfig);
+  private readonly droits = inject(Droits);
 
   protected readonly phase = signal<Phase>('chargement');
   protected readonly lignes = signal<readonly OperationEnAttente[]>([]);
@@ -51,18 +53,57 @@ export class FileValidation {
   protected readonly motifOuvert = signal(false);
   protected readonly motif = signal('');
 
+  /**
+   * Ne montrer que ce que je peux décider.
+   *
+   * La file est une **file de travail partagée** : elle ne se filtre pas par
+   * défaut, sinon un valideur croirait la banque à jour alors qu'une demande
+   * attend quelqu'un d'autre. Le filtre existe pour le moment où l'on vient
+   * travailler, pas pour surveiller.
+   */
+  protected readonly filtreLesMiennes = signal(false);
+
+  protected readonly visibles = computed(() => (this.filtreLesMiennes()
+    ? this.lignes().filter((l) => this.aLeDroitDeDecider(l) && !this.estMaSoumission(l))
+    : this.lignes()));
+
   /** Ce qui attend vraiment : une ligne dont l'échéance est passée n'attend plus. */
   protected readonly enAttente = computed(
     () => this.lignes().filter((l) => etatAffiche(l) === 'en-attente').length,
   );
+
+  /**
+   * Ce qui attend **moi** : en attente, pas de moi, et dans mes droits.
+   *
+   * C'est le chiffre qu'un valideur vient chercher. Le total de la file lui dit
+   * la charge de l'équipe ; celui-ci lui dit la sienne.
+   */
+  protected readonly pourMoi = computed(() => this.lignes().filter(
+    (l) => etatAffiche(l) === 'en-attente' && this.aLeDroitDeDecider(l)
+           && !this.estMaSoumission(l)).length);
   protected readonly maSoumission = computed(() => {
     const operation = this.choisie();
-    const moi = this.moi();
-    return operation !== null && moi !== null && operation.makerId === moi.id;
+    return operation !== null && this.estMaSoumission(operation);
   });
+  /**
+   * Le droit sur l'opération soumise, pas sur l'écran.
+   *
+   * La file présente des demandes de toutes natures — un déblocage de crédit,
+   * une ouverture de compte, une transmission réglementaire. **Approuver une
+   * opération, c'est l'exécuter** : il faut donc le droit de cette opération-là,
+   * pas celui de « voir la file ». Un valideur à qui l'écran proposerait le
+   * bouton tomberait sur un refus au pire moment — celui où il pense avoir fait
+   * le travail et passe à autre chose.
+   */
+  protected readonly droitSurLaChoisie = computed(() => {
+    const operation = this.choisie();
+    return operation === null || this.aLeDroitDeDecider(operation);
+  });
+
   protected readonly decidable = computed(() => {
     const operation = this.choisie();
-    return operation !== null && decidable(operation) && !this.maSoumission();
+    return operation !== null && decidable(operation) && !this.maSoumission()
+           && this.droitSurLaChoisie();
   });
   protected readonly travaille = computed(() => this.phase() === 'chargement' || this.phase() === 'decision');
 
@@ -72,6 +113,16 @@ export class FileValidation {
 
   protected etat(operation: OperationEnAttente): EtatOperation {
     return etatAffiche(operation);
+  }
+
+  /** Mes droits portent-ils l'opération soumise ? Vrai tant qu'on ne sait pas. */
+  protected aLeDroitDeDecider(operation: OperationEnAttente): boolean {
+    return this.droits.peut(operation.operation);
+  }
+
+  protected estMaSoumission(operation: OperationEnAttente): boolean {
+    const moi = this.moi();
+    return moi !== null && operation.makerId === moi.id;
   }
 
   protected async charger(page = this.page()): Promise<void> {

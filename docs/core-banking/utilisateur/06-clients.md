@@ -21,6 +21,12 @@ en ouvrant l'écran.
 **Aucun résultat n'est une réponse, pas un échec.** L'écran vous propose alors la seule suite
 utile : créer le client.
 
+> **Attention au doublon.** Si votre profil ne voit que les clients de votre agence, l'écran vous
+> le rappelle sous le message d'absence. Un client géré ailleurs ne remontera pas dans votre
+> recherche : le créer à nouveau ferait un second dossier pour la même personne, avec sa propre
+> connaissance client et son propre risque. Dans le doute, appelez l'agence qui le gère plutôt que
+> de créer.
+
 ### Ce que la liste vous dit avant d'ouvrir le dossier
 
 Deux colonnes valent le détour, parce qu'elles vous évitent un aller-retour :
