@@ -82,9 +82,23 @@ python3 docs/outils/liens.py docs
 python3 docs/outils/liens.py core-banking
 ```
 
-## Si le dépôt revient un jour sur GitHub
+## En attendant la migration : GitHub Actions, temporairement
 
-Les trois mêmes barrières ont existé en workflows GitHub Actions, retirées quand
-l'automatisation est passée sur GitLab : deux définitions des mêmes barrières
-divergent, et celle qui ne tourne pas ment sur l'état du dépôt. Elles restent dans
-l'historique (`git log -- .github/workflows`) et se retrouvent par un `git revert`.
+Le dépôt est encore sur GitHub, et GitHub ignore `.gitlab-ci.yml`. Les trois mêmes
+barrières y tournent donc aussi, en workflows Actions
+([`.github/workflows`](../.github/workflows)) — parce qu'une barrière qui ne tourne
+nulle part n'est pas une barrière, et que la période de stabilisation est justement
+celle où les tests doivent être obligatoires.
+
+**Ce sont bien deux fichiers, et c'est un compromis assumé.** Deux définitions des
+mêmes barrières finissent par diverger ; le risque est tenu de trois façons :
+
+- ni l'une ni l'autre ne définit quoi que ce soit — les deux jouent les commandes
+  listées plus bas, qui se rejouent à la main à l'identique ;
+- chaque workflow Actions porte en tête sa date de péremption : il disparaît à la
+  migration ;
+- **ce fichier est la référence.** Une commande qui change se change ici d'abord ; un
+  fichier de pipeline qui ne la joue plus est en tort, quel qu'il soit.
+
+Le jour de la migration : supprimer `.github/workflows/`, et il ne reste que
+`.gitlab-ci.yml`.

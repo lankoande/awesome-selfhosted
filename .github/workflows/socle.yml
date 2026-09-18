@@ -1,0 +1,70 @@
+# ---------------------------------------------------------------------------
+#  Barriere temporaire, le temps que le depot reste sur GitHub.
+#
+#  L'automatisation retenue est GitLab (.gitlab-ci.yml, documente dans ci/).
+#  Ce fichier existe parce qu'une barriere qui ne tourne nulle part n'est pas
+#  une barriere, et que la periode de stabilisation est justement celle ou les
+#  tests doivent etre obligatoires.
+#
+#  Il ne redefinit rien : il joue les memes commandes que .gitlab-ci.yml, celles
+#  que ci/README.md recense et qu'on rejoue a la main a l'identique. Deux
+#  definitions des memes barrieres finiraient par diverger ; c'est pourquoi
+#  celle-ci reste minimale et disparait a la migration.
+# ---------------------------------------------------------------------------
+# Le socle : compilation et suite de tests complète.
+#
+# PostgreSQL est démarré en embarqué par les tests (zonky) : ni service de
+# conteneur, ni installation. Les binaires sont téléchargés une fois et mis en
+# cache avec le reste du dépôt Maven.
+#
+# `mvn test` exécute `*Test.java` et `*IT.java` — les mesures (`*Benchmark.java`)
+# ne sont pas prises par le motif de surefire : une barrière qui ferait échouer
+# un build sur une mesure de débit serait une barrière qu'on désactive.
+name: Socle
+
+on:
+  push:
+    paths: ['core-banking/**', '!core-banking/web/**', '.github/workflows/socle.yml']
+  pull_request:
+    paths: ['core-banking/**', '!core-banking/web/**', '.github/workflows/socle.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: socle-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: core-banking
+
+jobs:
+  tests:
+    name: Compilation et tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      # `test` verifie aussi le style : Checkstyle est lie a la phase `validate`,
+      # donc une violation echoue avant meme la compilation.
+      - name: Compilation, style et tests
+        run: mvn -B --no-transfer-progress test
+
+      # Les rapports servent quand un test tombe : sans eux, un échec
+      # d'intégration ne laisse qu'une ligne de résumé.
+      - name: Rapports de test
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapports-surefire
+          path: core-banking/*/target/surefire-reports/
+          retention-days: 7
+          if-no-files-found: ignore
