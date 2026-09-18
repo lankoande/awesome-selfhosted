@@ -35,7 +35,7 @@ abstract class InterestTestBase {
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 8);
 
-        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
+        SchemaMigrator.migrate(database);
         // Les journees calculees sont partitionnees par mois : un an d'accruals demande un an
         // de partitions. En exploitation, la bascule de journee les cree ; ici, la base de test.
         SchemaMigrator.ensurePartitions(database,

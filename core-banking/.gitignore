@@ -3,3 +3,4 @@ target/
 .idea/
 *.iml
 .jqwik-database
+databasechangelog.csv

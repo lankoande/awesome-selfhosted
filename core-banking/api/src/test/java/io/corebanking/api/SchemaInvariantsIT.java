@@ -42,8 +42,10 @@ class SchemaInvariantsIT {
      * l'autre : la liste doit se lire, se justifier, et se reduire.
      */
     private static final Set<String> SANS_POLITIQUE = Set.of(
-        // Outillage du schema.
-        "schema_version", "ledger_partitioned_table",
+        // Outillage du schema. Les deux tables de Liquibase tiennent le journal des
+        // montees de version : elles ne portent aucune donnee d'entite, et la
+        // cloisonner empecherait le role de migration de relire ce qu'il a applique.
+        "databasechangelog", "databasechangeloglock", "ledger_partitioned_table",
         // Referentiel partage entre entites.
         "currency", "business_calendar", "calendar_holiday", "calendar_weekend",
         // Tenues par le compte.

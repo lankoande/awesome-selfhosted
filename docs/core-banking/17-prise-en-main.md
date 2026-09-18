@@ -52,7 +52,8 @@ core-banking/
 ├── security-keycloak    Adaptateur vers l'API d'administration Keycloak
 ├── security-store       Journal d'habilitation
 ├── ledger-domain    ★   Écritures, comptes, invariants, contre-passation — Java pur
-├── ledger-store         Persistance du registre, migrations, soldes, restitutions
+├── schema-db            Les montees de version du schema, et rien d'autre : 56 scripts SQL
+├── ledger-store         Persistance du registre, soldes, restitutions, montée de version
 ├── schema-engine        Schémas comptables : un événement métier → des écritures
 ├── calendar             Jours ouvrés, périodes, exercices
 ├── interest-domain      Bases de calcul, conventions de jours
@@ -123,31 +124,51 @@ valeur, ni solde. Un barème recopié dans le navigateur finit par diverger.
 
 ### Une migration de schéma
 
-**Ce n'est pas Liquibase** — bien que le dossier d'architecture l'ait longtemps annoncé.
-Le choix n'a jamais été arbitré : un runner écrit comme béquille de test a été durci en
-runner de production, et la documentation a gardé l'intention d'origine. L'histoire et
-les arguments des deux côtés sont dans
-[01-architecture](01-architecture.md#migrations--un-choix-qui-na-jamais-été-arbitré) ; la
-décision reste ouverte.
-
-Le runner est donc `SchemaMigrator` (`ledger-store`) et les migrations sont du **SQL
-pur**, un fichier par version :
+C'est **Liquibase**, et les changelogs sont du **SQL** — format `formatted sql`, deux
+lignes d'en-tête et le SQL en dessous. Tous les scripts vivent dans le module
+`schema-db`, dans l'ordre d'un seul changelog maître.
 
 ```
-<module>/src/main/resources/db/V<n>__<sujet>.sql
+schema-db/src/main/resources/db/V<n>__<sujet>.sql        le script
+schema-db/src/main/resources/db/changelog/db.changelog-master.xml   l'ordre
 ```
 
-- `<n>` est un entier **globalement unique dans tout le dépôt**, pas par module : les
-  versions sont appliquées dans l'ordre numérique, tous modules confondus.
-- Le contenu est figé par une **somme de contrôle** dès qu'il est appliqué. Modifier un
-  script déjà passé fait échouer la montée de version au lieu de diverger en silence.
-- Tout s'applique dans **une transaction sous verrou** : deux instances qui démarrent
-  ensemble ne se marchent pas dessus.
-- Une version absente du classpath est nommée dans l'erreur, pas ignorée.
+Pour en ajouter un :
 
-Il n'y a **pas** de mécanisme de retour en arrière : une migration se répare par une
-migration suivante. C'est le même choix qu'en comptabilité — on ne réécrit pas, on
-ajoute.
+1. Créer `V<n>__<sujet>.sql`, où `<n>` est le **numéro suivant, global au dépôt** — la
+   numérotation ne se découpe pas par module, parce que le schéma ne se découpe pas.
+2. Lui donner l'en-tête :
+   ```sql
+   --liquibase formatted sql
+   --changeset socle:<n> splitStatements:false
+   --comment <ce que fait le script>
+   ```
+   `splitStatements:false` n'est pas décoratif : seize scripts définissent des fonctions
+   PL/pgSQL dont le corps contient des points-virgules, et un découpage les casserait en
+   deux moitiés invalides.
+3. **L'ajouter au changelog maître**, en dernière ligne. Un script oublié là ne
+   s'appliquerait jamais, en silence — c'est pourquoi `SchemaMigratorIT` refuse un
+   changelog qui ne cite pas tout ce qui est livré.
+4. `mvn -pl ledger-store test` : la montée de version est rejouée sur une base neuve.
+
+Le contenu d'un script appliqué est figé par une **somme de contrôle** ; le modifier après
+coup fait échouer la montée suivante au lieu de diverger en silence.
+
+Il n'y a **pas** de retour en arrière : une migration se répare par une migration
+suivante. C'est le même choix qu'en comptabilité — on ne réécrit pas, on contre-passe.
+
+### Relire avant d'appliquer
+
+C'est ce que Liquibase apporte et qui manquait :
+
+```bash
+mvn -pl schema-db liquibase:status  -Dsocle.db.url=... -Dsocle.db.user=...   # ce qui reste
+mvn -pl schema-db liquibase:updateSQL -Dsocle.db.url=...                      # le SQL, sans l'appliquer
+mvn -pl schema-db liquibase:history -Dsocle.db.url=...                        # ce qui a été appliqué
+```
+
+`update` n'est pas exposé : la montée de version se fait au démarrage de l'application,
+par le même chemin que les tests. Deux chemins de déploiement finiraient par diverger.
 
 ### Un cas d'usage exposé par l'API
 

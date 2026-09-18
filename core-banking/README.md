@@ -48,13 +48,20 @@ d'essai et la description des types OpenAPI, où un flottant n'est pas un montan
 elles ne sont pas prises par le motif de surefire, et un build qui échoue sur un débit est un build
 qu'on finit par désactiver.
 
+**La montée de version passe par Liquibase**, avec des changelogs en SQL rangés dans le module
+[`schema-db`](schema-db). `SchemaMigrator` n'est plus qu'un adaptateur : il monte chaque base de
+test par le chemin exact de la production. Pour relire ce qui s'appliquerait avant de l'appliquer :
+`mvn -pl schema-db liquibase:updateSQL -Dsocle.db.url=...`.
+
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement. Chaque base de test est montée par
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 699 tests verts** sur 112 classes, en 213 s — domaines purs (dont 11 propriétés,
-≈ 4 000 cas générés) et PostgreSQL réel, dont l'API de bout en bout sous le rôle applicatif.
+**État actuel : 696 tests verts**, en 324 s — domaines purs (dont 11 propriétés, ≈ 4 000 cas
+générés) et PostgreSQL réel, dont l'API de bout en bout sous le rôle applicatif. Trois tests
+de moins depuis le passage à Liquibase : ils éprouvaient l'ordre, les sommes de contrôle et le
+verrou du runner maison, qui sont désormais ceux d'une bibliothèque éprouvée.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  L'ordre des montees de version, et rien d'autre.
+
+  Il est **global** : la numerotation ne se decoupe pas par module, parce que le
+  schema ne se decoupe pas. V9 (credits) s'appuie sur V8 (commissions), qui
+  s'appuie sur V1 (registre) : trois modules, un seul schema, un seul ordre.
+  Ce fichier le dit en clair plutot que de le laisser deduire d'un tri.
+
+  Chaque script porte son propre en-tete Liquibase et reste du SQL. Aucun n'est
+  decoupe en instructions (`splitStatements:false`) : c'est le comportement
+  qu'avait le runner precedent, et seize de ces scripts definissent des
+  fonctions PL/pgSQL dont le corps contient des points-virgules.
+-->
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.31.xsd">
+
+  <include file="db/V1__ledger_core.sql" relativeToChangelogFile="false"/>
+  <include file="db/V2__interest.sql" relativeToChangelogFile="false"/>
+  <include file="db/V3__product.sql" relativeToChangelogFile="false"/>
+  <include file="db/V4__security.sql" relativeToChangelogFile="false"/>
+  <include file="db/V5__accounting_schema.sql" relativeToChangelogFile="false"/>
+  <include file="db/V6__tfj.sql" relativeToChangelogFile="false"/>
+  <include file="db/V7__calendar.sql" relativeToChangelogFile="false"/>
+  <include file="db/V8__fees.sql" relativeToChangelogFile="false"/>
+  <include file="db/V9__loans.sql" relativeToChangelogFile="false"/>
+  <include file="db/V10__loan_late_charges.sql" relativeToChangelogFile="false"/>
+  <include file="db/V11__loan_risk.sql" relativeToChangelogFile="false"/>
+  <include file="db/V12__loan_teg.sql" relativeToChangelogFile="false"/>
+  <include file="db/V13__loan_prepayment.sql" relativeToChangelogFile="false"/>
+  <include file="db/V14__collateral.sql" relativeToChangelogFile="false"/>
+  <include file="db/V15__tranches.sql" relativeToChangelogFile="false"/>
+  <include file="db/V16__partitions_idempotentes.sql" relativeToChangelogFile="false"/>
+  <include file="db/V17__loan_closure.sql" relativeToChangelogFile="false"/>
+  <include file="db/V18__partitions_registre.sql" relativeToChangelogFile="false"/>
+  <include file="db/V19__interest_position.sql" relativeToChangelogFile="false"/>
+  <include file="db/V20__loan_interest_accrual.sql" relativeToChangelogFile="false"/>
+  <include file="db/V21__blocages.sql" relativeToChangelogFile="false"/>
+  <include file="db/V22__party.sql" relativeToChangelogFile="false"/>
+  <include file="db/V23__loan_customer.sql" relativeToChangelogFile="false"/>
+  <include file="db/V24__agences.sql" relativeToChangelogFile="false"/>
+  <include file="db/V25__maker_checker.sql" relativeToChangelogFile="false"/>
+  <include file="db/V26__rls_ledger.sql" relativeToChangelogFile="false"/>
+  <include file="db/V27__rls_batch.sql" relativeToChangelogFile="false"/>
+  <include file="db/V28__rls_party.sql" relativeToChangelogFile="false"/>
+  <include file="db/V29__rls_loans.sql" relativeToChangelogFile="false"/>
+  <include file="db/V30__rls_security.sql" relativeToChangelogFile="false"/>
+  <include file="db/V31__rls_fees.sql" relativeToChangelogFile="false"/>
+  <include file="db/V32__rls_interest.sql" relativeToChangelogFile="false"/>
+  <include file="db/V33__rls_products.sql" relativeToChangelogFile="false"/>
+  <include file="db/V34__rls_calendar.sql" relativeToChangelogFile="false"/>
+  <include file="db/V35__tills.sql" relativeToChangelogFile="false"/>
+  <include file="db/V36__exercice.sql" relativeToChangelogFile="false"/>
+  <include file="db/V37__restitutions_affectation.sql" relativeToChangelogFile="false"/>
+  <include file="db/V38__index_grand_livre.sql" relativeToChangelogFile="false"/>
+  <include file="db/V39__etats_financiers.sql" relativeToChangelogFile="false"/>
+  <include file="db/V40__plafonds_paiements.sql" relativeToChangelogFile="false"/>
+  <include file="db/V41__cheques.sql" relativeToChangelogFile="false"/>
+  <include file="db/V42__prelevements.sql" relativeToChangelogFile="false"/>
+  <include file="db/V43__cutoff.sql" relativeToChangelogFile="false"/>
+  <include file="db/V44__suspens.sql" relativeToChangelogFile="false"/>
+  <include file="db/V45__change.sql" relativeToChangelogFile="false"/>
+  <include file="db/V46__dossier_client.sql" relativeToChangelogFile="false"/>
+  <include file="db/V47__dossier_client_verrous.sql" relativeToChangelogFile="false"/>
+  <include file="db/V48__origination.sql" relativeToChangelogFile="false"/>
+  <include file="db/V49__perte_recouvrement.sql" relativeToChangelogFile="false"/>
+  <include file="db/V50__perte_equilibre.sql" relativeToChangelogFile="false"/>
+  <include file="db/V51__ordres_permanents.sql" relativeToChangelogFile="false"/>
+  <include file="db/V52__depots_a_terme.sql" relativeToChangelogFile="false"/>
+  <include file="db/V53__lcb_ft.sql" relativeToChangelogFile="false"/>
+  <include file="db/V54__declarations_reglementaires.sql" relativeToChangelogFile="false"/>
+  <include file="db/V55__fiscalite.sql" relativeToChangelogFile="false"/>
+  <include file="db/V56__liasse_consolidation.sql" relativeToChangelogFile="false"/>
+
+</databaseChangeLog>

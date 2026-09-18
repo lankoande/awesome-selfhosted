@@ -63,7 +63,7 @@ class GroupReportingIT {
         postgres = EmbeddedPostgres.builder().start();
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 4);
-        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
+        SchemaMigrator.migrate(database);
         SchemaMigrator.ensurePartitions(database, FIN.minusMonths(6), FIN.plusMonths(3));
         postingService = new JdbcPostingService(database);
         database.inTransaction(c -> {

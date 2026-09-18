@@ -1,4 +1,0 @@
-# Scripts de schema livres par ce module, appliques dans l'ordre des versions par
-# SchemaMigrator. Un script present ici mais absent de cette liste n'est jamais applique :
-# les tests du module le refusent.
-V53__lcb_ft.sql

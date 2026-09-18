@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.corebanking</groupId>
+    <artifactId>core-banking</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>schema-db</artifactId>
+  <name>Core Banking — schema de base</name>
+  <description>
+    Les montees de version du schema, et rien d'autre : aucun code Java.
+
+    Elles etaient reparties dans douze modules, chacun livrant ses scripts. La
+    numerotation, elle, etait globale — V9 (credits) s'appuie sur V8
+    (commissions), qui s'appuie sur V1 (registre). Le decoupage etait donc une
+    apparence : on ne deploie pas un module sans les autres, et l'ordre ne se
+    lisait nulle part d'un seul tenant.
+
+    Un module unique dit la verite sur ce couplage, et donne a Liquibase le seul
+    changelog maitre dont il a besoin — celui que l'exploitation lira avant une
+    bascule.
+  </description>
+
+  <properties>
+    <!--
+      Surchargez-les en ligne de commande : -Dsocle.db.url=... -Dsocle.db.user=...
+      Rien de sensible n'est ecrit ici, et rien ne pointe vers une base reelle
+      par defaut : une commande lancee sans arguments ne doit atteindre aucune
+      base, surtout pas celle de production.
+    -->
+    <socle.db.url>jdbc:postgresql://localhost:5432/corebanking</socle.db.url>
+    <socle.db.user>corebanking</socle.db.user>
+    <socle.db.password />
+  </properties>
+
+  <build>
+    <plugins>
+      <!--
+        Les commandes d'exploitation. C'est ce que le runner precedent n'avait
+        pas, et la raison du changement : un DBA doit pouvoir lire ce qui va
+        s'appliquer avant de l'appliquer, et reprendre une base existante sans
+        rejouer son histoire.
+
+          mvn -pl schema-db liquibase:status      ce qui reste a appliquer
+          mvn -pl schema-db liquibase:updateSQL   le SQL qui s'appliquerait, sans l'appliquer
+          mvn -pl schema-db liquibase:history     ce qui a ete applique, et quand
+          mvn -pl schema-db liquibase:changelogSync   marquer une base existante a jour
+          mvn -pl schema-db liquibase:tag -Dliquibase.tag=v1.0   nommer un etat
+
+        `update` n'est volontairement pas cite : la montee de version se fait au
+        demarrage de l'application, par le meme chemin que les tests. Deux
+        chemins de deploiement finiraient par diverger.
+      -->
+      <plugin>
+        <groupId>org.liquibase</groupId>
+        <artifactId>liquibase-maven-plugin</artifactId>
+        <version>${liquibase.version}</version>
+        <configuration>
+          <changeLogFile>db/changelog/db.changelog-master.xml</changeLogFile>
+          <searchPath>${project.basedir}/src/main/resources</searchPath>
+          <url>${socle.db.url}</url>
+          <username>${socle.db.user}</username>
+          <password>${socle.db.password}</password>
+        </configuration>
+        <dependencies>
+          <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId><version>${postgresql.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+    </plugins>
+  </build>
+</project>

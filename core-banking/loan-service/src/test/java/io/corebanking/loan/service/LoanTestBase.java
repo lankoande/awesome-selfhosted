@@ -47,7 +47,7 @@ abstract class LoanTestBase {
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 8);
 
-        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
+        SchemaMigrator.migrate(database);
         SchemaMigrator.ensurePartitions(database, DEBLOCAGE.minusMonths(2),
                                         DEBLOCAGE.plusMonths(36));
 

@@ -42,7 +42,7 @@ class AuthorizationAuditIT {
         postgres = EmbeddedPostgres.builder().start();
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 4);
-        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
+        SchemaMigrator.migrate(database);
         database.inTransaction(c -> {
             Entities.insertCurrency(c, Currencies.XOF, "Franc CFA BCEAO");
             Entities.insertLegalEntity(c, ENTITE, "BANK-CI", "Banque", "CI", Currencies.XOF,

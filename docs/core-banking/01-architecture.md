@@ -132,7 +132,7 @@ métier. Une règle ArchUnit l'impose au build : un cycle casse la CI.
 | Langage | Java 21 (LTS) | Standard de fait en core banking, maturité transactionnelle, recrutement |
 | Framework | **Spring Boot 4.1** (Spring Framework 7, Spring Security 7, Jackson 3, Tomcat 11 embarqué) — couche d'exposition seule ; le socle reste sans framework | Un seul exécutable à déployer ; les frontières de modules sont des modules Maven, vérifiées au build |
 | Base | PostgreSQL 16, Patroni HA | ACID strict, `NUMERIC` exact, partitionnement natif, RLS |
-| Migrations | **`SchemaMigrator`, du SQL pur** — Liquibase était prévu ici, il ne l'est plus, et [ce n'est pas une décision qui a été prise](#migrations--un-choix-qui-na-jamais-été-arbitré) |
+| Migrations | **Liquibase**, changelogs en SQL | [La décision, et pourquoi elle a mis si longtemps à être prise](#migrations--la-décision-enfin-prise) |
 | Batch | Spring Batch | Reprise, partitionnement, traçabilité native des runs |
 | Messagerie | Kafka (+ outbox transactionnel) | Publication atomique avec la transaction métier |
 | Cache | Caffeine local ; Redis pour les sessions | Le ledger n'est **jamais** mis en cache |
@@ -176,13 +176,10 @@ partitionnement, pas par cache applicatif.
 > de développement.
 
 
-### Migrations : un choix qui n'a jamais été arbitré
+### Migrations : la décision enfin prise
 
-Ce tableau annonçait Liquibase. Le code utilise `SchemaMigrator`, écrit ici. **Personne
-n'a arbitré entre les deux** — et le dire est plus utile que d'inventer après coup la
-décision manquante.
-
-Voici ce que l'historique dit, exactement :
+Ce tableau annonçait Liquibase depuis le premier jour. Le code, lui, utilisait un runner
+écrit ici. **Personne n'avait arbitré** — et c'est une dérive, pas un choix :
 
 | Commit | Ce qui s'est passé |
 |---|---|
@@ -191,41 +188,50 @@ Voici ce que l'historique dit, exactement :
 | `a2d9c08` | La béquille est durcie en vrai runner (table de versions, sommes de contrôle, ordre global, verrou), et **le commentaire qui annonçait Liquibase disparaît** sans que la décision soit prise ni écrite |
 | depuis | 56 migrations écrites dessus |
 
-C'est une dérive, pas un arbitrage : l'outil temporaire est devenu définitif parce qu'il
-marchait, et la documentation a gardé l'intention d'origine pendant tout ce temps.
+L'outil temporaire était devenu définitif parce qu'il marchait.
 
-#### Ce que `SchemaMigrator` tient aujourd'hui
+**C'est Liquibase**, et le critère qui tranche n'est pas technique : c'est l'outil que
+l'équipe maîtrise. Un outil que les opérateurs connaissent bat un outil techniquement
+équivalent qu'ils découvrent à deux heures du matin pendant une bascule.
 
-Ordre croissant global (un script renuméroté est refusé) · somme de contrôle par script
-appliqué (un script modifié après coup est refusé) · continuité des versions vérifiée
-(un module absent du déploiement se voit au démarrage, pas au premier appel) · tout en
-une transaction sous verrou consultatif · **et il monte chaque base de test**, donc le
-chemin de déploiement est exercé à chaque build. Les scripts sont déclarés dans
-`db/migrations.list` plutôt que scannés, parce que l'énumération d'un répertoire n'est
-pas portable d'un jar à l'autre.
+#### Ce que le changement apporte réellement
 
-#### Ce que Liquibase apporterait, et qui manque
+Rien du côté de l'écriture : **les changelogs restent du SQL**, en format Liquibase
+`formatted sql` — deux lignes d'en-tête par fichier, et le SQL en dessous. L'argument
+« un format qu'un arrivant sait déjà lire » ne valait rien, puisque le SQL ne change pas.
 
-- **Le retour arrière.** `SchemaMigrator` n'en a pas : une migration se répare par une
-  migration. Liquibase sait générer un `rollback` — pas gratuitement, il faut l'écrire
-  pour chaque changement, et il reste inapplicable à une migration de données.
-- **La génération du SQL par moteur.** Sans intérêt ici : PostgreSQL est le seul moteur
-  visé, et le code utilise ses partitions et sa RLS.
-- **Un écosystème connu.** Un nouvel arrivant sait déjà lire un changelog Liquibase ; il
-  doit lire `SchemaMigrator` pour comprendre le nôtre. C'est le coût réel.
-- **Les commandes d'exploitation** (`status`, `tag`, `updateSQL` pour revue) — que
-  `SchemaMigrator` n'expose pas. Un DBA qui veut relire ce qui va s'appliquer avant de
-  l'appliquer n'a pas d'outil.
+Le gain est **opérationnel**, et c'est le seul qui compte :
 
-#### Le coût de changer maintenant
+| Commande | Ce qu'elle débloque |
+|---|---|
+| `liquibase:status` | Ce qui reste à appliquer. Répond à « prod et pré-prod portent-elles le même schéma ? » |
+| `liquibase:updateSQL` | Le SQL qui *s'appliquerait*, sans l'appliquer. Un DBA peut relire 4 500 lignes avant une fenêtre de production, au lieu d'appliquer à l'aveugle |
+| `liquibase:changelogSync` | Marquer une base existante à jour sans rejouer son histoire. **Sans cela, la reprise de la base de l'ancien core banking (P5) est impossible** |
+| `liquibase:history`, `liquibase:tag` | Ce qui a été appliqué et quand ; nommer un état pour une livraison |
 
-56 scripts à reprendre en changelog, la table de versions à convertir, et surtout
-`SchemaMigratorIT` — le test qui prouve la montée de version complète — à réécrire. Le
-gain principal serait la lisibilité pour un nouvel arrivant et les commandes
-d'exploitation.
+`update` n'est délibérément pas exposé : la montée de version se fait au démarrage de
+l'application, par le même chemin que les tests. Deux chemins de déploiement finiraient
+par diverger.
 
-**La décision reste ouverte, et elle est de la banque.** Ce document ne prétend plus
-qu'elle a été prise.
+#### Ce qui a été conservé
+
+**Chaque base de test est montée par le chemin de production.** C'était la propriété la
+plus précieuse du runner maison, et elle survit : `SchemaMigrator` est devenu un
+adaptateur de cinquante lignes devant Liquibase, et les 696 tests l'exercent à chaque
+build. On a cessé de tester son propre moteur de migration pour en utiliser un éprouvé.
+
+#### Ce que le changement a coûté
+
+Les 56 scripts, jusque-là répartis dans douze modules, vivent maintenant dans un module
+`schema-db` unique. Ce n'est pas une contrainte de Liquibase, c'est la vérité sur le
+schéma : **la numérotation a toujours été globale** — V9 (crédits) s'appuie sur V8
+(commissions), qui s'appuie sur V1 (registre) — et le découpage par module était une
+apparence. Chaque base de test applique désormais les 56 scripts au lieu d'un
+sous-ensemble : **la suite passe de 280 à 324 secondes**. C'est le prix, et il est dit.
+
+Aucun retour arrière n'est déclaré : une migration se répare par une migration, comme une
+écriture se contre-passe. Liquibase sait faire du `rollback` ; il faudrait l'écrire par
+changement, et il reste inapplicable à une migration de données.
 
 ---
 

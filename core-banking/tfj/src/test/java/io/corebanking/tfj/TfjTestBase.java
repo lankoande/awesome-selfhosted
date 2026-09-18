@@ -55,7 +55,7 @@ abstract class TfjTestBase {
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 8);
 
-        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
+        SchemaMigrator.migrate(database);
         SchemaMigrator.ensurePartitions(database, J1.minusMonths(1), J1.plusMonths(2));
 
         database.inTransaction(c -> {

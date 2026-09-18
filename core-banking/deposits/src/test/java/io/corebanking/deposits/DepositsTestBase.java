@@ -69,7 +69,7 @@ abstract class DepositsTestBase {
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 8);
 
-        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
+        SchemaMigrator.migrate(database);
         SchemaMigrator.ensurePartitions(database, J.minusMonths(15), J.plusMonths(3));
 
         database.inTransaction(c -> {

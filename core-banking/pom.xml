@@ -13,6 +13,7 @@
   <description>Socle core banking generique multi-pays. P0 : noyau comptable.</description>
 
   <modules>
+    <module>schema-db</module>
     <module>platform-kernel</module>
     <module>security-core</module>
     <module>security-keycloak</module>
@@ -49,6 +50,8 @@
     <zonky.binaries.version>16.2.0</zonky.binaries.version>
     <slf4j.version>2.0.13</slf4j.version>
     <checkstyle.version>10.21.1</checkstyle.version>
+    <liquibase.version>4.31.1</liquibase.version>
+    <commons-lang3.version>3.17.0</commons-lang3.version>
   </properties>
 
   <dependencyManagement>
@@ -56,6 +59,21 @@
       <dependency>
         <groupId>org.junit</groupId><artifactId>junit-bom</artifactId>
         <version>${junit.version}</version><type>pom</type><scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.liquibase</groupId>
+        <artifactId>liquibase-core</artifactId><version>${liquibase.version}</version>
+      </dependency>
+      <!--
+        Liquibase declare commons-lang3 3.17 ; opencsv, qu'il entraine, en declare
+        3.12, et Maven retient le plus proche — donc 3.12. Il manque alors
+        `SystemProperties`, et l'echec est un NoClassDefFoundError a la premiere
+        montee de version : rien a la compilation, tout a l'execution. La version
+        est donc fixee ici, ou elle se voit.
+      -->
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId><version>${commons-lang3.version}</version>
       </dependency>
       <dependency>
         <groupId>io.zonky.test.postgres</groupId>

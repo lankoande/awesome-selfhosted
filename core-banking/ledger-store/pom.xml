@@ -9,6 +9,15 @@
   <artifactId>ledger-store</artifactId>
   <name>ledger-store</name>
   <dependencies>
+    <dependency>
+      <groupId>io.corebanking</groupId>
+      <artifactId>schema-db</artifactId><version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.liquibase</groupId>
+      <artifactId>liquibase-core</artifactId>
+    </dependency>
+
     <dependency><groupId>io.corebanking</groupId><artifactId>platform-kernel</artifactId></dependency>
     <dependency><groupId>io.corebanking</groupId><artifactId>ledger-domain</artifactId></dependency>
     <dependency>

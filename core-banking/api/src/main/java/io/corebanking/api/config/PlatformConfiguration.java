@@ -73,8 +73,7 @@ public class PlatformConfiguration {
         PlatformProperties.Schema schema = properties.schema();
         if (schema.migrateOnStartup() && schema.ownerConfigured()) {
             try (Database owner = new Database(ds.url(), schema.username(), schema.password(), 1)) {
-                SchemaMigrator.Report report = SchemaMigrator.migrate(owner,
-                                                                      SchemaMigrator.Gaps.REFUSED);
+                SchemaMigrator.Report report = SchemaMigrator.migrate(owner);
                 LOG.info("Schema : version {} sous le compte proprietaire {}, {} script(s) applique(s)",
                          report.highest(), schema.username(), report.applied().size());
             }
@@ -85,7 +84,7 @@ public class PlatformConfiguration {
                      + "les migrations s'executent avec le compte applicatif, qui possede alors "
                      + "les tables et n'est soumis a aucun cloisonnement par la base. Acceptable "
                      + "en developpement, jamais en production.");
-            SchemaMigrator.migrate(database, SchemaMigrator.Gaps.REFUSED);
+            SchemaMigrator.migrate(database);
         }
         return database;
     }

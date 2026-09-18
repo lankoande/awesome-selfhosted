@@ -1,99 +1,70 @@
 package io.corebanking.ledger.store;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Le runner de migrations, sur le classpath de ce module : V1 et V16, rien entre les deux.
+ * La montee de version, depuis qu'elle passe par Liquibase.
  *
- * <p>Le trou est voulu — les scripts intermediaires appartiennent aux autres modules — et c'est
- * ce qui permet d'eprouver ici la difference entre un deploiement, qui le refuse, et les tests
- * d'un module, qui le tolerent.
+ * <p>Ce qui etait teste ici — ordre, somme de controle, verrou, refus d'un script renumerote —
+ * est desormais tenu par Liquibase, et le reverifier reviendrait a tester une bibliotheque
+ * eprouvee a la place de son propre code. Restent deux choses qui sont a nous.
+ *
+ * <p>La premiere est <b>l'accord entre les scripts livres et le changelog</b>. Un script depose
+ * dans {@code schema-db} mais oublie dans le changelog maitre ne s'appliquerait jamais, en
+ * silence : la base de test passerait, la production aussi, et le manque n'apparaitrait qu'au
+ * premier appel qui en a besoin. C'est exactement ce que la declaration par module garantissait
+ * avant, et il n'y a aucune raison de le perdre en changeant d'outil.
+ *
+ * <p>La seconde est que <b>la montee de version a bien eu lieu</b> : une base de test est montee
+ * par le meme chemin que la production, et le schema qui en sort porte les tables du registre.
  */
 class SchemaMigratorIT extends LedgerTestBase {
 
-    @Test
-    @DisplayName("les scripts declares sont decouverts avec leur version et leur somme de controle")
-    void discovery() {
-        Map<Integer, SchemaMigrator.Migration> found = SchemaMigrator.discover();
-        assertThat(found).containsKeys(1, 16);
-        assertThat(found.get(1).description()).isEqualTo("ledger_core");
-        assertThat(found.get(1).checksum()).hasSize(64);
-        assertThat(found.get(16).sql()).contains("pg_advisory_xact_lock");
-    }
+    private static final Pattern INCLUS = Pattern.compile("<include file=\"db/(V(\\d+)__[^\"]+)\"");
 
     @Test
-    @DisplayName("un deploiement refuse un classpath a trous ; les tests d'un module le tolerent")
-    void gaps() {
-        // Un module absent du deploiement se voit ici, pas au premier appel qui le demande.
-        assertThatThrownBy(() -> SchemaMigrator.migrate(database))
-            .isInstanceOf(SchemaMigrator.MigrationException.class)
-            .hasMessageContaining("versions absentes du classpath")
-            .hasMessageContaining("[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 19, 20, 22, 23, "
-                                  + "25, 27, 28, 29, 30, 31, 32, 33, 34, 35, 40, 41, 42, 43, 44]");
-
-        SchemaMigrator.Report report = SchemaMigrator.migrate(database,
-                                                              SchemaMigrator.Gaps.TOLERATED);
-        assertThat(report.applied()).isEmpty();        // la base de test est deja a niveau
-        assertThat(report.alreadyApplied()).isEqualTo(11);
-        assertThat(report.highest()).isEqualTo(45);
-    }
-
-    @Test
-    @DisplayName("un script modifie apres son application est refuse a la montee suivante")
-    void modifiedScriptIsRefused() {
-        String original = SchemaMigrator.discover().get(16).checksum();
-        setChecksum(16, "0000");
-        try {
-            assertThatThrownBy(() -> SchemaMigrator.migrate(database,
-                                                            SchemaMigrator.Gaps.TOLERATED))
-                .isInstanceOf(SchemaMigrator.MigrationException.class)
-                .hasMessageContaining("V16")
-                .hasMessageContaining("modifie apres son application");
-        } finally {
-            setChecksum(16, original);
+    @DisplayName("le changelog cite tous les scripts livres, dans l'ordre des versions")
+    void changelogCoversEveryScript() {
+        List<String> cites = new ArrayList<>();
+        List<Integer> versions = new ArrayList<>();
+        Matcher m = INCLUS.matcher(lire(SchemaMigrator.CHANGELOG));
+        while (m.find()) {
+            cites.add(m.group(1));
+            versions.add(Integer.valueOf(m.group(2)));
         }
+
+        assertThat(cites).as("le changelog maitre ne cite aucun script").isNotEmpty();
+        // Chaque script cite doit exister, sans quoi la montee de version echouerait au
+        // deploiement — donc en production, et non ici.
+        assertThat(cites).allSatisfy(nom ->
+            assertThat(SchemaMigrator.class.getClassLoader().getResource("db/" + nom))
+                .as("script cite mais absent : %s", nom).isNotNull());
+        // L'ordre est global et croissant : c'est la seule chose que la numerotation promet.
+        assertThat(versions).isSorted().doesNotHaveDuplicates();
     }
 
     @Test
-    @DisplayName("une version en base sans script sur le classpath signale un module disparu")
-    void vanishedModuleIsRefused() {
-        sql("INSERT INTO schema_version(version, description, checksum, duration_ms)"
-            + " VALUES (99, 'fantome', 'x', 0)");
-        try {
-            assertThatThrownBy(() -> SchemaMigrator.migrate(database,
-                                                            SchemaMigrator.Gaps.TOLERATED))
-                .isInstanceOf(SchemaMigrator.MigrationException.class)
-                .hasMessageContaining("V99")
-                .hasMessageContaining("un module a disparu du deploiement");
-        } finally {
-            sql("DELETE FROM schema_version WHERE version = 99");
-        }
-    }
+    @DisplayName("la base de test est montee par le chemin de deploiement, et porte le registre")
+    void testDatabaseIsMigratedByTheDeploymentPath() {
+        // Rejouer est sans effet : LedgerTestBase a deja monte cette base.
+        SchemaMigrator.Report rejeu = SchemaMigrator.migrate(database);
+        assertThat(rejeu.applied()).as("un rejeu ne reapplique rien").isEmpty();
+        assertThat(rejeu.alreadyApplied()).isPositive();
 
-    @Test
-    @DisplayName("un script decouvert sous une version deja depassee est refuse : l'ordre est rompu")
-    void outOfOrderScriptIsRefused() {
-        // V1 est retire du registre alors que la base est en V16 : le runner voudrait appliquer
-        // un script anterieur a l'etat courant. C'est la signature d'un script renumerote ou d'un
-        // module ajoute apres coup — et rien n'est execute, le refus precede tout.
-        String checksum = SchemaMigrator.discover().get(1).checksum();
-        sql("DELETE FROM schema_version WHERE version = 1");
-        try {
-            assertThatThrownBy(() -> SchemaMigrator.migrate(database,
-                                                            SchemaMigrator.Gaps.TOLERATED))
-                .isInstanceOf(SchemaMigrator.MigrationException.class)
-                .hasMessageContaining("ordre rompu")
-                .hasMessageContaining("V1 ");
-        } finally {
-            sql("INSERT INTO schema_version(version, description, checksum, duration_ms)"
-                + " VALUES (1, 'ledger_core', '" + checksum + "', 0)");
-        }
+        assertThat(compte("SELECT count(*) FROM information_schema.tables"
+                          + " WHERE table_schema = 'public' AND table_name = 'journal_entry'"))
+            .as("le registre est la").isEqualTo(1);
+        assertThat(compte("SELECT count(*) FROM databasechangelog")).isPositive();
     }
 
     @Test
@@ -117,17 +88,22 @@ class SchemaMigratorIT extends LedgerTestBase {
         assertThat(exists).isTrue();
     }
 
-    private static void setChecksum(int version, String checksum) {
-        sql("UPDATE schema_version SET checksum = '" + checksum + "' WHERE version = " + version);
+    private static String lire(String ressource) {
+        try (InputStream in = SchemaMigrator.class.getClassLoader().getResourceAsStream(ressource)) {
+            assertThat(in).as("ressource absente : %s", ressource).isNotNull();
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw new IllegalStateException(ressource, e);
+        }
     }
 
-    private static void sql(String statement) {
-        database.inTransaction(c -> {
-            try (var st = c.createStatement()) {
-                st.execute(statement);
-                return null;
+    private static int compte(String requete) {
+        return database.inTransaction(c -> {
+            try (var st = c.createStatement(); var rs = st.executeQuery(requete)) {
+                rs.next();
+                return rs.getInt(1);
             } catch (SQLException e) {
-                throw new LedgerStoreException(statement, e);
+                throw new LedgerStoreException(requete, e);
             }
         });
     }

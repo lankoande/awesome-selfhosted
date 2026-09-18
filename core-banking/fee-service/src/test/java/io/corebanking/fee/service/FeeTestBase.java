@@ -48,7 +48,7 @@ abstract class FeeTestBase {
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 8);
 
-        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
+        SchemaMigrator.migrate(database);
         SchemaMigrator.ensurePartitions(database, OUVERTURE.minusMonths(2), OUVERTURE.plusMonths(12));
 
         database.inTransaction(c -> {

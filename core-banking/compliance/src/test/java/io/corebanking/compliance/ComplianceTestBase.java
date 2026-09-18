@@ -50,7 +50,7 @@ abstract class ComplianceTestBase {
         postgres = EmbeddedPostgres.builder().start();
         database = new Database(
             "jdbc:postgresql://localhost:" + postgres.getPort() + "/postgres", "postgres", "", 4);
-        SchemaMigrator.migrate(database, SchemaMigrator.Gaps.TOLERATED);
+        SchemaMigrator.migrate(database);
         SchemaMigrator.ensurePartitions(database, J.minusMonths(6), J.plusMonths(3));
         postingService = new JdbcPostingService(database);
         database.inTransaction(c -> {
