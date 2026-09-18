@@ -85,12 +85,15 @@ main { flex: 1 1 auto; min-height: 0; }
 
 /* ------------------------------------------------------------ responsivité */
 
-/* Le seuil suit le nombre d'espaces, pas un chiffre rond. À six espaces —
+/* Le seuil suit le nombre d'espaces, pas un chiffre rond. Il est passé de 1800
+   à 2000 avec le huitième espace — les moyens de paiement : à 1920, la
+   navigation perdait cinquante-six pixels au profit de la recherche déployée,
+   et « Atelier » sortait de l'écran. À six espaces —
    guichet, clients, crédit, conformité, siège, validation, plus l'atelier — la
-   barre ne tient plus sous 1800 avec la recherche déployée, et c'est « Atelier »
+   barre ne tenait plus sous 1800 avec la recherche déployée, et c'est « Atelier »
    qui se tronquait : exactement ce que le poids de rétrécissement ci-dessus
    cherche à éviter. La recherche cède d'abord, en redevenant une icône. */
-@media (max-width: 1799px) {
+@media (max-width: 1999px) {
   .recherche span,
   .recherche cb-kbd { display: none; }
   /* Et elle rend sa largeur, pas seulement son texte : un bouton de 430 px de
@@ -105,6 +108,18 @@ main { flex: 1 1 auto; min-height: 0; }
 
 /* Les postes d'agence sont souvent des 1366×768 : la barre y tient encore, à
    condition de resserrer ses écarts. Vingt-trois pixels manquaient. */
+/* À huit espaces, la navigation ne tient plus sous 1500 : il manquait
+   cinquante-six pixels sur un portable de 1366, et les entrées de fin
+   passaient hors écran sans que rien ne le dise. Ce sont les deux réglages qui
+   cèdent leur valeur, pas leur nom : un bouton « Densité » dit ce qu'il fait,
+   alors qu'un bouton « confortable » ne dit plus rien. L'état, lui, se lit dans
+   l'interface elle-même — la densité et le thème se voient. Le nom accessible
+   du bouton reste entier, valeur comprise. On ne rogne pas la navigation : un
+   espace hors écran est un espace qu'on cesse d'ouvrir. */
+@media (max-width: 1499px) {
+  .reglage .valeur { display: none; }
+}
+
 @media (max-width: 1399px) {
   .barre { gap: var(--cb-space-3); }
 }

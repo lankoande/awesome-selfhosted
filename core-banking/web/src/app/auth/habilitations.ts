@@ -48,6 +48,12 @@ export const OPERATION_PAR_ECRAN: Readonly<Record<string, string>> = {
   'reglementaire/etat': 'REGULATORY_READ',
   'reglementaire/declarations': 'REGULATORY_READ',
   'reglementaire/fiscalite': 'REGULATORY_READ',
+  // Les moyens de paiement. Chaque file se lit avec le droit de lecture de son
+  // instrument ; les actes qui dénouent un engagement portent un droit distinct,
+  // et les écrans s'en servent sans que la navigation le fasse.
+  'paiements/virements': 'PAYMENT_READ',
+  'paiements/remises': 'CHEQUE_READ',
+  'paiements/prelevements': 'DIRECT_DEBIT_READ',
   'guichet/versement': 'CASH_OPERATION',
   'guichet/retrait': 'CASH_OPERATION',
   'guichet/virement': 'TRANSFER',

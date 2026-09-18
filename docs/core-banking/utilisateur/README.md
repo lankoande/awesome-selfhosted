@@ -26,7 +26,8 @@ source ; une correction faite dans le Word serait perdue à la génération suiv
 | Exploitant comptable, siège | [1. Prise en main](01-prise-en-main.md) | [8. L'espace siège](08-siege.md) |
 | Analyste conformité, responsable LCB-FT | [1. Prise en main](01-prise-en-main.md) | [9. La conformité](09-conformite.md) |
 | Exploitant comptable, réglementaire | [1. Prise en main](01-prise-en-main.md) | [10. Le réglementaire](10-reglementaire.md), [8. L'espace siège](08-siege.md) |
-| Tout le monde, quand ça coince | [11. Messages, refus et états](11-messages.md) | — |
+| Service des moyens de paiement | [1. Prise en main](01-prise-en-main.md) | [11. Les moyens de paiement](11-paiements.md) |
+| Tout le monde, quand ça coince | [12. Messages, refus et états](12-messages.md) | — |
 
 ## Trois choses à savoir avant tout le reste
 
@@ -36,7 +37,7 @@ est annoncé comme une **projection** ; les chiffres qui font foi sont ceux du r
 comptabilisation. Si les deux diffèrent, c'est le reçu qui a raison, et il faut le signaler.
 
 **2. Un refus n'est pas une panne.** Quand le socle refuse, il dit pourquoi, et l'écran vous
-montre sa raison telle quelle, avec son code. Le [chapitre 11](11-messages.md) traduit ces codes
+montre sa raison telle quelle, avec son code. Le [chapitre 12](12-messages.md) traduit ces codes
 en gestes. Ne recommencez pas une opération refusée « pour voir » : lisez le motif.
 
 **3. Le réseau peut tomber, et l'écran vous dira quoi faire.** Selon l'opération, deux conduites,

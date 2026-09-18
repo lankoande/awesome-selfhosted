@@ -1,0 +1,250 @@
+<div class="ecran">
+  <div class="colonne-file">
+    <cb-toolbar>
+      <h1>Remises de chèques</h1>
+      <span class="compte">
+        {{ lignes().length }} sur cette page@if (aLEncaissement() > 0) {,
+        <strong>{{ aLEncaissement() }} à l'encaissement</strong>}
+      </span>
+      @if (droitDeRemettre() && !saisieOuverte()) {
+        <button type="button" cbButton="primaire" (click)="ouvrirLaSaisie()">Nouvelle remise</button>
+      }
+      <button fin type="button" cbButton="secondaire" [disabled]="travaille()" (click)="charger()">
+        Rafraîchir
+      </button>
+    </cb-toolbar>
+
+    <p class="rappel">
+      Une remise est <strong>créditée sauf bonne fin</strong> : le solde du client monte, son
+      disponible non. Le montant reste bloqué jusqu'au règlement de la banque tirée.
+    </p>
+
+    <nav class="filtres" aria-label="Filtrer par état">
+      <button type="button" [class.actif]="filtre() === null"
+              [attr.aria-pressed]="filtre() === null" (click)="filtrer(null)">Toutes</button>
+      @for (statut of STATUTS; track statut) {
+        <button type="button" [class.actif]="filtre() === statut"
+                [attr.aria-pressed]="filtre() === statut" (click)="filtrer(statut)">
+          {{ LIBELLE_STATUT_REMISE[statut] }}
+        </button>
+      }
+    </nav>
+
+    <cb-activity [enCours]="travaille()" libelle="Lecture des remises…" />
+
+    <div class="cb-table-scroll">
+      <table cbTable>
+        <caption class="cb-visually-hidden">Remises de chèques</caption>
+        <thead>
+          <tr>
+            <th scope="col">Référence</th>
+            <th scope="col">Banque tirée</th>
+            <th scope="col">Chèque</th>
+            <th scope="col" class="cb-num">Montant</th>
+            <th scope="col">Remise le</th>
+            <th scope="col">État</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (remise of lignes(); track remise.id) {
+            <tr [class.choisie]="remise.id === choisie()?.id">
+              <td class="cb-ref">
+                <button type="button" class="lien" (click)="ouvrir(remise)">{{ remise.id }}</button>
+              </td>
+              <td>
+                <span class="nom">{{ remise.draweeBank }}</span>
+                <span class="banque">{{ remise.drawerName || 'tireur non renseigné' }}</span>
+              </td>
+              <td class="cb-mono">{{ remise.chequeNumber }}</td>
+              <td class="cb-num">
+                <cb-amount [valeur]="remise.amount.amount" [devise]="remise.amount.currency" />
+              </td>
+              <td class="cb-mono">{{ remise.depositedOn }}</td>
+              <td>
+                <cb-state-badge [etat]="etatDe(remise)"
+                                [mot]="LIBELLE_STATUT_REMISE[remise.status]" />
+              </td>
+            </tr>
+          } @empty {
+            @if (phase() === 'prete') {
+              <tr><td colspan="6" class="vide">
+                @if (filtre()) {
+                  Aucune remise dans cet état. Retirez le filtre pour voir la file entière.
+                } @else {
+                  Aucune remise de chèque.
+                }
+              </td></tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <cb-pagination
+      [position]="'Page ' + (page() + 1)"
+      [taille]="taille()"
+      [precedent]="precedent()"
+      [suivant]="suivant()"
+      (reculer)="changerPage(-1)"
+      (avancer)="changerPage(1)" />
+  </div>
+
+  <div class="colonne-detail">
+    @if (refus(); as r) {
+      <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+        @if (r.detail) { {{ r.detail }} }
+      </cb-notice>
+    }
+
+    @if (acquitte(); as message) {
+      <cb-notice nature="succes" titre="Enregistré">{{ message }}</cb-notice>
+    }
+
+    @if (saisieOuverte()) {
+      <cb-section titre="Nouvelle remise" indication="créditée sauf bonne fin">
+        <p class="pourquoi">
+          Le compte est crédité à l'enregistrement, et le montant <strong>bloqué</strong> jusqu'au
+          règlement. Dites-le au client : son solde va monter, son disponible non.
+        </p>
+
+        <div class="grille">
+          <cb-field etiquette="Compte à créditer" pour="compte" requis>
+            <input cbInput id="compte" name="compte" autocomplete="off" class="cb-mono"
+                   [value]="compte()" (input)="compte.set($any($event.target).value)" />
+          </cb-field>
+
+          <cb-field etiquette="Montant" pour="montant" requis>
+            <cb-amount-input champId="montant" [devise]="demande().currency"
+                             [valeur]="montant()" (valeurChange)="montant.set($event)" />
+          </cb-field>
+
+          <cb-field etiquette="Banque tirée" pour="banque-tiree" requis
+                    aide="Celle qui paiera le chèque.">
+            <input cbInput id="banque-tiree" name="banque-tiree" autocomplete="off"
+                   [value]="banqueTiree()"
+                   (input)="banqueTiree.set($any($event.target).value)" />
+          </cb-field>
+
+          <cb-field etiquette="Numéro du chèque" pour="numero" requis
+                    aide="Ce qui distingue deux remises du même montant.">
+            <input cbInput id="numero" name="numero" autocomplete="off" class="cb-mono"
+                   [value]="numeroCheque()"
+                   (input)="numeroCheque.set($any($event.target).value)" />
+          </cb-field>
+
+          <cb-field etiquette="Tireur" pour="tireur"
+                    aide="Celui qui a émis le chèque, tel qu'il y figure.">
+            <input cbInput id="tireur" name="tireur" autocomplete="off" [value]="tireur()"
+                   (input)="tireur.set($any($event.target).value)" />
+          </cb-field>
+        </div>
+
+        @if (obstacles().length > 0) {
+          <cb-notice nature="avertissement" titre="Cette remise ne peut pas être enregistrée">
+            <ul class="obstacles">
+              @for (obstacle of obstacles(); track obstacle) {
+                <li>{{ obstacle }}</li>
+              }
+            </ul>
+          </cb-notice>
+        }
+
+        <div class="actions">
+          <button type="button" cbButton="primaire"
+                  [disabled]="travaille() || obstacles().length > 0" (click)="remettre()">
+            Enregistrer la remise
+          </button>
+          <button type="button" cbButton="discret" [disabled]="travaille()"
+                  (click)="fermerLaSaisie()">Annuler</button>
+        </div>
+      </cb-section>
+    }
+
+    @if (choisie(); as remise) {
+      <cb-section [titre]="remise.draweeBank" [indication]="remise.id">
+        <div class="entete-detail">
+          <cb-state-badge [etat]="etatDe(remise)" [mot]="LIBELLE_STATUT_REMISE[remise.status]" />
+          <cb-amount [valeur]="remise.amount.amount" [devise]="remise.amount.currency"
+                     ton="accent" />
+        </div>
+
+        <p class="attente">{{ ATTENTE_REMISE[remise.status] }}</p>
+
+        <dl class="fiche">
+          <dt>Numéro du chèque</dt><dd class="cb-mono">{{ remise.chequeNumber }}</dd>
+          <dt>Tireur</dt><dd>{{ remise.drawerName || '—' }}</dd>
+          <dt>Remise le</dt><dd class="cb-mono">{{ remise.depositedOn }}</dd>
+          <dt>Date de valeur</dt><dd class="cb-mono">{{ remise.valueDate || '—' }}</dd>
+          @if (remise.settledOn) { <dt>Réglée le</dt><dd class="cb-mono">{{ remise.settledOn }}</dd> }
+          @if (remise.returnedOn) {
+            <dt>Retournée le</dt><dd class="cb-mono">{{ remise.returnedOn }}</dd>
+          }
+        </dl>
+
+        @if (remise.returnReason) {
+          <p class="motif-rendu">
+            <span class="cb-caps">Motif de l'impayé</span>{{ remise.returnReason }}
+          </p>
+        }
+      </cb-section>
+
+      @if (!droitDeTraiter()) {
+        <cb-notice nature="information" titre="Vous lisez la file, vous ne la traitez pas">
+          Régler ou retourner une remise lève ou reprend le crédit d'un client. Votre profil ne
+          porte pas <span class="cb-mono">CHEQUE_PROCESS</span> : ces actes reviennent au service
+          des moyens de paiement.
+        </cb-notice>
+      } @else if (acteEnCours(); as acte) {
+        <cb-section [titre]="LIBELLE_ACTE[acte]" indication="à confirmer">
+          @if (exigeUnNostro()) {
+            <cb-field etiquette="Compte nostro" pour="nostro" requis
+                      aide="Le compte de correspondant sur lequel la banque tirée a réglé.">
+              <input cbInput id="nostro" name="nostro" autocomplete="off" class="cb-mono"
+                     [value]="nostro()" (input)="nostro.set($any($event.target).value)" />
+            </cb-field>
+            <p class="pourquoi">
+              Le règlement lève le blocage : le client dispose des fonds dès cet instant.
+            </p>
+          }
+          @if (exigeUnMotif()) {
+            <cb-field etiquette="Motif de l'impayé" pour="motif" requis
+                      aide="Il reste au dossier et remonte au client.">
+              <textarea cbInput id="motif" rows="3" [value]="motif()"
+                        (input)="motif.set($any($event.target).value)"></textarea>
+            </cb-field>
+            <p class="pourquoi">
+              Le crédit est <strong>contre-passé</strong> et le blocage levé : le client retrouve
+              le solde qu'il avait avant la remise. Il l'apprendra sur son relevé — le motif est ce
+              qui le lui explique.
+            </p>
+          }
+
+          <div class="actions">
+            <button type="button" [cbButton]="acte === 'RETOURNER' ? 'danger' : 'primaire'"
+                    [disabled]="!peutConfirmer()" (click)="confirmer()">
+              Confirmer — {{ LIBELLE_ACTE[acte] }}
+            </button>
+            <button type="button" cbButton="discret" [disabled]="travaille()"
+                    (click)="abandonner()">Revenir</button>
+          </div>
+        </cb-section>
+      } @else if (actes().length > 0) {
+        <div class="actions">
+          @for (acte of actes(); track acte) {
+            <button type="button" [cbButton]="acte === 'RETOURNER' ? 'danger' : 'primaire'"
+                    [disabled]="travaille()" (click)="demarrer(acte)">
+              {{ LIBELLE_ACTE[acte] }}…
+            </button>
+          }
+        </div>
+      } @else {
+        <cb-notice nature="information" titre="Cette remise est dénouée">
+          Il ne reste rien à faire. Un chèque revenu impayé se represente par une nouvelle remise,
+          pas en revenant sur celle-ci.
+        </cb-notice>
+      }
+    } @else if (phase() === 'prete' && !saisieOuverte()) {
+      <p class="rien">Choisissez une remise pour l'examiner.</p>
+    }
+  </div>
+</div>

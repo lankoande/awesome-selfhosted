@@ -1,0 +1,245 @@
+<div class="ecran">
+  <div class="colonne-file">
+    <cb-toolbar>
+      <h1>Prélèvements</h1>
+      <span class="compte">
+        {{ lignes().length }} sur cette page@if (enAttente() > 0) {,
+        <strong>{{ enAttente() }} en attente d'échéance</strong>}
+      </span>
+      <button fin type="button" cbButton="secondaire" [disabled]="travaille()" (click)="charger()">
+        Rafraîchir
+      </button>
+    </cb-toolbar>
+
+    <p class="rappel">
+      <strong>Le poste n'exécute pas un prélèvement.</strong> Le passage de « en attente » à
+      « exécuté » est le travail du traitement de fin de journée, à l'échéance. Ici, on retire,
+      on règle, on retourne.
+    </p>
+
+    <nav class="filtres" aria-label="Filtrer par sens">
+      <button type="button" [class.actif]="sens() === null" [attr.aria-pressed]="sens() === null"
+              (click)="filtrerSens(null)">Les deux sens</button>
+      <button type="button" [class.actif]="sens() === 'RECEIVED'"
+              [attr.aria-pressed]="sens() === 'RECEIVED'" (click)="filtrerSens('RECEIVED')">
+        Reçus
+      </button>
+      <button type="button" [class.actif]="sens() === 'ISSUED'"
+              [attr.aria-pressed]="sens() === 'ISSUED'" (click)="filtrerSens('ISSUED')">
+        Émis
+      </button>
+    </nav>
+
+    <nav class="filtres" aria-label="Filtrer par état">
+      <button type="button" [class.actif]="filtre() === null"
+              [attr.aria-pressed]="filtre() === null" (click)="filtrer(null)">Tous</button>
+      @for (statut of STATUTS; track statut) {
+        <button type="button" [class.actif]="filtre() === statut"
+                [attr.aria-pressed]="filtre() === statut" (click)="filtrer(statut)">
+          {{ LIBELLE_STATUT_PRELEVEMENT[statut] }}
+        </button>
+      }
+    </nav>
+
+    <cb-activity [enCours]="travaille()" libelle="Lecture des prélèvements…" />
+
+    <div class="cb-table-scroll">
+      <table cbTable>
+        <caption class="cb-visually-hidden">Prélèvements reçus et émis</caption>
+        <thead>
+          <tr>
+            <th scope="col">Référence</th>
+            <th scope="col">Sens</th>
+            <th scope="col">Contrepartie</th>
+            <th scope="col" class="cb-num">Montant</th>
+            <th scope="col">Échéance</th>
+            <th scope="col">État</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (prelevement of lignes(); track prelevement.id) {
+            <tr [class.choisie]="prelevement.id === choisi()?.id">
+              <td class="cb-ref">
+                <button type="button" class="lien" (click)="ouvrir(prelevement)">
+                  {{ prelevement.id }}
+                </button>
+              </td>
+              <td>{{ LIBELLE_SENS[prelevement.direction] }}</td>
+              <td>
+                <span class="nom">{{ prelevement.counterpartyName || '—' }}</span>
+                <span class="banque">{{ prelevement.mandateReference || 'sans mandat' }}</span>
+              </td>
+              <td class="cb-num">
+                <cb-amount [valeur]="prelevement.amount.amount"
+                           [devise]="prelevement.amount.currency" />
+              </td>
+              <td class="cb-mono">{{ prelevement.dueDate }}</td>
+              <td>
+                <cb-state-badge [etat]="etatDe(prelevement)"
+                                [mot]="LIBELLE_STATUT_PRELEVEMENT[prelevement.status]" />
+              </td>
+            </tr>
+          } @empty {
+            @if (phase() === 'prete') {
+              <tr><td colspan="6" class="vide">
+                @if (filtre() || sens()) {
+                  Aucun prélèvement dans cette sélection. Retirez les filtres pour voir la file
+                  entière.
+                } @else {
+                  Aucun prélèvement.
+                }
+              </td></tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <cb-pagination
+      [position]="'Page ' + (page() + 1)"
+      [taille]="taille()"
+      [precedent]="precedent()"
+      [suivant]="suivant()"
+      (reculer)="changerPage(-1)"
+      (avancer)="changerPage(1)" />
+  </div>
+
+  <div class="colonne-detail">
+    @if (refus(); as r) {
+      <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+        @if (r.detail) { {{ r.detail }} }
+      </cb-notice>
+    }
+
+    @if (acquitte(); as message) {
+      <cb-notice nature="succes" titre="Enregistré">{{ message }}</cb-notice>
+    }
+
+    @if (choisi(); as prelevement) {
+      <cb-section [titre]="prelevement.counterpartyName || prelevement.id"
+                  [indication]="LIBELLE_SENS[prelevement.direction] + ' · ' + prelevement.id">
+        <div class="entete-detail">
+          <cb-state-badge [etat]="etatDe(prelevement)"
+                          [mot]="LIBELLE_STATUT_PRELEVEMENT[prelevement.status]" />
+          <cb-amount [valeur]="prelevement.amount.amount" [devise]="prelevement.amount.currency"
+                     ton="accent" />
+        </div>
+
+        <p class="attente">{{ ATTENTE_PRELEVEMENT[prelevement.status] }}</p>
+
+        <dl class="fiche">
+          <dt>Sens</dt>
+          <dd>
+            {{ LIBELLE_SENS[prelevement.direction] }}
+            @if (prelevement.direction === 'RECEIVED') {
+              — un créancier prélève sur un compte de la banque
+            } @else {
+              — un client de la banque prélève ailleurs
+            }
+          </dd>
+          <dt>Mandat</dt><dd class="cb-mono">{{ prelevement.mandateReference || '—' }}</dd>
+          <dt>Référence</dt><dd>{{ prelevement.reference || '—' }}</dd>
+          @if (prelevement.counterpartyBank) {
+            <dt>Banque</dt><dd>{{ prelevement.counterpartyBank }}</dd>
+            <dt>Compte</dt><dd class="cb-mono">{{ prelevement.counterpartyAccount || '—' }}</dd>
+          }
+          @if (prelevement.fee) {
+            <dt>Frais</dt>
+            <dd><cb-amount [valeur]="prelevement.fee.amount" [devise]="prelevement.fee.currency" /></dd>
+          }
+          <dt>Échéance</dt><dd class="cb-mono">{{ prelevement.dueDate }}</dd>
+          <dt>Présenté le</dt><dd class="cb-mono">{{ prelevement.presentedOn || '—' }}</dd>
+          @if (prelevement.executedOn) {
+            <dt>Exécuté le</dt><dd class="cb-mono">{{ prelevement.executedOn }}</dd>
+          }
+          @if (prelevement.settledOn) {
+            <dt>Réglé le</dt><dd class="cb-mono">{{ prelevement.settledOn }}</dd>
+          }
+          @if (prelevement.closedOn) {
+            <dt>Clos le</dt><dd class="cb-mono">{{ prelevement.closedOn }}</dd>
+          }
+        </dl>
+
+        @if (prelevement.rejectionReason) {
+          <p class="motif-rendu">
+            <span class="cb-caps">Motif du rejet</span>{{ prelevement.rejectionReason }}
+          </p>
+        }
+        @if (prelevement.closeReason) {
+          <p class="motif-rendu">
+            <span class="cb-caps">Motif</span>{{ prelevement.closeReason }}
+          </p>
+        }
+      </cb-section>
+
+      @if (!droitDeTraiter()) {
+        <cb-notice nature="information" titre="Vous lisez la file, vous ne la traitez pas">
+          Régler, retirer ou rembourser un prélèvement mouvemente le compte d'un client. Votre
+          profil ne porte pas <span class="cb-mono">DIRECT_DEBIT_PROCESS</span> : ces actes
+          reviennent au service des moyens de paiement.
+        </cb-notice>
+      } @else if (acteEnCours(); as acte) {
+        <cb-section [titre]="libelleActe(acte, prelevement)" indication="à confirmer">
+          @if (exigeUnNostro()) {
+            <cb-field etiquette="Compte nostro" pour="nostro" requis
+                      aide="Le compte de correspondant du règlement, dans la devise du prélèvement.">
+              <input cbInput id="nostro" name="nostro" autocomplete="off" class="cb-mono"
+                     [value]="nostro()" (input)="nostro.set($any($event.target).value)" />
+            </cb-field>
+          }
+          @if (exigeUnMotif()) {
+            <cb-field etiquette="Motif" pour="motif" requis
+                      aide="Il reste au dossier et remonte au client.">
+              <textarea cbInput id="motif" rows="3" [value]="motif()"
+                        (input)="motif.set($any($event.target).value)"></textarea>
+            </cb-field>
+            @if (acte === 'REMBOURSER') {
+              <p class="pourquoi">
+                Le montant revient au débiteur qui conteste ; <strong>les frais restent
+                acquis</strong> — le service a été rendu. C'est le créancier qui devra se retourner
+                vers lui, pas la banque.
+              </p>
+            }
+            @if (acte === 'RETOURNER') {
+              <p class="pourquoi">
+                Le débiteur d'ailleurs n'a pas payé. Le crédit consenti sauf bonne fin est repris
+                au client créancier ; <strong>les frais restent acquis</strong>.
+              </p>
+            }
+          }
+
+          <div class="actions">
+            <button type="button"
+                    [cbButton]="acte === 'REGLER' ? 'primaire' : 'danger'"
+                    [disabled]="!peutConfirmer()" (click)="confirmer()">
+              Confirmer — {{ libelleActe(acte, prelevement) }}
+            </button>
+            <button type="button" cbButton="discret" [disabled]="travaille()"
+                    (click)="abandonner()">Revenir</button>
+          </div>
+        </cb-section>
+      } @else if (actes().length > 0) {
+        <div class="actions">
+          @for (acte of actes(); track acte) {
+            <button type="button" [cbButton]="acte === 'REGLER' ? 'primaire' : 'danger'"
+                    [disabled]="travaille()" (click)="demarrer(acte)">
+              {{ libelleActe(acte, prelevement) }}@if (acte !== 'REGLER') {…}
+            </button>
+          }
+        </div>
+      } @else if (prelevement.status === 'PENDING') {
+        <cb-notice nature="information" titre="Il attend son échéance">
+          Le traitement de fin de journée l'exécutera au {{ prelevement.dueDate }}. Rien à faire
+          d'ici là.
+        </cb-notice>
+      } @else {
+        <cb-notice nature="information" titre="Ce prélèvement est clos">
+          Il ne reste rien à faire. Un créancier qui veut réessayer présente un nouveau
+          prélèvement, il ne rouvre pas celui-ci.
+        </cb-notice>
+      }
+    } @else if (phase() === 'prete') {
+      <p class="rien">Choisissez un prélèvement pour l'examiner.</p>
+    }
+  </div>
+</div>

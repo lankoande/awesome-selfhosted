@@ -45,6 +45,9 @@ const CHEMINS = [
   'reglementaire/echeances', 'reglementaire/etats',
   'reglementaire/etats/et-sit-aout', 'reglementaire/etats/et-sit-sept',
   'reglementaire/declarations', 'reglementaire/fiscalite',
+  // Les moyens de paiement : les trois files, avec un objet ouvert sur chacune
+  // — c'est le détail et ses actes qui chargent le plus l'écran.
+  'paiements/virements', 'paiements/remises', 'paiements/prelevements',
   // Le siège : l'exploitation, la balance, puis le paramétrage — l'établissement
   // et le plan de numérotation, dont l'éditeur de gabarit est l'écran le plus
   // chargé du poste.

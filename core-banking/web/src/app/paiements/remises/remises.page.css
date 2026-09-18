@@ -1,0 +1,148 @@
+:host { display: block; }
+
+.ecran {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--cb-space-5);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+  align-items: start;
+}
+
+/* Sous 1280 px, le détail passe sous la file : deux colonnes serrées rendraient
+   la table illisible et le formulaire inutilisable. */
+@media (max-width: 1280px) {
+  .ecran { grid-template-columns: minmax(0, 1fr); }
+}
+
+.colonne-file, .colonne-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  min-width: 0;
+}
+
+.compte { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+
+/* Les états : une barre de filtres qui défile plutôt que de se replier. */
+.filtres {
+  display: flex;
+  gap: var(--cb-space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.filtres::-webkit-scrollbar { display: none; }
+
+.filtres button {
+  flex-shrink: 0;
+  height: var(--cb-tap-h);
+  padding: 0 var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  background: var(--cb-panel);
+  color: var(--cb-muted);
+  font: inherit;
+  font-size: var(--cb-fs-sm);
+  cursor: pointer;
+}
+
+.filtres button:hover { color: var(--cb-ink); }
+
+.filtres button.actif {
+  background: var(--cb-accent);
+  border-color: var(--cb-accent);
+  color: var(--cb-accent-contraste);
+  font-weight: 600;
+}
+
+.lien {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cb-row-h);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cb-accent);
+  font: inherit;
+  font-family: var(--cb-font-mono);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.nom { display: block; }
+.banque { display: block; font-size: var(--cb-fs-xs); color: var(--cb-muted); }
+.choisie { background: var(--cb-surface-choisie, var(--cb-panel)); }
+.vide { color: var(--cb-muted); padding: var(--cb-space-4); }
+.rien { color: var(--cb-muted); }
+
+.entete-detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cb-space-3);
+  margin-bottom: var(--cb-space-3);
+}
+
+/* Ce que l'objet attend, au présent : c'est la phrase que l'agent répétera au
+   client qui appelle. Elle se lit avant la fiche. */
+.attente {
+  margin: 0 0 var(--cb-space-4);
+  padding-left: var(--cb-space-3);
+  border-left: 2px solid var(--cb-accent);
+  color: var(--cb-ink);
+  font-size: var(--cb-fs-sm);
+  max-width: 60ch;
+}
+
+.fiche {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--cb-space-1) var(--cb-space-4);
+  margin: 0;
+  max-width: 42rem;
+}
+
+.fiche dt { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+.fiche dd { margin: 0; overflow-wrap: anywhere; }
+
+.motif-rendu {
+  margin: var(--cb-space-3) 0 0;
+  font-size: var(--cb-fs-sm);
+  max-width: 60ch;
+}
+
+.motif-rendu .cb-caps { display: block; color: var(--cb-muted); }
+
+.pourquoi {
+  margin: 0 0 var(--cb-space-4);
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+  max-width: 62ch;
+}
+
+.grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--cb-space-3) var(--cb-space-4);
+}
+
+.obstacles { margin: 0; padding-left: var(--cb-space-4); }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cb-space-3);
+  margin-top: var(--cb-space-4);
+}
+
+/* Le rappel du crédit sauf bonne fin : il tient en tête de file, parce que
+   c'est la question que tous les clients posent. */
+.rappel {
+  margin: 0;
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+  max-width: 78ch;
+}

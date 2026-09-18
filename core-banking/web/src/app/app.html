@@ -17,6 +17,9 @@
     @if (espaceVisible('credit/')) {
       <a routerLink="/credit" routerLinkActive="actif">Crédit</a>
     }
+    @if (espaceVisible('paiements/')) {
+      <a routerLink="/paiements" routerLinkActive="actif">Paiements</a>
+    }
     @if (espaceVisible('conformite/')) {
       <a routerLink="/conformite" routerLinkActive="actif">Conformité</a>
     }
@@ -41,11 +44,15 @@
 
   <span class="ressort"></span>
 
-  <button type="button" cbButton="discret" class="reglage" (click)="apparence.basculerDensite()">
-    Densité : {{ apparence.densite() === 'compact' ? 'compacte' : 'confortable' }}
+  <button type="button" cbButton="discret" class="reglage"
+          [attr.aria-label]="'Densité : ' + (apparence.densite() === 'compact' ? 'compacte' : 'confortable') + ', changer'"
+          (click)="apparence.basculerDensite()">
+    Densité<span class="valeur"> : {{ apparence.densite() === 'compact' ? 'compacte' : 'confortable' }}</span>
   </button>
-  <button type="button" cbButton="discret" class="reglage" (click)="apparence.basculerTheme()">
-    Thème : {{ apparence.theme() === 'dark' ? 'sombre' : 'clair' }}
+  <button type="button" cbButton="discret" class="reglage"
+          [attr.aria-label]="'Thème : ' + (apparence.theme() === 'dark' ? 'sombre' : 'clair') + ', changer'"
+          (click)="apparence.basculerTheme()">
+    Thème<span class="valeur"> : {{ apparence.theme() === 'dark' ? 'sombre' : 'clair' }}</span>
   </button>
 
   @if (porteur(); as p) {

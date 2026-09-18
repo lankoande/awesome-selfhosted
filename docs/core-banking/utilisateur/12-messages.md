@@ -1,4 +1,4 @@
-# 11. Messages, refus et états
+# 12. Messages, refus et états
 
 La page à ouvrir quand quelque chose ne va pas. Chaque entrée dit **ce que c'est** et **le geste
 à faire**.

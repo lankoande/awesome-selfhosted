@@ -1,0 +1,265 @@
+<div class="ecran">
+  <div class="colonne-file">
+    <cb-toolbar>
+      <h1>Virements émis</h1>
+      <span class="compte">
+        {{ lignes().length }} sur cette page@if (aTraiter() > 0) {,
+        <strong>{{ aTraiter() }} à traiter</strong>}
+      </span>
+      @if (droitDOrdonner() && !saisieOuverte()) {
+        <button type="button" cbButton="primaire" (click)="ouvrirLaSaisie()">Nouvel ordre</button>
+      }
+      <button fin type="button" cbButton="secondaire" [disabled]="travaille()" (click)="charger()">
+        Rafraîchir
+      </button>
+    </cb-toolbar>
+
+    <nav class="filtres" aria-label="Filtrer par état">
+      <button type="button" [class.actif]="filtre() === null" [attr.aria-pressed]="filtre() === null"
+              (click)="filtrer(null)">Tous</button>
+      @for (statut of STATUTS; track statut) {
+        <button type="button" [class.actif]="filtre() === statut"
+                [attr.aria-pressed]="filtre() === statut" (click)="filtrer(statut)">
+          {{ LIBELLE_STATUT_ORDRE[statut] }}
+        </button>
+      }
+    </nav>
+
+    <cb-activity [enCours]="travaille()" libelle="Lecture des ordres…" />
+
+    <div class="cb-table-scroll">
+      <table cbTable>
+        <caption class="cb-visually-hidden">Ordres de paiement sortants</caption>
+        <thead>
+          <tr>
+            <th scope="col">Référence</th>
+            <th scope="col">Bénéficiaire</th>
+            <th scope="col" class="cb-num">Montant</th>
+            <th scope="col">Ordonné le</th>
+            <th scope="col">État</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (ordre of lignes(); track ordre.id) {
+            <tr [class.choisie]="ordre.id === choisi()?.id">
+              <td class="cb-ref">
+                <button type="button" class="lien" (click)="ouvrir(ordre)">{{ ordre.id }}</button>
+              </td>
+              <td>
+                <span class="nom">{{ ordre.beneficiaryName }}</span>
+                <span class="banque">{{ ordre.beneficiaryBank }}</span>
+              </td>
+              <td class="cb-num">
+                <cb-amount [valeur]="ordre.amount.amount" [devise]="ordre.amount.currency" />
+              </td>
+              <td class="cb-mono">{{ ordre.orderedOn }}</td>
+              <td>
+                <cb-state-badge [etat]="etatDe(ordre)" [mot]="LIBELLE_STATUT_ORDRE[ordre.status]" />
+              </td>
+            </tr>
+          } @empty {
+            @if (phase() === 'prete') {
+              <tr><td colspan="5" class="vide">
+                @if (filtre()) {
+                  Aucun ordre dans cet état. Retirez le filtre pour voir la file entière.
+                } @else {
+                  Aucun ordre de paiement sortant.
+                }
+              </td></tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <cb-pagination
+      [position]="'Page ' + (page() + 1)"
+      [taille]="taille()"
+      [precedent]="precedent()"
+      [suivant]="suivant()"
+      (reculer)="changerPage(-1)"
+      (avancer)="changerPage(1)" />
+  </div>
+
+  <div class="colonne-detail">
+    @if (refus(); as r) {
+      <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+        @if (r.detail) { {{ r.detail }} }
+      </cb-notice>
+    }
+
+    @if (acquitte(); as message) {
+      <cb-notice nature="succes" titre="Enregistré">{{ message }}</cb-notice>
+    }
+
+    @if (saisieOuverte()) {
+      <cb-section titre="Nouvel ordre de paiement" indication="le compte est débité à l'enregistrement">
+        <p class="pourquoi">
+          L'ordre débite le compte du client <strong>tout de suite</strong>, frais et taxe compris,
+          et le montant attend sur un compte de règlement sortant. Rien ne part avant l'envoi.
+        </p>
+
+        <div class="grille">
+          <cb-field etiquette="Compte à débiter" pour="compte" requis
+                    aide="L'identifiant du compte, tel que le dossier client le donne.">
+            <input cbInput id="compte" name="compte" autocomplete="off" class="cb-mono"
+                   [value]="compte()" (input)="compte.set($any($event.target).value)" />
+          </cb-field>
+
+          <cb-field etiquette="Montant" pour="montant" requis>
+            <cb-amount-input champId="montant" [devise]="demande().currency"
+                             [valeur]="montant()" (valeurChange)="montant.set($event)" />
+          </cb-field>
+
+          <cb-field etiquette="Bénéficiaire" pour="beneficiaire" requis
+                    aide="Le nom tel qu'il figure chez la banque du bénéficiaire.">
+            <input cbInput id="beneficiaire" name="beneficiaire" autocomplete="off"
+                   [value]="beneficiaire()"
+                   (input)="beneficiaire.set($any($event.target).value)" />
+          </cb-field>
+
+          <cb-field etiquette="Banque du bénéficiaire" pour="banque" requis>
+            <input cbInput id="banque" name="banque" autocomplete="off" [value]="banque()"
+                   (input)="banque.set($any($event.target).value)" />
+          </cb-field>
+
+          <cb-field etiquette="Compte du bénéficiaire" pour="compte-beneficiaire" requis
+                    aide="Le RIB ou l'IBAN, sans espace.">
+            <input cbInput id="compte-beneficiaire" name="compte-beneficiaire" autocomplete="off"
+                   class="cb-mono" [value]="compteBeneficiaire()"
+                   (input)="compteBeneficiaire.set($any($event.target).value)" />
+          </cb-field>
+
+          <cb-field etiquette="Référence" pour="reference"
+                    aide="Ce que le bénéficiaire lira sur son relevé.">
+            <input cbInput id="reference" name="reference" autocomplete="off" [value]="reference()"
+                   (input)="reference.set($any($event.target).value)" />
+          </cb-field>
+        </div>
+
+        @if (obstacles().length > 0) {
+          <cb-notice nature="avertissement" titre="Cet ordre ne peut pas être enregistré">
+            <ul class="obstacles">
+              @for (obstacle of obstacles(); track obstacle) {
+                <li>{{ obstacle }}</li>
+              }
+            </ul>
+          </cb-notice>
+        }
+
+        <div class="actions">
+          <button type="button" cbButton="primaire"
+                  [disabled]="travaille() || obstacles().length > 0" (click)="ordonner()">
+            Enregistrer l'ordre
+          </button>
+          <button type="button" cbButton="discret" [disabled]="travaille()"
+                  (click)="fermerLaSaisie()">Annuler</button>
+        </div>
+      </cb-section>
+    }
+
+    @if (choisi(); as ordre) {
+      <cb-section [titre]="ordre.beneficiaryName" [indication]="ordre.id">
+        <div class="entete-detail">
+          <cb-state-badge [etat]="etatDe(ordre)" [mot]="LIBELLE_STATUT_ORDRE[ordre.status]" />
+          <cb-amount [valeur]="ordre.amount.amount" [devise]="ordre.amount.currency" ton="accent" />
+        </div>
+
+        <p class="attente">{{ ATTENTE_ORDRE[ordre.status] }}</p>
+
+        <dl class="fiche">
+          <dt>Banque</dt><dd>{{ ordre.beneficiaryBank }}</dd>
+          <dt>Compte</dt><dd class="cb-mono">{{ ordre.beneficiaryAccount }}</dd>
+          <dt>Référence</dt><dd>{{ ordre.reference || '—' }}</dd>
+          @if (ordre.fee) {
+            <dt>Frais</dt>
+            <dd><cb-amount [valeur]="ordre.fee.amount" [devise]="ordre.fee.currency" /></dd>
+          }
+          @if (ordre.tax) {
+            <dt>Taxe</dt>
+            <dd><cb-amount [valeur]="ordre.tax.amount" [devise]="ordre.tax.currency" /></dd>
+          }
+          <dt>Ordonné le</dt><dd class="cb-mono">{{ ordre.orderedOn }}</dd>
+          @if (ordre.sentOn) { <dt>Envoyé le</dt><dd class="cb-mono">{{ ordre.sentOn }}</dd> }
+          @if (ordre.settledOn) { <dt>Réglé le</dt><dd class="cb-mono">{{ ordre.settledOn }}</dd> }
+          @if (ordre.returnedOn) {
+            <dt>Retourné le</dt><dd class="cb-mono">{{ ordre.returnedOn }}</dd>
+          }
+          @if (ordre.cancelledOn) {
+            <dt>Annulé le</dt><dd class="cb-mono">{{ ordre.cancelledOn }}</dd>
+          }
+        </dl>
+
+        @if (ordre.returnReason) {
+          <p class="motif-rendu">
+            <span class="cb-caps">Motif du retour</span>{{ ordre.returnReason }}
+          </p>
+        }
+        @if (ordre.cancelReason) {
+          <p class="motif-rendu">
+            <span class="cb-caps">Motif de l'annulation</span>{{ ordre.cancelReason }}
+          </p>
+        }
+      </cb-section>
+
+      @if (!droitDeTraiter()) {
+        <cb-notice nature="information" titre="Vous lisez la file, vous ne la traitez pas">
+          Envoyer, régler ou retourner un ordre engage la banque devant son correspondant. Votre
+          profil ne porte pas <span class="cb-mono">PAYMENT_PROCESS</span> : ces actes reviennent
+          au service des moyens de paiement.
+        </cb-notice>
+      } @else if (acteEnCours(); as acte) {
+        <cb-section [titre]="LIBELLE_ACTE[acte]" indication="à confirmer">
+          @if (exigeUnNostro()) {
+            <cb-field etiquette="Compte nostro" pour="nostro" requis
+                      aide="Le compte de correspondant sur lequel le règlement est reçu, dans la devise de l'ordre.">
+              <input cbInput id="nostro" name="nostro" autocomplete="off" class="cb-mono"
+                     [value]="nostro()" (input)="nostro.set($any($event.target).value)" />
+            </cb-field>
+          }
+          @if (exigeUnMotif()) {
+            <cb-field etiquette="Motif" pour="motif" requis
+                      aide="Il reste au dossier et remonte au client.">
+              <textarea cbInput id="motif" rows="3" [value]="motif()"
+                        (input)="motif.set($any($event.target).value)"></textarea>
+            </cb-field>
+            @if (acte === 'RETOURNER') {
+              <p class="pourquoi">
+                Le montant revient au client ; <strong>les frais restent acquis</strong> — le
+                service a été rendu. Le client le verra sur son relevé : le motif est ce qui le lui
+                explique.
+              </p>
+            }
+          }
+
+          <div class="actions">
+            <button type="button"
+                    [cbButton]="acte === 'RETOURNER' || acte === 'ANNULER' ? 'danger' : 'primaire'"
+                    [disabled]="!peutConfirmer()" (click)="confirmer()">
+              Confirmer — {{ LIBELLE_ACTE[acte] }}
+            </button>
+            <button type="button" cbButton="discret" [disabled]="travaille()"
+                    (click)="abandonner()">Revenir</button>
+          </div>
+        </cb-section>
+      } @else if (actes().length > 0) {
+        <div class="actions">
+          @for (acte of actes(); track acte) {
+            <button type="button"
+                    [cbButton]="acte === 'RETOURNER' || acte === 'ANNULER' ? 'danger' : 'primaire'"
+                    [disabled]="travaille()" (click)="demarrer(acte)">
+              {{ LIBELLE_ACTE[acte] }}@if (acte !== 'ENVOYER') {…}
+            </button>
+          }
+        </div>
+      } @else {
+        <cb-notice nature="information" titre="Cet ordre est dénoué">
+          Il ne reste rien à faire : l'ordre a suivi son cours. Une erreur constatée après coup se
+          corrige par une nouvelle opération, jamais en revenant sur celle-ci.
+        </cb-notice>
+      }
+    } @else if (phase() === 'prete' && !saisieOuverte()) {
+      <p class="rien">Choisissez un ordre pour l'examiner.</p>
+    }
+  </div>
+</div>

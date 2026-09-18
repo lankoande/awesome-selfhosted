@@ -1391,10 +1391,94 @@ qui n'arrive jamais.
 
 ### Ce qui reste
 
+Voir §23, qui a comblé le plus grand des manques nommés ici.
+
+---
+
+## 23. Les moyens de paiement : trois files qui se ressemblent
+
+Le socle portait entièrement les chèques, les prélèvements et les virements sortants — vingt-deux
+routes, quatre cents tests — et **rien de tout cela n'avait d'écran**. C'était le plus grand
+manque du poste.
+
+### Un huitième espace, et ce qu'il a coûté
+
+Le paramétrage du siège avait été rangé sous *Siège* pour éviter un huitième espace (§22). Ici,
+le rangement n'était pas possible : un service des moyens de paiement est une équipe, pas un
+prolongement du guichet ni du siège. Ce sont **les chèques du guichet qui montent au service de
+compensation**, pas l'inverse.
+
+La barre a donc pris sa huitième entrée, et il a fallu la payer deux fois :
+
+- **à 1920**, la recherche déployée gardait 430 px et la navigation perdait cinquante-six pixels :
+  « Atelier » sortait de l'écran. Le seuil de repli de la recherche est passé de 1800 à 2000 — le
+  commentaire qui l'accompagnait disait déjà que ce seuil « suit le nombre d'espaces, pas un
+  chiffre rond » ;
+- **sous 1500**, les deux réglages cèdent leur **valeur**, pas leur nom. Un bouton « Densité » dit
+  ce qu'il fait ; un bouton « confortable » ne dit plus rien. L'état, lui, se lit dans l'interface
+  elle-même — la densité et le thème se voient. Le nom accessible du bouton reste entier.
+
+Le principe n'a pas bougé : **on ne rogne jamais la navigation**. Un espace hors écran est un
+espace qu'on cesse d'ouvrir.
+
+### Ce que les trois files ont en commun
+
+![La file des virements émis. Chaque état dit ce qu'il attend, au présent.](utilisateur/captures/11-virements.png)
+
+Elles portent toutes un **engagement pris avant d'être dénoué** : la banque a débité, crédité ou
+bloqué, et attend le correspondant. D'où une forme partagée — liste filtrable, détail, actes — et
+trois décisions communes.
+
+**Chaque état dit ce qu'il attend, au présent.** « Parti au système de paiement. Il ne s'annule
+plus : il se règle, ou il revient. » Un badge muet oblige l'agent à connaître le cycle par cœur ;
+cette phrase est celle qu'il répétera au client qui appelle, et elle est dans le modèle, pas dans
+l'écran — donc testable.
+
+**Les actes possibles viennent d'une fonction, pas d'un `@if` dans le gabarit.** `actesSurOrdre`,
+`actesSurRemise`, `actesSurPrelevement` rejouent les gardes du socle. Un bouton « Annuler » sur un
+ordre envoyé ferait espérer l'impossible au client qui est devant vous ; le socle refuserait, mais
+trop tard.
+
+**Les frais restent acquis quand une opération revient**, et l'écran le dit avant de confirmer,
+pas après sur le relevé.
+
+### Ce que chaque file a de propre
+
+![Les remises. Le crédit sauf bonne fin est annoncé dès la tête de file.](utilisateur/captures/11-remises.png)
+
+**Les remises** tiennent en une phrase, répétée trois fois à l'écran parce que c'est la question
+que tous les clients posent : *créditée sauf bonne fin — le solde monte, le disponible non*. Elle
+est en tête de file, dans le formulaire, et dans l'état de chaque remise.
+
+![Les prélèvements. Le sens commande autant que l'état.](utilisateur/captures/11-prelevements.png)
+
+**Les prélèvements** ont deux axes, pas un. Le **sens** commande autant que l'état : seul un
+prélèvement *reçu* se rembourse — c'est le débiteur de la banque qui conteste —, seul un *émis*
+revient impayé — c'est le débiteur d'ailleurs qui ne paie pas. La table d'actes lit les deux, et
+les libellés changent avec le sens : « Rembourser le débiteur », « Retourner impayé », « Retirer
+avant échéance ».
+
+Et surtout : **le poste n'exécute pas un prélèvement**. Le passage de *en attente* à *exécuté* est
+le travail du traitement de fin de journée, à l'échéance. C'est la première chose qu'un nouvel
+arrivant essaie de faire, et l'écran n'offre pas ce bouton — il dit pourquoi, en tête de file.
+
+### La barre d'outils passe à la ligne
+
+Le contrôle de largeurs a trouvé un débordement de 23 px à 390 px sur les remises : `cb-toolbar`
+était un `flex` sans `wrap`, et un titre long avec deux actions ne tient pas sur un téléphone.
+Sans retour à la ligne, la **page entière** gagne une barre de défilement horizontale — pour un
+bouton. Le correctif est dans la primitive, donc pour les quarante écrans.
+
+### Ce qui reste
+
+Les actes **par compte** des chèques — délivrer un chéquier, payer un chèque au guichet, faire
+opposition — et les **mandats** de prélèvement n'ont pas encore d'écran : le socle les expose par
+compte (`/accounts/{id}/cheque-books`, `/accounts/{id}/mandates`), sans liste à l'échelle de la
+banque, donc ils appartiennent au dossier client plutôt qu'à une file de compensation. C'est le
+prochain pas.
+
 Les **sûretés** et la **consolidation** restent bloquées par les lacunes de contrat nommées au
-§20. Les **moyens de paiement** — chèques, prélèvements, virements sortants — n'ont toujours pas
-d'interface, alors que le socle les porte entièrement : c'est désormais le plus grand manque. Le
-**profil d'activité déclaré** et le **consentement au bureau d'information du crédit** appartiennent
-au dossier client et n'y sont pas encore. Le reste du paramétrage du siège — produits, agences,
-calendrier, barèmes — existe dans le socle avec son API, et n'a pas encore d'écran : *Établissement*
-et *Numérotation* sont les deux premiers, pas les derniers.
+§20. Le **profil d'activité déclaré** et le **consentement au bureau d'information du crédit**
+appartiennent au dossier client et n'y sont pas encore. Le reste du paramétrage du siège —
+produits, agences, calendrier, barèmes — existe dans le socle avec son API et n'a pas encore
+d'écran.

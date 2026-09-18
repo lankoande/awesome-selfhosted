@@ -71,6 +71,31 @@ export const routes: Routes = [
     ],
   },
   {
+    path: 'paiements',
+    loadComponent: () => import('./paiements/paiements.shell').then((m) => m.PaiementsShell),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'virements' },
+      {
+        path: 'virements',
+        title: 'Paiements — virements émis',
+        loadComponent: () => import('./paiements/virements/virements.page')
+          .then((m) => m.VirementsEmis),
+      },
+      {
+        path: 'remises',
+        title: 'Paiements — remises de chèques',
+        loadComponent: () => import('./paiements/remises/remises.page')
+          .then((m) => m.RemisesCheques),
+      },
+      {
+        path: 'prelevements',
+        title: 'Paiements — prélèvements',
+        loadComponent: () => import('./paiements/prelevements/prelevements.page')
+          .then((m) => m.Prelevements),
+      },
+    ],
+  },
+  {
     path: 'clients',
     loadComponent: () => import('./clients/clients.shell').then((m) => m.ClientsShell),
     children: [
