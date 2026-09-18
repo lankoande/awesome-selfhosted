@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { AppConfig } from '../core/config/runtime-config';
+import { Socle } from '../api/socle';
 import { RefusMetier } from '../guichet/modele/guichet.modele';
 import { ArreteCaisse, EtatCaisse } from './modele/caisse.modele';
 import { Caisse } from './caisse.port';
@@ -15,7 +15,7 @@ interface Enveloppe<T> {
 @Injectable()
 export class CaisseApi implements Caisse {
   private readonly http = inject(HttpClient);
-  private readonly config = inject(AppConfig);
+  private readonly socle = inject(Socle);
 
   /**
    * Le contrat expose la création d'une caisse et son arrêté, pas sa lecture.
@@ -31,7 +31,8 @@ export class CaisseApi implements Caisse {
   }
 
   async arreter(legalEntityId: string, tillId: string, compte: number, devise: string): Promise<ArreteCaisse> {
-    const url = `${this.racine()}/entities/${legalEntityId}/tills/${tillId}/closure`;
+    const url = this.socle.url('/v1/entities/{legalEntityId}/tills/{tillId}/closure',
+                              { legalEntityId, tillId });
     const entetes = new HttpHeaders({ 'X-Request-Id': crypto.randomUUID() });
     try {
       const enveloppe = await firstValueFrom(
@@ -42,10 +43,6 @@ export class CaisseApi implements Caisse {
     } catch (erreur) {
       throw this.refus(erreur);
     }
-  }
-
-  private racine(): string {
-    return this.config.apiBaseUrl().replace(/\/$/, '');
   }
 
   private refus(erreur: unknown): RefusMetier {

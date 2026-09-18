@@ -1,7 +1,7 @@
 import { HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, from, switchMap, throwError } from 'rxjs';
-import { AppConfig } from '../core/config/runtime-config';
+import { Socle } from '../api/socle';
 import { AUTHENTIFICATION } from './auth.port';
 
 /**
@@ -11,9 +11,7 @@ import { AUTHENTIFICATION } from './auth.port';
  * est un jeton donné. Le fournisseur d'identité lui-même n'en reçoit pas —
  * ses échanges se signent autrement.
  */
-function versLeSocle(requete: HttpRequest<unknown>, racine: string): boolean {
-  return requete.url.startsWith(racine);
-}
+
 
 /**
  * Un 401 ne signifie pas « reconnecte-toi » : le plus souvent le jeton vient
@@ -22,11 +20,13 @@ function versLeSocle(requete: HttpRequest<unknown>, racine: string): boolean {
  * que l'intercepteur.
  */
 export const jetonInterceptor: HttpInterceptorFn = (requete, suivant) => {
-  const config = inject(AppConfig);
+  const socle = inject(Socle);
   const authentification = inject(AUTHENTIFICATION);
-  const racine = config.apiBaseUrl().replace(/\/$/, '');
 
-  if (!versLeSocle(requete, racine)) return suivant(requete);
+  // La règle « cette adresse est-elle celle du socle ? » est tenue à un seul
+  // endroit. La dupliquer ici serait la laisser diverger de celle qui construit
+  // les URLs — et un jeton porté à la mauvaise origine ne se rattrape pas.
+  if (!socle.sien(requete.url)) return suivant(requete);
 
   const porteuse = (jeton: string | null): HttpRequest<unknown> =>
     jeton ? requete.clone({ setHeaders: { Authorization: `Bearer ${jeton}` } }) : requete;

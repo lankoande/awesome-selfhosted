@@ -47,7 +47,8 @@ src/app/validation/ la double validation : le second regard
 src/app/caisse/  la caisse du guichetier et son arrêté
 src/app/siege/   exploitation comptable et restitutions
 src/app/auth/    session OAuth2 PKCE, jeton porté, verrouillage, habilitations
-src/app/api/    types générés depuis le contrat OpenAPI — ne jamais éditer à la main
+src/app/api/    le contrat : types générés (`schema.ts`, ne jamais éditer), chemins
+                vérifiés à la compilation (`routes.ts`), origine + chemin (`socle.ts`)
 scripts/        contrôles qui demandent un navigateur
 ```
 
@@ -83,6 +84,27 @@ Ce qui est vrai des deux côtés :
 - **Les habilitations inconnues laissent tout voir** : le socle n'expose pas encore
   les opérations autorisées ; le menu montre tout et l'API refuse. `habilitations.ts`
   porte déjà la table écran → opération pour le jour où il les exposera.
+
+### Les adresses viennent du contrat, pas de la mémoire
+
+`schema.ts` est généré depuis `openapi.json` et porte les 146 chemins du socle
+comme clés de type. `chemin()` n'accepte que ces clés, et lit les noms de
+variables dans le gabarit lui-même : **un chemin inexistant, une variable mal
+nommée ou une variable oubliée sont trois erreurs de compilation**, vérifiées
+par `routes.contrat.ts` que `ng build` compile.
+
+Ce n'est pas théorique : la conversion des quatorze URLs écrites à la main a
+trouvé trois fautes du premier coup — la file de validation nomme sa variable
+`{id}`, pas `{operationId}`.
+
+`Socle.url()` assemble l'origine (déploiement, `config.json`) et le chemin
+(contrat). Les deux ne se mélangent pas : `apiBaseUrl` ne porte **pas** `/v1`,
+parce que le préfixe de version appartient au contrat et suivrait un passage
+en `/v2` sans qu'on ait à redéployer une configuration.
+
+`Socle.sien()` tient la même règle pour l'intercepteur de jeton. Une seule
+définition de « cette adresse est-elle celle du socle ? » : la dupliquer la
+laisserait diverger, et un jeton porté à la mauvaise origine ne se rattrape pas.
 
 ## La barrière d'intégration
 

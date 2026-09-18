@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { AppConfig } from '../core/config/runtime-config';
+import { Socle } from '../api/socle';
 import { RefusMetier } from '../guichet/modele/guichet.modele';
 import { FiltreBalance, LigneBalance, PageBalance, RunTfj, TotauxBalance } from './modele/siege.modele';
 import { Siege } from './siege.port';
@@ -16,26 +16,30 @@ interface Enveloppe<T> {
 @Injectable()
 export class SiegeApi implements Siege {
   private readonly http = inject(HttpClient);
-  private readonly config = inject(AppConfig);
+  private readonly socle = inject(Socle);
 
   async lancerTfj(legalEntityId: string, journee: string, mode: 'REAL' | 'DRY_RUN'): Promise<RunTfj> {
-    return this.poster<RunTfj>(`${this.eod(legalEntityId)}/runs`, { businessDate: journee, mode });
+    return this.poster<RunTfj>(this.socle.url('/v1/entities/{legalEntityId}/eod/runs', { legalEntityId }),
+                               { businessDate: journee, mode });
   }
 
   async lireTfj(legalEntityId: string, runId: string): Promise<RunTfj> {
-    return this.lire<RunTfj>(`${this.eod(legalEntityId)}/runs/${runId}`);
+    return this.lire<RunTfj>(
+      this.socle.url('/v1/entities/{legalEntityId}/eod/runs/{runId}', { legalEntityId, runId }));
   }
 
   async reprendreTfj(legalEntityId: string, runId: string): Promise<RunTfj> {
-    return this.poster<RunTfj>(`${this.eod(legalEntityId)}/runs/${runId}/resume`, {});
+    return this.poster<RunTfj>(
+      this.socle.url('/v1/entities/{legalEntityId}/eod/runs/{runId}/resume', { legalEntityId, runId }), {});
   }
 
   async annulerTfj(legalEntityId: string, runId: string): Promise<RunTfj> {
-    return this.poster<RunTfj>(`${this.eod(legalEntityId)}/runs/${runId}/cancel`, {});
+    return this.poster<RunTfj>(
+      this.socle.url('/v1/entities/{legalEntityId}/eod/runs/{runId}/cancel', { legalEntityId, runId }), {});
   }
 
   async balance(legalEntityId: string, filtre: FiltreBalance, page: number, taille: number): Promise<PageBalance> {
-    const url = `${this.racine()}/entities/${legalEntityId}/ledger/trial-balance`;
+    const url = this.socle.url('/v1/entities/{legalEntityId}/ledger/trial-balance', { legalEntityId });
     const parametres = this.filtrer(filtre).set('page', page).set('size', taille);
     try {
       const enveloppe = await firstValueFrom(
@@ -54,7 +58,7 @@ export class SiegeApi implements Siege {
   }
 
   async totauxBalance(legalEntityId: string, filtre: FiltreBalance): Promise<readonly TotauxBalance[]> {
-    const url = `${this.racine()}/entities/${legalEntityId}/ledger/trial-balance/totals`;
+    const url = this.socle.url('/v1/entities/{legalEntityId}/ledger/trial-balance/totals', { legalEntityId });
     try {
       const enveloppe = await firstValueFrom(
         this.http.get<Enveloppe<TotauxBalance[]>>(url, { params: this.filtrer(filtre), headers: this.entetes() }),
@@ -71,14 +75,6 @@ export class SiegeApi implements Siege {
     if (filtre.au) parametres = parametres.set('to', filtre.au);
     if (filtre.kind) parametres = parametres.set('kind', filtre.kind);
     return parametres;
-  }
-
-  private eod(legalEntityId: string): string {
-    return `${this.racine()}/entities/${legalEntityId}/eod`;
-  }
-
-  private racine(): string {
-    return this.config.apiBaseUrl().replace(/\/$/, '');
   }
 
   private entetes(): HttpHeaders {

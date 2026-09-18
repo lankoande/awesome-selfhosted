@@ -1,6 +1,6 @@
 {
   "_lisezMoi": "Niveau 2 de la configurabilité : ce qui se règle par déploiement, sans recompilation. Aucune règle métier ici — les contrôles de saisie et les enchaînements d'écran sont du code.",
-  "apiBaseUrl": "/v1",
+  "apiBaseUrl": "",
   "locale": "fr-FR",
   "banque": {
     "nom": "Socle bancaire",

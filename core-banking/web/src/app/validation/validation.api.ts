@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { AppConfig } from '../core/config/runtime-config';
+import { Socle } from '../api/socle';
 import { RefusMetier } from '../guichet/modele/guichet.modele';
 import { Identite, OperationEnAttente, PageOperations } from './modele/validation.modele';
 import { Validation } from './validation.port';
@@ -16,10 +16,10 @@ interface Enveloppe<T> {
 @Injectable()
 export class ValidationApi implements Validation {
   private readonly http = inject(HttpClient);
-  private readonly config = inject(AppConfig);
+  private readonly socle = inject(Socle);
 
   async file(legalEntityId: string, page: number, taille: number): Promise<PageOperations> {
-    const url = `${this.racine()}/entities/${legalEntityId}/pending-operations`;
+    const url = this.socle.url('/v1/entities/{legalEntityId}/pending-operations', { legalEntityId });
     const parametres = new HttpParams().set('page', page).set('size', taille);
     try {
       const enveloppe = await firstValueFrom(
@@ -38,17 +38,21 @@ export class ValidationApi implements Validation {
   }
 
   async lire(legalEntityId: string, id: string): Promise<OperationEnAttente> {
-    return this.appel<OperationEnAttente>('get', `${this.racine()}/entities/${legalEntityId}/pending-operations/${id}`);
+    return this.appel<OperationEnAttente>('get',
+      this.socle.url('/v1/entities/{legalEntityId}/pending-operations/{id}',
+                     { legalEntityId, id }));
   }
 
   async approuver(legalEntityId: string, id: string): Promise<OperationEnAttente> {
     return this.appel<OperationEnAttente>(
-      'post', `${this.racine()}/entities/${legalEntityId}/pending-operations/${id}/approve`, {});
+      'post', this.socle.url('/v1/entities/{legalEntityId}/pending-operations/{id}/approve',
+                             { legalEntityId, id }), {});
   }
 
   async rejeter(legalEntityId: string, id: string, motif: string): Promise<OperationEnAttente> {
     return this.appel<OperationEnAttente>(
-      'post', `${this.racine()}/entities/${legalEntityId}/pending-operations/${id}/reject`, { reason: motif });
+      'post', this.socle.url('/v1/entities/{legalEntityId}/pending-operations/{id}/reject',
+                             { legalEntityId, id }), { reason: motif });
   }
 
   /**
@@ -58,10 +62,6 @@ export class ValidationApi implements Validation {
    */
   async identite(): Promise<Identite | null> {
     return null;
-  }
-
-  private racine(): string {
-    return this.config.apiBaseUrl().replace(/\/$/, '');
   }
 
   private entetes(): HttpHeaders {

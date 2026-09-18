@@ -3,6 +3,8 @@ import { DOCUMENT } from '@angular/common';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AppConfig } from '../core/config/runtime-config';
+import { PREFIXE_SOCLE } from '../api/routes';
+import { Socle } from '../api/socle';
 import { Authentification, EtatSession, Habilitations, Porteur } from './auth.port';
 import { DefiPkce, defi, memeState, urlAutorisation } from './pkce';
 import { Session } from './session';
@@ -40,6 +42,7 @@ const CLE_DEFI = 'cb.pkce';
 export class AuthKeycloak implements Authentification {
   private readonly http = inject(HttpClient);
   private readonly config = inject(AppConfig);
+  private readonly socle = inject(Socle);
   private readonly document = inject(DOCUMENT);
   private readonly session = new Session();
 
@@ -179,7 +182,12 @@ export class AuthKeycloak implements Authentification {
    * refusera — ce qui est la seule frontière qui compte.
    */
   private async lireHabilitations(): Promise<Habilitations> {
-    const url = `${this.config.apiBaseUrl().replace(/\/$/, '')}/me/permissions`;
+    // Seule adresse du poste écrite à la main, et pour une raison qui se voit :
+    // `GET /v1/me/permissions` **n'est pas dans le contrat** (lacune n° 1). Le
+    // constructeur d'URL la refuserait donc — à juste titre. Le jour où le
+    // socle l'expose, cette ligne devient un `socle.url(...)` comme les autres,
+    // et sa disparition marquera la lacune comblée.
+    const url = `${this.socle.origine()}${PREFIXE_SOCLE}/me/permissions`;
     try {
       const reponse = await firstValueFrom(
         this.http.get<{ data: { operations: string[] } }>(url));

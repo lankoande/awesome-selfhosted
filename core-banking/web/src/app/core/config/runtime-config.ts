@@ -7,7 +7,15 @@ import { DOCUMENT } from '@angular/common';
  * Lu une fois au démarrage depuis `config.json`, servi à côté du bundle.
  */
 export interface RuntimeConfig {
-  /** Racine de l'API du socle, par exemple `https://api.banque.bf/v1`. */
+  /**
+   * L'**origine** du socle : `https://api.banque.bf`, ou vide quand il est
+   * servi par la même origine que l'application.
+   *
+   * Le préfixe de version (`/v1`) n'est pas ici : il appartient au contrat, et
+   * les chemins générés depuis `openapi.json` le portent déjà. L'écrire aux
+   * deux endroits ferait dépendre d'un réglage de déploiement le jour où le
+   * socle passera en `/v2`.
+   */
   readonly apiBaseUrl: string;
   readonly locale: string;
   readonly banque: {
@@ -79,7 +87,7 @@ const COULEUR = /^(#[0-9a-f]{3,8}|(rgb|rgba|hsl|hsla|lab|lch|oklab|oklch|color)\
 
 /** Ce que l'application vaut sans `config.json` : elle démarre quand même. */
 export const CONFIG_PAR_DEFAUT: RuntimeConfig = {
-  apiBaseUrl: '/v1',
+  apiBaseUrl: '',
   locale: 'fr-FR',
   banque: {
     nom: 'Socle bancaire',

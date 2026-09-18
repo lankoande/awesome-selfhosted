@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { AppConfig } from '../core/config/runtime-config';
+import { Socle } from '../api/socle';
 import {
   ContexteCompte, DemandeEspeces, DemandeVirement, IssueVersement, LigneReleve, PageReleve, Recu,
   RefusMetier, SoldeCompte,
@@ -28,10 +28,11 @@ interface Enveloppe<T> {
 @Injectable()
 export class GuichetApi implements Guichet {
   private readonly http = inject(HttpClient);
-  private readonly config = inject(AppConfig);
+  private readonly socle = inject(Socle);
 
   async soldes(legalEntityId: string, accountId: string): Promise<SoldeCompte> {
-    return this.lire<SoldeCompte>(`${this.racine()}/entities/${legalEntityId}/accounts/${accountId}/balance`);
+    return this.lire<SoldeCompte>(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounts/{accountId}/balance', { legalEntityId, accountId }));
   }
 
   async contexte(legalEntityId: string, accountId: string): Promise<ContexteCompte> {
@@ -65,7 +66,7 @@ export class GuichetApi implements Guichet {
 
   async virer(demande: DemandeVirement): Promise<IssueVersement> {
     return this.poster(
-      `${this.racine()}/entities/${demande.legalEntityId}/transfers`,
+      this.socle.url('/v1/entities/{legalEntityId}/transfers', { legalEntityId: demande.legalEntityId }),
       {
         sourceAccountId: demande.sourceAccountId,
         destinationAccountId: demande.destinationAccountId,
@@ -80,7 +81,8 @@ export class GuichetApi implements Guichet {
 
   async releve(legalEntityId: string, accountId: string, du: string | null, au: string | null,
                page: number, taille: number): Promise<PageReleve> {
-    const url = `${this.racine()}/entities/${legalEntityId}/accounts/${accountId}/journal`;
+    const url = this.socle.url('/v1/entities/{legalEntityId}/accounts/{accountId}/journal',
+                               { legalEntityId, accountId });
     let parametres = new HttpParams().set('page', page).set('size', taille);
     if (du) parametres = parametres.set('from', du);
     if (au) parametres = parametres.set('to', au);
@@ -103,8 +105,17 @@ export class GuichetApi implements Guichet {
     }
   }
 
+  /**
+   * Versement et retrait ne diffèrent que par leur route. Le gabarit est donc
+   * choisi puis passé entier au constructeur d'URL : concaténer un segment
+   * variable échapperait à la vérification du contrat, qui est tout l'intérêt.
+   */
   private async operation(demande: DemandeEspeces, route: 'deposits' | 'withdrawals'): Promise<IssueVersement> {
-    const url = `${this.racine()}/entities/${demande.legalEntityId}/accounts/${demande.accountId}/${route}`;
+    const modele = route === 'deposits'
+      ? ('/v1/entities/{legalEntityId}/accounts/{accountId}/deposits' as const)
+      : ('/v1/entities/{legalEntityId}/accounts/{accountId}/withdrawals' as const);
+    const url = this.socle.url(modele,
+                               { legalEntityId: demande.legalEntityId, accountId: demande.accountId });
     const corps = {
       amount: demande.amount,
       currency: demande.currency,
@@ -139,10 +150,6 @@ export class GuichetApi implements Guichet {
     } catch (erreur) {
       throw this.refus(erreur);
     }
-  }
-
-  private racine(): string {
-    return this.config.apiBaseUrl().replace(/\/$/, '');
   }
 
   private async lire<T>(url: string): Promise<T> {

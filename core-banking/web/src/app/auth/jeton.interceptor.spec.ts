@@ -69,6 +69,17 @@ describe('intercepteur de jeton', () => {
     appel.flush({});
   });
 
+  it("ne porte pas le jeton à un tiers qui imiterait le préfixe du contrat", () => {
+    // L'origine du socle est vide en configuration par défaut : le socle est
+    // servi par la même origine que l'application. Une règle écrite
+    // `url.startsWith(origine)` serait alors vraie pour **toute** adresse, y
+    // compris celle-ci. La règle porte donc sur le préfixe du contrat.
+    http.get('https://tiers.test/v1/entities/x/accounts').subscribe();
+    const appel = serveur.expectOne('https://tiers.test/v1/entities/x/accounts');
+    expect(appel.request.headers.has('Authorization')).toBe(false);
+    appel.flush({});
+  });
+
   it('rafraîchit une fois sur 401, puis rejoue avec le nouveau jeton', async () => {
     const recu: unknown[] = [];
     http.get(`${API}/entities/x/accounts`).subscribe((reponse) => recu.push(reponse));
