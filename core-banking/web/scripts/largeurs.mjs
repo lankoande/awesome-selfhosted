@@ -7,12 +7,13 @@
  * doit rester utilisable sans. Il se lance ainsi :
  *
  *   npm run build
- *   npx http-server dist/web/browser -p 8181   (ou tout serveur statique)
+ *   npm run servir &                 (repli SPA : les routes profondes existent)
  *   npm run check:largeurs -- http://127.0.0.1:8181/
  *
- * Playwright n'est pas une dépendance du projet : `npx playwright` suffit, et
- * le jour où le front aura une chaîne d'intégration, ce script y devient une
- * barrière au même titre que les budgets de taille.
+ * Playwright est une dépendance déclarée du projet : ce contrôle est une
+ * barrière d'intégration au même titre que les budgets de taille, et une
+ * barrière ne repose pas sur un paquet arrivé par transitivité — une mise à
+ * jour sans rapport le retirerait, et le garde-fou tomberait en silence.
  */
 const BASE = process.argv[2] ?? 'http://127.0.0.1:8181/';
 const CHEMINS = ['atelier', 'guichet/versement', 'guichet/retrait', 'guichet/virement', 'guichet/releve', 'guichet/caisse', 'siege/exploitation', 'siege/balance', 'validation'];

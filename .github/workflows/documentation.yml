@@ -1,0 +1,35 @@
+# Les liens internes de la documentation.
+#
+# Un lien cassé ne se voit pas à la relecture : il se voit le jour où quelqu'un
+# le suit. Ce contrôle les attrape au moment où on les casse — en déplaçant ou
+# en renommant un fichier, ce qui arrive à chaque réorganisation.
+#
+# Portée : `docs/` et `core-banking/`. Les listes héritées d'awesome-selfhosted
+# à la racine ne sont pas contrôlées — leurs ancres suivent une autre convention,
+# et faire échouer ce dépôt sur du contenu amont rendrait la barrière inutile.
+name: Documentation
+
+on:
+  push:
+    paths: ['docs/**', 'core-banking/**/*.md', '.github/workflows/documentation.yml']
+  pull_request:
+    paths: ['docs/**', 'core-banking/**/*.md', '.github/workflows/documentation.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: documentation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  liens:
+    name: Liens internes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fichiers et ancres cités
+        run: |
+          python3 docs/outils/liens.py docs
+          python3 docs/outils/liens.py core-banking

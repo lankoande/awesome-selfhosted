@@ -9,7 +9,8 @@
     "test": "ng test",
     "format": "prettier --write \"src/**/*.{ts,html,css,json}\"",
     "api:generate": "npx --yes openapi-typescript@7 ../api/src/main/resources/openapi/openapi.json -o src/app/api/schema.ts",
-    "check:largeurs": "node scripts/largeurs.mjs"
+    "check:largeurs": "node scripts/largeurs.mjs",
+    "servir": "node scripts/servir.mjs dist/web/browser 8181"
   },
   "private": true,
   "packageManager": "npm@11.12.1",
@@ -31,6 +32,7 @@
     "@angular/cli": "^22.1.7",
     "@angular/compiler-cli": "^22.1.0",
     "jsdom": "^28.0.0",
+    "playwright": "^1.63.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
     "vitest": "^4.0.8"

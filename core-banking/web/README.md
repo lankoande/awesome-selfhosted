@@ -32,6 +32,7 @@ Node **≥ 22.22.3** (ou 24.15+), imposé par Angular 22. `npm ci` suffit ensuit
 | `npm test` | Tests unitaires, **garde-fous de l'atelier compris** |
 | `npm run api:generate` | Régénère `src/app/api/schema.ts` depuis `openapi.json` |
 | `npm run format` | Prettier |
+| `npm run servir` | Sert `dist/web/browser` sur le port 8181 avec repli SPA — sans lui, les routes profondes répondent 404 et le contrôle de largeurs mesurerait des pages d'erreur |
 | `npm run check:largeurs -- <url>` | Ouvre chaque écran à sept largeurs : échoue sur un débordement horizontal ou une cible sous 24 px. Demande un navigateur (`npx playwright install chromium`), donc hors `npm test` |
 
 ## Organisation
@@ -82,6 +83,16 @@ Ce qui est vrai des deux côtés :
 - **Les habilitations inconnues laissent tout voir** : le socle n'expose pas encore
   les opérations autorisées ; le menu montre tout et l'API refuse. `habilitations.ts`
   porte déjà la table écran → opération pour le jour où il les exposera.
+
+## La barrière d'intégration
+
+Les trois commandes ci-dessus sont obligatoires à chaque poussée :
+[`.github/workflows/front.yml`](../../.github/workflows/front.yml) joue `npm test`,
+`npm run build` (budgets de taille compris) et `npm run check:largeurs`.
+
+Playwright est pour cette raison une **dépendance déclarée** et non un paquet arrivé par
+transitivité : une barrière qui repose sur une dépendance qu'on n'a pas demandée tombe en
+silence le jour d'une mise à jour sans rapport.
 
 ## Les garde-fous, et ce qu'ils empêchent
 

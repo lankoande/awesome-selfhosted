@@ -1,0 +1,69 @@
+# Le back-office : compilation, tests, budgets de taille, conformité des largeurs.
+#
+# Les trois garde-fous du front deviennent ici des barrières, pas des intentions :
+#   — `ng build` échoue au-delà du budget de taille déclaré dans angular.json ;
+#   — `ng test` joue la suite (zoneless, vitest) et rend la main ;
+#   — `check:largeurs` ouvre chaque écran à sept largeurs et refuse un
+#     débordement horizontal ou une cible sous 24 px (WCAG 2.2, 2.5.8).
+#
+# Le contrôle de largeurs demande un navigateur ; il reste donc hors de
+# `npm test`, qui doit rester lançable sans.
+name: Back-office
+
+on:
+  push:
+    paths: ['core-banking/web/**', '.github/workflows/front.yml']
+  pull_request:
+    paths: ['core-banking/web/**', '.github/workflows/front.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: front-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: core-banking/web
+
+jobs:
+  verifier:
+    name: Compilation, tests, largeurs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Angular 22 exige au moins 22.22.3 ; la borne est dans les `engines` du
+      # paquet, et `npm ci` la fait respecter.
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: core-banking/web/package-lock.json
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      # Le budget de taille est dans angular.json : le dépasser échoue ici.
+      - name: Compilation
+        run: npm run build
+
+      # Le navigateur vient de la version de Playwright verrouillée par
+      # package-lock.json, pas d'une version choisie dans ce fichier : deux
+      # sources pour une même dépendance finissent par diverger.
+      - name: Navigateur
+        run: npx playwright install --with-deps chromium
+
+      - name: Conformité des largeurs
+        run: |
+          npm run servir &
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://127.0.0.1:8181/ && break
+            sleep 1
+          done
+          npm run check:largeurs -- http://127.0.0.1:8181/

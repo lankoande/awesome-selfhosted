@@ -30,13 +30,18 @@ core-banking/
 mvn test
 ```
 
+Cette commande est aussi la barrière d'intégration : [`.github/workflows/socle.yml`](../.github/workflows/socle.yml)
+ne fait que la rendre obligatoire à chaque poussée. Les mesures (`*Benchmark.java`) n'y sont pas —
+elles ne sont pas prises par le motif de surefire, et un build qui échoue sur un débit est un build
+qu'on finit par désactiver.
+
 PostgreSQL est démarré en embarqué par les tests d'intégration — ni Docker, ni installation locale
 requise. Les binaires sont téléchargés au premier lancement. Chaque base de test est montée par
 `SchemaMigrator`, le même runner qu'en production : le chemin de déploiement est exercé à chaque
 build, pas seulement le jour du déploiement.
 
-**État actuel : 637 tests verts** — 306 sur les domaines purs (dont 11 propriétés, ≈ 4 000 cas
-générés), 331 sur PostgreSQL réel, dont l'API de bout en bout, sous le rôle applicatif.
+**État actuel : 699 tests verts** sur 112 classes, en 213 s — domaines purs (dont 11 propriétés,
+≈ 4 000 cas générés) et PostgreSQL réel, dont l'API de bout en bout sous le rôle applicatif.
 
 **Mesuré** ([détail](../docs/core-banking/13-mesures.md)) : 1 878 écritures/s, p99 13,4 ms, zéro
 interblocage ; TFJ complet — commissions **et** intérêts — à 0,881 ms par compte dans le cas le plus

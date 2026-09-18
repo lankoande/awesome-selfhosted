@@ -229,3 +229,14 @@ Il ne dit rien de l'infrastructure (haute disponibilité de PostgreSQL, sauvegar
 l'exploitation (ordonnanceur, supervision, astreinte), ni de la conformité juridique des
 traitements (protection des données, conservation). Ce sont des conditions de production à part
 entière, à instruire séparément.
+
+**Une de ces conditions a été levée depuis** : il y a désormais une chaîne d'intégration
+([`.github/workflows`](../../.github/workflows)), et les garde-fous qui n'étaient que des
+commandes documentées sont devenus des barrières — tests du socle sur PostgreSQL embarqué,
+tests et budgets de taille du front, conformité des largeurs, liens de la documentation.
+Ce n'est pas de l'exploitation, mais c'était le préalable à tout le reste : un dépôt sans
+barrière ne se déploie pas, il se déploie au hasard.
+
+Ce que la chaîne ne tient pas encore, et qui reste à instruire : couverture, frontières de
+modules, analyse statique, veille de dépendances, non-régression de performance — le détail
+est en [09 §2](09-qualite-exploitation.md#2-qualité-de-code).
