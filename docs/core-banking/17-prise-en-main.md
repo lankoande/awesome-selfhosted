@@ -123,8 +123,15 @@ valeur, ni solde. Un barème recopié dans le navigateur finit par diverger.
 
 ### Une migration de schéma
 
-**Ce n'est pas Liquibase.** Le runner est `SchemaMigrator` (`ledger-store`) et les
-migrations sont du **SQL pur**, un fichier par version :
+**Ce n'est pas Liquibase** — bien que le dossier d'architecture l'ait longtemps annoncé.
+Le choix n'a jamais été arbitré : un runner écrit comme béquille de test a été durci en
+runner de production, et la documentation a gardé l'intention d'origine. L'histoire et
+les arguments des deux côtés sont dans
+[01-architecture](01-architecture.md#migrations--un-choix-qui-na-jamais-été-arbitré) ; la
+décision reste ouverte.
+
+Le runner est donc `SchemaMigrator` (`ledger-store`) et les migrations sont du **SQL
+pur**, un fichier par version :
 
 ```
 <module>/src/main/resources/db/V<n>__<sujet>.sql

@@ -132,7 +132,7 @@ métier. Une règle ArchUnit l'impose au build : un cycle casse la CI.
 | Langage | Java 21 (LTS) | Standard de fait en core banking, maturité transactionnelle, recrutement |
 | Framework | **Spring Boot 4.1** (Spring Framework 7, Spring Security 7, Jackson 3, Tomcat 11 embarqué) — couche d'exposition seule ; le socle reste sans framework | Un seul exécutable à déployer ; les frontières de modules sont des modules Maven, vérifiées au build |
 | Base | PostgreSQL 16, Patroni HA | ACID strict, `NUMERIC` exact, partitionnement natif, RLS |
-| Migrations | **`SchemaMigrator`, du SQL pur** (Liquibase envisagé, non retenu) | Un changelog XML au-dessus de SQL ajoute une couche à apprendre pour décrire ce que le SQL dit déjà. Le runner tient l'ordre global, la somme de contrôle et le verrou — et **il monte chaque base de test**, donc le chemin de déploiement est exercé à chaque build. Pas de retour arrière : une migration se répare par une migration, comme une écriture se contre-passe |
+| Migrations | **`SchemaMigrator`, du SQL pur** — Liquibase était prévu ici, il ne l'est plus, et [ce n'est pas une décision qui a été prise](#migrations--un-choix-qui-na-jamais-été-arbitré) |
 | Batch | Spring Batch | Reprise, partitionnement, traçabilité native des runs |
 | Messagerie | Kafka (+ outbox transactionnel) | Publication atomique avec la transaction métier |
 | Cache | Caffeine local ; Redis pour les sessions | Le ledger n'est **jamais** mis en cache |
@@ -174,6 +174,58 @@ partitionnement, pas par cache applicatif.
 > Security, [07](07-securite-conformite.md)). Sans compte propriétaire distinct, l'application
 > migre elle-même et possède tout : le démarrage l'écrit en avertissement, c'est une installation
 > de développement.
+
+
+### Migrations : un choix qui n'a jamais été arbitré
+
+Ce tableau annonçait Liquibase. Le code utilise `SchemaMigrator`, écrit ici. **Personne
+n'a arbitré entre les deux** — et le dire est plus utile que d'inventer après coup la
+décision manquante.
+
+Voici ce que l'historique dit, exactement :
+
+| Commit | Ce qui s'est passé |
+|---|---|
+| `b1ce156` | Le dossier d'architecture retient Liquibase, sur le papier |
+| `1d75173` | Le premier code du registre écrit `SchemaMigrator` avec ce commentaire : *« En production, Liquibase pilote les montées de version ; ici le script est appliqué tel quel, ce qui suffit au P0 et garde les tests sans dépendance supplémentaire. »* — une béquille de test, assumée comme telle |
+| `a2d9c08` | La béquille est durcie en vrai runner (table de versions, sommes de contrôle, ordre global, verrou), et **le commentaire qui annonçait Liquibase disparaît** sans que la décision soit prise ni écrite |
+| depuis | 56 migrations écrites dessus |
+
+C'est une dérive, pas un arbitrage : l'outil temporaire est devenu définitif parce qu'il
+marchait, et la documentation a gardé l'intention d'origine pendant tout ce temps.
+
+#### Ce que `SchemaMigrator` tient aujourd'hui
+
+Ordre croissant global (un script renuméroté est refusé) · somme de contrôle par script
+appliqué (un script modifié après coup est refusé) · continuité des versions vérifiée
+(un module absent du déploiement se voit au démarrage, pas au premier appel) · tout en
+une transaction sous verrou consultatif · **et il monte chaque base de test**, donc le
+chemin de déploiement est exercé à chaque build. Les scripts sont déclarés dans
+`db/migrations.list` plutôt que scannés, parce que l'énumération d'un répertoire n'est
+pas portable d'un jar à l'autre.
+
+#### Ce que Liquibase apporterait, et qui manque
+
+- **Le retour arrière.** `SchemaMigrator` n'en a pas : une migration se répare par une
+  migration. Liquibase sait générer un `rollback` — pas gratuitement, il faut l'écrire
+  pour chaque changement, et il reste inapplicable à une migration de données.
+- **La génération du SQL par moteur.** Sans intérêt ici : PostgreSQL est le seul moteur
+  visé, et le code utilise ses partitions et sa RLS.
+- **Un écosystème connu.** Un nouvel arrivant sait déjà lire un changelog Liquibase ; il
+  doit lire `SchemaMigrator` pour comprendre le nôtre. C'est le coût réel.
+- **Les commandes d'exploitation** (`status`, `tag`, `updateSQL` pour revue) — que
+  `SchemaMigrator` n'expose pas. Un DBA qui veut relire ce qui va s'appliquer avant de
+  l'appliquer n'a pas d'outil.
+
+#### Le coût de changer maintenant
+
+56 scripts à reprendre en changelog, la table de versions à convertir, et surtout
+`SchemaMigratorIT` — le test qui prouve la montée de version complète — à réécrire. Le
+gain principal serait la lisibilité pour un nouvel arrivant et les commandes
+d'exploitation.
+
+**La décision reste ouverte, et elle est de la banque.** Ce document ne prétend plus
+qu'elle a été prise.
 
 ---
 
