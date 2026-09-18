@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { FiltreBalance, PageBalance, RunTfj, TotauxBalance } from '../modele/siege.modele';
+import { FiltreBalance, PageBalance, TotauxBalance } from '../modele/siege.modele';
 import { SiegeFactice } from '../siege.factice';
 import { SIEGE, Siege } from '../siege.port';
+import { SiegeDouble } from '../testing/siege-double';
 import { Balance } from './balance.page';
 
 async function calme(fixture: ComponentFixture<Balance>): Promise<void> {
@@ -10,20 +11,19 @@ async function calme(fixture: ComponentFixture<Balance>): Promise<void> {
 }
 
 /** Un socle dont on force le déséquilibre : c'est le cas qu'on ne peut pas provoquer autrement. */
-class SiegeDesequilibre implements Siege {
+class SiegeDesequilibre extends SiegeDouble {
   private readonly vrai = new SiegeFactice();
 
   constructor() {
+    super();
     this.vrai.latenceMs = 0;
   }
 
-  lancerTfj(e: string, j: string, m: 'REAL' | 'DRY_RUN'): Promise<RunTfj> { return this.vrai.lancerTfj(e, j, m); }
-  lireTfj(e: string, id: string): Promise<RunTfj> { return this.vrai.lireTfj(e, id); }
-  reprendreTfj(e: string, id: string): Promise<RunTfj> { return this.vrai.reprendreTfj(e, id); }
-  annulerTfj(e: string, id: string): Promise<RunTfj> { return this.vrai.annulerTfj(e, id); }
-  balance(e: string, f: FiltreBalance, p: number, t: number): Promise<PageBalance> { return this.vrai.balance(e, f, p, t); }
+  override balance(e: string, f: FiltreBalance, p: number, t: number): Promise<PageBalance> {
+    return this.vrai.balance(e, f, p, t);
+  }
 
-  async totauxBalance(): Promise<readonly TotauxBalance[]> {
+  override async totauxBalance(): Promise<readonly TotauxBalance[]> {
     const argent = (v: number) => ({ amount: String(v), currency: 'XOF' });
     return [{
       currency: 'XOF', accounts: 15, balanced: false,

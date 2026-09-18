@@ -107,6 +107,32 @@
         </cb-field>
       </div>
 
+      @if (!numeroRepris()) {
+        <p class="numero">
+          Le numéro de compte est <strong>composé par le socle</strong>, selon la règle de
+          numérotation de la banque — en zone UEMOA, un RIB avec sa clé de contrôle. Il est attribué
+          à l'ouverture, pas à la saisie.
+          <button type="button" class="lien" (click)="numeroRepris.set(true)">
+            Reprendre un numéro existant…
+          </button>
+        </p>
+      } @else {
+        <cb-field etiquette="Numéro de compte" pour="numero"
+                  aide="Pour une reprise d'existant seulement : le numéro de l'ancien système.">
+          <input cbInput id="numero" name="numero" autocomplete="off" class="cb-mono"
+                 [value]="numero()" (input)="numero.set($any($event.target).value)" />
+        </cb-field>
+        <p class="numero">
+          Un numéro fourni est repris <strong>tel quel</strong> : le socle ne le recompose pas, et
+          ne vérifie pas sa clé. C'est ce qui permet de garder le lien avec les archives et les
+          chèques en circulation — et c'est aussi ce qui rend une faute de frappe définitive.
+          <button type="button" class="lien"
+                  (click)="numeroRepris.set(false); numero.set('')">
+            Laisser le socle composer
+          </button>
+        </p>
+      }
+
       <div class="actions">
         <button type="button" cbButton="primaire" [disabled]="!peutEnvoyer()" (click)="envoyer()">
           {{ ouvertureADeuxRegards() ? "Soumettre l'ouverture" : 'Ouvrir le compte' }}

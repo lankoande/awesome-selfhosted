@@ -850,6 +850,58 @@
         },
         "type" : "object"
       },
+      "Entities.Establishment" : {
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "approvalNumber" : {
+            "type" : "string"
+          },
+          "bankCode" : {
+            "type" : "string"
+          },
+          "businessDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "countryCode" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "functionalCurrency" : {
+            "$ref" : "#/components/schemas/CurrencyRef"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "legalName" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "phone" : {
+            "type" : "string"
+          },
+          "registryNumber" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "taxId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Error" : {
         "properties" : {
           "detail" : {
@@ -2078,6 +2130,127 @@
           "windowDays" : {
             "format" : "int32",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "Numbering.Draft" : {
+        "properties" : {
+          "createdBy" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "domain" : {
+            "enum" : [ "PARTY", "ACCOUNT", "LOAN_APPLICATION", "LOAN_CONTRACT", "TERM_DEPOSIT", "STANDING_ORDER" ],
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "legalEntityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reset" : {
+            "enum" : [ "NEVER", "YEAR", "MONTH" ],
+            "type" : "string"
+          },
+          "scope" : {
+            "enum" : [ "ENTITY", "BRANCH" ],
+            "type" : "string"
+          },
+          "segments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Numbering.Segment"
+            },
+            "type" : "array"
+          },
+          "sequenceStart" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "Numbering.Rule" : {
+        "properties" : {
+          "approvedBy" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "createdBy" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "domain" : {
+            "enum" : [ "PARTY", "ACCOUNT", "LOAN_APPLICATION", "LOAN_CONTRACT", "TERM_DEPOSIT", "STANDING_ORDER" ],
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "legalEntityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reset" : {
+            "enum" : [ "NEVER", "YEAR", "MONTH" ],
+            "type" : "string"
+          },
+          "scope" : {
+            "enum" : [ "ENTITY", "BRANCH" ],
+            "type" : "string"
+          },
+          "segments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Numbering.Segment"
+            },
+            "type" : "array"
+          },
+          "sequenceStart" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Numbering.Segment" : {
+        "properties" : {
+          "algorithm" : {
+            "enum" : [ "RIB_97", "LUHN" ],
+            "type" : "string"
+          },
+          "datePattern" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "enum" : [ "LITERAL", "BANK_CODE", "BRANCH_CODE", "DATE", "SEQUENCE", "CHECK_DIGITS" ],
+            "type" : "string"
+          },
+          "length" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "literalValue" : {
+            "type" : "string"
+          },
+          "padChar" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "NumberingController.Preview" : {
+        "properties" : {
+          "value" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -3434,6 +3607,38 @@
         },
         "type" : "object"
       },
+      "Requests.EstablishmentUpdate" : {
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "approvalNumber" : {
+            "type" : "string"
+          },
+          "bankCode" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "legalName" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "phone" : {
+            "type" : "string"
+          },
+          "registryNumber" : {
+            "type" : "string"
+          },
+          "taxId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Requests.FilingCancellation" : {
         "properties" : {
           "reason" : {
@@ -3891,6 +4096,57 @@
           "windowDays" : {
             "format" : "int32",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "Requests.NumberingRuleDraft" : {
+        "properties" : {
+          "domain" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "segments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Requests.NumberingSegmentRequest"
+            },
+            "type" : "array"
+          },
+          "sequenceReset" : {
+            "type" : "string"
+          },
+          "sequenceScope" : {
+            "type" : "string"
+          },
+          "sequenceStart" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "Requests.NumberingSegmentRequest" : {
+        "properties" : {
+          "checkAlgorithm" : {
+            "type" : "string"
+          },
+          "datePattern" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "length" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "literalValue" : {
+            "type" : "string"
+          },
+          "padChar" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -11233,6 +11489,146 @@
         "tags" : [ "YearEnd" ]
       }
     },
+    "/v1/entities/{legalEntityId}/establishment" : {
+      "get" : {
+        "operationId" : "Establishment.read",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/Entities.Establishment"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Establishment" ]
+      },
+      "post" : {
+        "operationId" : "Establishment.update",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.EstablishmentUpdate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Establishment" ]
+      }
+    },
     "/v1/entities/{legalEntityId}/fiscal-years" : {
       "get" : {
         "operationId" : "FiscalYear.list",
@@ -14226,6 +14622,390 @@
           }
         },
         "tags" : [ "DirectDebit" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/numbering-rules" : {
+      "get" : {
+        "operationId" : "Numbering.list",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "domain",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "items" : {
+                        "$ref" : "#/components/schemas/Numbering.Rule"
+                      },
+                      "type" : "array"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Numbering" ]
+      },
+      "post" : {
+        "operationId" : "Numbering.draft",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.NumberingRuleDraft"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/Requests.Created"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Cree"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Numbering" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/numbering-rules/proposals/{domain}" : {
+      "get" : {
+        "operationId" : "Numbering.proposal",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "domain",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/Numbering.Draft"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Numbering" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/numbering-rules/{ruleId}/activation" : {
+      "post" : {
+        "operationId" : "Numbering.activate",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "ruleId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Numbering" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/numbering-rules/{ruleId}/preview" : {
+      "get" : {
+        "operationId" : "Numbering.preview",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "ruleId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "branchId",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "on",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/NumberingController.Preview"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Numbering" ]
       }
     },
     "/v1/entities/{legalEntityId}/parties" : {

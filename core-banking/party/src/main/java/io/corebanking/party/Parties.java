@@ -111,14 +111,14 @@ public final class Parties {
 
     // ------------------------------------------------------------------ ecriture
 
-    static void insert(Connection c, UUID id, PartyService.Draft draft) {
+    static void insert(Connection c, UUID id, PartyService.Draft draft, String reference) {
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO party(id, legal_entity_id, reference, kind, display_name,"
             + " birth_or_registration_date, country_code, segment, created_by)"
             + " VALUES (?,?,?,?,?,?,?,?,?)")) {
             ps.setObject(1, id);
             ps.setObject(2, draft.legalEntityId());
-            ps.setString(3, draft.reference());
+            ps.setString(3, reference);
             ps.setString(4, draft.kind().name());
             ps.setString(5, draft.displayName());
             ps.setObject(6, draft.birthOrRegistrationDate());
@@ -127,7 +127,7 @@ public final class Parties {
             ps.setObject(9, draft.actorId());
             ps.executeUpdate();
         } catch (SQLException e) {
-            throw new LedgerStoreException("Creation du tiers " + draft.reference() + " refusee : "
+            throw new LedgerStoreException("Creation du tiers " + reference + " refusee : "
                                            + e.getMessage(), e);
         }
     }

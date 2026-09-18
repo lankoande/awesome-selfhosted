@@ -128,7 +128,7 @@ Structure de classes, de type plan bancaire francophone ⚠ *(à valider sur le 
 ### Mise en œuvre dans le socle
 
 Le PCB est chargé comme **plan comptable réglementaire**, cible du `gl_mapping`
-([03 §2](03-referentiel-parametrage.md#2-plan-comptable-paramétrable)) :
+([03 §3](03-referentiel-parametrage.md#3-plan-comptable-paramétrable)) :
 
 ```
 Compte interne stable        gl_mapping (framework = PCB_UEMOA)      Compte PCB

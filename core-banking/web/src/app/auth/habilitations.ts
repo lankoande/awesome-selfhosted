@@ -55,6 +55,11 @@ export const OPERATION_PAR_ECRAN: Readonly<Record<string, string>> = {
   'guichet/caisse': 'TILL_CLOSE',
   'siege/exploitation': 'PERIOD_CLOSE',
   'siege/balance': 'LEDGER_READ',
+  // Le paramétrage du siège. L'identité de l'établissement se lit largement —
+  // un guichetier la voit sur tout relevé qu'il imprime —, le plan de
+  // numérotation non : le lire, c'est savoir deviner les numéros des autres.
+  'siege/etablissement': 'ESTABLISHMENT_READ',
+  'siege/numerotation': 'NUMBERING_READ',
 };
 
 /** Aucune habilitation connue : on ne cache rien, l'API refusera. */

@@ -454,7 +454,7 @@ il est donc dans le paramétrage, jamais codé en dur.
 
 ### Classification et provisionnement
 
-Piloté par le profil réglementaire ([03](03-referentiel-parametrage.md#7-profil-réglementaire-par-pays)) :
+Piloté par le profil réglementaire ([03](03-referentiel-parametrage.md#8-profil-réglementaire-par-pays)) :
 
 > **Implémenté** ([`LoanClassificationService`](../../core-banking/loan-service)), les six points.
 > La grille est un profil réglementaire daté, versionné et soumis à double validation ; ses seuils

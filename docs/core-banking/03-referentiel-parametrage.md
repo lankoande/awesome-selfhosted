@@ -47,9 +47,97 @@ CREATE POLICY entity_isolation ON journal_entry
 > posée par transaction par l'API et par le TFJ, le rôle applicatif ne possède aucune table
 > ([07](07-securite-conformite.md)).
 
+### L'identité de l'établissement
+
+`legal_entity` porte aussi ce qui figure **en en-tête de chaque relevé et de chaque état
+transmis au superviseur** : la dénomination sociale quand elle diffère du nom commercial, le
+numéro d'agrément, l'identifiant fiscal, le registre du commerce, l'adresse, le téléphone, le
+courriel — et le **code banque** attribué par la banque centrale, qui est l'en-tête du RIB.
+
+Trois valeurs ne se corrigent pas : le **code** de l'entité, le **pays** et la **devise de
+tenue**. Elles sont posées dans chaque écriture depuis le premier jour ; les changer ne serait
+pas corriger une fiche, ce serait réécrire l'histoire comptable. Le **code banque** se corrige,
+mais seulement jusqu'au premier compte numéroté avec lui : au-delà, `Entities.updateEstablishment`
+refuse, parce que deux comptes de la même banque porteraient des RIB de banques différentes.
+
+> **Implémenté** — V58, `Entities.Establishment` / `updateEstablishment`, opérations
+> `ESTABLISHMENT_READ` et `ESTABLISHMENT_MANAGE` (à deux), route `/v1/entities/{id}/establishment`,
+> écran *Siège → Établissement* ([16](16-back-office.md) §22).
+
 ---
 
-## 2. Plan comptable paramétrable
+## 2. Numérotation
+
+### Ce que la banque compose, et pourquoi c'est du paramétrage
+
+Un numéro de compte de la zone UEMOA est un **RIB** : code banque sur cinq, code guichet sur
+cinq, numéro sur douze, clé de contrôle sur deux. Un numéro de dossier de crédit n'obéit à
+personne — chaque banque a le sien, et il change : à l'ouverture d'une filiale, à la reprise d'un
+portefeuille. Coder l'un ou l'autre obligerait à livrer pour ajouter un chiffre.
+
+Une règle est donc une suite de **segments**, dans l'ordre où ils se concatènent :
+
+| Segment | Ce qu'il rend |
+|---|---|
+| `LITERAL` | un texte fixe — `CLI-`, `DC-` |
+| `BANK_CODE` | le code banque de l'établissement |
+| `BRANCH_CODE` | le code de l'agence qui ouvre |
+| `DATE` | la date comptable, au format donné |
+| `SEQUENCE` | le compteur, cadré |
+| `CHECK_DIGITS` | la clé, calculée sur tout ce qui précède — donc nécessairement dernière |
+
+Deux axes orthogonaux commandent le compteur : sa **portée** (`ENTITY`, une série pour la banque ;
+`BRANCH`, une par agence — ce que fait un RIB) et sa **remise à zéro** (`NEVER`, `YEAR`, `MONTH`).
+Un numéro de compte ne se remet jamais à zéro ; un dossier de crédit se numérote souvent par année.
+
+Six domaines sont numérotables : `PARTY`, `ACCOUNT`, `LOAN_APPLICATION`, `LOAN_CONTRACT`,
+`TERM_DEPOSIT`, `STANDING_ORDER`. En ajouter un est une **livraison**, pas un paramétrage : c'est
+le code appelant qui demande un numéro.
+
+### Quatre garanties
+
+**Le numéro fourni est repris tel quel.** Une reprise d'existant porte les numéros de l'ancien
+système ; les recomposer couperait le lien avec les archives, les chèques en circulation et la
+mémoire des clients. `Numbering.orCompose` dit exactement cela — le numéro de l'appelant d'abord,
+la règle à défaut.
+
+**La série n'a pas de trou.** Le compteur est une ligne de table verrouillée, pas une séquence
+PostgreSQL : une séquence ne revient pas en arrière, et une ouverture annulée laisserait un trou
+— ce qu'une inspection remarque. Le verrou sérialise les ouvertures d'une même agence le temps
+d'une transaction ; c'est le prix d'une série sans trou, et une ouverture de compte n'est pas une
+opération de masse.
+
+**Un gabarit mal formé est refusé à la rédaction, jamais découvert à l'ouverture.** Exactement un
+compteur — sans lui tous les numéros seraient identiques, avec deux aucun ne serait lisible ; la
+clé en dernier ; un format de date que `DateTimeFormatter` accepte ; un cadrage sur chaque segment
+qui en demande un. Ce qui déborde son cadrage est **refusé, jamais tronqué** : deux agences dont
+les codes ne diffèrent qu'au-delà du cadrage donneraient le même numéro, et la collision
+n'apparaîtrait qu'à l'insertion, des mois plus tard.
+
+**Rien n'est semé à la création d'un établissement.** Tant qu'aucune règle n'est active, le socle
+refuse de composer et le dit — « c'est un paramétrage manquant, pas une erreur de saisie ».
+`Numbering.proposal` rend le gabarit que le socle **propose** pour chaque domaine, à relire et à
+adapter. La banque choisit son plan de numérotation : c'est elle qui vivra vingt ans avec, et elle
+que le superviseur interrogera.
+
+### La clé RIB
+
+La clé est le complément à 97 du reste de la division du numéro suivi de deux zéros : le numéro
+entier, clé comprise, est alors divisible par 97. Le calcul porte sur la **chaîne entière** plutôt
+que sur la formule à trois poids du RIB français (`89·B + 15·G + 3·C`), qui suppose des longueurs
+fixes — la BCEAO n'a pas les mêmes. Les lettres sont transcodées selon la table usuelle (A et J
+valent 1, B, K et S valent 2, … I, R et Z valent 9) : ce n'est pas un modulo, les trois séries ne
+sont pas alignées.
+
+> **Implémenté** — V58 (`numbering_rule`, `numbering_segment`, `numbering_sequence`,
+> `numbering_issue`), `Numbering`, branché sur `PartyService.create`, `AccountLifecycle.open` et
+> `LoanOrigination.submit` ; opérations `NUMBERING_READ`, `NUMBERING_DRAFT` et `NUMBERING_ACTIVATE`
+> (à deux) ; routes `/v1/entities/{id}/numbering-rules` ; écran *Siège → Numérotation*
+> ([16](16-back-office.md) §22).
+
+---
+
+## 3. Plan comptable paramétrable
 
 ### Le problème multi-pays
 
@@ -100,7 +188,7 @@ reprise de données ni migration d'écritures.
 
 ---
 
-## 3. Product factory
+## 4. Product factory
 
 ### Principe
 
@@ -199,7 +287,7 @@ différents de l'original — et l'arrêté devient invérifiable.
 
 ---
 
-## 4. Schémas comptables
+## 5. Schémas comptables
 
 C'est le mécanisme qui traduit un **événement métier** en **jeu d'écritures**. Il est le
 pivot entre le métier et le ledger.
@@ -258,7 +346,7 @@ Propriétés :
 
 ---
 
-## 5. Devises, cours et arrondis
+## 6. Devises, cours et arrondis
 
 ```
 Currency (ISO 4217)
@@ -281,7 +369,7 @@ ExchangeRate
 
 ---
 
-## 6. Calendriers et périodes comptables
+## 7. Calendriers et périodes comptables
 
 ### Calendrier
 
@@ -322,7 +410,7 @@ FiscalYear (exercice)
 
 ---
 
-## 7. Profil réglementaire par pays
+## 8. Profil réglementaire par pays
 
 Le point qui rend le socle réellement portable : les règles propres à un pays sont
 **données**, pas code.
@@ -385,7 +473,7 @@ attend la prochaine version n'est pas une conformité.
 
 ---
 
-## 8. Gouvernance du paramétrage
+## 9. Gouvernance du paramétrage
 
 Le paramétrage a la même criticité que le code. Il suit donc le même niveau d'exigence :
 

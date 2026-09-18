@@ -111,7 +111,93 @@ public final class DualControlHandlers {
                        new DeclareRegulatoryReport(database), new TransmitReport(database),
                        new DeclareTaxRule(database, accounts), new DeclareStatementPack(database),
                        new DeclareConsolidationScope(database),
-                       new DeclareElimination(database, accounts));
+                       new DeclareElimination(database, accounts),
+                       new UpdateEstablishment(database),
+                       new ActivateNumberingRule(database));
+    }
+
+    /**
+     * Correction de l'identite de l'etablissement : denomination, code banque, agrement.
+     *
+     * <p>C'est ce qui figure en en-tete des etats transmis au superviseur et en tete de chaque
+     * RIB. Une faute de frappe sur le code banque ne se voit pas a l'ecran ; elle se voit six mois
+     * plus tard, sur un virement recu qui n'arrive jamais.
+     */
+    static final class UpdateEstablishment implements MakerChecker.Handler {
+        private final Database database;
+
+        UpdateEstablishment(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "ESTABLISHMENT_UPDATE"; }
+        @Override public Operation operation() { return Operation.ESTABLISHMENT_MANAGE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "legalEntityId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            UUID entity = uuid(payload, "legalEntityId");
+            io.corebanking.ledger.store.Entities.EstablishmentUpdate update =
+                new io.corebanking.ledger.store.Entities.EstablishmentUpdate(
+                    text(payload, "name"), text(payload, "bankCode"), text(payload, "legalName"),
+                    text(payload, "approvalNumber"), text(payload, "taxId"),
+                    text(payload, "registryNumber"), text(payload, "address"),
+                    text(payload, "phone"), text(payload, "email"));
+            return database.inTransaction(c -> {
+                io.corebanking.ledger.store.Entities.updateEstablishment(c, entity, update);
+                return io.corebanking.ledger.store.Entities.establishment(c, entity);
+            });
+        }
+    }
+
+    /**
+     * Activation d'une regle de numerotation : jamais par son redacteur.
+     *
+     * <p>Elle decide de l'identite des clients et des comptes crees a partir de maintenant, et
+     * pour toujours. La regle qu'elle remplace n'est pas supprimee : les numeros deja composes
+     * restent explicables.
+     */
+    static final class ActivateNumberingRule implements MakerChecker.Handler {
+        private final Database database;
+
+        ActivateNumberingRule(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "NUMBERING_ACTIVATE"; }
+        @Override public Operation operation() { return Operation.NUMBERING_ACTIVATE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(uuid(payload, "legalEntityId"));
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "ruleId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            UUID entity = uuid(payload, "legalEntityId");
+            UUID ruleId = uuid(payload, "ruleId");
+            UUID approver = Callers.actorId(checker);
+            return database.inTransaction(c -> {
+                io.corebanking.ledger.store.Numbering.activate(c, entity, ruleId, approver);
+                var rule = io.corebanking.ledger.store.Numbering.require(c, entity, ruleId);
+                return Map.of("ruleId", rule.id(), "domain", rule.domain().name(),
+                              "label", rule.label(), "status", rule.status());
+            });
+        }
     }
 
     private static String blankToNull(String value) {
@@ -475,16 +561,25 @@ public final class DualControlHandlers {
             return AccessTarget.inBranch(uuid(payload, "legalEntityId"), Callers.branchId(maker));
         }
 
+        /**
+         * Le numero, quand il est repris ; le produit sinon.
+         *
+         * <p>Un numero compose par la regle n'existe pas encore a la soumission : il se prend a
+         * l'approbation, dans la transaction qui ouvre le compte. Nommer la demande par son
+         * produit vaut mieux que de la laisser sans nom dans la file.
+         */
         @Override
         public String resourceOf(Map<String, Object> payload) {
-            return text(payload, "code");
+            String code = text(payload, "code");
+            return code != null && !code.isBlank() ? code
+                : "compte " + text(payload, "productCode");
         }
 
         @Override
         public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
             UUID entity = uuid(payload, "legalEntityId");
             UUID id = lifecycle.open(new AccountLifecycle.Opening(
-                entity, required(payload, "code"), uuid(payload, "holderPartyId"),
+                entity, text(payload, "code"), uuid(payload, "holderPartyId"),
                 required(payload, "productCode"), lifecycleCurrency(payload),
                 Callers.branchId(maker), Callers.actorId(maker), Callers.actorId(checker)));
             return new Requests.Created(id);

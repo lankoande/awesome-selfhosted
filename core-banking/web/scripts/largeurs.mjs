@@ -45,7 +45,10 @@ const CHEMINS = [
   'reglementaire/echeances', 'reglementaire/etats',
   'reglementaire/etats/et-sit-aout', 'reglementaire/etats/et-sit-sept',
   'reglementaire/declarations', 'reglementaire/fiscalite',
-  'siege/exploitation', 'siege/balance',
+  // Le siège : l'exploitation, la balance, puis le paramétrage — l'établissement
+  // et le plan de numérotation, dont l'éditeur de gabarit est l'écran le plus
+  // chargé du poste.
+  'siege/exploitation', 'siege/balance', 'siege/etablissement', 'siege/numerotation',
   'validation',
 ];
 const LARGEURS = [1920, 1440, 1366, 1100, 1024, 768, 390];

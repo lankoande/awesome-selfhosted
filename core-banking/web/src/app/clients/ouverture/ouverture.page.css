@@ -57,3 +57,32 @@ h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
   cb-kbd, .cle { display: none; }
   .saisie { grid-template-columns: 1fr; }
 }
+
+/* Le numéro de compte : une explication, et la porte de la reprise d'existant.
+   Elle se dit en toutes lettres plutôt que de s'ouvrir par un champ — un
+   guichetier n'invente pas un numéro de compte. */
+.numero {
+  margin: var(--cb-space-3) 0 0;
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+  max-width: 68ch;
+}
+
+/* La cible garde la hauteur tactile minimale (WCAG 2.2, 2.5.8) : un lien en
+   fin de paragraphe reste un bouton, et se vise au doigt. */
+.numero .lien {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border: 0;
+  padding: 0;
+  margin-left: var(--cb-space-1);
+  background: none;
+  color: var(--cb-accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.numero .lien:hover { text-decoration: none; }

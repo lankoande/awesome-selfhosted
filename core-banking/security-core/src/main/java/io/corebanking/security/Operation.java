@@ -209,6 +209,22 @@ public enum Operation {
     STATEMENT_LAYOUT_DRAFT,
     /** Activation d'une maquette d'etat financier : ce que la banque presente, a deux. */
     STATEMENT_LAYOUT_ACTIVATE,
+    /** Lecture de l'identite de l'etablissement : denomination, code banque, agrement. */
+    ESTABLISHMENT_READ,
+    /**
+     * Modification de l'identite de l'etablissement. Ce qui est lu ici figure en en-tete des
+     * etats reglementaires et en tete de chaque RIB : cela se corrige a deux.
+     */
+    ESTABLISHMENT_MANAGE,
+    /** Lecture des regles de numerotation : le plan de numerotation de la banque. */
+    NUMBERING_READ,
+    /** Redaction d'une regle de numerotation. */
+    NUMBERING_DRAFT,
+    /**
+     * Activation d'une regle de numerotation. Elle decide de l'identite des clients et des
+     * comptes crees a partir de maintenant, pour toujours : a deux.
+     */
+    NUMBERING_ACTIVATE,
     /** Calendriers, jours feries, regles de date de valeur. */
     CALENDAR_MANAGE,
     /** Creation d'une agence ou d'une region, avec ses comptes de liaison. */

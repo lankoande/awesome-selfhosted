@@ -1,0 +1,127 @@
+<cb-toolbar>
+  <h1>L'établissement</h1>
+  <span class="compte">ce qui figure en en-tête de chaque relevé</span>
+  <button fin type="button" cbButton="secondaire" [disabled]="travaille()" (click)="charger()">
+    Rafraîchir
+  </button>
+</cb-toolbar>
+
+<cb-activity [enCours]="travaille()" libelle="Lecture de l'établissement…" />
+
+@if (refus(); as r) {
+  <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+    @if (r.detail) { {{ r.detail }} }
+  </cb-notice>
+}
+
+@if (enAttente(); as operation) {
+  <cb-notice nature="avertissement" titre="En attente de validation" [code]="operation">
+    <p>
+      La correction est soumise à un second regard. <strong>Rien n'a changé pour l'instant</strong> :
+      elle prend effet quand quelqu'un d'autre l'approuve, depuis la file de validation.
+    </p>
+  </cb-notice>
+}
+
+@if (fiche(); as fiche) {
+  <div class="ecran" [class.ecran--double]="phase() === 'saisie' || phase() === 'envoi'">
+    <div class="colonne">
+      <cb-section titre="Ce qui ne se corrige pas"
+                  indication="posé dans chaque écriture depuis le premier jour">
+        <dl class="fige">
+          <dt>Code de l'entité</dt><dd class="cb-mono">{{ fiche.code }}</dd>
+          <dt>Pays</dt><dd class="cb-mono">{{ fiche.countryCode }}</dd>
+          <dt>Devise de tenue</dt><dd class="cb-mono">{{ fiche.functionalCurrency }}</dd>
+          <dt>Date comptable</dt><dd class="cb-mono">{{ fiche.businessDate }}</dd>
+        </dl>
+        <p class="pourquoi">
+          Ces quatre valeurs sont écrites dans chaque écriture depuis le premier jour. Les changer
+          ne serait pas corriger une fiche : ce serait réécrire l'histoire comptable.
+        </p>
+      </cb-section>
+
+      @if (phase() !== 'saisie' && phase() !== 'envoi') {
+        <cb-section titre="L'identité" [indication]="fiche.status === 'ACTIVE' ? 'active' : fiche.status">
+          <dl class="fiche">
+            @for (champ of champs; track champ.cle) {
+              <dt>{{ champ.etiquette }}</dt>
+              <dd [class.absent]="!valeurFiche(champ.cle)">
+                {{ valeurFiche(champ.cle) || 'non renseigné' }}
+              </dd>
+            }
+          </dl>
+
+          @if (!fiche.bankCode) {
+            <cb-notice nature="avertissement" titre="Le code banque manque">
+              <p>
+                Une règle de numérotation qui porte le code banque ne peut pas composer : elle
+                refusera à la première ouverture de compte. Le code banque s'attribue par la banque
+                centrale, et se pose ici <strong>avant</strong> le premier compte.
+              </p>
+            </cb-notice>
+          }
+
+          @if (droitDeCorriger()) {
+            <div class="actions">
+              <button type="button" cbButton="primaire" (click)="corriger()">Corriger…</button>
+              @if (secondRegard()) {
+                <span class="regard">Soumis à un second regard.</span>
+              }
+            </div>
+          } @else {
+            <p class="interdit">
+              Votre profil lit l'identité de l'établissement, il ne la corrige pas. C'est un
+              paramétrage du siège : la correction se demande à l'exploitation ou à la comptabilité.
+            </p>
+          }
+        </cb-section>
+      }
+    </div>
+
+    @if (phase() === 'saisie' || phase() === 'envoi') {
+      <div class="colonne">
+        <cb-section titre="Corriger l'identité" indication="à deux">
+          <p class="pourquoi">
+            Un champ laissé vide est <strong>effacé</strong> ; un champ non modifié reste ce qu'il
+            était. Seul ce qui change part au socle.
+          </p>
+
+          <div class="grille">
+            @for (champ of champs; track champ.cle) {
+              <cb-field [etiquette]="champ.etiquette" [pour]="'champ-' + champ.cle"
+                        [aide]="champ.aide">
+                <input cbInput [id]="'champ-' + champ.cle" [name]="champ.cle" autocomplete="off"
+                       [value]="valeurAffichee(champ.cle)"
+                       (input)="majChamp(champ.cle, $any($event.target).value)" />
+              </cb-field>
+            }
+          </div>
+
+          @if (fiche.bankCode) {
+            <cb-notice nature="information" titre="Le code banque peut être figé">
+              <p>
+                Dès qu'un compte a été numéroté avec lui, le code banque ne se change plus : deux
+                comptes de la même banque porteraient des RIB de banques différentes. Le socle le
+                refusera, et il aura raison — un changement de code banque est une migration, pas
+                une correction de fiche.
+              </p>
+            </cb-notice>
+          }
+
+          <div class="actions">
+            <button type="button" cbButton="primaire"
+                    [disabled]="travaille() || !aDesModifications()" (click)="soumettre()">
+              {{ secondRegard() ? 'Soumettre la correction' : 'Enregistrer' }}
+            </button>
+            <button type="button" cbButton="discret" [disabled]="travaille()" (click)="annuler()">
+              Annuler
+            </button>
+            @if (!aDesModifications()) {
+              <span class="regard">Rien n'a changé.</span>
+            }
+          </div>
+        </cb-section>
+      </div>
+    }
+  </div>
+}

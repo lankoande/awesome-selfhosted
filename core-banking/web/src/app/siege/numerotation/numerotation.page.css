@@ -1,0 +1,166 @@
+:host { display: block; }
+
+.compte { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+
+/* Les domaines : une barre de choix, pas des onglets — chacun mène au même
+   écran, sur une autre matière. Elle défile plutôt que de se replier : six
+   entrées ne tiennent pas sur un téléphone, et les tronquer cacherait un
+   domaine que personne n'irait chercher. */
+.domaines {
+  display: flex;
+  gap: var(--cb-space-1);
+  padding: var(--cb-space-3) var(--cb-gutter) 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.domaines::-webkit-scrollbar { display: none; }
+
+.domaines button {
+  flex-shrink: 0;
+  height: var(--cb-tap-h);
+  padding: 0 var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  background: var(--cb-panel);
+  color: var(--cb-muted);
+  font: inherit;
+  font-size: var(--cb-fs-sm);
+  cursor: pointer;
+}
+
+.domaines button:hover { color: var(--cb-ink); }
+
+.domaines button.actif {
+  background: var(--cb-accent);
+  border-color: var(--cb-accent);
+  color: var(--cb-accent-contraste);
+  font-weight: 600;
+}
+
+/* Une colonne tant qu'aucun gabarit n'est ouvert : une liste de trois règles
+   qui n'occuperait que la moitié de l'écran laisserait un vide que le lecteur
+   prendrait pour un chargement en cours. */
+.ecran {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cb-space-5);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+  align-items: start;
+}
+
+.ecran--double { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+
+.colonne {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-5);
+}
+
+/* L'éditeur de gabarit a besoin de sa largeur : sous 1280 px il passe dessous
+   plutôt que de comprimer la liste et l'aperçu côte à côte. */
+@media (max-width: 1280px) {
+  .ecran--double { grid-template-columns: minmax(0, 1fr); }
+}
+
+.retiree td { color: var(--cb-muted); }
+.libelle { max-width: 22ch; }
+.exemple { white-space: nowrap; }
+.compteur { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+.rien { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+.vide { color: var(--cb-muted); padding: var(--cb-space-4); }
+
+.pourquoi, .interdit {
+  margin: var(--cb-space-3) 0 0;
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+  max-width: 64ch;
+}
+
+/* L'aperçu est le sujet de l'écran : il se lit avant le gabarit. */
+.apercu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-1);
+  padding: var(--cb-space-3) var(--cb-space-4);
+  margin-bottom: var(--cb-space-4);
+  background: var(--cb-fond-doux, var(--cb-panel));
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+}
+
+.apercu .numero {
+  font-size: var(--cb-fs-xl);
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+.grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--cb-space-3) var(--cb-space-4);
+}
+
+.sous-titre {
+  margin: var(--cb-space-5) 0 var(--cb-space-2);
+  font-size: var(--cb-fs-md);
+  font-weight: 600;
+}
+
+.segments {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-2);
+  counter-reset: segment;
+}
+
+.segment {
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  padding: var(--cb-space-2) var(--cb-space-3);
+}
+
+.entete-segment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cb-space-2);
+}
+
+.entete-segment .nature { font-weight: 600; font-size: var(--cb-fs-sm); }
+.entete-segment .ressort { flex: 1 1 auto; }
+
+.reglages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--cb-space-2) var(--cb-space-4);
+  margin-top: var(--cb-space-2);
+}
+
+.ajouts { margin-top: var(--cb-space-4); }
+
+.ajouts .boutons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cb-space-2);
+  margin-top: var(--cb-space-2);
+}
+
+.obstacles { margin: 0; padding-left: var(--cb-space-4); }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cb-space-3);
+  margin-top: var(--cb-space-4);
+}
+
+.regard {
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+  max-width: 52ch;
+}

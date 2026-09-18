@@ -68,6 +68,17 @@ export class OuvertureCompte {
   protected readonly commence = signal(false);
 
   protected readonly produit = signal('');
+
+  /**
+   * Reprendre un numéro plutôt que de le faire composer.
+   *
+   * Fermé par défaut, et c'est le sujet : un guichetier n'invente pas un numéro
+   * de compte. La porte existe pour la **reprise d'existant** — un portefeuille
+   * migré porte les numéros de l'ancien système, que les chèques en circulation
+   * et les clients connaissent déjà.
+   */
+  protected readonly numeroRepris = signal(false);
+  protected readonly numero = signal('');
   protected readonly devise = signal('');
   /** Les produits ouvrables, tels que le socle les rend. */
   protected readonly produits = signal<readonly ProduitOuvrable[]>([]);
@@ -213,7 +224,10 @@ export class OuvertureCompte {
         holderPartyId: this.id(),
         productCode: this.produit().trim(),
         currency: this.devise().trim().toUpperCase(),
-        code: null,
+        // Vide, le socle compose selon la règle de numérotation active. Fourni,
+        // il est repris tel quel : une reprise d'existant porte les numéros de
+        // l'ancien système, que les chèques en circulation connaissent déjà.
+        code: this.numeroRepris() ? this.numero().trim() || null : null,
       }, this.cle());
       this.issue.set(issue);
       this.phase.set('en-attente');

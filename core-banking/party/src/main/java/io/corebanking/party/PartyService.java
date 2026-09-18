@@ -2,6 +2,7 @@ package io.corebanking.party;
 
 import io.corebanking.kernel.id.Ids;
 import io.corebanking.ledger.store.Database;
+import io.corebanking.ledger.store.Numbering;
 import java.sql.Connection;
 import java.time.LocalDate;
 import java.util.List;
@@ -38,7 +39,13 @@ public final class PartyService {
         this.screening = Objects.requireNonNull(screening, "screening");
     }
 
-    /** Dossier a creer. Au moins un identifiant officiel : sans lui, aucun dedoublonnage. */
+    /**
+     * Dossier a creer. Au moins un identifiant officiel : sans lui, aucun dedoublonnage.
+     *
+     * <p>La reference est <b>facultative</b> : laissee vide, elle est composee par la regle de
+     * numerotation active. Fournie, elle est reprise telle quelle — une reprise d'existant porte
+     * les numeros de l'ancien systeme, et les recomposer couperait le lien avec les archives.
+     */
     public record Draft(UUID legalEntityId, String reference, PartyKind kind, String displayName,
                         LocalDate birthOrRegistrationDate, String countryCode, String segment,
                         List<PartyIdentifier> identifiers, UUID actorId) {
@@ -47,9 +54,6 @@ public final class PartyService {
             Objects.requireNonNull(legalEntityId, "legalEntityId");
             Objects.requireNonNull(kind, "kind");
             Objects.requireNonNull(actorId, "actorId");
-            if (reference == null || reference.isBlank()) {
-                throw new IllegalArgumentException("Reference client obligatoire");
-            }
             if (displayName == null || displayName.isBlank()) {
                 throw new IllegalArgumentException("Nom obligatoire");
             }
@@ -66,8 +70,19 @@ public final class PartyService {
         }
     }
 
-    /** Cree le tiers, ou nomme le doublon. Renvoie l'identifiant du dossier cree. */
+    /** Cree le tiers hors de toute agence : la numerotation ne doit alors pas en dependre. */
     public UUID create(Draft draft) {
+        return create(draft, null);
+    }
+
+    /**
+     * Cree le tiers, ou nomme le doublon. Renvoie l'identifiant du dossier cree.
+     *
+     * <p>{@code branchId} est l'agence qui entre le client en relation. Elle ne figure pas au
+     * dossier — un client est client de la banque, pas de son agence —, mais la regle de
+     * numerotation peut la porter : une serie par agence, ou un code guichet dans la reference.
+     */
+    public UUID create(Draft draft, UUID branchId) {
         return database.inTransaction(c -> {
             for (PartyIdentifier identifier : draft.identifiers()) {
                 if (!identifier.kind().official()) {
@@ -83,11 +98,14 @@ public final class PartyService {
                 }
             }
             UUID id = Ids.newId();
-            Parties.insert(c, id, draft);
+            LocalDate today = businessDate(c, draft.legalEntityId());
+            String reference = Numbering.orCompose(
+                c, draft.reference(), Numbering.Domain.PARTY,
+                new Numbering.Context(draft.legalEntityId(), branchId, today));
+            Parties.insert(c, id, draft, reference);
             for (PartyIdentifier identifier : draft.identifiers()) {
                 Parties.insertIdentifier(c, id, draft.legalEntityId(), identifier);
             }
-            LocalDate today = businessDate(c, draft.legalEntityId());
             Parties.event(c, id, "CREATED", today, draft.actorId(), null, null, null);
 
             Optional<Screening.Match> match = screening.screen(new Screening.Subject(

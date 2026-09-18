@@ -1028,6 +1028,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/entities/{legalEntityId}/establishment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["Establishment.read"];
+        put?: never;
+        post: operations["Establishment.update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/entities/{legalEntityId}/fiscal-years": {
         parameters: {
             query?: never;
@@ -1486,6 +1502,70 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["DirectDebit.revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entities/{legalEntityId}/numbering-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["Numbering.list"];
+        put?: never;
+        post: operations["Numbering.draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entities/{legalEntityId}/numbering-rules/proposals/{domain}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["Numbering.proposal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entities/{legalEntityId}/numbering-rules/{ruleId}/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["Numbering.activate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entities/{legalEntityId}/numbering-rules/{ruleId}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["Numbering.preview"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2687,6 +2767,25 @@ export interface components {
             /** Format: date */
             validTo?: string;
         };
+        "Entities.Establishment": {
+            address?: string;
+            approvalNumber?: string;
+            bankCode?: string;
+            /** Format: date */
+            businessDate?: string;
+            code?: string;
+            countryCode?: string;
+            email?: string;
+            functionalCurrency?: components["schemas"]["CurrencyRef"];
+            /** Format: uuid */
+            id?: string;
+            legalName?: string;
+            name?: string;
+            phone?: string;
+            registryNumber?: string;
+            status?: string;
+            taxId?: string;
+        };
         Error: {
             detail?: string;
             instance?: string;
@@ -3205,6 +3304,57 @@ export interface components {
             validTo?: string;
             /** Format: int32 */
             windowDays?: number;
+        };
+        "Numbering.Draft": {
+            /** Format: uuid */
+            createdBy?: string;
+            /** @enum {string} */
+            domain?: "PARTY" | "ACCOUNT" | "LOAN_APPLICATION" | "LOAN_CONTRACT" | "TERM_DEPOSIT" | "STANDING_ORDER";
+            label?: string;
+            /** Format: uuid */
+            legalEntityId?: string;
+            /** @enum {string} */
+            reset?: "NEVER" | "YEAR" | "MONTH";
+            /** @enum {string} */
+            scope?: "ENTITY" | "BRANCH";
+            segments?: components["schemas"]["Numbering.Segment"][];
+            /** Format: int64 */
+            sequenceStart?: number;
+        };
+        "Numbering.Rule": {
+            /** Format: uuid */
+            approvedBy?: string;
+            /** Format: uuid */
+            createdBy?: string;
+            /** @enum {string} */
+            domain?: "PARTY" | "ACCOUNT" | "LOAN_APPLICATION" | "LOAN_CONTRACT" | "TERM_DEPOSIT" | "STANDING_ORDER";
+            /** Format: uuid */
+            id?: string;
+            label?: string;
+            /** Format: uuid */
+            legalEntityId?: string;
+            /** @enum {string} */
+            reset?: "NEVER" | "YEAR" | "MONTH";
+            /** @enum {string} */
+            scope?: "ENTITY" | "BRANCH";
+            segments?: components["schemas"]["Numbering.Segment"][];
+            /** Format: int64 */
+            sequenceStart?: number;
+            status?: string;
+        };
+        "Numbering.Segment": {
+            /** @enum {string} */
+            algorithm?: "RIB_97" | "LUHN";
+            datePattern?: string;
+            /** @enum {string} */
+            kind?: "LITERAL" | "BANK_CODE" | "BRANCH_CODE" | "DATE" | "SEQUENCE" | "CHECK_DIGITS";
+            /** Format: int32 */
+            length?: number;
+            literalValue?: string;
+            padChar?: string;
+        };
+        "NumberingController.Preview": {
+            value?: string;
         };
         "OperationsService.Receipt": {
             amount?: components["schemas"]["Money"];
@@ -3749,6 +3899,17 @@ export interface components {
             /** Format: uuid */
             rightEntityId?: string;
         };
+        "Requests.EstablishmentUpdate": {
+            address?: string;
+            approvalNumber?: string;
+            bankCode?: string;
+            email?: string;
+            legalName?: string;
+            name?: string;
+            phone?: string;
+            registryNumber?: string;
+            taxId?: string;
+        };
         "Requests.FilingCancellation": {
             reason?: string;
         };
@@ -3935,6 +4096,24 @@ export interface components {
             validTo?: string;
             /** Format: int32 */
             windowDays?: number;
+        };
+        "Requests.NumberingRuleDraft": {
+            domain?: string;
+            label?: string;
+            segments?: components["schemas"]["Requests.NumberingSegmentRequest"][];
+            sequenceReset?: string;
+            sequenceScope?: string;
+            /** Format: int64 */
+            sequenceStart?: number;
+        };
+        "Requests.NumberingSegmentRequest": {
+            checkAlgorithm?: string;
+            datePattern?: string;
+            kind?: string;
+            /** Format: int32 */
+            length?: number;
+            literalValue?: string;
+            padChar?: string;
         };
         "Requests.OpenAccount": {
             code?: string;
@@ -7647,6 +7826,86 @@ export interface operations {
             500: components["responses"]["500"];
         };
     };
+    "Establishment.read": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Entities.Establishment"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "Establishment.update": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+                /** @description Cle d'idempotence de la soumission. Envoyee, la meme cle avec la meme requete rend la demande d'origine au lieu d'en creer une seconde ; avec une requete differente, 409. Omise, un envoi rejoue cree une seconde demande. */
+                "Idempotency-Key"?: components["parameters"]["OptionalIdempotencyKey"];
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Requests.EstablishmentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["MakerChecker.View"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
     "FiscalYear.list": {
         parameters: {
             query?: {
@@ -8273,6 +8532,10 @@ export interface operations {
         parameters: {
             query?: {
                 status?: string;
+                /** @description Numero de page, a partir de zero */
+                page?: components["parameters"]["Page"];
+                /** @description Taille de page ; au-dela du maximum, 400 */
+                size?: components["parameters"]["PageSize"];
             };
             header?: {
                 /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
@@ -8295,7 +8558,7 @@ export interface operations {
                         data: components["schemas"]["LoanOrigination.Application"][];
                         error: null;
                         meta: components["schemas"]["Meta"];
-                        page: null;
+                        page: components["schemas"]["Page"];
                     };
                 };
             };
@@ -9196,6 +9459,205 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["DirectDebitService.Mandate"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "Numbering.list": {
+        parameters: {
+            query?: {
+                domain?: string;
+            };
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Numbering.Rule"][];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "Numbering.draft": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Requests.NumberingRuleDraft"];
+            };
+        };
+        responses: {
+            /** @description Cree */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Requests.Created"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "Numbering.proposal": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Numbering.Draft"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "Numbering.activate": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+                /** @description Cle d'idempotence de la soumission. Envoyee, la meme cle avec la meme requete rend la demande d'origine au lieu d'en creer une seconde ; avec une requete differente, 409. Omise, un envoi rejoue cree une seconde demande. */
+                "Idempotency-Key"?: components["parameters"]["OptionalIdempotencyKey"];
+            };
+            path: {
+                legalEntityId: string;
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["MakerChecker.View"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "Numbering.preview": {
+        parameters: {
+            query?: {
+                branchId?: string;
+                on?: string;
+            };
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["NumberingController.Preview"];
                         error: null;
                         meta: components["schemas"]["Meta"];
                         page: null;

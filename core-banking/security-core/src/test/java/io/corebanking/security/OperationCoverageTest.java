@@ -42,6 +42,9 @@ class OperationCoverageTest {
         Map.entry("Calendars.createCalendar / addHoliday / attachToEntity / addRule",
                   Operation.CALENDAR_MANAGE),
         Map.entry("Branches.create", Operation.BRANCH_MANAGE),
+        Map.entry("Entities.updateEstablishment", Operation.ESTABLISHMENT_MANAGE),
+        Map.entry("Numbering.draft", Operation.NUMBERING_DRAFT),
+        Map.entry("Numbering.activate", Operation.NUMBERING_ACTIVATE),
         Map.entry("PaymentService.order", Operation.PAYMENT_ORDER),
         Map.entry("PaymentService.settle", Operation.PAYMENT_PROCESS),
         Map.entry("Limits.set", Operation.ACCOUNT_LIMIT_MANAGE),
@@ -116,7 +119,7 @@ class OperationCoverageTest {
         Operation.DIRECT_DEBIT_READ, Operation.SUSPENSE_READ, Operation.FX_READ,
         Operation.PARTY_FILE_READ, Operation.STANDING_ORDER_READ, Operation.TERM_DEPOSIT_READ,
         Operation.AML_READ, Operation.REGULATORY_READ, Operation.AUDIT_READ,
-        Operation.PRODUCT_READ);
+        Operation.PRODUCT_READ, Operation.ESTABLISHMENT_READ, Operation.NUMBERING_READ);
 
     @Test
     @DisplayName("toute operation est reclamee par un point d'entree, ou est une consultation")
@@ -168,7 +171,9 @@ class OperationCoverageTest {
                                               Operation.LOAN_WRITE_OFF,
                                               Operation.LOAN_RATE_REVISION,
                                               Operation.FX_RATE_QUOTE,
-                                              Operation.FX_POSITION_MANAGE)) {
+                                              Operation.FX_POSITION_MANAGE,
+                                              Operation.ESTABLISHMENT_MANAGE,
+                                              Operation.NUMBERING_ACTIVATE)) {
             assertThat(SecurityConfig.ruleFor(operation).dualControl())
                 .as(operation.name()).isTrue();
         }

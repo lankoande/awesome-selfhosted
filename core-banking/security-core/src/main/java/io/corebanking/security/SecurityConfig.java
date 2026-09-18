@@ -539,6 +539,32 @@ public final class SecurityConfig {
             AccessRule.allow(ACCOUNTANT)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
+        // L'identite de l'etablissement figure en en-tete des etats reglementaires et en tete de
+        // chaque RIB. Elle se lit largement — un guichetier la voit sur tout releve qu'il
+        // imprime —, elle se corrige a deux.
+        policy.put(Operation.ESTABLISHMENT_READ,
+            AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER, OPERATOR, ACCOUNTANT,
+                             AUDITOR)
+                .within(Scope.OWN_ENTITY).build());
+
+        policy.put(Operation.ESTABLISHMENT_MANAGE,
+            AccessRule.allow(OPERATOR, ACCOUNTANT)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        // Le plan de numerotation dit comment se composent les numeros de comptes : le lire,
+        // c'est savoir deviner ceux des autres. Il ne se montre pas au guichet.
+        policy.put(Operation.NUMBERING_READ,
+            AccessRule.allow(OPERATOR, ACCOUNTANT, AUDITOR).within(Scope.OWN_ENTITY).build());
+
+        policy.put(Operation.NUMBERING_DRAFT,
+            AccessRule.allow(OPERATOR, ACCOUNTANT).within(Scope.OWN_ENTITY).build());
+
+        // Activer une regle, c'est decider de l'identite des comptes ouverts demain, et pour
+        // toujours : un chiffre de trop et tous les RIB de la banque changent de forme.
+        policy.put(Operation.NUMBERING_ACTIVATE,
+            AccessRule.allow(OPERATOR, ACCOUNTANT)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
         // Un jour ferie deplace des dates de valeur et des echeances : ce n'est pas anodin.
         policy.put(Operation.CALENDAR_MANAGE,
             AccessRule.allow(OPERATOR, PRODUCT_MANAGER)

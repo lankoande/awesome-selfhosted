@@ -1311,8 +1311,90 @@ usage de la portée, et le modèle des suivants : elle ne ferme rien, elle **exp
 
 ### Ce qui reste
 
-Les **sûretés** et la **consolidation** restent bloquées par les lacunes de contrat déjà nommées
-(§20). Les **moyens de paiement** — chèques, prélèvements, virements sortants — n'ont pas
-d'interface, alors que le socle les porte entièrement. Le **profil d'activité déclaré** et le
-**consentement au bureau d'information du crédit** appartiennent au dossier client et n'y sont pas
-encore.
+Voir §22, qui a comblé deux des manques nommés ici.
+
+---
+
+## 22. L'établissement et son plan de numérotation
+
+Une question a suffi à révéler un trou de fond : *« est-ce qu'il y a une page de configuration
+globale — la banque, les règles de génération des numéros ? »*
+
+Non. Et le manque n'était pas seulement un écran.
+
+### Ce que la recherche a trouvé
+
+`PartyService.Draft` exigeait une référence — *« Reference client obligatoire »*.
+`AccountLifecycle.Opening` exigeait un numéro — *« Numero de compte obligatoire »*. **Et personne
+ne les composait.** Le poste, lui, promettait le contraire : le champ *Référence interne* de la
+création de client portait l'aide *« Facultative. Laissée vide, le socle la compose »*, et l'écran
+d'ouverture de compte envoyait `code: null`. La source de démonstration composait `CLI-000007` — ce
+qui masquait les deux défauts —, et en mode `api` l'ouverture de compte aurait échoué sur *« Champ
+obligatoire absent : code »*.
+
+Pour l'UEMOA, le manque était plus large encore : un numéro de compte y est un **RIB** — code
+banque, code guichet, numéro, clé modulo 97 — et rien de tout cela n'existait. Le **code banque**
+lui-même n'était nulle part : `legal_entity` portait un code, un nom, un pays et une devise de
+tenue, et c'est tout. Une banque s'installait par un script SQL.
+
+### La numérotation est du paramétrage
+
+Le détail est dans [03 §2](03-referentiel-parametrage.md#2-numérotation). Ce qui compte pour le
+poste : une règle est une suite de **segments** — texte fixe, code banque, code agence, date,
+compteur, clé de contrôle —, avec une **portée** de compteur et une **remise à zéro**. Elle se
+rédige, puis s'active à deux.
+
+**Rien n'est semé à la création d'un établissement.** Tant qu'aucune règle n'est active, le socle
+refuse de composer et le dit. Le socle **propose** un gabarit par domaine ; la banque choisit. Un
+défaut qui s'appliquerait tout seul déciderait à sa place de l'identité de ses comptes pour vingt
+ans.
+
+### Deux écrans, sous le siège
+
+Pas un huitième espace : la barre supérieure en porte déjà sept, et elle a déjà été retouchée deux
+fois pour éviter la troncature. Surtout, c'est cohérent avec l'organisation d'une banque —
+**le siège paramètre, l'agence opère**. *Fin de journée* et *Balance générale* sont rejoints par
+*Établissement* et *Numérotation*, dans cet ordre : ce qui se touche tous les jours vient devant.
+
+![L'établissement : ce qui figure en en-tête de chaque relevé, et ce qui ne se corrige pas.](utilisateur/captures/08-etablissement.png)
+
+**L'établissement** sépare deux blocs, et la séparation est le message. *Ce qui ne se corrige pas*
+— code, pays, devise de tenue, date comptable — se montre **sans champ**, avec sa raison. Le
+reste se corrige, à deux. Quand le code banque manque, l'écran le dit avant la première ouverture
+de compte plutôt que de laisser le refus arriver au comptoir.
+
+![Le plan de numérotation : le gabarit à gauche, le numéro qu'il produit en haut à droite.](utilisateur/captures/08-numerotation.png)
+
+**La numérotation** montre, pour chaque domaine, la règle active et le **numéro qu'elle produit**.
+C'est le parti pris de l'écran : un gabarit se lit mal, un numéro se lit tout de suite — et une
+clé modulo 97 ne se calcule pas de tête. L'aperçu est donc **calculé par le poste**, sur le
+gabarit en cours d'écriture, que le socle ne connaît pas encore. Le modèle du front refait le
+calcul du socle, table de transcodage des lettres comprise ; c'est une duplication assumée, et
+elle est tenue par ses tests des deux côtés.
+
+### Trois décisions qui se discutent
+
+**L'aperçu duplique le calcul du socle.** On aurait pu n'afficher que l'aperçu d'une règle déjà
+enregistrée, via `/numbering-rules/{id}/preview`. Mais l'aperçu sert justement à relire un gabarit
+**avant** de l'écrire : sans lui, on rédige à l'aveugle et on découvre la forme du numéro au
+premier compte ouvert. La route de prévisualisation existe quand même, pour une règle enregistrée.
+
+**Le numéro reste saisissable à l'ouverture de compte.** Une porte fermée par défaut, qui se dit
+en toutes lettres — *« Reprendre un numéro existant… »*. Un guichetier n'invente pas un numéro de
+compte ; un chargé de migration, si. Et l'écran dit ce que cela coûte : un numéro fourni est repris
+tel quel, sa clé n'est pas vérifiée, une faute de frappe y est définitive.
+
+**Le code banque se fige au premier compte numéroté.** Le socle refuse de le changer après, et le
+poste l'annonce avant. Ce n'est pas une prudence excessive : deux comptes de la même banque
+porteraient des RIB de banques différentes, et personne ne s'en apercevrait avant un virement reçu
+qui n'arrive jamais.
+
+### Ce qui reste
+
+Les **sûretés** et la **consolidation** restent bloquées par les lacunes de contrat nommées au
+§20. Les **moyens de paiement** — chèques, prélèvements, virements sortants — n'ont toujours pas
+d'interface, alors que le socle les porte entièrement : c'est désormais le plus grand manque. Le
+**profil d'activité déclaré** et le **consentement au bureau d'information du crédit** appartiennent
+au dossier client et n'y sont pas encore. Le reste du paramétrage du siège — produits, agences,
+calendrier, barèmes — existe dans le socle avec son API, et n'a pas encore d'écran : *Établissement*
+et *Numérotation* sont les deux premiers, pas les derniers.

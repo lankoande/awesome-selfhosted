@@ -22,6 +22,7 @@ import io.corebanking.ledger.store.Balances;
 import io.corebanking.ledger.store.Branches;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.LedgerStoreException;
+import io.corebanking.ledger.store.Numbering;
 import io.corebanking.party.AccountHolders;
 import io.corebanking.party.HolderRole;
 import io.corebanking.party.Party;
@@ -112,6 +113,11 @@ public final class AccountLifecycle {
     /**
      * Demande d'ouverture. La date d'ouverture est la date comptable de l'entite : elle ne se
      * fournit pas.
+     *
+     * <p>Le numero de compte est <b>facultatif</b> : laisse vide, il est compose par la regle de
+     * numerotation active — en zone UEMOA, un RIB avec son code banque, son code guichet et sa
+     * cle de controle. Fourni, il est repris tel quel : une reprise d'existant porte les numeros
+     * de l'ancien systeme, que les cheques en circulation et les clients connaissent deja.
      */
     public record Opening(UUID legalEntityId, String code, UUID holderPartyId, String productCode,
                           CurrencyRef currency, UUID branchId, UUID actorId, UUID approverId) {
@@ -122,9 +128,6 @@ public final class AccountLifecycle {
             Objects.requireNonNull(branchId,
                 "branchId : un compte s'ouvre dans une agence, qui en repond ; celle de "
                 + "l'appelant, jamais celle que le corps de la requete propose");
-            if (code == null || code.isBlank()) {
-                throw new IllegalArgumentException("Numero de compte obligatoire");
-            }
             if (productCode == null || productCode.isBlank()) {
                 throw new IllegalArgumentException("Un compte de depot s'ouvre sur un produit");
             }
@@ -152,7 +155,8 @@ public final class AccountLifecycle {
             }
             ProductCatalog.requireProductCurrency(c, opening.legalEntityId(), opening.productCode(),
                                                   opening.currency().code(),
-                                                  "ouverture du compte " + opening.code());
+                                                  "l'ouverture d'un compte " + product.code()
+                                                  + " pour " + holder.reference());
             Branches.Branch branch = Branches.require(c, opening.branchId());
             if (!branch.legalEntityId().equals(opening.legalEntityId())) {
                 throw new IllegalArgumentException(
@@ -164,7 +168,10 @@ public final class AccountLifecycle {
             }
 
             UUID id = Ids.newId();
-            Accounts.create(c, new Account(id, opening.legalEntityId(), opening.code(),
+            String code = Numbering.orCompose(
+                c, opening.code(), Numbering.Domain.ACCOUNT,
+                new Numbering.Context(opening.legalEntityId(), branch.id(), on));
+            Accounts.create(c, new Account(id, opening.legalEntityId(), code,
                                            AccountKind.CUSTOMER, NormalBalance.CREDIT,
                                            opening.currency(), true, true, 1, AccountStatus.ACTIVE,
                                            branch.id()),

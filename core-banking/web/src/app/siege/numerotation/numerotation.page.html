@@ -1,0 +1,278 @@
+<cb-toolbar>
+  <h1>Le plan de numérotation</h1>
+  <span class="compte">comment se composent les numéros de clients et de comptes</span>
+  <button fin type="button" cbButton="secondaire" [disabled]="travaille()" (click)="charger()">
+    Rafraîchir
+  </button>
+</cb-toolbar>
+
+<nav class="domaines" aria-label="Ce qui se numérote">
+  @for (d of DOMAINES; track d) {
+    <button type="button" [class.actif]="d === domaine()" [attr.aria-pressed]="d === domaine()"
+            (click)="choisirDomaine(d)">
+      {{ LIBELLE_DOMAINE[d] }}
+    </button>
+  }
+</nav>
+
+<cb-activity [enCours]="travaille()" libelle="Lecture du plan de numérotation…" />
+
+@if (refus(); as r) {
+  <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+    @if (r.detail) { {{ r.detail }} }
+  </cb-notice>
+}
+
+@if (acquitte(); as message) {
+  <cb-notice nature="succes" titre="Enregistré">{{ message }}</cb-notice>
+}
+
+@if (phase() !== 'chargement' && domainesSansRegle().length > 0) {
+  <cb-notice nature="avertissement" titre="Des numéros ne se composent pas encore">
+    <p>
+      Rien ne numérote
+      @for (d of domainesSansRegle(); track d) {<strong>{{ LIBELLE_DOMAINE[d] }}</strong>@if (!$last) {, }}.
+      Le socle refusera de composer : le numéro devra être fourni à chaque fois, ou une règle
+      rédigée puis activée ici.
+    </p>
+    <p>
+      C'est voulu : <strong>rien n'est semé à la création d'un établissement</strong>. La banque
+      choisit son plan de numérotation — c'est elle qui vivra vingt ans avec, et elle que le
+      superviseur interrogera.
+    </p>
+  </cb-notice>
+}
+
+<div class="ecran" [class.ecran--double]="brouillon() !== null">
+  <div class="colonne">
+    <cb-section [titre]="LIBELLE_DOMAINE[domaine()]" indication="les règles de ce domaine">
+      <div class="cb-table-scroll">
+        <table cbTable>
+          <caption class="cb-visually-hidden">Règles de numérotation du domaine</caption>
+          <thead>
+            <tr>
+              <th scope="col">État</th>
+              <th scope="col">Règle</th>
+              <th scope="col">Exemple</th>
+              <th scope="col">Compteur</th>
+              <th scope="col">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (regle of duDomaine(); track regle.id) {
+              <tr [class.retiree]="regle.status === 'WITHDRAWN'">
+                <td>
+                  <cb-state-badge [etat]="etatDe(regle)" [mot]="LIBELLE_STATUT_REGLE[regle.status]" />
+                </td>
+                <td class="libelle">{{ regle.label }}</td>
+                <td class="cb-mono exemple">{{ composer(regle) }}</td>
+                <td class="compteur">
+                  {{ LIBELLE_PORTEE_COMPTEUR[regle.scope] }},
+                  remise à zéro {{ LIBELLE_REMISE[regle.reset] }}
+                </td>
+                <td>
+                  @if (regle.status === 'DRAFT' && droitDActiver()) {
+                    <button type="button" cbButton="secondaire" [disabled]="travaille()"
+                            (click)="activer(regle)">
+                      Activer…
+                    </button>
+                  } @else if (regle.status === 'DRAFT') {
+                    <span class="rien">activation refusée à votre profil</span>
+                  } @else {
+                    <span class="rien">—</span>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              @if (phase() === 'prete') {
+                <tr><td colspan="5" class="vide">
+                  Aucune règle pour ce domaine. Le numéro doit être fourni à chaque fois.
+                </td></tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (active(); as regle) {
+        <p class="pourquoi">
+          L'exemple est composé ici, sur le gabarit, avec le compteur à
+          <span class="cb-mono">{{ regle.sequenceStart }}</span> et l'agence
+          <span class="cb-mono">00001</span>. Le numéro réel est composé par le socle, qui seul
+          connaît le compteur et l'agence qui ouvre.
+        </p>
+      }
+
+      @if (droitDeRediger() && brouillon() === null) {
+        <div class="actions">
+          <button type="button" cbButton="primaire" [disabled]="travaille()"
+                  (click)="partirDeLaProposition()">
+            Partir de la proposition du socle
+          </button>
+          @if (active()) {
+            <button type="button" cbButton="secondaire" (click)="partirDeLActive()">
+              Repartir de la règle active
+            </button>
+          }
+          <button type="button" cbButton="discret" (click)="partirDeZero()">Partir de zéro</button>
+        </div>
+      } @else if (!droitDeRediger()) {
+        <p class="interdit">
+          Votre profil lit le plan de numérotation, il ne le rédige pas. C'est un paramétrage du
+          siège : il décide de l'identité des comptes ouverts demain, et pour toujours.
+        </p>
+      }
+    </cb-section>
+  </div>
+
+  @if (brouillon(); as gabarit) {
+    <div class="colonne">
+      <cb-section titre="Rédiger une règle" [indication]="LIBELLE_DOMAINE[gabarit.domain]">
+        <div class="apercu">
+          <span class="cb-caps">Ce que ce gabarit produirait</span>
+          <output class="cb-mono numero">{{ apercuBrouillon() || '—' }}</output>
+        </div>
+
+        <div class="grille">
+          <cb-field etiquette="Libellé" pour="libelle" aide="Ce qu'on lira dans la liste.">
+            <input cbInput id="libelle" name="libelle" autocomplete="off" [value]="gabarit.label"
+                   (input)="majLibelle($any($event.target).value)" />
+          </cb-field>
+
+          <cb-field etiquette="Portée du compteur" pour="portee"
+                    aide="Une série par agence exige le code agence dans le numéro.">
+            <select cbInput id="portee" name="portee"
+                    (change)="majPortee($any($event.target).value)">
+              <option value="ENTITY" [selected]="gabarit.sequenceScope === 'ENTITY'">
+                Une série pour la banque
+              </option>
+              <option value="BRANCH" [selected]="gabarit.sequenceScope === 'BRANCH'">
+                Une série par agence
+              </option>
+            </select>
+          </cb-field>
+
+          <cb-field etiquette="Remise à zéro" pour="remise"
+                    aide="Un numéro de compte ne se remet jamais à zéro.">
+            <select cbInput id="remise" name="remise"
+                    (change)="majRemise($any($event.target).value)">
+              <option value="NEVER" [selected]="gabarit.sequenceReset === 'NEVER'">Jamais</option>
+              <option value="YEAR" [selected]="gabarit.sequenceReset === 'YEAR'">Chaque année</option>
+              <option value="MONTH" [selected]="gabarit.sequenceReset === 'MONTH'">Chaque mois</option>
+            </select>
+          </cb-field>
+
+          <cb-field etiquette="Premier numéro" pour="depart"
+                    aide="Une reprise d'existant repart après le dernier numéro repris.">
+            <input cbInput id="depart" name="depart" type="number" min="0" inputmode="numeric"
+                   [value]="gabarit.sequenceStart"
+                   (input)="majDepart($any($event.target).value)" />
+          </cb-field>
+        </div>
+
+        <h3 class="sous-titre">Les segments, dans l'ordre</h3>
+
+        <ol class="segments">
+          @for (segment of gabarit.segments; track $index) {
+            <li class="segment">
+              <div class="entete-segment">
+                <span class="nature">{{ LIBELLE_SEGMENT[segment.kind] }}</span>
+                <span class="ressort"></span>
+                <button type="button" cbButton="discret" [disabled]="$first"
+                        [attr.aria-label]="'Monter ' + LIBELLE_SEGMENT[segment.kind]"
+                        (click)="deplacer($index, -1)">Monter</button>
+                <button type="button" cbButton="discret" [disabled]="$last"
+                        [attr.aria-label]="'Descendre ' + LIBELLE_SEGMENT[segment.kind]"
+                        (click)="deplacer($index, 1)">Descendre</button>
+                <button type="button" cbButton="danger"
+                        [attr.aria-label]="'Retirer ' + LIBELLE_SEGMENT[segment.kind]"
+                        (click)="retirer($index)">Retirer</button>
+              </div>
+
+              <div class="reglages">
+                @if (segment.kind === 'LITERAL') {
+                  <cb-field etiquette="Texte" [pour]="'texte-' + $index">
+                    <input cbInput [id]="'texte-' + $index" autocomplete="off"
+                           [value]="segment.literalValue ?? ''"
+                           (input)="majSegment($index, { literalValue: $any($event.target).value })" />
+                  </cb-field>
+                }
+                @if (segment.kind === 'DATE') {
+                  <cb-field etiquette="Format" [pour]="'format-' + $index">
+                    <select cbInput [id]="'format-' + $index"
+                            (change)="majSegment($index, { datePattern: $any($event.target).value })">
+                      @for (format of FORMATS_DATE; track format.motif) {
+                        <option [value]="format.motif"
+                                [selected]="segment.datePattern === format.motif">
+                          {{ format.motif }} — {{ format.exemple }}
+                        </option>
+                      }
+                    </select>
+                  </cb-field>
+                }
+                @if (segment.kind === 'CHECK_DIGITS') {
+                  <cb-field etiquette="Algorithme" [pour]="'algo-' + $index"
+                            aide="RIB_97 : le numéro entier devient divisible par 97.">
+                    <select cbInput [id]="'algo-' + $index"
+                            (change)="majAlgorithme($index, $any($event.target).value)">
+                      <option value="RIB_97" [selected]="segment.algorithm === 'RIB_97'">
+                        Clé RIB (modulo 97)
+                      </option>
+                      <option value="LUHN" [selected]="segment.algorithm === 'LUHN'">
+                        Clé de Luhn (modulo 10)
+                      </option>
+                    </select>
+                  </cb-field>
+                }
+                @if (segment.kind !== 'LITERAL' && segment.kind !== 'DATE') {
+                  <cb-field etiquette="Cadrage" [pour]="'cadrage-' + $index"
+                            aide="Nombre de caractères. Ce qui déborde est refusé, jamais tronqué.">
+                    <input cbInput [id]="'cadrage-' + $index" type="number" min="1" max="32"
+                           inputmode="numeric" [value]="segment.length ?? ''"
+                           [disabled]="segment.kind === 'CHECK_DIGITS'"
+                           (input)="majCadrage($index, $any($event.target).value)" />
+                  </cb-field>
+                }
+              </div>
+            </li>
+          }
+        </ol>
+
+        <div class="ajouts">
+          <span class="cb-caps">Ajouter un segment</span>
+          <div class="boutons">
+            @for (nature of NATURES; track nature) {
+              <button type="button" cbButton="secondaire" (click)="ajouter(nature)">
+                {{ LIBELLE_SEGMENT[nature] }}
+              </button>
+            }
+          </div>
+        </div>
+
+        @if (obstacles().length > 0) {
+          <cb-notice nature="avertissement" titre="Ce gabarit ne peut pas être rédigé">
+            <ul class="obstacles">
+              @for (obstacle of obstacles(); track obstacle) {
+                <li>{{ obstacle }}</li>
+              }
+            </ul>
+          </cb-notice>
+        }
+
+        <div class="actions">
+          <button type="button" cbButton="primaire"
+                  [disabled]="travaille() || obstacles().length > 0" (click)="rediger()">
+            Rédiger
+          </button>
+          <button type="button" cbButton="discret" [disabled]="travaille()" (click)="abandonner()">
+            Abandonner
+          </button>
+          <span class="regard">
+            Rédiger n'active rien : l'activation se fait à deux, et c'est elle qui décide de
+            l'identité des comptes ouverts demain.
+          </span>
+        </div>
+      </cb-section>
+    </div>
+  }
+</div>

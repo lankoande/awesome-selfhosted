@@ -61,8 +61,17 @@ export class SiegeShell {
     ),
   );
 
+  /**
+   * L'exploitation d'abord, le paramétrage ensuite.
+   *
+   * L'ordre n'est pas alphabétique : la fin de journée se lance tous les jours,
+   * l'identité de l'établissement se corrige une fois par an. Ce qui se touche
+   * souvent vient devant.
+   */
   private readonly ecrans = [
     { chemin: 'exploitation', libelle: 'Fin de journée' },
     { chemin: 'balance', libelle: 'Balance générale' },
+    { chemin: 'etablissement', libelle: 'Établissement' },
+    { chemin: 'numerotation', libelle: 'Numérotation' },
   ];
 }

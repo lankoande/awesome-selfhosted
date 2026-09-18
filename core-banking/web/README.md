@@ -49,7 +49,8 @@ src/app/conformite/ la conformité LCB-FT : alertes, déclarations de soupçon, 
 src/app/reglementaire/ le réglementaire : échéances, états, catalogue, fiscalité
 src/app/validation/ la double validation : le second regard
 src/app/caisse/  la caisse du guichetier et son arrêté
-src/app/siege/   exploitation comptable et restitutions
+src/app/siege/   exploitation comptable, restitutions, et le paramétrage de
+                 l'établissement : identité et plan de numérotation
 src/app/auth/    session OAuth2 PKCE, jeton porté, verrouillage, habilitations
                  (droits complets : portée, second regard, plafonds — voir plus bas)
 src/app/api/    le contrat : types générés (`schema.ts`, ne jamais éditer), chemins

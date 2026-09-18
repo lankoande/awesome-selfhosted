@@ -453,5 +453,23 @@ public final class Requests {
     public record CancelEod(LocalDate reversalBookingDate, String reason) {}
 
     /** Reponse d'une creation : l'identifiant de ce qui a ete cree. */
+    /**
+     * Identite de l'etablissement. Un champ absent reste ce qu'il etait ; un champ vide est
+     * efface. Le code, le pays et la devise de tenue n'y figurent pas : ils ne se corrigent pas.
+     */
+    public record EstablishmentUpdate(String name, String bankCode, String legalName,
+                                      String approvalNumber, String taxId, String registryNumber,
+                                      String address, String phone, String email) {}
+
+    /** Un segment de gabarit de numerotation. */
+    public record NumberingSegmentRequest(String kind, String literalValue, Integer length,
+                                          String padChar, String datePattern,
+                                          String checkAlgorithm) {}
+
+    /** Une regle de numerotation a rediger. */
+    public record NumberingRuleDraft(String domain, String label,
+                                     List<NumberingSegmentRequest> segments, String sequenceScope,
+                                     String sequenceReset, Long sequenceStart) {}
+
     public record Created(UUID id) {}
 }

@@ -1,0 +1,76 @@
+:host { display: block; }
+
+/* Une colonne en lecture : une fiche seule qui n'occuperait que la moitié de
+   l'écran laisserait un vide que le lecteur prendrait pour un chargement. La
+   seconde colonne n'apparaît qu'avec le formulaire de correction. */
+.ecran {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cb-space-5);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+  align-items: start;
+}
+
+.ecran--double { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+
+/* Une fiche et son formulaire ne se lisent pas côte à côte sur un écran
+   étroit : la correction passe dessous, dans l'ordre de lecture. */
+@media (max-width: 1100px) {
+  .ecran--double { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Deux sections qui se touchent se lisent comme une seule : le filet de
+   sur-titre ne suffit pas à les séparer. */
+.colonne {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-5);
+}
+
+.compte { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+
+/* La valeur suit son étiquette : une colonne qui s'étirerait sur toute la
+   largeur ferait voyager l'œil pour rien. */
+.fige, .fiche {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--cb-space-1) var(--cb-space-4);
+  margin: 0;
+  max-width: 44rem;
+}
+
+.fige dt, .fiche dt {
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+}
+
+.fige dd, .fiche dd {
+  margin: 0;
+  font-size: var(--cb-fs-md);
+  overflow-wrap: anywhere;
+}
+
+.fiche dd.absent { color: var(--cb-muted); font-style: italic; }
+
+.pourquoi, .interdit {
+  margin: var(--cb-space-3) 0 0;
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+  max-width: 62ch;
+}
+
+.grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--cb-space-3) var(--cb-space-4);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cb-space-3);
+  margin-top: var(--cb-space-4);
+}
+
+.regard { color: var(--cb-muted); font-size: var(--cb-fs-sm); }

@@ -56,6 +56,18 @@ export const routes: Routes = [
         title: 'Siège — balance générale',
         loadComponent: () => import('./siege/balance/balance.page').then((m) => m.Balance),
       },
+      {
+        path: 'etablissement',
+        title: 'Siège — établissement',
+        loadComponent: () => import('./siege/etablissement/etablissement.page')
+          .then((m) => m.EtablissementPage),
+      },
+      {
+        path: 'numerotation',
+        title: 'Siège — numérotation',
+        loadComponent: () => import('./siege/numerotation/numerotation.page')
+          .then((m) => m.NumerotationPage),
+      },
     ],
   },
   {

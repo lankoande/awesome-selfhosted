@@ -523,7 +523,7 @@ rescan périodique du portefeuille, et le format de transmission de la cellule n
 ### Prudentiel et réglementaire
 
 Le moteur de reporting s'appuie sur le profil réglementaire de l'entité
-([03](03-referentiel-parametrage.md#7-profil-réglementaire-par-pays)) : classification des créances, provisionnement,
+([03](03-referentiel-parametrage.md#8-profil-réglementaire-par-pays)) : classification des créances, provisionnement,
 pondération des risques, ratios, états déclaratifs.
 
 Chaque état produit est **archivé avec son jeu de données source et son paramétrage**. Un

@@ -6,6 +6,7 @@ import io.corebanking.kernel.money.Money;
 import io.corebanking.kernel.time.Periodicity;
 import io.corebanking.ledger.store.Entities;
 import io.corebanking.ledger.store.LedgerStoreException;
+import io.corebanking.ledger.store.Numbering;
 import io.corebanking.loan.AmortisationSchedule;
 import io.corebanking.loan.Instalment;
 import io.corebanking.loan.LoanTerms;
@@ -96,7 +97,6 @@ public final class LoanOrigination {
                           String purpose, LocalDate requestedOn, UUID createdBy) {
         public Request {
             Objects.requireNonNull(legalEntityId, "legalEntityId");
-            Objects.requireNonNull(reference, "reference");
             Objects.requireNonNull(customerId, "customerId");
             Objects.requireNonNull(productCode, "productCode");
             Objects.requireNonNull(requestedAmount, "requestedAmount");
@@ -232,8 +232,15 @@ public final class LoanOrigination {
                                                + " releve d'une autre entite juridique");
         }
         PartyService.requireOnboardable(c, request.customerId());
+        // La reference est facultative : fournie, elle est reprise ; laissee vide, la regle de
+        // numerotation active la compose. Un dossier de credit se numerote souvent par annee et
+        // par agence — c'est du parametrage, pas une convention de code.
+        String reference = Numbering.orCompose(
+            c, request.reference(), Numbering.Domain.LOAN_APPLICATION,
+            new Numbering.Context(request.legalEntityId(), request.branchId(),
+                                  request.requestedOn()));
         CurrencyRef currency = currencyOf(c, request.requestedAmount(), request.legalEntityId(),
-                                          request.productCode(), request.reference());
+                                          request.productCode(), reference);
         UUID id = Ids.newId();
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO loan_application(id, legal_entity_id, branch_id, reference, customer_id,"
@@ -242,7 +249,7 @@ public final class LoanOrigination {
             ps.setObject(1, id);
             ps.setObject(2, request.legalEntityId());
             ps.setObject(3, request.branchId());
-            ps.setString(4, request.reference());
+            ps.setString(4, reference);
             ps.setObject(5, request.customerId());
             ps.setString(6, request.productCode());
             ps.setString(7, currency.code());
@@ -255,7 +262,7 @@ public final class LoanOrigination {
         } catch (SQLException e) {
             if ("23505".equals(e.getSQLState())) {
                 throw new IllegalStateException("Une demande porte deja la reference "
-                                                + request.reference(), e);
+                                                + reference, e);
             }
             throw new LedgerStoreException("Depot de la demande de credit", e);
         }
