@@ -117,6 +117,11 @@ export const routes: Routes = [
           import('./credit/dossier/dossier.page').then((m) => m.DossierCreditPage),
       },
       {
+        path: 'contrats/:id/perte',
+        title: 'Crédit — passage en perte',
+        loadComponent: () => import('./credit/perte/perte.page').then((m) => m.PerteCredit),
+      },
+      {
         path: 'contrats/:id',
         title: 'Crédit — contrat',
         loadComponent: () => import('./credit/contrat/contrat.page').then((m) => m.ContratCredit),

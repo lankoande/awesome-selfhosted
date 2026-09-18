@@ -99,6 +99,20 @@
   }
 
   @if (contrat(); as c) {
+    @if (enPerte()) {
+      <cb-notice nature="avertissement" titre="Contrat passé en perte">
+        <p>
+          L'actif est sorti des livres, mais <strong>la créance reste due</strong> : elle se
+          suit au hors bilan, et tout recouvrement s'y impute.
+        </p>
+        <p class="suite">
+          <button type="button" cbButton="primaire" (click)="aLaPerte()">
+            Voir la perte et les recouvrements
+          </button>
+        </p>
+      </cb-notice>
+    }
+
     @if (c.status === 'DRAFT') {
       <cb-notice nature="information" titre="Le contrat n'est pas débloqué">
         <p>
@@ -117,9 +131,23 @@
     @if (c.status === 'ACTIVE') {
       <cb-toolbar>
         <cb-tabs [onglets]="onglets" [(actif)]="onglet" etiquette="Vue du contrat" />
-        <button fin type="button" cbButton="primaire" (click)="ouvrirVolet('reglement')">
-          Enregistrer un règlement
-        </button>
+        <span fin class="actes">
+          <button type="button" cbButton="primaire" (click)="ouvrirVolet('reglement')">
+            Enregistrer un règlement
+          </button>
+          <button type="button" cbButton="secondaire" (click)="ouvrirVolet('anticipe')">
+            Remboursement anticipé
+          </button>
+          <button type="button" cbButton="discret" (click)="ouvrirVolet('reechelonnement')">
+            Rééchelonner
+          </button>
+          <button type="button" cbButton="discret" (click)="ouvrirVolet('revision')">
+            Réviser le taux
+          </button>
+          <button type="button" cbButton="discret" (click)="aLaPerte()">
+            Passage en perte
+          </button>
+        </span>
       </cb-toolbar>
     }
 
@@ -244,6 +272,117 @@
         </p>
       </cb-section>
     }
+  }
+
+  @if (volet() === 'anticipe' && contrat(); as c) {
+    <cb-section titre="Remboursement anticipé"
+                indication="le mode appartient à l'emprunteur ; l'indemnité est calculée par le socle">
+      <cb-notice nature="information" titre="Le remboursement anticipé passe par un second regard">
+        <p>
+          La demande sera enregistrée puis soumise à validation. <strong>L'indemnité
+          éventuelle est calculée par le socle</strong>, selon le paramétrage du produit —
+          l'écran ne l'invente pas.
+        </p>
+      </cb-notice>
+
+      <div class="saisie">
+        <cb-field etiquette="Montant remboursé" pour="montant-anticipe" requis
+                  [aide]="'En ' + c.currency + ', en plus des échéances dues.'">
+          <cb-amount-input champId="montant-anticipe" [(valeur)]="montantAnticipe"
+                           [devise]="c.currency" />
+        </cb-field>
+      </div>
+
+      <fieldset class="modes">
+        <legend>Ce que le remboursement change</legend>
+        @for (mode of MODES_ANTICIPE; track mode) {
+          <label class="mode" [class.choisi]="modeAnticipe() === mode">
+            <input type="radio" name="mode-anticipe" [value]="mode"
+                   [checked]="modeAnticipe() === mode" (change)="modeAnticipe.set(mode)" />
+            <span class="mode-titre">{{ LIBELLE_MODE_ANTICIPE[mode] }}</span>
+            <span class="mode-effet">{{ EFFET_MODE_ANTICIPE[mode] }}</span>
+          </label>
+        }
+      </fieldset>
+
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="envoi() || (montantAnticipe() ?? 0) <= 0 || !peutAgir()"
+                (click)="rembourserParAnticipation()">Soumettre le remboursement</button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  @if (volet() === 'reechelonnement') {
+    <cb-section titre="Rééchelonner"
+                indication="modifier ce que le client devra : proposé par l'un, approuvé par un autre">
+      <cb-notice nature="information" titre="Le rééchelonnement passe par un second regard">
+        <p>
+          Il porte sur le <strong>capital non échu</strong> : ce qui est déjà exigible reste
+          dû. Le socle reconstruit l'échéancier à l'approbation.
+        </p>
+      </cb-notice>
+
+      <div class="saisie">
+        <cb-field etiquette="Nouvelles échéances" pour="nouvelles-echeances" requis
+                  aide="Le nombre d'échéances restantes après rééchelonnement.">
+          <input cbInput id="nouvelles-echeances" name="nouvelles-echeances" inputmode="numeric"
+                 autocomplete="off" class="etroit" [value]="nouvellesEcheances()"
+                 (input)="nouvellesEcheances.set($any($event.target).value)" />
+        </cb-field>
+        <cb-field etiquette="Première échéance" pour="premiere-echeance"
+                  aide="Facultative : le socle la déduit du calendrier.">
+          <cb-date-input champId="premiere-echeance" [(valeur)]="premiereEcheance" />
+        </cb-field>
+        <cb-field etiquette="Motif" pour="motif-reechelonnement" requis class="large"
+                  aide="Il reste au dossier et se relit lors d'un contrôle.">
+          <input cbInput id="motif-reechelonnement" name="motif-reechelonnement" autocomplete="off"
+                 [value]="motifReechelonnement()"
+                 (input)="motifReechelonnement.set($any($event.target).value)" />
+        </cb-field>
+      </div>
+
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="envoi() || +nouvellesEcheances() <= 0
+                            || motifReechelonnement().trim().length < 3 || !peutAgir()"
+                (click)="reechelonner()">Soumettre le rééchelonnement</button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  @if (volet() === 'revision' && contrat(); as c) {
+    <cb-section titre="Réviser le taux"
+                indication="le taux en vigueur est de {{ pourcent(c.tauxAnnuel) }} %">
+      <cb-notice nature="information" titre="La révision passe par un second regard">
+        <p>
+          Elle ne vaut qu'à partir de la date d'effet : les intérêts déjà courus ne se
+          recalculent pas.
+        </p>
+      </cb-notice>
+
+      <div class="saisie">
+        <cb-field etiquette="Nouveau taux annuel" pour="nouveau-taux" requis
+                  aide="En pourcentage. La virgule est admise.">
+          <input cbInput id="nouveau-taux" name="nouveau-taux" inputmode="decimal"
+                 autocomplete="off" class="etroit" [value]="nouveauTaux()"
+                 (input)="nouveauTaux.set($any($event.target).value)" />
+        </cb-field>
+        <cb-field etiquette="Date d'effet" pour="effet-taux"
+                  aide="Facultative : la date comptable du jour par défaut.">
+          <cb-date-input champId="effet-taux" [(valeur)]="effetTaux" />
+        </cb-field>
+      </div>
+
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="envoi() || nouveauTaux().trim() === '' || !peutAgir()"
+                (click)="reviserLeTaux()">Soumettre la révision</button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
   }
 
   <p class="retour">

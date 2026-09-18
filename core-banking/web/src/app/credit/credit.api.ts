@@ -5,9 +5,11 @@ import { Socle } from '../api/socle';
 import { RefusMetier } from '../guichet/modele/guichet.modele';
 import { Credit, EnAttente } from './credit.port';
 import {
-  Analyse, Condition, Contrat, Creance, Decision, Demande, DemandeAnalyse, DemandeCondition,
-  DemandeContrat, DemandeDeCredit, DemandeDecision, DemandeReglement, DossierCredit, Echeance,
-  Evenement, Imputation, Montant, Reglement, StatutDemande,
+  Analyse, Condition, Contrat, Creance, Decision, Demande, DemandeAnalyse, DemandeAnticipe,
+  DemandeCondition, DemandeContrat, DemandeDeCredit, DemandeDecision, DemandePerte,
+  DemandeRecouvrement, DemandeReechelonnement, DemandeReglement, DemandeRevisionTaux,
+  DossierCredit, DossierPerte, Echeance, Evenement, Imputation, Montant, Perte, Recouvrement,
+  Reglement, StatutDemande,
 } from './modele/credit.modele';
 
 interface Enveloppe<T> {
@@ -198,6 +200,73 @@ export class CreditApi implements Credit {
     };
   }
 
+  // --------------------------------------------------------------- fin de vie
+
+  async rembourserParAnticipation(legalEntityId: string, contractId: string,
+                                  demande: DemandeAnticipe, cle: string): Promise<EnAttente> {
+    const vue = await this.poster<{ id?: string }>(this.socle.url(
+      '/v1/entities/{legalEntityId}/loans/{contractId}/prepayments',
+      { legalEntityId, contractId }),
+      { amount: demande.amount, currency: demande.currency, mode: demande.mode }, cle);
+    return { operationId: texte(vue.id) ?? '' };
+  }
+
+  async reechelonner(legalEntityId: string, contractId: string, demande: DemandeReechelonnement,
+                     cle: string): Promise<EnAttente> {
+    const vue = await this.poster<{ id?: string }>(this.socle.url(
+      '/v1/entities/{legalEntityId}/loans/{contractId}/rescheduling',
+      { legalEntityId, contractId }), {
+      instalments: demande.instalments,
+      reason: demande.reason,
+      ...(demande.firstDueDate ? { firstDueDate: demande.firstDueDate } : {}),
+      ...(demande.effectiveFrom ? { effectiveFrom: demande.effectiveFrom } : {}),
+    }, cle);
+    return { operationId: texte(vue.id) ?? '' };
+  }
+
+  async reviserLeTaux(legalEntityId: string, contractId: string, demande: DemandeRevisionTaux,
+                      cle: string): Promise<EnAttente> {
+    const vue = await this.poster<{ id?: string }>(this.socle.url(
+      '/v1/entities/{legalEntityId}/loans/{contractId}/rate-revision',
+      { legalEntityId, contractId }), {
+      annualRatePercent: Number(demande.annualRatePercent),
+      ...(demande.effectiveFrom ? { effectiveFrom: demande.effectiveFrom } : {}),
+    }, cle);
+    return { operationId: texte(vue.id) ?? '' };
+  }
+
+  async perte(legalEntityId: string, contractId: string): Promise<DossierPerte> {
+    const brut = await this.obtenir<Record<string, unknown>>(this.socle.url(
+      '/v1/entities/{legalEntityId}/loans/{contractId}/write-off',
+      { legalEntityId, contractId }));
+    return {
+      perte: brut?.['writeOff'] ? versPerte(brut['writeOff']) : null,
+      recouvrements: ((brut?.['recoveries'] ?? []) as readonly unknown[]).map(versRecouvrement),
+    };
+  }
+
+  async passerEnPerte(legalEntityId: string, contractId: string, demande: DemandePerte,
+                      cle: string): Promise<EnAttente> {
+    const vue = await this.poster<{ id?: string }>(this.socle.url(
+      '/v1/entities/{legalEntityId}/loans/{contractId}/write-off',
+      { legalEntityId, contractId }), {
+      reason: demande.reason,
+      ...(demande.writtenOffOn ? { writtenOffOn: demande.writtenOffOn } : {}),
+    }, cle);
+    return { operationId: texte(vue.id) ?? '' };
+  }
+
+  async enregistrerRecouvrement(legalEntityId: string, contractId: string,
+                                demande: DemandeRecouvrement, cle: string): Promise<void> {
+    await this.poster(this.socle.url(
+      '/v1/entities/{legalEntityId}/loans/{contractId}/recoveries',
+      { legalEntityId, contractId }), {
+      amount: Number(demande.amount),
+      channelAccountId: demande.channelAccountId,
+      ...(demande.recoveredOn ? { recoveredOn: demande.recoveredOn } : {}),
+    }, cle);
+  }
+
   // ------------------------------------------------------------------ transport
 
   private async obtenir<T>(url: string): Promise<T> {
@@ -377,6 +446,34 @@ function versImputation(brut: unknown): Imputation {
  * dans `terms`. Une seule lecture les ramène au même objet — sans quoi l'écran
  * de liste et l'écran de détail divergeraient sur le nom d'un champ.
  */
+function versPerte(brut: unknown): Perte {
+  const p = (brut ?? {}) as Record<string, unknown>;
+  return {
+    id: texte(p['id']) ?? '',
+    contractReference: texte(p['contractReference']) ?? '',
+    writtenOffOn: texte(p['writtenOffOn']),
+    principalWritten: montant(p['principalWritten']),
+    receivablesWritten: montant(p['receivablesWritten']),
+    reservedUsed: montant(p['reservedUsed']),
+    provisionUsed: montant(p['provisionUsed']),
+    provisionReleased: montant(p['provisionReleased']),
+    lossRecognised: montant(p['lossRecognised']),
+    recovered: montant(p['recovered']),
+    reason: texte(p['reason']),
+    bucketCode: texte(p['bucketCode']),
+    daysPastDue: nombre(p['daysPastDue']),
+  };
+}
+
+function versRecouvrement(brut: unknown): Recouvrement {
+  const r = (brut ?? {}) as Record<string, unknown>;
+  return {
+    id: texte(r['id']) ?? '',
+    recoveredOn: texte(r['recoveredOn']),
+    amount: montant(r['amount']),
+  };
+}
+
 function versContrat(brut: unknown): Contrat {
   const c = (brut ?? {}) as Record<string, unknown>;
   const terms = (c['terms'] ?? {}) as Record<string, unknown>;

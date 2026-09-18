@@ -1,0 +1,95 @@
+:host { display: block; }
+
+.entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter);
+  background: var(--cb-panel);
+  border-bottom: var(--cb-border) solid var(--cb-rule);
+}
+.entete h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+.sous { margin-top: 2px; color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+
+.chiffres { display: flex; gap: var(--cb-space-5); flex-wrap: wrap; }
+.chiffre { display: flex; flex-direction: column; gap: var(--cb-space-1); align-items: flex-end; }
+.chiffre .titre {
+  font-size: var(--cb-fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cb-muted);
+}
+.retard[data-gravite='surveille'] { color: var(--cb-pending); font-weight: 600; }
+.retard[data-gravite='douteux'] { color: var(--cb-blocked); font-weight: 600; }
+.retard[data-gravite='compromis'] { color: var(--cb-rejected); font-weight: 700; }
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+.activite { display: block; }
+
+/* La cascade d'absorption se lit de haut en bas : exposition, réservés,
+   provision, perte. Un total seul cacherait que la perte n'est pas
+   l'exposition — et c'est précisément ce qu'il faut comprendre. */
+.cascade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 15rem));
+  gap: var(--cb-space-4);
+  margin-top: var(--cb-space-2);
+}
+.palier {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-1);
+  padding-left: var(--cb-space-3);
+  border-left: 3px solid var(--cb-rule);
+}
+.palier-titre {
+  font-size: var(--cb-fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cb-muted);
+}
+.palier-detail { color: var(--cb-ink-2); font-size: var(--cb-fs-sm); }
+.palier.perte-nette { border-left-color: var(--cb-rejected); }
+
+.faits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--cb-space-3) var(--cb-space-4);
+  margin-top: var(--cb-space-3);
+}
+.faits dt {
+  font-size: var(--cb-fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cb-muted);
+}
+.faits dd { margin-top: 2px; }
+
+.tableau { overflow-x: auto; }
+.nombre { text-align: right; }
+.motif { margin-top: var(--cb-space-3); }
+.nuance { margin-top: var(--cb-space-3); color: var(--cb-ink-2); }
+.suite { margin-top: var(--cb-space-3); display: flex; gap: var(--cb-space-2); flex-wrap: wrap; }
+
+.saisie {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 18rem));
+  gap: var(--cb-space-4);
+  align-items: start;
+  margin-top: var(--cb-space-2);
+}
+.saisie .large { grid-column: 1 / -1; max-width: 36rem; }
+.retour { margin-top: var(--cb-space-2); }
+
+@media (max-width: 767px) {
+  .chiffres { gap: var(--cb-space-3); }
+  .chiffre { align-items: flex-start; }
+  .cascade, .saisie { grid-template-columns: 1fr; }
+}

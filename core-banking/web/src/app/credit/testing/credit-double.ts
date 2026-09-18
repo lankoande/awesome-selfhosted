@@ -1,7 +1,8 @@
 import { Credit, EnAttente } from '../credit.port';
 import {
-  Contrat, Demande, DemandeAnalyse, DemandeCondition, DemandeContrat, DemandeDeCredit,
-  DemandeDecision, DemandeReglement, DossierCredit, Reglement, StatutDemande,
+  Contrat, Demande, DemandeAnalyse, DemandeAnticipe, DemandeCondition, DemandeContrat,
+  DemandeDeCredit, DemandeDecision, DemandePerte, DemandeRecouvrement, DemandeReechelonnement,
+  DemandeReglement, DemandeRevisionTaux, DossierCredit, DossierPerte, Reglement, StatutDemande,
 } from '../modele/credit.modele';
 
 export const DEMANDE_ID = '44444444-4444-4444-8444-000000000142';
@@ -56,6 +57,11 @@ export class CreditDouble implements Credit {
   readonly contrats_: DemandeContrat[] = [];
   readonly reglements: DemandeReglement[] = [];
   readonly clesDecision: string[] = [];
+  readonly anticipes: DemandeAnticipe[] = [];
+  readonly reechelonnements: DemandeReechelonnement[] = [];
+  readonly revisions: DemandeRevisionTaux[] = [];
+  readonly pertes: DemandePerte[] = [];
+  readonly recouvrements: DemandeRecouvrement[] = [];
 
   dossierRendu: DossierCredit = DOSSIER_DOUBLE;
   contratRendu: Contrat = CONTRAT_DOUBLE;
@@ -63,7 +69,11 @@ export class CreditDouble implements Credit {
   listeContrats: readonly Contrat[] = [CONTRAT_DOUBLE];
   suivant = false;
 
+  perteRendue: DossierPerte = { perte: null, recouvrements: [] };
+
   issueDecision: () => Promise<EnAttente> = async () => ({ operationId: 'PND-000401' });
+  issueAnticipe: () => Promise<EnAttente> = async () => ({ operationId: 'PND-000601' });
+  issuePerte: () => Promise<EnAttente> = async () => ({ operationId: 'PND-000901' });
   issueDeblocage: () => Promise<EnAttente> = async () => ({ operationId: 'PND-000501' });
   issueDepot: () => Promise<{ id: string }> = async () => ({ id: DEMANDE_ID });
   issueContrat: () => Promise<{ contractId: string; reference: string }> =
@@ -134,5 +144,38 @@ export class CreditDouble implements Credit {
   async regler(_e: string, _c: string, reglement: DemandeReglement): Promise<Reglement> {
     this.reglements.push(reglement);
     return this.issueReglement();
+  }
+
+  // --------------------------------------------------------------- fin de vie
+
+  async rembourserParAnticipation(_e: string, _c: string,
+                                  demande: DemandeAnticipe): Promise<EnAttente> {
+    this.anticipes.push(demande);
+    return this.issueAnticipe();
+  }
+
+  async reechelonner(_e: string, _c: string,
+                     demande: DemandeReechelonnement): Promise<EnAttente> {
+    this.reechelonnements.push(demande);
+    return { operationId: 'PND-000701' };
+  }
+
+  async reviserLeTaux(_e: string, _c: string, demande: DemandeRevisionTaux): Promise<EnAttente> {
+    this.revisions.push(demande);
+    return { operationId: 'PND-000801' };
+  }
+
+  async perte(): Promise<DossierPerte> {
+    return this.perteRendue;
+  }
+
+  async passerEnPerte(_e: string, _c: string, demande: DemandePerte): Promise<EnAttente> {
+    this.pertes.push(demande);
+    return this.issuePerte();
+  }
+
+  async enregistrerRecouvrement(_e: string, _c: string,
+                                demande: DemandeRecouvrement): Promise<void> {
+    this.recouvrements.push(demande);
   }
 }

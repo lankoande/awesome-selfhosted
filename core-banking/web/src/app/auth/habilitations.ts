@@ -23,6 +23,7 @@ export const OPERATION_PAR_ECRAN: Readonly<Record<string, string>> = {
   // depuis une liste. Ils figurent ici pour que l'espace reste visible.
   'credit/dossier': 'LOAN_READ',
   'credit/contrat': 'LOAN_READ',
+  'credit/perte': 'LOAN_READ',
   'guichet/versement': 'CASH_OPERATION',
   'guichet/retrait': 'CASH_OPERATION',
   'guichet/virement': 'TRANSFER',

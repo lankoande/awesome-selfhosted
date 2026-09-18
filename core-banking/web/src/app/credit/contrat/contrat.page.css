@@ -44,10 +44,51 @@
 
 .saisie {
   display: grid;
-  grid-template-columns: minmax(0, 18rem);
+  grid-template-columns: repeat(auto-fit, minmax(0, 18rem));
   gap: var(--cb-space-4);
+  align-items: start;
   margin-top: var(--cb-space-2);
 }
+.saisie .large { grid-column: 1 / -1; max-width: 36rem; }
+.etroit { max-width: 8rem; }
+
+/* Les actes de la vie du crédit se serrent à droite de la barre ; sous 1024 px
+   ils passent à la ligne plutôt que de pousser les onglets hors de l'écran. */
+.actes { display: flex; gap: var(--cb-space-2); flex-wrap: wrap; }
+
+/* Le choix du mode n'est pas une case à cocher : c'est une décision de
+   l'emprunteur, et chaque option porte ce qu'elle change. Ne proposer que l'un
+   des deux — ou les proposer sans les expliquer — est le défaut courant. */
+.modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 20rem));
+  gap: var(--cb-space-3);
+  margin-top: var(--cb-space-4);
+  border: 0;
+  padding: 0;
+}
+.modes legend {
+  font-size: var(--cb-fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cb-muted);
+  margin-bottom: var(--cb-space-2);
+}
+.mode {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'radio titre' '. effet';
+  gap: var(--cb-space-1) var(--cb-space-2);
+  padding: var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  cursor: pointer;
+}
+.mode:hover { border-color: var(--cb-rule-strong); }
+.mode.choisi { border-color: var(--cb-accent); background: var(--cb-panel); }
+.mode input { grid-area: radio; margin-top: 3px; }
+.mode-titre { grid-area: titre; font-weight: 600; }
+.mode-effet { grid-area: effet; color: var(--cb-ink-2); font-size: var(--cb-fs-sm); }
 
 .retour { margin-top: var(--cb-space-2); }
 
@@ -60,4 +101,5 @@
 @media (max-width: 767px) {
   .chiffres { gap: var(--cb-space-3); }
   .chiffre { align-items: flex-start; }
+  .saisie, .modes { grid-template-columns: 1fr; }
 }

@@ -6,15 +6,17 @@ import { AppConfig } from '../../core/config/runtime-config';
 import { formaterTaux } from '../../core/format/montant';
 import { RefusMetier } from '../../guichet/modele/guichet.modele';
 import {
-  CbActivity, CbAmount, CbAmountInput, CbButton, CbField, CbNotice, CbSection, CbStateBadge,
-  CbTable, CbTabs, CbToolbar, Onglet,
+  CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbNotice,
+  CbSection, CbStateBadge, CbTable, CbTabs, CbToolbar, Onglet,
 } from '../../ui';
 import { CREDIT } from '../credit.port';
 import {
-  Contrat, LIBELLE_CREANCE, LIBELLE_STATUT_CONTRAT, Reglement, etatDuContrat, graviteDuRetard,
+  Contrat, EFFET_MODE_ANTICIPE, LIBELLE_CREANCE, LIBELLE_MODE_ANTICIPE, LIBELLE_STATUT_CONTRAT,
+  ModeAnticipe, Reglement, etatDuContrat, graviteDuRetard,
 } from '../modele/credit.modele';
 
-type Volet = 'aucun' | 'deblocage' | 'reglement';
+type Volet = 'aucun' | 'deblocage' | 'reglement' | 'anticipe' | 'reechelonnement'
+           | 'revision';
 
 /**
  * Un contrat de crédit : ce qui est dû, ce qui vient, et ce qu'on peut faire.
@@ -34,8 +36,8 @@ type Volet = 'aucun' | 'deblocage' | 'reglement';
   selector: 'cb-contrat-credit',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CbActivity, CbAmount, CbAmountInput, CbButton, CbField, CbNotice, CbSection, CbStateBadge,
-    CbTable, CbTabs, CbToolbar,
+    CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbNotice,
+    CbSection, CbStateBadge, CbTable, CbTabs, CbToolbar,
   ],
   templateUrl: './contrat.page.html',
   styleUrl: './contrat.page.css',
@@ -48,6 +50,9 @@ export class ContratCredit {
   private readonly router = inject(Router);
 
   protected readonly LIBELLE_CREANCE = LIBELLE_CREANCE;
+  protected readonly LIBELLE_MODE_ANTICIPE = LIBELLE_MODE_ANTICIPE;
+  protected readonly EFFET_MODE_ANTICIPE = EFFET_MODE_ANTICIPE;
+  protected readonly MODES_ANTICIPE: readonly ModeAnticipe[] = ['SHORTEN_TERM', 'REDUCE_INSTALMENT'];
   protected readonly LIBELLE_STATUT_CONTRAT = LIBELLE_STATUT_CONTRAT;
   protected readonly etatDuContrat = etatDuContrat;
   protected readonly graviteDuRetard = graviteDuRetard;
@@ -61,6 +66,13 @@ export class ContratCredit {
   protected readonly reglement = signal<Reglement | null>(null);
 
   protected readonly montant = signal<number | null>(null);
+  protected readonly montantAnticipe = signal<number | null>(null);
+  protected readonly modeAnticipe = signal<ModeAnticipe>('SHORTEN_TERM');
+  protected readonly nouvellesEcheances = signal('');
+  protected readonly premiereEcheance = signal<string | null>(null);
+  protected readonly motifReechelonnement = signal('');
+  protected readonly nouveauTaux = signal('');
+  protected readonly effetTaux = signal<string | null>(null);
 
   protected readonly onglets: readonly Onglet[] = [
     { id: 'du', libelle: 'Ce qui est dû' },
@@ -90,6 +102,10 @@ export class ContratCredit {
 
   protected readonly peutDebloquer = computed(() => this.contrat()?.status === 'DRAFT');
   protected readonly peutRegler = computed(() => this.contrat()?.status === 'ACTIVE');
+
+  /** Les actes de la vie du crédit ne s'ouvrent que sur un contrat en cours. */
+  protected readonly peutAgir = computed(() => this.contrat()?.status === 'ACTIVE');
+  protected readonly enPerte = computed(() => this.contrat()?.status === 'WRITTEN_OFF');
 
   constructor() {
     effect(() => {
@@ -155,6 +171,60 @@ export class ContratCredit {
     } finally {
       this.envoi.set(false);
     }
+  }
+
+  protected async rembourserParAnticipation(): Promise<void> {
+    const contrat = this.contrat();
+    if (!contrat || (this.montantAnticipe() ?? 0) <= 0) return;
+    await this.agir(async () => {
+      const attente = await this.credit.rembourserParAnticipation(
+        this.config.legalEntityId(), this.id(), {
+          amount: String(this.montantAnticipe()),
+          currency: contrat.currency,
+          mode: this.modeAnticipe(),
+        }, this.cle);
+      this.enAttente.set(attente.operationId);
+    });
+  }
+
+  protected async reechelonner(): Promise<void> {
+    await this.agir(async () => {
+      const attente = await this.credit.reechelonner(this.config.legalEntityId(), this.id(), {
+        instalments: Number(this.nouvellesEcheances()),
+        firstDueDate: this.premiereEcheance(),
+        effectiveFrom: null,
+        reason: this.motifReechelonnement().trim(),
+      }, this.cle);
+      this.enAttente.set(attente.operationId);
+    });
+  }
+
+  protected async reviserLeTaux(): Promise<void> {
+    await this.agir(async () => {
+      const attente = await this.credit.reviserLeTaux(this.config.legalEntityId(), this.id(), {
+        annualRatePercent: this.nouveauTaux().trim(),
+        effectiveFrom: this.effetTaux(),
+      }, this.cle);
+      this.enAttente.set(attente.operationId);
+    });
+  }
+
+  /** Fait l'acte puis relit le contrat : l'écran montre l'état réel, pas l'espéré. */
+  private async agir(acte: () => Promise<void>): Promise<void> {
+    this.envoi.set(true);
+    this.refus.set(null);
+    try {
+      await acte();
+      await this.charger();
+    } catch (erreur) {
+      this.refus.set(this.enRefus(erreur));
+    } finally {
+      this.envoi.set(false);
+    }
+  }
+
+  protected aLaPerte(): void {
+    void this.router.navigate(['/credit/contrats', this.id(), 'perte']);
   }
 
   protected auPortefeuille(): void {

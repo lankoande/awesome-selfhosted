@@ -164,6 +164,89 @@ export interface Reglement {
   readonly imputations: readonly Imputation[];
 }
 
+// ---------------------------------------------------------------- fin de vie
+
+/**
+ * Effet d'un remboursement anticipé partiel sur l'échéancier restant.
+ *
+ * **Le choix appartient à l'emprunteur, pas à la banque**, et il change
+ * beaucoup : à capital égal remboursé, raccourcir la durée fait économiser
+ * bien plus d'intérêts qu'abaisser l'échéance. Ne proposer que l'un des deux
+ * est un défaut fonctionnel courant — l'écran propose les deux et dit ce qui
+ * les sépare.
+ */
+export type ModeAnticipe = 'SHORTEN_TERM' | 'REDUCE_INSTALMENT';
+
+/**
+ * Un passage en perte, tel que le socle l'a constaté.
+ *
+ * L'exposition est absorbée dans un ordre qui n'est pas négociable : les
+ * **intérêts réservés** d'abord — ils ont déjà été sortis du résultat à la
+ * suspension, et les passer en perte une seconde fois constaterait une charge
+ * pour un produit jamais pris ; puis la **provision**, qui est faite pour
+ * cela ; le reliquat seul est une **perte**. Un dossier sur-provisionné rend
+ * l'excédent au résultat.
+ *
+ * **La créance reste due.** Sortie de l'actif, elle se suit au hors bilan :
+ * `outstanding()` est ce qui reste à recouvrer.
+ */
+export interface Perte {
+  readonly id: string;
+  readonly contractReference: string;
+  readonly writtenOffOn: string | null;
+  readonly principalWritten: Montant | null;
+  readonly receivablesWritten: Montant | null;
+  readonly reservedUsed: Montant | null;
+  readonly provisionUsed: Montant | null;
+  readonly provisionReleased: Montant | null;
+  readonly lossRecognised: Montant | null;
+  readonly recovered: Montant | null;
+  readonly reason: string | null;
+  readonly bucketCode: string | null;
+  readonly daysPastDue: number | null;
+}
+
+export interface Recouvrement {
+  readonly id: string;
+  readonly recoveredOn: string | null;
+  readonly amount: Montant | null;
+}
+
+/** Ce que rend la lecture d'une perte : le constat, et ce qui a été recouvré depuis. */
+export interface DossierPerte {
+  readonly perte: Perte | null;
+  readonly recouvrements: readonly Recouvrement[];
+}
+
+export interface DemandeAnticipe {
+  readonly amount: string;
+  readonly currency: string;
+  readonly mode: ModeAnticipe;
+}
+
+export interface DemandeReechelonnement {
+  readonly instalments: number;
+  readonly firstDueDate: string | null;
+  readonly effectiveFrom: string | null;
+  readonly reason: string;
+}
+
+export interface DemandeRevisionTaux {
+  readonly annualRatePercent: string;
+  readonly effectiveFrom: string | null;
+}
+
+export interface DemandePerte {
+  readonly reason: string;
+  readonly writtenOffOn: string | null;
+}
+
+export interface DemandeRecouvrement {
+  readonly amount: string;
+  readonly channelAccountId: string;
+  readonly recoveredOn: string | null;
+}
+
 // ---------------------------------------------------------------- demandes
 
 export interface DemandeDeCredit {
@@ -251,6 +334,21 @@ export const LIBELLE_CREANCE: Readonly<Record<NatureCreance, string>> = {
   FUTURE_PRINCIPAL: 'Capital non échu',
 };
 
+export const LIBELLE_MODE_ANTICIPE: Readonly<Record<ModeAnticipe, string>> = {
+  SHORTEN_TERM: 'Raccourcir la durée',
+  REDUCE_INSTALMENT: "Abaisser l'échéance",
+};
+
+/** Ce que chaque mode fait, en une phrase que l'emprunteur comprend. */
+export const EFFET_MODE_ANTICIPE: Readonly<Record<ModeAnticipe, string>> = {
+  SHORTEN_TERM:
+    "L'échéance ne change pas ; le crédit se termine plus tôt. C'est l'option "
+    + "la plus économique : les intérêts cessent de courir plus tôt.",
+  REDUCE_INSTALMENT:
+    "La durée ne change pas ; l'échéance baisse. Elle soulage la trésorerie "
+    + 'mensuelle et coûte davantage au total.',
+};
+
 const ETAT_DEMANDE: Readonly<Record<StatutDemande, EtatOperation>> = {
   SUBMITTED: 'brouillon',
   UNDER_REVIEW: 'en-attente',
@@ -274,6 +372,18 @@ export function etatDeLaDemande(statut: StatutDemande): EtatOperation {
 
 export function etatDuContrat(statut: StatutContrat): EtatOperation {
   return ETAT_CONTRAT[statut];
+}
+
+/**
+ * Ce qui reste dû au hors bilan après un passage en perte : sorti de l'actif,
+ * pas encore recouvré. C'est la somme que le recouvrement poursuit, et elle ne
+ * se déduit pas d'une seule ligne — d'où ce calcul plutôt qu'un champ affiché.
+ */
+export function resteARecouvrer(perte: Perte): string {
+  const chiffre = (m: Montant | null) => Number(m?.amount ?? '0');
+  const reste = chiffre(perte.principalWritten) + chiffre(perte.receivablesWritten)
+    - chiffre(perte.recovered);
+  return String(reste);
 }
 
 /**

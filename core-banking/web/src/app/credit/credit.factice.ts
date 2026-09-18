@@ -2,9 +2,10 @@ import { Injectable } from '@angular/core';
 import { RefusMetier } from '../guichet/modele/guichet.modele';
 import { Credit, EnAttente } from './credit.port';
 import {
-  Analyse, Condition, Contrat, Decision, Demande, DemandeAnalyse, DemandeCondition,
-  DemandeContrat, DemandeDeCredit, DemandeDecision, DemandeReglement, DossierCredit, Echeance,
-  Evenement, Montant, Reglement, StatutDemande,
+  Analyse, Condition, Contrat, Decision, Demande, DemandeAnalyse, DemandeAnticipe,
+  DemandeCondition, DemandeContrat, DemandeDeCredit, DemandeDecision, DemandePerte,
+  DemandeRecouvrement, DemandeReechelonnement, DemandeReglement, DemandeRevisionTaux,
+  DossierCredit, DossierPerte, Echeance, Evenement, Montant, Reglement, StatutDemande,
 } from './modele/credit.modele';
 
 const xof = (valeur: number): Montant => ({ amount: String(valeur), currency: 'XOF' });
@@ -153,6 +154,27 @@ function echeancier(capital: number, taux: number, nombre: number, debut: string
   return lignes;
 }
 
+/**
+ * Un contrat passé en perte, avec sa décomposition : c'est le cas où l'écran
+ * doit montrer que la créance reste due au hors bilan malgré la sortie d'actif.
+ */
+const PERTES: Readonly<Record<string, DossierPerte>> = {
+  'c-sawadogo': {
+    perte: {
+      id: 'pe-1', contractReference: 'PR-2023-0117', writtenOffOn: '2026-08-31',
+      principalWritten: xof(1450000), receivablesWritten: xof(212800),
+      reservedUsed: xof(98400), provisionUsed: xof(1330720), provisionReleased: xof(0),
+      lossRecognised: xof(233680), recovered: xof(120000),
+      reason: 'Créance irrécouvrable : débiteur introuvable depuis 14 mois.',
+      bucketCode: 'PERTE', daysPastDue: 421,
+    },
+    recouvrements: [
+      { id: 'rc-1', recoveredOn: '2026-09-05', amount: xof(80000) },
+      { id: 'rc-2', recoveredOn: '2026-09-15', amount: xof(40000) },
+    ],
+  },
+};
+
 const CONTRATS: Contrat[] = [
   {
     id: 'c-kabore', reference: 'PR-2026-0044', productCode: 'CRED-EQUIP',
@@ -187,6 +209,13 @@ const CONTRATS: Contrat[] = [
         outstanding: xof(1842000) },
     ],
     tauxAnnuel: '11', nombreEcheances: 36, methode: 'CONSTANT_ANNUITY',
+  },
+  {
+    id: 'c-sawadogo', reference: 'PR-2023-0117', productCode: 'CRED-CONSO',
+    principal: xof(2800000), currency: 'XOF', status: 'WRITTEN_OFF', disbursedOn: '2023-02-14',
+    daysPastDue: 421, asOf: '2026-09-17',
+    echeancier: [], creances: [],
+    tauxAnnuel: '12', nombreEcheances: 36, methode: 'CONSTANT_ANNUITY',
   },
   {
     id: 'c-nikiema', reference: 'PR-2026-0051', productCode: 'CRED-CONSO',
@@ -345,6 +374,68 @@ export class CreditFactice implements Credit {
     return {
       paid: xof(paye), allocated: xof(paye - reste), unallocated: xof(reste), imputations,
     };
+  }
+
+  // --------------------------------------------------------------- fin de vie
+
+  async rembourserParAnticipation(_e: string, contractId: string,
+                                  demande: DemandeAnticipe): Promise<EnAttente> {
+    await this.attendre(500);
+    const contrat = CONTRATS.find((c) => c.id === contractId);
+    if (contrat?.status !== 'ACTIVE') {
+      throw new RefusMetier(409, 'CONTRAT_NON_ACTIF',
+                            "Un contrat qui n'est pas en cours ne se rembourse pas par anticipation.");
+    }
+    if (Number(demande.amount) <= 0) {
+      throw new RefusMetier(422, 'MONTANT_INVALIDE', 'Le montant doit être positif.');
+    }
+    return { operationId: `PND-0006${this.rang++}` };
+  }
+
+  async reechelonner(_e: string, _c: string, demande: DemandeReechelonnement): Promise<EnAttente> {
+    await this.attendre(500);
+    if (demande.instalments <= 0) {
+      throw new RefusMetier(422, 'DUREE_INVALIDE', 'Une durée se compte en échéances.');
+    }
+    if (!demande.reason.trim()) {
+      throw new RefusMetier(422, 'MOTIF_ABSENT', 'Un rééchelonnement se motive.');
+    }
+    return { operationId: `PND-0007${this.rang++}` };
+  }
+
+  async reviserLeTaux(_e: string, _c: string, demande: DemandeRevisionTaux): Promise<EnAttente> {
+    await this.attendre(400);
+    if (!Number.isFinite(Number(demande.annualRatePercent))) {
+      throw new RefusMetier(422, 'TAUX_INVALIDE', 'Le taux est un nombre.');
+    }
+    return { operationId: `PND-0008${this.rang++}` };
+  }
+
+  async perte(_e: string, contractId: string): Promise<DossierPerte> {
+    await this.attendre(250);
+    return PERTES[contractId] ?? { perte: null, recouvrements: [] };
+  }
+
+  async passerEnPerte(_e: string, contractId: string, demande: DemandePerte): Promise<EnAttente> {
+    await this.attendre(500);
+    if (PERTES[contractId]?.perte) {
+      throw new RefusMetier(409, 'DEJA_PASSE', 'Ce contrat est déjà passé en perte.');
+    }
+    if (!demande.reason.trim()) {
+      throw new RefusMetier(422, 'MOTIF_ABSENT', 'Un passage en perte se motive.');
+    }
+    return { operationId: `PND-0009${this.rang++}` };
+  }
+
+  async enregistrerRecouvrement(_e: string, _c: string,
+                                demande: DemandeRecouvrement): Promise<void> {
+    await this.attendre(400);
+    if (Number(demande.amount) <= 0) {
+      throw new RefusMetier(422, 'MONTANT_INVALIDE', 'Le montant recouvré doit être positif.');
+    }
+    if (!demande.channelAccountId.trim()) {
+      throw new RefusMetier(422, 'COMPTE_ABSENT', 'Le compte par lequel l’argent est rentré est requis.');
+    }
   }
 
   private attendre(ms = this.latenceMs): Promise<void> {

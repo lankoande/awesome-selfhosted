@@ -900,3 +900,60 @@ Le rééchelonnement, la révision de taux, le passage en perte et le recouvreme
 expose (`/rescheduling`, `/rate-revision`, `/write-off`, `/recoveries`), l'interface pas encore.
 C'est la fin de vie du crédit, et elle mérite son propre lot — un passage en perte se décide avec
 la provision sous les yeux, ce qui demande un écran de son côté.
+
+---
+
+## 18. La fin de vie du crédit : ce qu'elle a tranché
+
+Quatre actes s'ajoutent au contrat — remboursement anticipé, rééchelonnement, révision de taux —
+et un cinquième prend un écran à lui : le passage en perte.
+
+### Pourquoi le passage en perte n'est pas un bouton de plus
+
+Passer en perte est la sortie d'un actif des livres. **Cela se décide avec la provision sous les
+yeux**, pas au milieu d'un échéancier. Un bouton discret au bout d'une barre d'actions ferait
+exactement l'inverse de ce que la décision demande : il la banaliserait.
+
+`/credit/contrats/:id/perte` montre donc ce qu'il faut pour décider, puis ce qui a été constaté.
+
+### La perte n'est pas l'exposition
+
+C'est la chose la plus contre-intuitive du domaine, et la plus coûteuse à ignorer. L'exposition
+est absorbée dans un ordre qui n'est pas négociable :
+
+1. **les intérêts réservés** d'abord — ils avaient déjà été sortis du résultat à la suspension, et
+   les passer en perte une seconde fois constaterait une charge pour un produit jamais pris ;
+2. **la provision** ensuite — c'est ce pour quoi elle avait été constituée ;
+3. **le reliquat seul** est une perte au résultat.
+
+Un dossier sur-provisionné rend l'excédent au résultat : la provision n'a plus d'objet.
+
+L'écran rend cette cascade en quatre paliers, chacun portant son montant **et** la phrase qui
+explique pourquoi il absorbe. Un total seul cacherait précisément ce qu'il faut comprendre — sur
+le dossier de démonstration, 1 662 800 d'exposition ne donnent que 233 680 de perte.
+
+### La créance reste due
+
+Sortie de l'actif, elle se suit au **hors bilan**, et tout recouvrement s'y impute. Croire qu'un
+passage en perte éteint la dette est l'erreur qui fait cesser les relances — l'écran l'écrit, et
+affiche en face « déjà recouvré » et « reste à recouvrer ».
+
+Le recouvrement, lui, **ne passe pas par un second regard** : l'argent est déjà rentré, l'écriture
+suit. Le passage en perte, si.
+
+### Les deux modes de remboursement anticipé, toujours les deux
+
+À capital égal remboursé, **raccourcir la durée fait économiser bien plus d'intérêts qu'abaisser
+l'échéance** — et le choix appartient à l'emprunteur, pas à la banque. Ne proposer que l'un des
+deux est un défaut fonctionnel courant ; les proposer sans les expliquer en est un autre.
+
+L'écran présente les deux côte à côte, chacun avec ce qu'il change en une phrase que l'emprunteur
+comprend. **L'indemnité, elle, est calculée par le socle** selon le paramétrage du produit : le
+poste ne l'invente pas et le dit.
+
+### Ce qui reste du domaine
+
+Les sûretés (`/collaterals`, `/collateral-policies`) et le consentement au bureau d'information
+(`/regulatory/parties/{id}/credit-bureau-consent`). Les premières se rattachent à un dossier
+d'instruction, le second au référentiel client — deux rattachements différents, donc deux endroits
+à choisir avant de coder.

@@ -1,0 +1,241 @@
+@if (contrat(); as c) {
+  <header class="entete">
+    <div class="qui">
+      <h2>{{ c.reference }} — passage en perte</h2>
+      <p class="sous">
+        {{ c.productCode }} · {{ pourcent(c.tauxAnnuel) }} %
+        @if (c.disbursedOn) { · débloqué le {{ jour(c.disbursedOn) }} }
+      </p>
+    </div>
+    <div class="chiffres">
+      <div class="chiffre">
+        <span class="titre">Retard</span>
+        <span class="retard cb-mono" [attr.data-gravite]="graviteDuRetard(c.daysPastDue)">
+          @if (c.daysPastDue > 0) { {{ c.daysPastDue }} jours } @else { aucun }
+        </span>
+      </div>
+      <div class="chiffre">
+        <span class="titre">État</span>
+        <cb-state-badge [etat]="etatDuContrat(c.status)" [mot]="LIBELLE_STATUT_CONTRAT[c.status]" />
+      </div>
+    </div>
+  </header>
+}
+
+<div class="corps">
+  <cb-activity class="activite" [enCours]="chargement()" libelle="Lecture du dossier…" />
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" titre="Le socle a refusé" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+    </cb-notice>
+  }
+
+  @if (enAttente(); as operation) {
+    <cb-notice nature="avertissement" titre="Passage en perte en attente de validation"
+               [code]="operation">
+      <p>
+        La demande est enregistrée ; <strong>rien n'est sorti des livres</strong> tant qu'un
+        second regard ne l'a pas approuvée. Ne resaisissez pas.
+      </p>
+    </cb-notice>
+  }
+
+  @if (perte(); as p) {
+    <!-- Ce qui a été constaté, décomposé. -->
+    <cb-section titre="Ce qui a été constaté"
+                [indication]="'passé en perte le ' + jour(p.writtenOffOn)
+                              + (p.bucketCode ? ' · classe ' + p.bucketCode : '')">
+      <div class="cascade">
+        <div class="palier">
+          <span class="palier-titre">Exposition sortie de l'actif</span>
+          @if (exposition(); as m) {
+            <cb-amount [valeur]="m.amount" [devise]="m.currency" />
+          }
+          <span class="palier-detail">
+            capital
+            @if (p.principalWritten; as m) { <cb-amount [valeur]="m.amount" /> }
+            · créances
+            @if (p.receivablesWritten; as m) { <cb-amount [valeur]="m.amount" /> }
+          </span>
+        </div>
+
+        <div class="palier">
+          <span class="palier-titre">Absorbée par les intérêts réservés</span>
+          @if (p.reservedUsed; as m) { <cb-amount [valeur]="m.amount" [devise]="m.currency" /> }
+          <span class="palier-detail">
+            Ils avaient déjà été sortis du résultat à la suspension. Les passer en perte une
+            seconde fois constaterait une charge pour un produit jamais pris.
+          </span>
+        </div>
+
+        <div class="palier">
+          <span class="palier-titre">Absorbée par la provision</span>
+          @if (p.provisionUsed; as m) { <cb-amount [valeur]="m.amount" [devise]="m.currency" /> }
+          <span class="palier-detail">C'est ce pour quoi elle avait été constituée.</span>
+        </div>
+
+        <div class="palier perte-nette">
+          <span class="palier-titre">Perte constatée au résultat</span>
+          @if (p.lossRecognised; as m) {
+            <cb-amount [valeur]="m.amount" [devise]="m.currency" ton="negatif" />
+          }
+          <span class="palier-detail">Le reliquat, et lui seul.</span>
+        </div>
+
+        @if (p.provisionReleased && p.provisionReleased.amount !== '0') {
+          <div class="palier">
+            <span class="palier-titre">Provision rendue au résultat</span>
+            <cb-amount [valeur]="p.provisionReleased.amount"
+                       [devise]="p.provisionReleased.currency" ton="positif" />
+            <span class="palier-detail">
+              Le dossier était sur-provisionné : l'excédent n'a plus d'objet.
+            </span>
+          </div>
+        }
+      </div>
+
+      @if (p.reason) { <p class="motif">{{ p.reason }}</p> }
+    </cb-section>
+
+    <!-- Ce qui reste dû. -->
+    <cb-notice nature="avertissement" titre="La créance reste due">
+      <p>
+        L'actif est sorti des livres, mais le débiteur doit toujours. La créance se suit au
+        <strong>hors bilan</strong> et tout recouvrement s'y impute — croire qu'un passage en
+        perte éteint la dette est ce qui fait cesser les relances.
+      </p>
+      <dl class="faits">
+        <div><dt>Déjà recouvré</dt><dd>
+          @if (p.recovered; as m) { <cb-amount [valeur]="m.amount" [devise]="m.currency" /> }
+          @else { — }</dd></div>
+        <div><dt>Reste à recouvrer</dt><dd>
+          @if (reste(); as m) { <cb-amount [valeur]="m.amount" [devise]="m.currency" /> }
+          @else { — }</dd></div>
+      </dl>
+      <p class="suite">
+        <button type="button" cbButton="primaire" (click)="ouvrirVolet('recouvrer')">
+          Enregistrer un recouvrement
+        </button>
+      </p>
+    </cb-notice>
+
+    @if (dossier(); as d) {
+      @if (d.recouvrements.length > 0) {
+        <cb-section titre="Recouvrements" indication="ce qui est rentré depuis la sortie d'actif">
+          <div class="tableau">
+            <table cbTable>
+              <caption class="cb-visually-hidden">Recouvrements</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Recouvré le</th>
+                  <th scope="col" class="nombre">Montant</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (r of d.recouvrements; track r.id) {
+                  <tr>
+                    <td class="cb-mono">{{ jour(r.recoveredOn) }}</td>
+                    <td class="nombre">
+                      @if (r.amount; as m) {
+                        <cb-amount [valeur]="m.amount" [devise]="m.currency" ton="positif" />
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </cb-section>
+      }
+    }
+  } @else if (!chargement()) {
+    <cb-notice nature="information" titre="Ce contrat n'est pas passé en perte">
+      <p>
+        Passer en perte sort un actif des livres. Ce n'est pas une opération de gestion
+        courante : elle se décide quand le recouvrement est épuisé, et elle
+        <strong>passe par un second regard</strong>.
+      </p>
+      @if (peutPasser()) {
+        <p class="suite">
+          <button type="button" cbButton="secondaire" (click)="ouvrirVolet('passer')">
+            Demander le passage en perte
+          </button>
+        </p>
+      } @else {
+        <p class="nuance">
+          Seul un contrat en cours se passe en perte.
+        </p>
+      }
+    </cb-notice>
+  }
+
+  <!-- Volets de saisie -->
+  @if (volet() === 'passer') {
+    <cb-section titre="Demander le passage en perte"
+                indication="la sortie d'un actif des livres : à deux, toujours">
+      <cb-notice nature="avertissement" titre="Ce que cette demande engage">
+        <p>
+          L'exposition sera absorbée par les intérêts réservés puis par la provision ; le
+          reliquat sera constaté en perte au résultat. <strong>La créance restera due</strong>
+          et se suivra au hors bilan.
+        </p>
+      </cb-notice>
+      <div class="saisie">
+        <cb-field etiquette="Motif" pour="motif-perte" requis class="large"
+                  aide="Ce qui établit que la créance est irrécouvrable. Il reste au dossier.">
+          <input cbInput id="motif-perte" name="motif-perte" autocomplete="off" [value]="motif()"
+                 (input)="motif.set($any($event.target).value)" />
+        </cb-field>
+        <cb-field etiquette="Date du passage" pour="date-perte"
+                  aide="Facultative : la date comptable du jour par défaut.">
+          <cb-date-input champId="date-perte" [(valeur)]="dateDePerte" />
+        </cb-field>
+      </div>
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="envoi() || motif().trim().length < 3 || !peutPasser()"
+                (click)="passerEnPerte()">Soumettre le passage en perte</button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  @if (volet() === 'recouvrer') {
+    <cb-section titre="Enregistrer un recouvrement"
+                indication="l'argent est déjà rentré : l'écriture suit, sans second regard">
+      <div class="saisie">
+        <cb-field etiquette="Montant recouvré" pour="montant-recouvre" requis>
+          <cb-amount-input champId="montant-recouvre" [(valeur)]="montantRecouvre" devise="XOF" />
+        </cb-field>
+        <cb-field etiquette="Compte d'encaissement" pour="compte-encaissement" requis
+                  aide="Le compte par lequel l'argent est rentré.">
+          <input cbInput id="compte-encaissement" name="compte-encaissement" autocomplete="off"
+                 [value]="compteDEncaissement()"
+                 (input)="compteDEncaissement.set($any($event.target).value)" />
+        </cb-field>
+        <cb-field etiquette="Recouvré le" pour="date-recouvrement"
+                  aide="Facultative : la date comptable du jour par défaut.">
+          <cb-date-input champId="date-recouvrement" [(valeur)]="dateDeRecouvrement" />
+        </cb-field>
+      </div>
+      @if (reste(); as m) {
+        <p class="nuance">
+          Reste à recouvrer : <cb-amount [valeur]="m.amount" [devise]="m.currency" />.
+        </p>
+      }
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="envoi() || (montantRecouvre() ?? 0) <= 0
+                            || compteDEncaissement().trim() === '' || !peutRecouvrer()"
+                (click)="enregistrerRecouvrement()">Enregistrer le recouvrement</button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  <p class="retour">
+    <button type="button" cbButton="discret" (click)="auContrat()">← Revenir au contrat</button>
+  </p>
+</div>

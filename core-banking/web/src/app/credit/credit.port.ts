@@ -1,7 +1,9 @@
 import { InjectionToken } from '@angular/core';
 import {
-  Contrat, Demande, DemandeAnalyse, DemandeCondition, DemandeContrat, DemandeDeCredit,
-  DemandeDecision, DemandeReglement, DossierCredit, Reglement, StatutDemande,
+  Contrat, Demande, DemandeAnalyse, DemandeAnticipe, DemandeCondition, DemandeContrat,
+  DemandeDeCredit, DemandeDecision, DemandePerte, DemandeRecouvrement,
+  DemandeReechelonnement, DemandeReglement, DemandeRevisionTaux, DossierCredit, DossierPerte,
+  Reglement, StatutDemande,
 } from './modele/credit.modele';
 
 /** Ce que rend une action soumise à un second regard. */
@@ -76,6 +78,33 @@ export interface Credit {
   /** Un règlement s'impute immédiatement, dans l'ordre que le socle applique. */
   regler(legalEntityId: string, contractId: string, reglement: DemandeReglement,
          cleIdempotence: string): Promise<Reglement>;
+
+  // --------------------------------------------------------------- fin de vie
+
+  /**
+   * Rembourse par anticipation. Le mode — durée ou échéance — appartient à
+   * l'emprunteur ; l'indemnité, elle, est calculée par le socle.
+   */
+  rembourserParAnticipation(legalEntityId: string, contractId: string, demande: DemandeAnticipe,
+                            cleIdempotence: string): Promise<EnAttente>;
+
+  /** Rééchelonner modifie ce que le client devra : proposé par l'un, approuvé par un autre. */
+  reechelonner(legalEntityId: string, contractId: string, demande: DemandeReechelonnement,
+               cleIdempotence: string): Promise<EnAttente>;
+
+  reviserLeTaux(legalEntityId: string, contractId: string, demande: DemandeRevisionTaux,
+                cleIdempotence: string): Promise<EnAttente>;
+
+  /** Le constat de perte et ce qui a été recouvré depuis. Vide : rien n'a été passé. */
+  perte(legalEntityId: string, contractId: string): Promise<DossierPerte>;
+
+  /** Passer en perte sort un actif des livres : à deux, toujours. */
+  passerEnPerte(legalEntityId: string, contractId: string, demande: DemandePerte,
+                cleIdempotence: string): Promise<EnAttente>;
+
+  /** Un recouvrement s'enregistre immédiatement : l'argent est déjà rentré. */
+  enregistrerRecouvrement(legalEntityId: string, contractId: string,
+                          demande: DemandeRecouvrement, cleIdempotence: string): Promise<void>;
 }
 
 export const CREDIT = new InjectionToken<Credit>('Credit');

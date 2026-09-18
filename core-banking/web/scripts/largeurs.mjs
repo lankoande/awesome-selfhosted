@@ -30,6 +30,10 @@ const CHEMINS = [
   // en retard : c'est là que les tableaux et les avis se tendent le plus.
   'credit/demandes/d-ouedraogo', 'credit/demandes/d-traore',
   'credit/contrats/c-compaore', 'credit/contrats/c-nikiema',
+  // Un contrat passé en perte : la cascade d'absorption est le bloc le plus
+  // dense de l'application.
+  'credit/contrats/c-sawadogo', 'credit/contrats/c-sawadogo/perte',
+  'credit/contrats/c-compaore/perte',
   'siege/exploitation', 'siege/balance',
   'validation',
 ];
