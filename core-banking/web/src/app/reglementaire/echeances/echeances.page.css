@@ -1,0 +1,41 @@
+:host { display: block; }
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+
+.restant {
+  font-size: var(--cb-fs-sm);
+  font-weight: 600;
+  color: var(--cb-rejected);
+  white-space: nowrap;
+}
+
+/* `min-width: 0` : sans lui, un élément flex ne descend pas sous la largeur de
+   son contenu et c'est la page qui déborde, pas la table qui défile. */
+.tableau { overflow-x: auto; min-width: 0; }
+.nombre { text-align: right; }
+.action { text-align: right; white-space: nowrap; }
+/* Les deux dernières colonnes ne s'étirent pas : la place va au libellé. */
+.tableau th:nth-child(5), .tableau td:nth-child(5),
+.tableau th:nth-child(6), .tableau td:nth-child(6) { width: 1%; }
+
+.libelle { display: block; color: var(--cb-ink-2); font-size: var(--cb-fs-sm); }
+.retard { color: var(--cb-rejected); font-weight: 600; font-family: var(--cb-font-mono); }
+.nuance { margin-top: var(--cb-space-2); color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+.suite { margin-top: var(--cb-space-3); display: flex; gap: var(--cb-space-2); flex-wrap: wrap; }
+.activite { display: block; }
+
+.ligne { cursor: pointer; }
+.ligne:hover td { background: var(--cb-panel); }
+.ligne:focus-visible { outline: 2px solid var(--cb-accent); outline-offset: -2px; }
+
+@media (max-width: 1023px) {
+  /* Le destinataire saute : c'est le code de la déclaration qui l'annonce déjà
+     pour qui travaille ces états tous les mois. */
+  .tableau th:nth-child(2), .tableau td:nth-child(2) { display: none; }
+}

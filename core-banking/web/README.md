@@ -46,6 +46,7 @@ src/app/guichet/ le guichet : modèle, port, implémentations, écrans
 src/app/clients/ le référentiel client : recherche, dossier, création, ouverture de compte
 src/app/credit/  le crédit : demandes, dossier d'instruction, portefeuille, contrat
 src/app/conformite/ la conformité LCB-FT : alertes, déclarations de soupçon, scénarios
+src/app/reglementaire/ le réglementaire : échéances, états, catalogue, fiscalité
 src/app/validation/ la double validation : le second regard
 src/app/caisse/  la caisse du guichetier et son arrêté
 src/app/siege/   exploitation comptable et restitutions
@@ -165,7 +166,7 @@ silence le jour d'une mise à jour sans rapport.
   échouer les tests.
 - **Budgets de taille** dans `angular.json` : une régression de poids fait
   échouer la compilation, elle ne se découvre pas en production. Repère actuel :
-  392 Ko bruts, 104 Ko transférés pour l'application initiale.
+  393 Ko bruts, 104 Ko transférés pour l'application initiale.
 
   Ce budget avait été franchi en silence — l'avertissement ne fait pas échouer
   le build. Cause : `app.config.ts` déclarait les fournisseurs des six espaces,

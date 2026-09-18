@@ -32,6 +32,14 @@ export const OPERATION_PAR_ECRAN: Readonly<Record<string, string>> = {
   'conformite/alerte': 'AML_READ',
   'conformite/declarations': 'AML_READ',
   'conformite/scenarios': 'AML_READ',
+  // Le réglementaire se lit avec REGULATORY_READ, donné au comptable, au risque,
+  // à l'audit et à l'exploitation. Produire et transmettre sont deux droits
+  // distincts — l'écran de détail s'en sert pour ne pas offrir une porte fermée.
+  'reglementaire/echeances': 'REGULATORY_READ',
+  'reglementaire/etats': 'REGULATORY_READ',
+  'reglementaire/etat': 'REGULATORY_READ',
+  'reglementaire/declarations': 'REGULATORY_READ',
+  'reglementaire/fiscalite': 'REGULATORY_READ',
   'guichet/versement': 'CASH_OPERATION',
   'guichet/retrait': 'CASH_OPERATION',
   'guichet/virement': 'TRANSFER',

@@ -1,0 +1,201 @@
+<div class="corps">
+  <cb-toolbar>
+    <h2>Catalogue des déclarations</h2>
+    @if (peutDeclarer()) {
+      <button fin type="button" cbButton="primaire" (click)="ouvrirVolet()">
+        Déclarer au catalogue
+      </button>
+    }
+  </cb-toolbar>
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" titre="Le socle a refusé" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+      <p class="suite">
+        <button type="button" cbButton="secondaire" (click)="charger()">Réessayer</button>
+      </p>
+    </cb-notice>
+  }
+
+  @if (enAttente(); as operation) {
+    <cb-notice nature="avertissement" titre="Déclaration en attente de validation"
+               [code]="operation">
+      <p>
+        La demande est enregistrée ; <strong>rien n'est attendu du superviseur</strong> tant
+        qu'un second regard ne l'a pas approuvée — et aucune échéance ne sera comptée. Ne
+        resaisissez pas.
+      </p>
+    </cb-notice>
+  }
+
+  <cb-activity class="activite" [enCours]="chargement()" libelle="Lecture du catalogue…" />
+
+  @if (declarations().length > 0) {
+    <div class="tableau">
+      <table cbTable>
+        <caption class="cb-visually-hidden">Déclarations au catalogue</caption>
+        <thead>
+          <tr>
+            <th scope="col">Code</th>
+            <th scope="col">Ce qu'elle déclare</th>
+            <th scope="col">Destinataire</th>
+            <th scope="col">Méthode</th>
+            <th scope="col">Fréquence</th>
+            <th scope="col" class="nombre">Délai</th>
+            <th scope="col" class="nombre">Seuil</th>
+            <th scope="col">En vigueur</th>
+            <th scope="col">Production</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (d of declarations(); track d.id) {
+            <tr>
+              <td class="cb-mono">{{ d.code }}</td>
+              <td class="objet">{{ d.label }}</td>
+              <td>{{ LIBELLE_DESTINATAIRE[d.recipient] }}</td>
+              <td>{{ LIBELLE_METHODE_ETAT[d.method] }}</td>
+              <td>{{ LIBELLE_FREQUENCE[d.frequency] }}</td>
+              <td class="nombre cb-mono">
+                @if (d.deadlineDays !== null) { {{ d.deadlineDays }} j } @else { — }
+              </td>
+              <td class="nombre">
+                @if (d.thresholdAmount) {
+                  <cb-amount [valeur]="d.thresholdAmount" devise="XOF" />
+                } @else { — }
+              </td>
+              <td class="cb-mono">
+                {{ jour(d.validFrom) }}@if (d.validTo) { → {{ jour(d.validTo) }} }
+              </td>
+              <td class="action">
+                @if (peutProduire()) {
+                  <button type="button" cbButton="secondaire"
+                          (click)="ouvrirProduction(d)">Produire un état</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else if (lu() && !chargement()) {
+    <cb-notice nature="avertissement" titre="Aucune déclaration au catalogue">
+      <p>
+        Rien n'est attendu du superviseur, donc <strong>aucun retard ne se constate</strong>.
+        Tant que le catalogue est vide, l'écran des échéances restera vide lui aussi — ce qui
+        ne veut pas dire que la banque est à jour.
+      </p>
+    </cb-notice>
+  }
+
+  <!-- Production d'un état sur une période choisie. -->
+  @if (enProduction(); as d) {
+    <cb-section titre="Produire un état"
+                [indication]="d.code + ' · ' + LIBELLE_FREQUENCE[d.frequency]">
+      <p class="nuance">
+        {{ EFFET_METHODE_ETAT[d.method] }}
+      </p>
+      <p class="nuance">
+        Un état se produit sur <strong>la période que le superviseur attend</strong>, pas sur un
+        intervalle choisi : seules les périodes closes sont proposées.
+      </p>
+      <div class="periodes" role="group" aria-label="Période à produire">
+        @for (p of periodesProposees(); track p) {
+          <button type="button" class="periode" [class.actif]="periode() === p"
+                  [attr.aria-pressed]="periode() === p" (click)="periode.set(p)">
+            {{ libellePeriode(p, d.frequency) }}
+          </button>
+        }
+      </div>
+      <p class="suite">
+        <button type="button" cbButton="primaire" [disabled]="envoi() || periode() === ''"
+                (click)="produire()">Produire l'état</button>
+        <button type="button" cbButton="discret" (click)="fermerProduction()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  <!-- Déclaration au catalogue. -->
+  @if (volet()) {
+    <cb-section titre="Déclarer au catalogue"
+                indication="à deux : ce que la banque doit à son superviseur">
+      <div class="methodes" role="group" aria-label="Méthode de production">
+        @for (m of METHODES; track m) {
+          <button type="button" class="methode" [class.actif]="methode() === m"
+                  [attr.aria-pressed]="methode() === m" (click)="choisirMethode(m)">
+            <span class="methode-titre">{{ LIBELLE_METHODE_ETAT[m] }}</span>
+            <span class="methode-detail">{{ EFFET_METHODE_ETAT[m] }}</span>
+          </button>
+        }
+      </div>
+
+      <div class="saisie">
+        <cb-field etiquette="Code" pour="code-declaration" requis
+                  aide="Il figurera sur chaque état produit.">
+          <input cbInput mono id="code-declaration" name="code-declaration" autocomplete="off"
+                 [value]="code()"
+                 (input)="code.set($any($event.target).value); commence.set(true)" />
+        </cb-field>
+        <cb-field etiquette="Ce qu'elle déclare" pour="libelle-declaration" requis class="large">
+          <input cbInput id="libelle-declaration" name="libelle-declaration" autocomplete="off"
+                 [value]="libelle()"
+                 (input)="libelle.set($any($event.target).value); commence.set(true)" />
+        </cb-field>
+
+        <cb-field etiquette="Destinataire" pour="destinataire-declaration" requis>
+          <select cbInput id="destinataire-declaration" name="destinataire-declaration"
+                  (change)="destinataire.set($any($event.target).value); commence.set(true)">
+            @for (d of DESTINATAIRES; track d) {
+              <option [value]="d" [selected]="destinataire() === d">
+                {{ LIBELLE_DESTINATAIRE[d] }}
+              </option>
+            }
+          </select>
+        </cb-field>
+        <cb-field etiquette="Fréquence" pour="frequence-declaration" requis>
+          <select cbInput id="frequence-declaration" name="frequence-declaration"
+                  (change)="frequence.set($any($event.target).value); commence.set(true)">
+            @for (f of FREQUENCES; track f) {
+              <option [value]="f" [selected]="frequence() === f">{{ LIBELLE_FREQUENCE[f] }}</option>
+            }
+          </select>
+        </cb-field>
+        <cb-field etiquette="Délai de dépôt (jours)" pour="delai-declaration" requis
+                  aide="Après la fin de période. Sans lui, aucun retard ne se constate.">
+          <input cbInput nombre type="number" min="1" id="delai-declaration"
+                 name="delai-declaration" [value]="delai() ?? ''"
+                 (input)="delai.set(nombre($any($event.target).value)); commence.set(true)" />
+        </cb-field>
+
+        @if (admetUnSeuil()) {
+          <cb-field etiquette="Seuil de recensement" pour="seuil-declaration" requis
+                    aide="Seuls les engagements au-delà de ce montant sont recensés.">
+            <cb-amount-input champId="seuil-declaration" [(valeur)]="seuil" devise="XOF" />
+          </cb-field>
+        }
+
+        <cb-field etiquette="En vigueur à partir du" pour="effet-declaration" requis>
+          <cb-date-input champId="effet-declaration" [(valeur)]="dateDEffet" />
+        </cb-field>
+        <cb-field etiquette="Jusqu'au" pour="fin-declaration"
+                  aide="Facultative : une déclaration sans fin reste en vigueur.">
+          <cb-date-input champId="fin-declaration" [(valeur)]="dateDeFin" />
+        </cb-field>
+      </div>
+
+      @if (commence() && obstacles().length > 0) {
+        <cb-notice nature="avertissement" titre="Il manque quelque chose">
+          <ul class="obstacles">
+            @for (obstacle of obstacles(); track obstacle) { <li>{{ obstacle }}</li> }
+          </ul>
+        </cb-notice>
+      }
+
+      <p class="suite">
+        <button type="button" cbButton="primaire" [disabled]="envoi()"
+                (click)="declarer()">Soumettre la déclaration</button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+</div>

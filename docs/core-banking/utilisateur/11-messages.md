@@ -1,4 +1,4 @@
-# 10. Messages, refus et états
+# 11. Messages, refus et états
 
 La page à ouvrir quand quelque chose ne va pas. Chaque entrée dit **ce que c'est** et **le geste
 à faire**.
@@ -133,6 +133,43 @@ manque un. Un scénario incomplet ne surveille rien.
 ### Cette alerte est fermée
 Une alerte classée ou déclarée ne se reprend pas en charge.
 
+## Les refus au réglementaire
+
+### Cet état porte des anomalies
+Il a été produit pour qu'on voie ce qui ne va pas, mais il ne se transmet pas : on ne déclare pas
+au superviseur des comptes dont on sait qu'ils sont faux. Corriger la comptabilité, reprendre
+l'état, puis transmettre.
+
+### Ce qui est transmis ne s'annule pas
+Un état déposé se rectifie par un dépôt suivant. Seul un état produit et non transmis se reprend.
+
+### Un état existe déjà pour cette période
+Deux états transmis pour le même mois seraient deux déclarations contradictoires. Annulez le
+précédent en le motivant, puis reproduisez.
+
+### Cette date ne ferme pas de période
+Un état se produit sur la période que le superviseur attend, pas sur un intervalle choisi. Prenez
+une des périodes que l'écran propose.
+
+### La déclaration n'est en vigueur qu'à partir du …
+On ne produit pas un état sur une période antérieure à l'entrée en vigueur de la déclaration.
+
+### Un état ne se produit pas avant la fin de la période qu'il couvre
+La période doit être close. Attendez sa fin.
+
+### La transmission porte la référence rendue par le destinataire
+Le récépissé est la preuve du dépôt : sans lui, la banque ne peut pas établir qu'elle a déclaré.
+
+### Une transmission se fait à deux
+Produire est un travail, transmettre est un engagement. Un second valideur doit approuver.
+
+### L'annulation d'un état porte son motif
+Comme partout : une décision sans raison écrite ne se contrôle pas.
+
+### Une taxe porte son compte de collecte
+Une retenue se loge quelque part. Sans compte de collecte, elle serait prise au client sans être
+due à personne.
+
 ## Les incidents techniques
 
 ### Le réseau est tombé pendant l'envoi
@@ -178,3 +215,5 @@ reconnectez-vous.
 | Bandeau **Données de démonstration** en production | Support applicatif, immédiatement |
 | Une opération est comptabilisée deux fois | Support applicatif, avec les deux numéros d'opération |
 | Un doute sur une alerte LCB-FT | Le responsable conformité — **jamais** le chargé de clientèle du tiers |
+| Un état transmis qui ne se reproduit plus | Responsable comptable, avant le prochain contrôle |
+| Une échéance déclarative dépassée | Responsable comptable, le jour même |

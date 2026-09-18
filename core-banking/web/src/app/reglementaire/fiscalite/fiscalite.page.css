@@ -1,0 +1,62 @@
+:host { display: block; }
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+
+.tableau { overflow-x: auto; min-width: 0; }
+.nombre { text-align: right; }
+.objet { color: var(--cb-ink-2); max-width: 36ch; }
+.suite { margin-top: var(--cb-space-3); display: flex; gap: var(--cb-space-2); flex-wrap: wrap; }
+.activite { display: block; }
+
+/* L'assiette se choisit avant tout : elle décide de qui paie et dans quel sens
+   le montant bouge. Un menu déroulant cacherait cette différence. */
+.assiettes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--cb-space-2);
+}
+.assiette {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-1);
+  align-items: flex-start;
+  text-align: left;
+  min-height: var(--cb-tap-h);
+  padding: var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  background: var(--cb-panel);
+  cursor: pointer;
+}
+.assiette:hover { border-color: var(--cb-rule-strong); }
+.assiette.actif { border-color: var(--cb-accent); background: var(--cb-accent-soft, var(--cb-panel)); }
+.assiette-titre { font-weight: 600; font-size: var(--cb-fs-md); color: var(--cb-ink); }
+.assiette-detail { font-size: var(--cb-fs-sm); color: var(--cb-muted); }
+
+.saisie {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--cb-space-3);
+  margin-top: var(--cb-space-4);
+}
+.saisie .large { grid-column: 1 / -1; }
+@media (min-width: 1024px) {
+  .saisie .large { grid-column: 2 / -1; }
+}
+
+.obstacles { display: flex; flex-direction: column; gap: var(--cb-space-1); padding-left: var(--cb-space-4); }
+.obstacles li { list-style: disc; }
+
+@media (max-width: 1023px) {
+  /* L'assiette et la période sautent : le code et le taux sont ce qu'on vient
+     vérifier. */
+  .tableau th:nth-child(3), .tableau td:nth-child(3),
+  .tableau th:nth-child(6), .tableau td:nth-child(6) { display: none; }
+  .objet { max-width: none; }
+}

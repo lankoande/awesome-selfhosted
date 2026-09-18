@@ -1,0 +1,69 @@
+:host { display: block; }
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+
+.filtres { display: flex; gap: var(--cb-space-1); flex-wrap: wrap; }
+.filtre {
+  height: var(--cb-tap-h);
+  padding: 0 var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  background: var(--cb-panel);
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+  cursor: pointer;
+}
+.filtre:hover { color: var(--cb-ink); border-color: var(--cb-rule-strong); }
+.filtre.actif {
+  color: var(--cb-ink);
+  font-weight: 600;
+  border-color: var(--cb-accent);
+  background: var(--cb-accent-soft, var(--cb-panel));
+}
+
+.alerte {
+  font-size: var(--cb-fs-sm);
+  font-weight: 600;
+  color: var(--cb-rejected);
+  white-space: nowrap;
+}
+
+.tableau { overflow-x: auto; min-width: 0; }
+.nombre { text-align: right; }
+.suite { margin-top: var(--cb-space-3); display: flex; gap: var(--cb-space-2); flex-wrap: wrap; }
+.activite { display: block; }
+
+/* Le nombre d'anomalies est une alerte, pas une statistique : il porte la
+   couleur du refus, parce que c'est ce qu'il annonce. */
+.anomalie {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border: var(--cb-border) solid var(--cb-rejected-line);
+  border-radius: var(--cb-radius);
+  background: var(--cb-rejected-soft);
+  color: var(--cb-rejected);
+  font-family: var(--cb-font-mono);
+  font-size: var(--cb-fs-xs);
+  font-weight: 600;
+}
+
+.ligne { cursor: pointer; }
+.ligne:hover td { background: var(--cb-panel); }
+.ligne:focus-visible { outline: 2px solid var(--cb-accent); outline-offset: -2px; }
+
+@media (max-width: 1023px) {
+  /* La méthode et le nombre de lignes sautent : le code de la déclaration et la
+     période suffisent à retrouver un état. */
+  .tableau th:nth-child(2), .tableau td:nth-child(2),
+  .tableau th:nth-child(5), .tableau td:nth-child(5) { display: none; }
+}

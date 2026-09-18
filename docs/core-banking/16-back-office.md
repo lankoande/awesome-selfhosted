@@ -233,8 +233,10 @@ Du même ordre que le test de contrat OpenAPI : des mécanismes, pas des intenti
 7. **Le crédit**, de la demande au contrat, puis sa fin de vie.
 8. **La conformité LCB-FT**, dont l'interface est elle-même un risque : ce qu'elle relie peut
    constituer un délit.
+9. **Le réglementaire**, où l'écran doit défaire une confusion plutôt qu'en présenter une :
+   produire et transmettre passent pour le même geste, et ne le sont pas.
 
-Cet ordre n'était pas écrit d'avance au-delà du point 4 : les points 5 à 8 se sont imposés en
+Cet ordre n'était pas écrit d'avance au-delà du point 4 : les points 5 à 9 se sont imposés en
 construisant. L'avancement réel est au §8.
 
 ## 8. État de la construction
@@ -256,11 +258,12 @@ un exploitant doit faire devant eux est dans le [guide de l'utilisateur](utilisa
 | 6. Référentiel client | **Livré** — recherche, dossier avec obstacles nommés, création, ouverture de compte (§15) |
 | 7. Crédit | **Livré** — demandes, dossier d'instruction, portefeuille, contrat (§17) ; fin de vie : remboursement anticipé, rééchelonnement, révision de taux, passage en perte et recouvrement (§18) |
 | 8. Conformité LCB-FT | **Livré** — file des alertes, dossier avec ses pièces, classement motivé, déclaration de soupçon et son dépôt, scénarios de surveillance (§19) |
-| — Réglementaire | **Pas commencé** — déclarations BCEAO, états, échéances, fiscalité, liasse ; le socle les expose, l'interface pas encore |
+| 9. Réglementaire | **Livré** — échéances, états et leur détail, transmission et reprise, catalogue, fiscalité (§20) |
+| — Liasse et consolidation | **Bloqué par le contrat** — un périmètre cite des entités membres, et aucune route ne liste les entités (§20) |
 | — Sûretés | **Bloqué par le contrat** — seuls des `POST` sont exposés ; sans lecture, rien ne peut s'afficher (§19) |
-| — Moyens de paiement | **Pas commencé** — chèques, prélèvements, virements sortants ; idem |
+| — Moyens de paiement | **Pas commencé** — chèques, prélèvements, virements sortants ; le socle les expose, l'interface pas encore |
 
-**Vingt-quatre écrans**, visités à **vingt-neuf adresses** — plusieurs jeux de données par écran,
+**Vingt-neuf écrans**, visités à **trente-cinq adresses** — plusieurs jeux de données par écran,
 choisis là où la mise en page se tend — à sept largeurs, sans débordement horizontal ni cible
 tactile sous 24 px, vérifiés à chaque livraison par `scripts/largeurs.mjs`.
 
@@ -1091,3 +1094,102 @@ Les **sûretés**, enfin, attendent une lecture côté socle : le contrat n'expo
 (`/collaterals`, ses allocations, sa mainlevée). Sans un `GET`, aucune interface ne peut afficher
 une sûreté ni retrouver l'identifiant qu'exigent l'affectation et la mainlevée. C'est une lacune
 de contrat, pas un manque d'écran.
+
+---
+
+## 20. L'espace réglementaire : ce qu'il a tranché
+
+Le réglementaire est le domaine où **l'écran doit défaire une confusion** plutôt qu'en présenter
+une : produire et transmettre passent pour le même geste, et ne le sont pas.
+
+### Produire n'est pas déposer, et l'écran d'accueil le dit par sa structure
+
+`GET /regulatory/deadlines` rend **toutes** les échéances dépassées, y compris celles dont l'état
+existe déjà — parce qu'une production n'est pas un dépôt. Une liste unique laisserait croire que
+les lignes appellent le même geste. L'écran en fait deux sections, dans cet ordre :
+
+| Section | Ce qui manque | Le geste | Le droit |
+|---|---|---|---|
+| Rien n'est encore produit | L'état n'existe pas | Produire, immédiat, refaisable | `REGULATORY_REPORT_PRODUCE` |
+| Produit, mais pas déposé | Rien n'est parti | Transmettre, à deux | `REGULATORY_REPORT_TRANSMIT` |
+
+La seconde est le retard le plus discret — l'état est là, tout paraît fait — et c'est celui que le
+superviseur constate. La nommer est la moitié du travail de cet écran.
+
+**La production ne redemande pas la période.** Elle est celle de la ligne. Faire ressaisir une
+date déjà à l'écran, c'est s'y tromper une fois sur dix.
+
+### Un état en anomalie se produit, mais ne se transmet pas
+
+`ReportFilings.transmit` refuse un état qui porte des anomalies : *« on ne déclare pas des comptes
+dont on sait qu'ils sont faux »*. Trois conséquences à l'écran :
+
+- les anomalies s'affichent **avant tout le reste** du détail — elles commandent ce qui est
+  possible ;
+- la liste des états porte une **colonne « anomalies »**, pour qu'un état intransmissible se voie
+  sans l'ouvrir. Le découvrir la veille de l'échéance est le scénario que cette colonne évite ;
+- le bouton de transmission n'est pas grisé en silence : il est **remplacé par sa raison**. Un
+  bouton inerte envoie chercher la cause ailleurs, souvent chez le voisin.
+
+### Le seuil figé, et la phrase qui l'explique
+
+Un état porte `thresholdUsed` : le seuil **du jour de sa production**, pas celui d'aujourd'hui.
+C'est une décision du socle, et elle est invisible à l'usage — jusqu'au jour où un état régénéré
+sort différent. L'écran affiche donc le seuil *et* la raison : sans lui, on ne pourrait pas dire
+si ce sont les données ou le paramétrage qui ont bougé, et c'est exactement la question que pose
+l'inspection.
+
+Même logique pour le recalcul : `GET /regulatory/filings/{id}` ne calcule `differences` que sur un
+état **transmis**. Un écart n'est pas une curiosité, c'est le signe que quelque chose a bougé
+derrière un état déjà déposé. L'écran le dit en ces termes, et nomme l'interlocuteur.
+
+### Annuler demande le droit de transmettre, pas celui de produire
+
+`CancelFiling` porte `Operation.REGULATORY_REPORT_TRANSMIT`. Ce n'est pas une erreur de câblage :
+reprendre un état est une décision sur ce que la banque déclarera, pas un travail de production —
+un comptable qui produit ne défait pas seul ce qu'il a produit.
+
+C'est le premier écran qui **lit les habilitations à la granularité de l'opération** plutôt qu'à
+celle de l'écran : `/v1/me/permissions` donne les deux droits séparément, et le détail d'un état
+s'en sert pour proposer, ou expliquer. Le reste de l'application filtre encore par écran ; c'est
+un chantier à ouvrir.
+
+### Les périodes se choisissent, elles ne se saisissent pas
+
+`RegulatoryDeclarations.Frequency.startOfPeriodEndingOn` refuse une date qui ne ferme pas de
+période. Le front tient la même règle — non pour décider à la place du socle, mais pour ne pas
+faire saisir une date dont il sait déjà qu'elle sera refusée. Une date tapée à la main a une
+chance sur trente de fermer le mois attendu.
+
+### Le délai de dépôt fait exister l'échéance
+
+Une déclaration sans `deadlineDays` ne produit aucun retard, donc aucune ligne à l'écran des
+échéances, donc aucune alerte : **personne ne voit rien manquer.** Le socle l'exige déjà ; l'écran
+le redit en clair plutôt qu'avec un astérisque, et le catalogue vide porte le même avertissement —
+un catalogue vide ne veut pas dire que la banque est à jour.
+
+### Une taxe n'est pas un produit de la banque
+
+Elle est prélevée sur le client et reversée : elle transite par un **compte de collecte**, jamais
+par un compte de produit. Le socle exige `collectionAccountId` ; l'écran dit pourquoi — une
+retenue sans compte où la loger serait prise au client sans être due à personne, et l'erreur se
+découvre au contrôle fiscal.
+
+Le taux est borné entre 0 et 100 côté front comme côté socle, et la virgule est acceptée : 15 est
+quinze pour cent, pas quinze millièmes. La confusion coûte cher dans les deux sens.
+
+### Ce que ce lot a corrigé ailleurs
+
+La barre du haut, encore : un **septième espace** la faisait déborder à 1440, puis à 1366 — la
+largeur des postes d'agence, que le §5 nomme explicitement. Deux réglages, mesurés plutôt que
+devinés : les entrées de menu passent de 12 à 8 px de marge sous 1800 (56 px rendus), et les
+écarts de la barre se resserrent sous 1400 (28 px). La barre tient désormais sans troncature
+jusqu'à 1366 inclus, et défile en dessous — ce qui est le comportement voulu.
+
+### Ce qui reste du domaine
+
+La **liasse réglementaire** (`/regulatory/statement-packs`) et la **consolidation**
+(`/regulatory/consolidation-scopes`). La première est un écran simple ; la seconde est bloquée par
+la même lacune que les sûretés : un périmètre de consolidation cite des **entités membres**, et le
+contrat ne publie aucune route qui liste les entités juridiques. Sans elle, l'écran demanderait de
+taper des identifiants techniques à la main — ce qui n'est pas une interface.

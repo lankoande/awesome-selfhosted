@@ -1,0 +1,275 @@
+@if (etat(); as e) {
+  <header class="entete">
+    <div class="qui">
+      <h2>{{ e.declarationCode }} — {{ libellePeriode(e.periodEnd) }}</h2>
+      <p class="sous">
+        {{ LIBELLE_METHODE_ETAT[e.method] }}
+        @if (e.producedOn) { · produit le {{ jour(e.producedOn) }} }
+        @if (e.dueOn) { · à déposer avant le {{ jour(e.dueOn) }} }
+      </p>
+    </div>
+    <div class="chiffres">
+      <div class="chiffre">
+        <span class="titre">Lignes</span>
+        <span class="cb-mono valeur">{{ e.lineCount }}</span>
+      </div>
+      @if (e.totalAmount; as m) {
+        <div class="chiffre">
+          <span class="titre">Total</span>
+          <cb-amount [valeur]="m.amount" [devise]="m.currency" />
+        </div>
+      }
+      <div class="chiffre">
+        <span class="titre">État</span>
+        <cb-state-badge [etat]="etatDeLEtat(e.status)" [mot]="LIBELLE_STATUT_ETAT[e.status]" />
+      </div>
+    </div>
+  </header>
+}
+
+<div class="corps">
+  <cb-activity class="activite" [enCours]="chargement()" libelle="Lecture de l'état…" />
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" titre="Le socle a refusé" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+    </cb-notice>
+  }
+
+  @if (enAttente(); as operation) {
+    <cb-notice nature="avertissement" titre="Transmission en attente de validation"
+               [code]="operation">
+      <p>
+        La demande est enregistrée ; <strong>rien n'est déposé</strong> tant qu'un second regard
+        ne l'a pas approuvée. Ne resaisissez pas.
+      </p>
+    </cb-notice>
+  }
+
+  @if (etat(); as e) {
+    <!-- Les anomalies d'abord : elles commandent tout le reste de l'écran. -->
+    @if (e.anomalies.length > 0) {
+      <cb-notice nature="refus" titre="Cet état porte des anomalies">
+        <ul class="obstacles">
+          @for (anomalie of e.anomalies; track anomalie) { <li>{{ anomalie }}</li> }
+        </ul>
+        <p class="suite-texte">
+          Il a été produit — c'est ainsi qu'on voit ce qui ne va pas — mais
+          <strong>il ne se transmet pas</strong> : on ne déclare pas au superviseur des comptes
+          dont on sait qu'ils sont faux. Corriger la comptabilité, reprendre l'état, puis
+          transmettre.
+        </p>
+      </cb-notice>
+    }
+
+    <!-- Ce sous quoi l'état a été produit. -->
+    <cb-section titre="Ce que cet état fige"
+                [indication]="'période du ' + jour(e.periodStart) + ' au ' + jour(e.periodEnd)">
+      <dl class="faits">
+        <div><dt>Méthode</dt><dd>{{ LIBELLE_METHODE_ETAT[e.method] }}</dd></div>
+        <div><dt>Seuil appliqué</dt><dd class="cb-mono">
+          @if (e.thresholdUsed) { {{ seuil(e.thresholdUsed) }} } @else { aucun }
+        </dd></div>
+        <div><dt>Produit le</dt><dd class="cb-mono">{{ jour(e.producedOn) }}</dd></div>
+        <div><dt>Échéance</dt><dd class="cb-mono">{{ jour(e.dueOn) }}</dd></div>
+        @if (e.transmittedOn) {
+          <div><dt>Déposé le</dt><dd class="cb-mono">{{ jour(e.transmittedOn) }}</dd></div>
+          <div><dt>Récépissé</dt><dd class="cb-mono">
+            {{ e.transmissionReference ?? '—' }}
+          </dd></div>
+        }
+        @if (e.cancelledOn) {
+          <div><dt>Annulé le</dt><dd class="cb-mono">{{ jour(e.cancelledOn) }}</dd></div>
+        }
+      </dl>
+      <p class="nuance">
+        Le seuil affiché est <strong>celui du jour de la production</strong>, pas celui
+        d'aujourd'hui. Sans cela, un état régénéré six mois plus tard sortirait différent sans
+        qu'on puisse dire si ce sont les données ou le paramétrage qui ont bougé — et c'est
+        précisément la question que pose l'inspection.
+      </p>
+      @if (e.cancellationReason) {
+        <p class="motif-lu">{{ e.cancellationReason }}</p>
+      }
+    </cb-section>
+
+    <!-- Le recalcul, sur un état transmis seulement. -->
+    @if (e.status === 'TRANSMITTED') {
+      @if (dossier(); as d) {
+        @if (d.ecarts.length > 0) {
+          <cb-notice nature="refus" titre="Cet état ne se reproduit plus à l'identique">
+            <ul class="obstacles">
+              @for (ecart of d.ecarts; track ecart) { <li>{{ ecart }}</li> }
+            </ul>
+            <p class="suite-texte">
+              Ce n'est pas une curiosité : un état transmis qu'on ne sait plus reproduire est le
+              signe que <strong>quelque chose a bougé derrière lui</strong>. À signaler au
+              responsable comptable avant le prochain contrôle.
+            </p>
+          </cb-notice>
+        } @else {
+          <cb-notice nature="information" titre="Cet état se reproduit à l'identique">
+            <p>
+              Recalculé aujourd'hui, il rend exactement ce qui a été déposé. C'est l'exigence de
+              reproductibilité, vérifiée plutôt qu'affirmée.
+            </p>
+          </cb-notice>
+        }
+      }
+    }
+
+    <!-- Les lignes. -->
+    @if (e.lignes.length > 0) {
+      <cb-section titre="Les lignes de l'état"
+                  [indication]="e.lineCount + ' ligne(s), figées à la production'">
+        <div class="tableau">
+          <table cbTable>
+            <caption class="cb-visually-hidden">Lignes de l'état</caption>
+            <thead>
+              <tr>
+                <th scope="col">Nature</th>
+                <th scope="col">Référence</th>
+                <th scope="col">Libellé</th>
+                <th scope="col" class="nombre">Montant</th>
+                <th scope="col" class="nombre">Hors bilan</th>
+                <th scope="col">Classement</th>
+                <th scope="col" class="nombre">Retard</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (l of e.lignes; track l.subjectReference + (l.label ?? '')) {
+                <tr>
+                  <td>{{ LIBELLE_NATURE_SUJET[l.subjectKind] }}</td>
+                  <td class="cb-mono">{{ l.subjectReference ?? '—' }}</td>
+                  <td>{{ l.label ?? '—' }}</td>
+                  <td class="nombre">
+                    @if (l.amount; as m) {
+                      <cb-amount [valeur]="m.amount" [devise]="m.currency" />
+                    } @else { — }
+                  </td>
+                  <td class="nombre">
+                    @if (l.offBalance; as m) {
+                      <cb-amount [valeur]="m.amount" [devise]="m.currency" />
+                    } @else { — }
+                  </td>
+                  <td>{{ l.classification ?? '—' }}</td>
+                  <td class="nombre cb-mono">
+                    @if (l.daysPastDue !== null && l.daysPastDue > 0) { {{ l.daysPastDue }} j }
+                    @else { — }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (e.lignes.length < e.lineCount) {
+          <p class="nuance">
+            {{ e.lignes.length }} lignes affichées sur {{ e.lineCount }}.
+          </p>
+        }
+      </cb-section>
+    }
+
+    <!-- Ce qu'il y a à décider. -->
+    <cb-section titre="Ce qu'il y a à décider"
+                indication="produire est un travail, transmettre est un engagement">
+      <div class="issues">
+        <div class="issue">
+          <span class="issue-titre">Transmettre</span>
+          <p>
+            Le dépôt a eu lieu auprès du destinataire ; on enregistre ici le récépissé qu'il a
+            rendu. L'acte <strong>passe par un second regard</strong>.
+          </p>
+          @if (obstaclesTransmission().length > 0) {
+            <p class="ferme">
+              @if (e.status === 'PRODUCED') {
+                Fermé tant que les anomalies ci-dessus ne sont pas levées.
+              } @else {
+                {{ obstaclesTransmission()[0] }}
+              }
+            </p>
+          } @else if (!peutTransmettre()) {
+            <p class="ferme">Votre profil ne transmet pas : il produit.</p>
+          } @else {
+            <button type="button" cbButton="primaire" [disabled]="envoi()"
+                    (click)="ouvrirVolet('transmettre')">Enregistrer le dépôt</button>
+          }
+        </div>
+
+        <div class="issue">
+          <span class="issue-titre">Reprendre</span>
+          <p>
+            Annuler cet état pour en produire un autre sur la même période. Le motif reste au
+            dossier : deux états pour un même mois seraient deux déclarations contradictoires.
+          </p>
+          @if (obstaclesAnnulation().length > 0) {
+            <p class="ferme">{{ obstaclesAnnulation()[0] }}</p>
+          } @else if (!peutTransmettre()) {
+            <p class="ferme">
+              Reprendre un état est une décision sur ce que la banque déclarera, pas un travail
+              de production : elle demande le droit de transmettre.
+            </p>
+          } @else {
+            <button type="button" cbButton="secondaire" [disabled]="envoi()"
+                    (click)="ouvrirVolet('annuler')">Annuler cet état</button>
+          }
+        </div>
+      </div>
+    </cb-section>
+  }
+
+  <!-- Volets de saisie -->
+  @if (volet() === 'transmettre') {
+    <cb-section titre="Enregistrer le dépôt"
+                indication="à deux : transmettre engage la banque devant son superviseur">
+      <cb-notice nature="information" titre="Ce que cet enregistrement constate">
+        <p>
+          Cet écran <strong>ne transmet rien</strong> au destinataire : le dépôt se fait par le
+          canal habituel. Ce qu'on enregistre est le <strong>récépissé</strong> rendu — la seule
+          preuve du dépôt que la banque pourra produire devant un contrôle.
+        </p>
+      </cb-notice>
+      <div class="saisie">
+        <cb-field etiquette="Récépissé du destinataire" pour="reference-depot" requis
+                  aide="La référence rendue par la banque centrale ou l'administration.">
+          <input cbInput mono id="reference-depot" name="reference-depot" autocomplete="off"
+                 [value]="reference()" (input)="reference.set($any($event.target).value)" />
+        </cb-field>
+        <cb-field etiquette="Déposé le" pour="date-depot"
+                  aide="Facultative : la date comptable du jour par défaut.">
+          <cb-date-input champId="date-depot" [(valeur)]="dateDeDepot" />
+        </cb-field>
+      </div>
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="envoi() || reference().trim() === ''"
+                (click)="transmettre()">Soumettre la transmission</button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  @if (volet() === 'annuler') {
+    <cb-section titre="Annuler cet état"
+                indication="immédiat : rien n'est encore parti au superviseur">
+      <div class="saisie">
+        <cb-field etiquette="Motif de l'annulation" pour="motif-annulation" requis class="large"
+                  aide="Ce qui justifie de reprendre l'état. Il reste au dossier.">
+          <input cbInput id="motif-annulation" name="motif-annulation" autocomplete="off"
+                 [value]="motif()" (input)="motif.set($any($event.target).value)" />
+        </cb-field>
+      </div>
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="envoi() || motif().trim().length < 3"
+                (click)="annuler()">Annuler l'état</button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Revenir</button>
+      </p>
+    </cb-section>
+  }
+
+  <p class="retour">
+    <button type="button" cbButton="discret" (click)="auxEtats()">← Revenir aux états</button>
+  </p>
+</div>

@@ -39,6 +39,12 @@ const CHEMINS = [
   // scénarios — le tableau le plus large de l'application.
   'conformite/alertes', 'conformite/alertes/al-especes', 'conformite/alertes/al-filtrage',
   'conformite/declarations', 'conformite/scenarios',
+  // Le réglementaire : les échéances, la liste des états, un état transmis
+  // (avec ses lignes) et un état en anomalie — c'est là que l'écran se charge
+  // le plus —, le catalogue et la fiscalité.
+  'reglementaire/echeances', 'reglementaire/etats',
+  'reglementaire/etats/et-sit-aout', 'reglementaire/etats/et-sit-sept',
+  'reglementaire/declarations', 'reglementaire/fiscalite',
   'siege/exploitation', 'siege/balance',
   'validation',
 ];

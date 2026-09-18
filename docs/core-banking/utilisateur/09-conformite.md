@@ -140,4 +140,5 @@ seul le filtrage des identités reste actif.
 
 Le **profil d'activité déclaré** par le client — celui contre lequel l'activité atypique se mesure
 — se recueille au guichet, avec le reste de la connaissance client ; il n'a pas encore d'écran.
-Le **reporting réglementaire** (états BCEAO, échéances, fiscalité) et les **sûretés** non plus.
+Les **sûretés** non plus. Le reporting réglementaire, lui, a son écran : voir le
+[chapitre 10](10-reglementaire.md).

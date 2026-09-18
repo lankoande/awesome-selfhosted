@@ -1,0 +1,104 @@
+:host { display: block; }
+
+.entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter);
+  border-bottom: var(--cb-border) solid var(--cb-rule);
+  background: var(--cb-panel);
+}
+.entete h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+.sous { margin-top: var(--cb-space-1); font-size: var(--cb-fs-sm); color: var(--cb-muted); }
+
+.chiffres { display: flex; gap: var(--cb-space-5); flex-wrap: wrap; }
+.chiffre { display: flex; flex-direction: column; gap: var(--cb-space-1); }
+.chiffre .titre {
+  font-size: var(--cb-fs-xs);
+  letter-spacing: var(--cb-track-caps);
+  text-transform: uppercase;
+  color: var(--cb-muted);
+}
+.chiffre .valeur { font-size: var(--cb-fs-md); font-weight: 600; }
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+.activite { display: block; }
+
+.faits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--cb-space-3);
+  margin-top: var(--cb-space-2);
+}
+.faits dt {
+  font-size: var(--cb-fs-xs);
+  letter-spacing: var(--cb-track-caps);
+  text-transform: uppercase;
+  color: var(--cb-muted);
+}
+.faits dd { margin-top: 2px; }
+
+.tableau { overflow-x: auto; min-width: 0; margin-top: var(--cb-space-2); }
+.nombre { text-align: right; }
+.nuance { margin-top: var(--cb-space-2); color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+.motif-lu {
+  margin-top: var(--cb-space-2);
+  padding-left: var(--cb-space-3);
+  border-left: 2px solid var(--cb-rule-strong);
+}
+.suite-texte { margin-top: var(--cb-space-2); }
+
+.obstacles { display: flex; flex-direction: column; gap: var(--cb-space-1); padding-left: var(--cb-space-4); }
+.obstacles li { list-style: disc; }
+
+/* Les deux issues côte à côte, sans hiérarchie : c'est l'état du dossier qui
+   tranche, pas la mise en page. */
+.issues {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--cb-space-4);
+  margin-top: var(--cb-space-2);
+}
+.issue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-2);
+  align-items: flex-start;
+  padding: var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+}
+.issue-titre { font-weight: 600; font-size: var(--cb-fs-md); }
+.issue p { color: var(--cb-ink-2); font-size: var(--cb-fs-sm); }
+/* Une porte fermée porte sa raison : un bouton grisé sans explication envoie
+   chercher la cause ailleurs, souvent chez le voisin. */
+.ferme { color: var(--cb-muted); font-style: italic; }
+
+.saisie {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--cb-space-3);
+  margin-top: var(--cb-space-3);
+}
+.saisie .large { grid-column: 1 / -1; }
+
+.suite { margin-top: var(--cb-space-3); display: flex; gap: var(--cb-space-2); flex-wrap: wrap; }
+.retour { margin-top: var(--cb-space-2); }
+
+@media (max-width: 1023px) {
+  /* La nature du sujet et le classement sautent : la référence et le montant
+     sont ce qu'on vient vérifier ligne à ligne. */
+  .tableau th:nth-child(1), .tableau td:nth-child(1),
+  .tableau th:nth-child(6), .tableau td:nth-child(6) { display: none; }
+}
+@media (max-width: 767px) {
+  .entete { flex-direction: column; }
+  .chiffres { gap: var(--cb-space-4); }
+}

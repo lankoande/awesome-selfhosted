@@ -1,0 +1,89 @@
+:host { display: block; }
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+
+.tableau { overflow-x: auto; min-width: 0; }
+.nombre { text-align: right; }
+.action { text-align: right; white-space: nowrap; }
+.objet { color: var(--cb-ink-2); max-width: 32ch; }
+.nuance { margin-top: var(--cb-space-2); color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+.suite { margin-top: var(--cb-space-3); display: flex; gap: var(--cb-space-2); flex-wrap: wrap; }
+.activite { display: block; }
+
+/* Les périodes se choisissent, elles ne se saisissent pas : une date tapée à la
+   main a une chance sur trente de fermer la période attendue. */
+.periodes { display: flex; gap: var(--cb-space-2); flex-wrap: wrap; margin-top: var(--cb-space-3); }
+.periode {
+  height: var(--cb-tap-h);
+  padding: 0 var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  background: var(--cb-panel);
+  color: var(--cb-ink-2);
+  font-size: var(--cb-fs-sm);
+  cursor: pointer;
+}
+.periode:hover { color: var(--cb-ink); border-color: var(--cb-rule-strong); }
+.periode.actif {
+  color: var(--cb-ink);
+  font-weight: 600;
+  border-color: var(--cb-accent);
+  background: var(--cb-accent-soft, var(--cb-panel));
+}
+
+.methodes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--cb-space-2);
+}
+.methode {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-1);
+  align-items: flex-start;
+  text-align: left;
+  min-height: var(--cb-tap-h);
+  padding: var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  background: var(--cb-panel);
+  cursor: pointer;
+}
+.methode:hover { border-color: var(--cb-rule-strong); }
+.methode.actif { border-color: var(--cb-accent); background: var(--cb-accent-soft, var(--cb-panel)); }
+.methode-titre { font-weight: 600; font-size: var(--cb-fs-md); color: var(--cb-ink); }
+.methode-detail { font-size: var(--cb-fs-sm); color: var(--cb-muted); }
+
+.saisie {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--cb-space-3);
+  margin-top: var(--cb-space-4);
+}
+.saisie .large { grid-column: 1 / -1; }
+@media (min-width: 1024px) {
+  /* Le libellé se pose à droite du code : un champ court seul sur sa ligne
+     laissait une bande vide de toute la page. */
+  .saisie .large { grid-column: 2 / -1; }
+}
+
+.obstacles { display: flex; flex-direction: column; gap: var(--cb-space-1); padding-left: var(--cb-space-4); }
+.obstacles li { list-style: disc; }
+
+@media (max-width: 1279px) {
+  /* Le destinataire et la fréquence sautent : le code les dit pour qui travaille
+     ces états, et la méthode reste le discriminant utile. */
+  .tableau th:nth-child(3), .tableau td:nth-child(3),
+  .tableau th:nth-child(5), .tableau td:nth-child(5) { display: none; }
+}
+@media (max-width: 1023px) {
+  .tableau th:nth-child(4), .tableau td:nth-child(4),
+  .tableau th:nth-child(8), .tableau td:nth-child(8) { display: none; }
+  .objet { max-width: none; }
+}

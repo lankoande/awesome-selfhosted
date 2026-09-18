@@ -25,7 +25,8 @@ source ; une correction faite dans le Word serait perdue à la génération suiv
 | Chef d'agence, valideur | [1. Prise en main](01-prise-en-main.md) | [5. La file de validation](05-validation.md) |
 | Exploitant comptable, siège | [1. Prise en main](01-prise-en-main.md) | [8. L'espace siège](08-siege.md) |
 | Analyste conformité, responsable LCB-FT | [1. Prise en main](01-prise-en-main.md) | [9. La conformité](09-conformite.md) |
-| Tout le monde, quand ça coince | [10. Messages, refus et états](10-messages.md) | — |
+| Exploitant comptable, réglementaire | [1. Prise en main](01-prise-en-main.md) | [10. Le réglementaire](10-reglementaire.md), [8. L'espace siège](08-siege.md) |
+| Tout le monde, quand ça coince | [11. Messages, refus et états](11-messages.md) | — |
 
 ## Trois choses à savoir avant tout le reste
 
@@ -35,7 +36,7 @@ est annoncé comme une **projection** ; les chiffres qui font foi sont ceux du r
 comptabilisation. Si les deux diffèrent, c'est le reçu qui a raison, et il faut le signaler.
 
 **2. Un refus n'est pas une panne.** Quand le socle refuse, il dit pourquoi, et l'écran vous
-montre sa raison telle quelle, avec son code. Le [chapitre 10](10-messages.md) traduit ces codes
+montre sa raison telle quelle, avec son code. Le [chapitre 11](11-messages.md) traduit ces codes
 en gestes. Ne recommencez pas une opération refusée « pour voir » : lisez le motif.
 
 **3. Le réseau peut tomber, et l'écran vous dira quoi faire.** Selon l'opération, deux conduites,
@@ -56,11 +57,11 @@ voir avant de recommencer.
 
 ## Ce qui n'est pas encore dans l'application
 
-Dit franchement, pour que personne ne le cherche : le **reporting réglementaire** (états BCEAO,
-échéances, fiscalité), le **profil d'activité déclaré** et le **consentement au bureau
-d'information**, le **paramétrage produit**, les **sûretés** et les **moyens de paiement**
-(chèques, prélèvements, virements sortants) ne sont pas encore des écrans. Ils passent
-aujourd'hui par le système central directement.
+Dit franchement, pour que personne ne le cherche : le **profil d'activité déclaré** et le
+**consentement au bureau d'information**, le **paramétrage produit**, la **liasse réglementaire**,
+la **consolidation**, les **sûretés** et les **moyens de paiement** (chèques, prélèvements,
+virements sortants) ne sont pas encore des écrans. Ils passent aujourd'hui par le système central
+directement.
 
-La **conformité LCB-FT** — alertes, déclarations de soupçon, scénarios de surveillance — l'est
-désormais : voir le [chapitre 9](09-conformite.md).
+La **conformité LCB-FT** (chapitre 9) et le **reporting réglementaire** — échéances, états,
+catalogue, fiscalité (chapitre 10) — le sont désormais.

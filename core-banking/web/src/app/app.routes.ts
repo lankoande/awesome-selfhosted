@@ -159,6 +159,44 @@ export const routes: Routes = [
     ],
   },
   {
+    path: 'reglementaire',
+    loadComponent: () =>
+      import('./reglementaire/reglementaire.shell').then((m) => m.ReglementaireShell),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'echeances' },
+      {
+        path: 'echeances',
+        title: 'Réglementaire — échéances',
+        loadComponent: () =>
+          import('./reglementaire/echeances/echeances.page').then((m) => m.Echeances),
+      },
+      {
+        path: 'etats',
+        title: 'Réglementaire — états produits',
+        loadComponent: () => import('./reglementaire/etats/etats.page').then((m) => m.Etats),
+      },
+      {
+        path: 'declarations',
+        title: 'Réglementaire — catalogue',
+        loadComponent: () =>
+          import('./reglementaire/declarations/declarations.page')
+            .then((m) => m.CatalogueReglementaire),
+      },
+      {
+        path: 'fiscalite',
+        title: 'Réglementaire — fiscalité',
+        loadComponent: () =>
+          import('./reglementaire/fiscalite/fiscalite.page').then((m) => m.Fiscalite),
+      },
+      // Le chemin fixe d'abord : sinon `:id` avalerait les autres écrans.
+      {
+        path: 'etats/:id',
+        title: "Réglementaire — détail d'un état",
+        loadComponent: () => import('./reglementaire/etat/etat.page').then((m) => m.DetailEtat),
+      },
+    ],
+  },
+  {
     path: 'validation',
     loadChildren: () => import('./validation/validation.routes').then((m) => m.ROUTES_VALIDATION),
   },

@@ -1,0 +1,138 @@
+<div class="corps">
+  <cb-toolbar>
+    <h2>Échéances déclaratives</h2>
+    @if (aProduire().length + aDeposer().length > 0) {
+      <span fin class="restant">
+        {{ aProduire().length + aDeposer().length }} en retard
+      </span>
+    }
+  </cb-toolbar>
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" titre="Le socle a refusé" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+      <p class="suite">
+        <button type="button" cbButton="secondaire" (click)="charger()">Réessayer</button>
+      </p>
+    </cb-notice>
+  }
+
+  <cb-activity class="activite" [enCours]="chargement()" libelle="Lecture des échéances…" />
+
+  @if (aProduire().length > 0) {
+    <cb-section titre="Rien n'est encore produit"
+                indication="un travail comptable, qu'un seul fait et qui se refait">
+      <div class="tableau">
+        <table cbTable>
+          <caption class="cb-visually-hidden">Échéances sans état produit</caption>
+          <thead>
+            <tr>
+              <th scope="col">Déclaration</th>
+              <th scope="col">Destinataire</th>
+              <th scope="col">Période</th>
+              <th scope="col">À déposer avant le</th>
+              <th scope="col" class="nombre">Retard</th>
+              <th scope="col">Production</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (l of aProduire(); track l.echeance.declarationCode + l.echeance.periodEnd) {
+              <tr>
+                <td>
+                  <span class="cb-mono">{{ l.echeance.declarationCode }}</span>
+                  @if (l.declaration) { <span class="libelle">{{ l.declaration.label }}</span> }
+                </td>
+                <td>
+                  {{ l.declaration ? LIBELLE_DESTINATAIRE[l.declaration.recipient] : '—' }}
+                </td>
+                <td>{{ libellePeriode(l.echeance.periodEnd, l.declaration?.frequency) }}</td>
+                <td class="cb-mono">{{ jour(l.echeance.dueOn) }}</td>
+                <td class="nombre retard">
+                  @if (l.retard > 0) { {{ l.retard }} j } @else { — }
+                </td>
+                <td class="action">
+                  @if (peutProduire() && l.declaration) {
+                    <button type="button" cbButton="primaire"
+                            [disabled]="enCours() === l.echeance.declarationCode"
+                            (click)="produire(l)">Produire l'état</button>
+                  } @else if (!l.declaration) {
+                    <span class="nuance">déclaration absente du catalogue</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </cb-section>
+  }
+
+  @if (aDeposer().length > 0) {
+    <cb-section titre="Produit, mais pas déposé"
+                indication="le retard le plus discret : l'état est là, rien n'est parti">
+      <div class="tableau">
+        <table cbTable>
+          <caption class="cb-visually-hidden">États produits non transmis</caption>
+          <thead>
+            <tr>
+              <th scope="col">Déclaration</th>
+              <th scope="col">Destinataire</th>
+              <th scope="col">Période</th>
+              <th scope="col">À déposer avant le</th>
+              <th scope="col" class="nombre">Retard</th>
+              <th scope="col">Dépôt</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (l of aDeposer(); track l.echeance.declarationCode + l.echeance.periodEnd) {
+              <tr class="ligne" tabindex="0" role="button"
+                  (click)="ouvrir(l)" (keydown.enter)="ouvrir(l)" (keydown.space)="ouvrir(l)">
+                <td>
+                  <span class="cb-mono">{{ l.echeance.declarationCode }}</span>
+                  @if (l.declaration) { <span class="libelle">{{ l.declaration.label }}</span> }
+                </td>
+                <td>
+                  {{ l.declaration ? LIBELLE_DESTINATAIRE[l.declaration.recipient] : '—' }}
+                </td>
+                <td>{{ libellePeriode(l.echeance.periodEnd, l.declaration?.frequency) }}</td>
+                <td class="cb-mono">{{ jour(l.echeance.dueOn) }}</td>
+                <td class="nombre retard">
+                  @if (l.retard > 0) { {{ l.retard }} j } @else { — }
+                </td>
+                <td class="action">
+                  @if (l.etat) {
+                    <button type="button" cbButton="secondaire"
+                            (click)="ouvrir(l)">Ouvrir l'état</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="nuance">
+        Transmettre engage la banque devant son superviseur : cela passe par un
+        <strong>second regard</strong>, et se fait depuis l'état.
+      </p>
+    </cb-section>
+  }
+
+  @if (lu() && !chargement() && aProduire().length === 0 && aDeposer().length === 0) {
+    <cb-notice nature="information" titre="Aucune échéance dépassée">
+      <p>
+        Rien n'est en retard à la date comptable. Les états déjà déposés se relisent depuis
+        l'onglet <strong>États</strong>.
+      </p>
+    </cb-notice>
+  }
+
+  <cb-notice nature="information" titre="Produire n'est pas déposer">
+    <p>
+      <strong>Produire</strong> est un travail comptable : un seul le fait, et il se refait tant
+      que rien n'est parti. <strong>Transmettre</strong> engage la banque devant son superviseur
+      et ne se décide pas seul — et ne pas transmettre l'engage autant, c'est pourquoi le retard
+      se constate ici.
+    </p>
+  </cb-notice>
+</div>

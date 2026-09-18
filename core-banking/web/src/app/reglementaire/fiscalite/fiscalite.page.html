@@ -1,0 +1,142 @@
+<div class="corps">
+  <cb-toolbar>
+    <h2>Règles fiscales</h2>
+    @if (peutDeclarer()) {
+      <button fin type="button" cbButton="primaire" (click)="ouvrirVolet()">
+        Déclarer une taxe
+      </button>
+    }
+  </cb-toolbar>
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" titre="Le socle a refusé" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+      <p class="suite">
+        <button type="button" cbButton="secondaire" (click)="charger()">Réessayer</button>
+      </p>
+    </cb-notice>
+  }
+
+  @if (enAttente(); as operation) {
+    <cb-notice nature="avertissement" titre="Taxe en attente de validation" [code]="operation">
+      <p>
+        La demande est enregistrée ; <strong>aucune retenue n'est appliquée</strong> tant qu'un
+        second regard ne l'a pas approuvée. Ne resaisissez pas.
+      </p>
+    </cb-notice>
+  }
+
+  <cb-activity class="activite" [enCours]="chargement()" libelle="Lecture des règles fiscales…" />
+
+  @if (regles().length > 0) {
+    <div class="tableau">
+      <table cbTable>
+        <caption class="cb-visually-hidden">Règles fiscales en vigueur</caption>
+        <thead>
+          <tr>
+            <th scope="col">Code</th>
+            <th scope="col">Libellé</th>
+            <th scope="col">Assiette</th>
+            <th scope="col" class="nombre">Taux</th>
+            <th scope="col">Compte de collecte</th>
+            <th scope="col">En vigueur</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of regles(); track r.id) {
+            <tr>
+              <td class="cb-mono">{{ r.code }}</td>
+              <td class="objet">{{ r.label }}</td>
+              <td>{{ LIBELLE_ASSIETTE[r.basis] }}</td>
+              <td class="nombre cb-mono">{{ pourcent(r.ratePercent) }} %</td>
+              <td class="cb-mono">{{ r.collectionAccountId ?? '—' }}</td>
+              <td class="cb-mono">
+                {{ jour(r.validFrom) }}@if (r.validTo) { → {{ jour(r.validTo) }} }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else if (lu() && !chargement()) {
+    <cb-notice nature="avertissement" titre="Aucune règle fiscale">
+      <p>
+        Aucune retenue n'est appliquée. Si l'administration en attend une, elle n'est ni
+        prélevée ni collectée — et le rattrapage se fera sur les fonds de la banque, pas sur
+        ceux des clients.
+      </p>
+    </cb-notice>
+  }
+
+  @if (volet()) {
+    <cb-section titre="Déclarer une taxe"
+                indication="à deux : un taux produit des montants sur des comptes clients">
+      <div class="assiettes" role="group" aria-label="Assiette de la taxe">
+        @for (a of ASSIETTES; track a) {
+          <button type="button" class="assiette" [class.actif]="assiette() === a"
+                  [attr.aria-pressed]="assiette() === a" (click)="assiette.set(a)">
+            <span class="assiette-titre">{{ LIBELLE_ASSIETTE[a] }}</span>
+            <span class="assiette-detail">{{ EFFET_ASSIETTE[a] }}</span>
+          </button>
+        }
+      </div>
+
+      <div class="saisie">
+        <cb-field etiquette="Code" pour="code-taxe" requis
+                  aide="Il figurera sur les écritures de retenue.">
+          <input cbInput mono id="code-taxe" name="code-taxe" autocomplete="off"
+                 [value]="code()"
+                 (input)="code.set($any($event.target).value); commence.set(true)" />
+        </cb-field>
+        <cb-field etiquette="Libellé" pour="libelle-taxe" requis class="large">
+          <input cbInput id="libelle-taxe" name="libelle-taxe" autocomplete="off"
+                 [value]="libelle()"
+                 (input)="libelle.set($any($event.target).value); commence.set(true)" />
+        </cb-field>
+        <cb-field etiquette="Taux (%)" pour="taux-taxe" requis
+                  aide="En pour cent : 15 est quinze pour cent, pas quinze millièmes.">
+          <input cbInput nombre id="taux-taxe" name="taux-taxe" inputmode="decimal"
+                 autocomplete="off" [value]="taux()"
+                 (input)="taux.set($any($event.target).value); commence.set(true)" />
+        </cb-field>
+        <cb-field etiquette="Compte de collecte" pour="compte-taxe" requis
+                  aide="Où la retenue est logée en attendant d'être reversée.">
+          <input cbInput mono id="compte-taxe" name="compte-taxe" autocomplete="off"
+                 [value]="compteDeCollecte()"
+                 (input)="compteDeCollecte.set($any($event.target).value); commence.set(true)" />
+        </cb-field>
+        <cb-field etiquette="En vigueur à partir du" pour="effet-taxe" requis>
+          <cb-date-input champId="effet-taxe" [(valeur)]="dateDEffet" />
+        </cb-field>
+        <cb-field etiquette="Jusqu'au" pour="fin-taxe"
+                  aide="Facultative : une taxe sans fin reste en vigueur.">
+          <cb-date-input champId="fin-taxe" [(valeur)]="dateDeFin" />
+        </cb-field>
+      </div>
+
+      @if (commence() && obstacles().length > 0) {
+        <cb-notice nature="avertissement" titre="Il manque quelque chose">
+          <ul class="obstacles">
+            @for (obstacle of obstacles(); track obstacle) { <li>{{ obstacle }}</li> }
+          </ul>
+        </cb-notice>
+      }
+
+      <p class="suite">
+        <button type="button" cbButton="primaire" [disabled]="envoi()"
+                (click)="declarer()">Soumettre la taxe</button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  <cb-notice nature="information" titre="Une taxe n'est pas un produit de la banque">
+    <p>
+      Elle est prélevée sur le client et reversée à l'administration : elle transite par un
+      <strong>compte de collecte</strong>, jamais par un compte de produit. C'est pourquoi ce
+      compte est obligatoire — une retenue sans compte où la loger serait prise au client sans
+      être due à personne.
+    </p>
+  </cb-notice>
+</div>

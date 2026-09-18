@@ -97,10 +97,20 @@ main { flex: 1 1 auto; min-height: 0; }
      base qui n'affiche plus qu'une loupe garde la place de sept entrées de
      menu. C'est ce qui tronquait encore « Atelier ». */
   .recherche { flex: 0 0 var(--cb-tap-h); padding: 0; justify-content: center; }
+  /* Et les entrées se resserrent : à sept espaces, il manquait seize pixels à
+     1440 et « Atelier » passait sous le bord. Le pas de 12 à 8 px en rend
+     cinquante-six, sans toucher à la hauteur tactile. */
+  .espaces a { padding: 0 var(--cb-space-2); }
+}
+
+/* Les postes d'agence sont souvent des 1366×768 : la barre y tient encore, à
+   condition de resserrer ses écarts. Vingt-trois pixels manquaient. */
+@media (max-width: 1399px) {
+  .barre { gap: var(--cb-space-3); }
 }
 
 @media (max-width: 1099px) {
-  .barre { gap: var(--cb-space-3); padding: 0 var(--cb-space-3); }
+  .barre { padding: 0 var(--cb-space-3); }
   .porteur { display: none; }
 }
 

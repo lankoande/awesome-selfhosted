@@ -1,0 +1,92 @@
+<div class="corps">
+  <cb-toolbar>
+    <h2>États produits</h2>
+    <div class="filtres" role="group" aria-label="Filtrer par état">
+      @for (filtre of FILTRES; track filtre.valeur) {
+        <button type="button" class="filtre" [class.actif]="statut() === filtre.valeur"
+                [attr.aria-pressed]="statut() === filtre.valeur"
+                (click)="filtrer(filtre.valeur)">{{ filtre.libelle }}</button>
+      }
+    </div>
+    @if (enAnomalie() > 0) {
+      <span fin class="alerte">
+        {{ enAnomalie() }} en anomalie
+      </span>
+    }
+  </cb-toolbar>
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" titre="Lecture impossible" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+      <p class="suite">
+        <button type="button" cbButton="secondaire" (click)="charger()">Réessayer</button>
+      </p>
+    </cb-notice>
+  }
+
+  <cb-activity class="activite" [enCours]="chargement()" libelle="Lecture des états…" />
+
+  @if (etats().length > 0) {
+    <div class="tableau">
+      <table cbTable>
+        <caption class="cb-visually-hidden">États réglementaires produits</caption>
+        <thead>
+          <tr>
+            <th scope="col">Déclaration</th>
+            <th scope="col">Méthode</th>
+            <th scope="col">Période</th>
+            <th scope="col">Produit le</th>
+            <th scope="col" class="nombre">Lignes</th>
+            <th scope="col" class="nombre">Total</th>
+            <th scope="col">Anomalies</th>
+            <th scope="col">État</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (e of etats(); track e.id) {
+            <tr class="ligne" tabindex="0" role="button"
+                (click)="ouvrir(e)" (keydown.enter)="ouvrir(e)" (keydown.space)="ouvrir(e)">
+              <td class="cb-mono">{{ e.declarationCode }}</td>
+              <td>{{ LIBELLE_METHODE_ETAT[e.method] }}</td>
+              <td>{{ libellePeriode(e.periodEnd) }}</td>
+              <td class="cb-mono">{{ jour(e.producedOn) }}</td>
+              <td class="nombre cb-mono">{{ e.lineCount }}</td>
+              <td class="nombre">
+                @if (e.totalAmount; as m) {
+                  <cb-amount [valeur]="m.amount" [devise]="m.currency" />
+                } @else { — }
+              </td>
+              <td>
+                @if (e.anomalies.length > 0) {
+                  <span class="anomalie">{{ e.anomalies.length }}</span>
+                } @else { — }
+              </td>
+              <td>
+                <cb-state-badge [etat]="etatDeLEtat(e.status)"
+                                [mot]="LIBELLE_STATUT_ETAT[e.status]" />
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else if (lu() && !chargement()) {
+    <cb-notice nature="information" titre="Aucun état dans cet état">
+      <p>
+        Rien ici. Changez de filtre, ou produisez un état depuis les
+        <strong>échéances</strong>.
+      </p>
+    </cb-notice>
+  }
+
+  @if (enAnomalie() > 0) {
+    <cb-notice nature="avertissement" titre="Un état en anomalie ne se transmet pas">
+      <p>
+        Il se produit — c'est ainsi qu'on voit ce qui ne va pas — mais on ne déclare pas au
+        superviseur des comptes dont on sait qu'ils sont faux. Corriger la comptabilité,
+        reprendre l'état, puis transmettre.
+      </p>
+    </cb-notice>
+  }
+</div>
