@@ -1,4 +1,4 @@
-import { finDeCompte, formaterCompte, formaterMontant, lireMontant } from './montant';
+import { finDeCompte, formaterCompte, formaterMontant, lireMontant , formaterTaux } from './montant';
 
 const FINE = ' ';
 
@@ -43,5 +43,25 @@ describe('affichage d’un compte', () => {
 
   it('abrège en gardant les quatre derniers caractères', () => {
     expect(finDeCompte('BF12001025100000000417')).toBe('····0417');
+  });
+});
+
+describe('formaterTaux', () => {
+  it("écrit la virgule décimale : le socle rend un point", () => {
+    // 9.25 % sous les yeux d'un agent qui lit des virgules fait hésiter une
+    // seconde, et cette seconde se paie en relecture.
+    expect(formaterTaux('9.25')).toBe('9,25');
+    expect(formaterTaux(29.1)).toBe('29,1');
+  });
+
+  it("n'ajoute pas de décimale à un taux entier", () => {
+    expect(formaterTaux('9')).toBe('9');
+    expect(formaterTaux(11)).toBe('11');
+  });
+
+  it('rend un tiret sur une absence ou une valeur illisible', () => {
+    expect(formaterTaux(null)).toBe('—');
+    expect(formaterTaux('')).toBe('—');
+    expect(formaterTaux('abc')).toBe('—');
   });
 });

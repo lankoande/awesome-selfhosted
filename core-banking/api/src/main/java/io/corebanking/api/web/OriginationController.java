@@ -198,12 +198,14 @@ public class OriginationController {
 
     // ------------------------------------------------------------------ lectures
 
+    /** Les demandes de l'entite, par pages ; le statut est un filtre facultatif. */
     @GetMapping("/loan-applications")
-    public List<LoanOrigination.Application> applications(
+    public io.corebanking.api.usecase.Paging.Paged<LoanOrigination.Application> applications(
             Caller caller, @PathVariable UUID legalEntityId,
-            @RequestParam(required = false) String status) {
-        return executor.run(caller, readApplications,
-                            new OriginationUseCases.EntityQuery(legalEntityId, status(status)));
+            @RequestParam(required = false) String status,
+            io.corebanking.api.usecase.Paging.PageRequest page) {
+        return executor.run(caller, readApplications, new OriginationUseCases.ApplicationsQuery(
+            legalEntityId, status(status), page));
     }
 
     @GetMapping("/loan-applications/{applicationId}")

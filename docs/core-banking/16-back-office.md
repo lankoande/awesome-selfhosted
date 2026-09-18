@@ -810,3 +810,93 @@ côté produirait des couples impossibles, refusés par le socle après la signa
 Neuf, dont les plus utiles à l'écran : le lien compte → titulaire, la recherche de compte, la
 lecture des blocages, la cotation d'une opération avant de la passer, l'identité structurée du
 remettant, les lignes d'écriture du reçu, `GET /v1/me/till` et le solde théorique d'une caisse.
+
+---
+
+## 17. L'espace crédit : ce qu'il a tranché
+
+Cinq écrans sous `/credit` : les demandes, le dossier d'instruction, le dépôt d'une demande, le
+portefeuille, le contrat. C'était le plus grand domaine du socle sans aucune interface — et celui
+où le vocabulaire métier commande le plus de choix d'écran.
+
+### La distinction qui tient tout l'écran d'instruction
+
+**Une condition suspensive bloque la contractualisation ; une résolutoire non.** Les confondre
+débloque un crédit sans la garantie qui le couvrait — c'est la faute la plus coûteuse de
+l'instruction, et elle ne laisse aucune trace avant l'impayé.
+
+L'écran ne les mélange jamais : deux sections distinctes, deux intitulés explicites, et
+`obstaclesALaContractualisation()` ne retient **que** les suspensives non levées. Les résolutoires
+apparaissent sous « Engagements à suivre », avec leur échéance, sans rien empêcher.
+
+### Un ratio seul est un chiffre ; un dépassement nommé est une décision
+
+Le socle calcule le taux d'endettement **et** confronte la grille de risque, en nommant ce qu'elle
+refuse (`breaches`). L'écran rend les deux : le ratio en grand, les dépassements juste dessous,
+mot pour mot.
+
+Et il ajoute ce que ni le ratio ni la liste ne disent : **un dépassement n'interdit pas
+d'accorder, il exige une dérogation motivée**, que la décision porte et que l'audit relira. Le
+volet de décision réaffiche les dépassements au moment de motiver — c'est pour cela que les volets
+de saisie s'ouvrent **en place** et non dans un tiroir : le `Dialog` du CDK piège le focus, et
+décider tiroir ouvert masquerait exactement ce qu'on doit lire.
+
+### Ce que le socle décide, et que le front n'invente pas
+
+- **La décision d'octroi passe par un second regard** (202), et **le déblocage aussi** — c'est le
+  moment où l'argent sort. L'écran l'annonce avant l'envoi, comme au guichet.
+- **L'imputation d'un règlement appartient au socle.** Le front ne calcule rien : il affiche à
+  quoi l'argent est allé, ligne par ligne, dans l'ordre que la banque a paramétré — frais de
+  recouvrement, pénalités, frais et assurance, intérêts de retard, intérêts, capital. C'est ce
+  qu'un guichetier doit pouvoir expliquer au client, et c'est la première question qu'on lui pose.
+- **Un versement supérieur à l'exigible n'est pas un remboursement anticipé.** Le socle le garde
+  en attente d'une échéance ; l'écran le dit et renvoie vers l'acte qui, lui, rembourse le
+  capital par anticipation.
+
+### Trois choix d'ordre
+
+- **Les demandes s'ouvrent sur « en instruction »**, pas sur « toutes » : c'est ce qu'un chargé de
+  crédit vient faire. Ouvrir sur tout ferait défiler des dossiers clos et imposerait de filtrer à
+  chaque venue.
+- **Le portefeuille remonte les retards en tête.** Trié par référence, il faut le parcourir pour
+  trouver ce qui ne va pas. Le tri porte sur la page rendue et ne prétend pas ordonner tout le
+  portefeuille — il ordonne ce qu'on regarde.
+- **Sur un contrat, les créances exigibles passent avant l'échéancier.** L'échéancier dit ce qui
+  était prévu ; les créances disent ce qui est dû aujourd'hui. Au guichet, c'est la seconde
+  question, jamais la première.
+
+### Les seuils de retard ne commandent rien
+
+`graviteDuRetard()` découpe à 30, 90 et 180 jours — les seuils du classement prudentiel usuel de
+l'UEMOA. Ils sont dans le front **parce qu'ils ne décident de rien** : le socle provisionne selon
+sa propre grille, paramétrée et revue. Ce découpage sert à ce qu'un retard se lise d'un coup
+d'œil, pas à trancher. La couleur ne porte jamais l'information seule : le nombre de jours est
+écrit, et la colonne est triée dessus.
+
+### Ce que la construction a corrigé ailleurs
+
+- **`GET /loan-applications` n'était pas paginée**, seule liste du contrat dans ce cas. Une banque
+  en activité porte des milliers de demandes ; les rendre toutes fait grossir la réponse avec le
+  portefeuille, jusqu'au jour où l'écran ne s'ouvre plus. Elle l'est désormais, sur l'ordre total
+  de la référence, avec l'index `(legal_entity_id, status, reference)` qui la couvrait déjà.
+- **Les taux s'écrivaient avec un point décimal.** Le socle rend `9.25` — du JSON. L'afficher tel
+  quel met un point sous les yeux d'un agent qui lit des virgules toute la journée ; à 9,25 %
+  contre 9.25 %, la seconde forme fait hésiter une seconde, et cette seconde se paie en
+  relecture. `formaterTaux()` vit à côté de `formaterMontant()`, qui posait déjà la règle.
+- **Les liens de retour étaient sous la cible tactile minimale.** Le contrôle de largeurs l'a
+  attrapé : `button.lien` sans hauteur minimale tombe à 19 px. La convention du reste de
+  l'application — `cbButton="discret"` — s'applique maintenant ici aussi ; le lien au fil d'une
+  phrase garde son allure mais tient ses 24 px.
+
+### Une convention à ne pas « corriger »
+
+L'apostrophe droite `'` est la règle dans le texte ; l'apostrophe typographique `’` n'apparaît que
+**dans les expressions Angular entre apostrophes droites**, où une apostrophe droite fermerait la
+chaîne. Ce n'est pas une incohérence : c'est la seule forme qui compile.
+
+### Ce qui reste du crédit
+
+Le rééchelonnement, la révision de taux, le passage en perte et le recouvrement : le socle les
+expose (`/rescheduling`, `/rate-revision`, `/write-off`, `/recoveries`), l'interface pas encore.
+C'est la fin de vie du crédit, et elle mérite son propre lot — un passage en perte se décide avec
+la provision sous les yeux, ce qui demande un écran de son côté.

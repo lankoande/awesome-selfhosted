@@ -1,0 +1,48 @@
+:host { display: block; }
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+
+/* Les filtres sont des états, pas des onglets : ils ne changent pas d'écran,
+   ils restreignent ce que l'écran montre. Le trait dessous marquerait une
+   navigation qui n'a pas lieu. */
+.filtres { display: flex; gap: var(--cb-space-1); flex-wrap: wrap; }
+.filtre {
+  height: var(--cb-tap-h);
+  padding: 0 var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  background: var(--cb-panel);
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+  cursor: pointer;
+}
+.filtre:hover { color: var(--cb-ink); border-color: var(--cb-rule-strong); }
+.filtre.actif {
+  color: var(--cb-ink);
+  font-weight: 600;
+  border-color: var(--cb-accent);
+  background: var(--cb-accent-soft, var(--cb-panel));
+}
+
+.tableau { overflow-x: auto; }
+.nombre { text-align: right; }
+.objet { color: var(--cb-ink-2); }
+.suite { margin-top: var(--cb-space-3); display: flex; gap: var(--cb-space-2); flex-wrap: wrap; }
+.activite { display: block; }
+
+.ligne { cursor: pointer; }
+.ligne:hover td { background: var(--cb-panel); }
+.ligne:focus-visible { outline: 2px solid var(--cb-accent); outline-offset: -2px; }
+
+@media (max-width: 1023px) {
+  /* Objet et durée sautent en premier : ce sont les colonnes dont on se passe
+     pour retrouver un dossier. */
+  .tableau th:nth-child(4), .tableau td:nth-child(4),
+  .tableau th:nth-child(6), .tableau td:nth-child(6) { display: none; }
+}

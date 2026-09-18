@@ -88,6 +88,42 @@ export const routes: Routes = [
     ],
   },
   {
+    path: 'credit',
+    loadComponent: () => import('./credit/credit.shell').then((m) => m.CreditShell),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'demandes' },
+      {
+        path: 'demandes',
+        title: 'Crédit — demandes',
+        loadComponent: () => import('./credit/demandes/demandes.page').then((m) => m.DemandesCredit),
+      },
+      {
+        path: 'portefeuille',
+        title: 'Crédit — portefeuille',
+        loadComponent: () =>
+          import('./credit/portefeuille/portefeuille.page').then((m) => m.PortefeuilleCredit),
+      },
+      {
+        path: 'nouvelle',
+        title: 'Crédit — nouvelle demande',
+        loadComponent: () =>
+          import('./credit/nouvelle/nouvelle.page').then((m) => m.NouvelleDemandeCredit),
+      },
+      // Les chemins fixes d'abord : sinon `:id` avalerait « nouvelle ».
+      {
+        path: 'demandes/:id',
+        title: 'Crédit — dossier',
+        loadComponent: () =>
+          import('./credit/dossier/dossier.page').then((m) => m.DossierCreditPage),
+      },
+      {
+        path: 'contrats/:id',
+        title: 'Crédit — contrat',
+        loadComponent: () => import('./credit/contrat/contrat.page').then((m) => m.ContratCredit),
+      },
+    ],
+  },
+  {
     path: 'validation',
     title: 'File de validation',
     loadComponent: () => import('./validation/file/file-validation.page').then((m) => m.FileValidation),

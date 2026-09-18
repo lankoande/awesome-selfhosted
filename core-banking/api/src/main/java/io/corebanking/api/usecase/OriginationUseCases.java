@@ -193,8 +193,12 @@ public final class OriginationUseCases {
 
     public record EntityQuery(UUID legalEntityId, LoanOrigination.Status status) {}
 
+    /** @param page la page demandee ; le statut reste un filtre facultatif */
+    public record ApplicationsQuery(UUID legalEntityId, LoanOrigination.Status status,
+                                    Paging.PageRequest page) {}
+
     public static final class ReadApplications
-            implements UseCase<EntityQuery, List<LoanOrigination.Application>> {
+            implements UseCase<ApplicationsQuery, Paging.Paged<LoanOrigination.Application>> {
         private final Database database;
 
         public ReadApplications(Database database) {
@@ -204,14 +208,17 @@ public final class OriginationUseCases {
         @Override public Operation operation() { return Operation.LOAN_READ; }
 
         @Override
-        public AccessTarget targetOf(EntityQuery query) {
+        public AccessTarget targetOf(ApplicationsQuery query) {
             return AccessTarget.inEntity(query.legalEntityId());
         }
 
         @Override
-        public List<LoanOrigination.Application> execute(EntityQuery query) {
-            return database.inTransaction(
-                c -> LoanOrigination.applications(c, query.legalEntityId(), query.status()));
+        public Paging.Paged<LoanOrigination.Application> execute(ApplicationsQuery query) {
+            return database.inTransaction(c -> new Paging.Paged<>(
+                LoanOrigination.applications(c, query.legalEntityId(), query.status(),
+                                             query.page().offset(), query.page().size()),
+                query.page(),
+                LoanOrigination.countApplications(c, query.legalEntityId(), query.status())));
         }
     }
 

@@ -12437,6 +12437,10 @@
           "schema" : {
             "type" : "string"
           }
+        }, {
+          "$ref" : "#/components/parameters/Page"
+        }, {
+          "$ref" : "#/components/parameters/PageSize"
         } ],
         "responses" : {
           "200" : {
@@ -12457,7 +12461,7 @@
                       "$ref" : "#/components/schemas/Meta"
                     },
                     "page" : {
-                      "type" : "null"
+                      "$ref" : "#/components/schemas/Page"
                     }
                   },
                   "required" : [ "data", "page", "error", "meta" ],

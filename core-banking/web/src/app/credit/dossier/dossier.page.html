@@ -1,0 +1,496 @@
+@if (dossier(); as d) {
+  <header class="entete">
+    <div class="qui">
+      <h2>{{ d.demande.reference }}</h2>
+      <p class="sous">
+        <button type="button" class="lien" (click)="auClient()">
+          {{ d.demande.customerReference ?? 'Client' }}
+        </button>
+        · {{ d.demande.productCode }}
+        @if (d.demande.purpose) { · {{ d.demande.purpose }} }
+      </p>
+    </div>
+    <div class="chiffres">
+      <div class="chiffre">
+        <span class="titre">Demandé</span>
+        @if (d.demande.requestedAmount; as m) {
+          <cb-amount [valeur]="m.amount" [devise]="m.currency" />
+        } @else { <span>—</span> }
+      </div>
+      <div class="chiffre">
+        <span class="titre">Durée</span>
+        <span class="cb-mono">{{ d.demande.requestedTermMonths ?? '—' }} mois</span>
+      </div>
+      <div class="chiffre">
+        <span class="titre">État</span>
+        <cb-state-badge [etat]="etatDeLaDemande(d.demande.status)"
+                        [mot]="LIBELLE_STATUT_DEMANDE[d.demande.status]" />
+      </div>
+    </div>
+  </header>
+}
+
+<div class="corps">
+  <cb-activity class="activite" [enCours]="chargement()" libelle="Lecture du dossier…" />
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" titre="Le socle a refusé" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+    </cb-notice>
+  }
+
+  @if (enAttente(); as operation) {
+    <cb-notice nature="avertissement" titre="En attente de validation" [code]="operation">
+      <p>
+        La demande est enregistrée ; <strong>rien n'est encore acté</strong> tant qu'un second
+        regard ne l'a pas approuvée. Ne resaisissez pas.
+      </p>
+    </cb-notice>
+  }
+
+  @if (contracte(); as fait) {
+    <cb-notice nature="succes" titre="Contrat créé" [code]="fait.reference">
+      <p>
+        Le contrat est créé mais <strong>pas encore débloqué</strong> : le déblocage est
+        l'acte qui fait sortir l'argent, et il passe par un second regard.
+      </p>
+      <p class="suite">
+        <button type="button" cbButton="primaire" (click)="auContrat()">Voir le contrat</button>
+      </p>
+    </cb-notice>
+  }
+
+  @if (dossier(); as d) {
+    <!-- 1. Où en est-on, et que puis-je faire maintenant ? -->
+    @if (peutContractualiser() && obstacles().length === 0 && !contracte()) {
+      <cb-notice nature="succes" titre="La demande peut être contractée">
+        <p>
+          La décision est favorable et toutes les conditions suspensives sont levées.
+          Le socle vérifiera à nouveau au moment de contracter.
+        </p>
+        <p class="suite">
+          <button type="button" cbButton="primaire" (click)="ouvrirVolet('contrat')">
+            Établir le contrat
+          </button>
+        </p>
+      </cb-notice>
+    } @else if (obstacles().length > 0 && d.demande.status !== 'CONTRACTED') {
+      <cb-notice nature="avertissement" titre="La demande ne peut pas être contractée">
+        <ul class="liste">
+          @for (obstacle of obstacles(); track obstacle) { <li>{{ obstacle }}</li> }
+        </ul>
+      </cb-notice>
+    }
+
+    @if (d.demande.status === 'CONTRACTED') {
+      <cb-notice nature="information" titre="Demande contractée">
+        <p>Le dossier d'instruction est clos. La vie du crédit se suit sur le contrat.</p>
+        <p class="suite">
+          <button type="button" cbButton="primaire" (click)="auContrat()">Voir le contrat</button>
+        </p>
+      </cb-notice>
+    }
+
+    @if (d.demande.closingReason) {
+      <cb-notice nature="information" titre="Dossier clos">
+        <p>{{ d.demande.closingReason }} — le {{ jour(d.demande.closedOn) }}.</p>
+      </cb-notice>
+    }
+
+    <!-- 2. Le client peut-il rembourser ? -->
+    <cb-section titre="Capacité de remboursement"
+                [indication]="analyse() ? 'analyse du ' + jour(analyse()!.assessedOn)
+                                        : 'aucune analyse versée'">
+      @if (analyse(); as a) {
+        <div class="ratio" [attr.data-depasse]="a.breaches.length > 0">
+          <span class="ratio-valeur cb-mono">{{ pourcent(a.debtServiceRatioPercent) }} %</span>
+          <span class="ratio-titre">Taux d'endettement</span>
+        </div>
+
+        @if (a.breaches.length > 0) {
+          <cb-notice nature="avertissement" titre="Ce que la grille de risque refuse">
+            <ul class="liste">
+              @for (depassement of a.breaches; track depassement) { <li>{{ depassement }}</li> }
+            </ul>
+            <p class="nuance">
+              Un dépassement n'interdit pas d'accorder : il exige une <strong>dérogation
+              motivée</strong>, que la décision porte et que l'audit relira.
+            </p>
+          </cb-notice>
+        }
+
+        <dl class="faits">
+          <div><dt>Revenu mensuel</dt><dd>
+            @if (a.monthlyIncome; as m) { <cb-amount [valeur]="m.amount" [devise]="m.currency" /> }
+            @else { — }</dd></div>
+          <div><dt>Charges mensuelles</dt><dd>
+            @if (a.monthlyCharges; as m) { <cb-amount [valeur]="m.amount" [devise]="m.currency" /> }
+            @else { — }</dd></div>
+          <div><dt>Engagements en cours</dt><dd>
+            @if (a.existingCommitments; as m) { <cb-amount [valeur]="m.amount" [devise]="m.currency" /> }
+            @else { — }</dd></div>
+          <div><dt>Apport</dt><dd>
+            @if (a.downPayment; as m) { <cb-amount [valeur]="m.amount" [devise]="m.currency" /> }
+            @else { — }</dd></div>
+          <div><dt>Échéance envisagée</dt><dd>
+            @if (a.requestedInstalment; as m) { <cb-amount [valeur]="m.amount" [devise]="m.currency" /> }
+            @else { — }</dd></div>
+          <div><dt>Score externe</dt><dd class="cb-mono">
+            {{ a.externalScore ?? '—' }}@if (a.scoreSource) { · {{ a.scoreSource }} }</dd></div>
+        </dl>
+      } @else {
+        <p class="vide">
+          Aucune analyse n'a été versée. <strong>Une décision sans analyse n'est pas motivable</strong>
+          devant un contrôle.
+        </p>
+      }
+
+      @if (peutInstruire()) {
+        <p class="suite">
+          <button type="button" cbButton="secondaire" (click)="ouvrirVolet('analyse')">
+            {{ analyse() ? 'Verser une nouvelle analyse' : 'Verser une analyse' }}
+          </button>
+        </p>
+      }
+    </cb-section>
+
+    <!-- 3. Qu'a-t-on exigé de lui ? -->
+    <cb-section titre="Conditions suspensives"
+                indication="elles bloquent la contractualisation tant qu'elles ne sont pas levées">
+      @if (suspensives().length > 0) {
+        <div class="tableau">
+          <table cbTable>
+            <caption class="cb-visually-hidden">Conditions suspensives</caption>
+            <thead>
+              <tr>
+                <th scope="col">Condition</th>
+                <th scope="col">Échéance</th>
+                <th scope="col">Levée le</th>
+                <th scope="col">Preuve</th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of suspensives(); track c.id) {
+                <tr [class.levee]="c.clearedOn">
+                  <td class="description">{{ c.description }}</td>
+                  <td class="cb-mono">{{ jour(c.dueOn) }}</td>
+                  <td class="cb-mono">{{ jour(c.clearedOn) }}</td>
+                  <td class="preuve">{{ c.evidence ?? '—' }}</td>
+                  <td class="action">
+                    @if (!c.clearedOn) {
+                      <button type="button" cbButton="discret" (click)="ouvrirVolet('condition-levee', c)">
+                        Lever
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="vide">Aucune condition suspensive n'a été posée.</p>
+      }
+    </cb-section>
+
+    @if (resolutoires().length > 0) {
+      <cb-section titre="Engagements à suivre"
+                  indication="résolutoires : elles ne bloquent rien, leur non-respect ouvre un recours">
+        <ul class="liste">
+          @for (c of resolutoires(); track c.id) {
+            <li>
+              {{ c.description }}
+              @if (c.clearedOn) { — levée le {{ jour(c.clearedOn) }} }
+              @else if (c.dueOn) { — attendue le {{ jour(c.dueOn) }} }
+            </li>
+          }
+        </ul>
+      </cb-section>
+    }
+
+    @if (peutInstruire()) {
+      <p class="suite">
+        <button type="button" cbButton="secondaire" (click)="ouvrirVolet('condition')">
+          Poser une condition
+        </button>
+      </p>
+    }
+
+    <!-- 4. Qu'a-t-on décidé ? -->
+    <cb-section titre="Décision" indication="elle se prend à deux : celui qui instruit ne décide pas seul">
+      @if (d.decision; as decision) {
+        <div class="decision" [attr.data-issue]="decision.outcome">
+          <cb-state-badge [etat]="decision.outcome === 'APPROVED' ? 'comptabilise' : 'rejete'"
+                          [mot]="decision.outcome === 'APPROVED' ? 'Accordée' : 'Refusée'" />
+          <span class="date cb-mono">le {{ jour(decision.decidedOn) }}</span>
+        </div>
+        @if (decision.outcome === 'APPROVED') {
+          <dl class="faits">
+            <div><dt>Montant accordé</dt><dd>
+              @if (decision.grantedAmount; as m) {
+                <cb-amount [valeur]="m.amount" [devise]="m.currency" />
+              } @else { — }</dd></div>
+            <div><dt>Taux</dt><dd class="cb-mono">{{ pourcent(decision.grantedRatePercent) }} %</dd></div>
+            <div><dt>Durée</dt><dd class="cb-mono">{{ decision.grantedTermMonths ?? '—' }} mois</dd></div>
+            <div><dt>Offre valable jusqu'au</dt><dd class="cb-mono">{{ jour(decision.validUntil) }}</dd></div>
+          </dl>
+        }
+        @if (decision.reason) { <p class="motif">{{ decision.reason }}</p> }
+        @if (decision.waiverReason) {
+          <p class="derogation"><strong>Dérogation :</strong> {{ decision.waiverReason }}</p>
+        }
+      } @else {
+        <p class="vide">Aucune décision n'a encore été prise.</p>
+      }
+
+      @if (peutDecider()) {
+        <p class="suite">
+          <button type="button" cbButton="primaire" (click)="ouvrirVolet('decision')">Décider</button>
+          <button type="button" cbButton="discret" (click)="ouvrirVolet('retrait')">
+            Retirer la demande
+          </button>
+        </p>
+      } @else if (peutInstruire()) {
+        <p class="vide">Versez d'abord une analyse : une décision sans analyse ne se motive pas.</p>
+      }
+    </cb-section>
+
+    <!-- 5. L'historique -->
+    @if (d.evenements.length > 0) {
+      <cb-section titre="Historique" indication="un dossier de crédit se relit des années après">
+        <ol class="histoire">
+          @for (e of d.evenements; track $index) {
+            <li>
+              <span class="quand cb-mono">{{ jour(e.occurredOn) }}</span>
+              <span class="quoi">{{ e.detail ?? e.kind }}</span>
+            </li>
+          }
+        </ol>
+      </cb-section>
+    }
+  }
+
+  <!-- Les volets de saisie, en place -->
+  @if (volet() === 'analyse') {
+    <cb-section titre="Verser une analyse"
+                indication="le socle calcule le ratio et confronte la grille de risque">
+      <div class="saisie">
+        <cb-field etiquette="Revenu mensuel net" pour="revenu" requis>
+          <cb-amount-input champId="revenu" [(valeur)]="revenu" devise="XOF" />
+        </cb-field>
+        <cb-field etiquette="Charges mensuelles" pour="charges"
+                  aide="Loyer, pensions, charges récurrentes.">
+          <cb-amount-input champId="charges" [(valeur)]="charges" devise="XOF" />
+        </cb-field>
+        <cb-field etiquette="Apport" pour="apport" aide="Facultatif.">
+          <cb-amount-input champId="apport" [(valeur)]="apport" devise="XOF" />
+        </cb-field>
+        <cb-field etiquette="Taux envisagé" pour="taux" requis
+                  aide="En pourcentage annuel. Il sert à calculer l'échéance.">
+          <input cbInput id="taux" name="taux" inputmode="decimal" autocomplete="off"
+                 class="etroit" [value]="taux()"
+                 (input)="taux.set($any($event.target).value)" />
+        </cb-field>
+        <cb-field etiquette="Score externe" pour="score" aide="Facultatif : bureau d'information.">
+          <input cbInput id="score" name="score" inputmode="numeric" autocomplete="off"
+                 class="etroit" [value]="score()"
+                 (input)="score.set($any($event.target).value)" />
+        </cb-field>
+      </div>
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="!analyseComplete() || envoi()" (click)="verserAnalyse()">
+          Verser l'analyse
+        </button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  @if (volet() === 'condition') {
+    <cb-section titre="Poser une condition"
+                indication="suspensive : elle bloque ; résolutoire : elle se suit">
+      <div class="saisie">
+        <cb-field etiquette="Nature" pour="nature-condition" requis>
+          <select cbInput id="nature-condition" name="nature-condition"
+                  (change)="natureCondition.set($any($event.target).value)">
+            <option value="PRECEDENT" [selected]="natureCondition() === 'PRECEDENT'">
+              Suspensive — bloque la contractualisation
+            </option>
+            <option value="SUBSEQUENT" [selected]="natureCondition() === 'SUBSEQUENT'">
+              Résolutoire — engagement à suivre après
+            </option>
+          </select>
+        </cb-field>
+        <cb-field etiquette="Ce qui est exigé" pour="description-condition" requis
+                  aide="Ce qu'un tiers doit pouvoir vérifier sans vous demander.">
+          <input cbInput id="description-condition" name="description-condition" autocomplete="off"
+                 [value]="descriptionCondition()"
+                 (input)="descriptionCondition.set($any($event.target).value)" />
+        </cb-field>
+        <cb-field etiquette="Échéance" pour="echeance-condition" aide="Facultative.">
+          <cb-date-input champId="echeance-condition" [(valeur)]="echeanceCondition" />
+        </cb-field>
+      </div>
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="!conditionComplete() || envoi()" (click)="poserCondition()">
+          Poser la condition
+        </button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  @if (volet() === 'condition-levee' && conditionALever(); as condition) {
+    <cb-section titre="Lever une condition suspensive"
+                indication="la levée passe par un second regard : la preuve se vérifie">
+      <p class="rappel">{{ condition.description }}</p>
+      <cb-notice nature="information" titre="La levée passe par un second regard">
+        <p>
+          Lever une suspensive, c'est ouvrir la voie au déblocage. Un second porteur
+          vérifiera la preuve avant qu'elle ne compte.
+        </p>
+      </cb-notice>
+      <div class="saisie">
+        <cb-field etiquette="Preuve" pour="preuve" requis
+                  aide="La référence de la pièce : inscription, police, acte.">
+          <input cbInput id="preuve" name="preuve" autocomplete="off" [value]="preuve()"
+                 (input)="preuve.set($any($event.target).value)" />
+        </cb-field>
+      </div>
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="preuve().trim().length < 3 || envoi()" (click)="lever()">
+          Soumettre la levée
+        </button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  @if (volet() === 'decision') {
+    <cb-section titre="Décider" indication="la décision passe par un second regard">
+      <cb-notice nature="information" titre="La décision passe par un second regard">
+        <p>
+          La décision sera enregistrée puis soumise à validation :
+          <strong>rien n'est accordé à l'envoi</strong>. Celui qui instruit ne décide pas seul.
+        </p>
+      </cb-notice>
+
+      @if (analyse(); as a) {
+        @if (a.breaches.length > 0) {
+          <cb-notice nature="avertissement" titre="Accorder ici demande une dérogation motivée">
+            <ul class="liste">
+              @for (depassement of a.breaches; track depassement) { <li>{{ depassement }}</li> }
+            </ul>
+          </cb-notice>
+        }
+      }
+
+      <div class="saisie">
+        <cb-field etiquette="Issue" pour="issue" requis>
+          <select cbInput id="issue" name="issue" (change)="issue.set($any($event.target).value)">
+            <option value="APPROVED" [selected]="issue() === 'APPROVED'">Accorder</option>
+            <option value="REJECTED" [selected]="issue() === 'REJECTED'">Refuser</option>
+          </select>
+        </cb-field>
+
+        @if (issue() === 'APPROVED') {
+          <cb-field etiquette="Montant accordé" pour="montant-accorde"
+                    aide="Vide : le montant demandé.">
+            <cb-amount-input champId="montant-accorde" [(valeur)]="montantAccorde" devise="XOF" />
+          </cb-field>
+          <cb-field etiquette="Taux accordé" pour="taux-accorde" aide="Pourcentage annuel.">
+            <input cbInput id="taux-accorde" name="taux-accorde" inputmode="decimal"
+                   autocomplete="off" class="etroit" [value]="tauxAccorde()"
+                   (input)="tauxAccorde.set($any($event.target).value)" />
+          </cb-field>
+          <cb-field etiquette="Durée accordée" pour="duree-accordee" aide="En mois.">
+            <input cbInput id="duree-accordee" name="duree-accordee" inputmode="numeric"
+                   autocomplete="off" class="etroit" [value]="dureeAccordee()"
+                   (input)="dureeAccordee.set($any($event.target).value)" />
+          </cb-field>
+        }
+
+        <cb-field etiquette="Motif" pour="motif" requis class="large"
+                  aide="Il reste au dossier et se relit lors d'un contrôle.">
+          <input cbInput id="motif" name="motif" autocomplete="off" [value]="motif()"
+                 (input)="motif.set($any($event.target).value)" />
+        </cb-field>
+
+        @if (issue() === 'APPROVED') {
+          <cb-field etiquette="Dérogation" pour="derogation" class="large"
+                    aide="Obligatoire si la grille est dépassée : ce qui justifie de passer outre.">
+            <input cbInput id="derogation" name="derogation" autocomplete="off"
+                   [value]="derogation()"
+                   (input)="derogation.set($any($event.target).value)" />
+          </cb-field>
+        }
+      </div>
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="!decisionComplete() || envoi()" (click)="decider()">
+          Soumettre la décision
+        </button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  @if (volet() === 'contrat') {
+    <cb-section titre="Établir le contrat"
+                indication="le contrat naît non débloqué : l'argent sort dans un second temps">
+      <div class="saisie">
+        <cb-field etiquette="Compte de prêt" pour="compte-pret" requis
+                  aide="Le compte qui portera la créance.">
+          <input cbInput id="compte-pret" name="compte-pret" autocomplete="off"
+                 [value]="comptePret()" (input)="comptePret.set($any($event.target).value)" />
+        </cb-field>
+        <cb-field etiquette="Compte de règlement" pour="compte-reglement" requis
+                  aide="Le compte du client, crédité au déblocage et débité des échéances.">
+          <input cbInput id="compte-reglement" name="compte-reglement" autocomplete="off"
+                 [value]="compteReglement()"
+                 (input)="compteReglement.set($any($event.target).value)" />
+        </cb-field>
+        <cb-field etiquette="Référence du contrat" pour="reference-contrat"
+                  aide="Vide, le socle la compose.">
+          <input cbInput id="reference-contrat" name="reference-contrat" autocomplete="off"
+                 [value]="referenceContrat()"
+                 (input)="referenceContrat.set($any($event.target).value)" />
+        </cb-field>
+      </div>
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="!contratComplet() || envoi()" (click)="contractualiser()">
+          Établir le contrat
+        </button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  @if (volet() === 'retrait') {
+    <cb-section titre="Retirer la demande" indication="le dossier reste, il cesse d'être instruit">
+      <div class="saisie">
+        <cb-field etiquette="Motif du retrait" pour="motif-retrait" requis class="large">
+          <input cbInput id="motif-retrait" name="motif-retrait" autocomplete="off"
+                 [value]="motif()" (input)="motif.set($any($event.target).value)" />
+        </cb-field>
+      </div>
+      <p class="suite">
+        <button type="button" cbButton="primaire"
+                [disabled]="motif().trim().length < 3 || envoi()" (click)="retirer()">
+          Retirer la demande
+        </button>
+        <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+      </p>
+    </cb-section>
+  }
+
+  <p class="retour">
+    <button type="button" cbButton="discret" (click)="auxDemandes()">← Revenir aux demandes</button>
+  </p>
+</div>

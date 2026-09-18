@@ -919,6 +919,56 @@ public final class LoanOrigination {
     }
 
     /** Les demandes d'une entite, filtrees par statut si l'appelant en nomme un. */
+    /**
+     * Une page de demandes, sur l'ordre total de la reference.
+     *
+     * <p>La liste entiere n'etait pas tenable : une banque en activite porte des milliers de
+     * demandes, et les rendre toutes fait grossir la reponse avec le portefeuille — jusqu'au jour
+     * ou l'ecran ne s'ouvre plus. L'ordre porte sur la reference, qui est unique : deux pages
+     * successives ne peuvent donc ni oublier ni repeter une demande.
+     */
+    public static List<Application> applications(Connection c, UUID legalEntityId, Status status,
+                                                 int offset, int size) {
+        List<Application> applications = new ArrayList<>();
+        String sql = SELECT_APPLICATION + " WHERE a.legal_entity_id = ?"
+                     + (status == null ? "" : " AND a.status = ?")
+                     + " ORDER BY a.reference OFFSET ? LIMIT ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            int index = 1;
+            ps.setObject(index++, legalEntityId);
+            if (status != null) {
+                ps.setString(index++, status.name());
+            }
+            ps.setInt(index++, offset);
+            ps.setInt(index, size);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    applications.add(readApplication(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des demandes de credit", e);
+        }
+        return applications;
+    }
+
+    /** Combien de demandes repondent au filtre : ce qui borne la pagination. */
+    public static long countApplications(Connection c, UUID legalEntityId, Status status) {
+        String sql = "SELECT count(*) FROM loan_application a WHERE a.legal_entity_id = ?"
+                     + (status == null ? "" : " AND a.status = ?");
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setObject(1, legalEntityId);
+            if (status != null) {
+                ps.setString(2, status.name());
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getLong(1) : 0L;
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Comptage des demandes de credit", e);
+        }
+    }
+
     public static List<Application> applications(Connection c, UUID legalEntityId, Status status) {
         List<Application> applications = new ArrayList<>();
         String sql = SELECT_APPLICATION + " WHERE a.legal_entity_id = ?"

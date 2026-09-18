@@ -25,6 +25,11 @@ const CHEMINS = [
   'guichet/versement', 'guichet/retrait', 'guichet/virement', 'guichet/releve', 'guichet/caisse',
   'clients/recherche', 'clients/nouveau',
   'clients/p-sankara', 'clients/p-kabore-ets', 'clients/p-sankara/compte',
+  'credit/demandes', 'credit/portefeuille', 'credit/nouvelle',
+  // Un dossier avec dépassement de grille et conditions suspensives, un contrat
+  // en retard : c'est là que les tableaux et les avis se tendent le plus.
+  'credit/demandes/d-ouedraogo', 'credit/demandes/d-traore',
+  'credit/contrats/c-compaore', 'credit/contrats/c-nikiema',
   'siege/exploitation', 'siege/balance',
   'validation',
 ];

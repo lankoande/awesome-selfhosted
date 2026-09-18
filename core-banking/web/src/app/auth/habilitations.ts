@@ -16,6 +16,13 @@ export const OPERATION_PAR_ECRAN: Readonly<Record<string, string>> = {
   // opérateur qui n'aurait que l'ouverture de compte.
   'clients/dossier': 'PARTY_READ',
   'clients/compte': 'ACCOUNT_OPEN',
+  'credit/demandes': 'LOAN_READ',
+  'credit/portefeuille': 'LOAN_READ',
+  'credit/nouvelle': 'LOAN_APPLICATION',
+  // Le dossier et le contrat ne sont pas des entrées de barre : on y arrive
+  // depuis une liste. Ils figurent ici pour que l'espace reste visible.
+  'credit/dossier': 'LOAN_READ',
+  'credit/contrat': 'LOAN_READ',
   'guichet/versement': 'CASH_OPERATION',
   'guichet/retrait': 'CASH_OPERATION',
   'guichet/virement': 'TRANSFER',

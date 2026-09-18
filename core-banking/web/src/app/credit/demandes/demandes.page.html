@@ -1,0 +1,82 @@
+<div class="corps">
+  <cb-toolbar>
+    <h2>Demandes de crédit</h2>
+    <div class="filtres" role="group" aria-label="Filtrer par état">
+      @for (filtre of FILTRES; track filtre.valeur) {
+        <button type="button" class="filtre" [class.actif]="statut() === filtre.valeur"
+                [attr.aria-pressed]="statut() === filtre.valeur"
+                (click)="filtrer(filtre.valeur)">{{ filtre.libelle }}</button>
+      }
+    </div>
+    <button fin type="button" cbButton="primaire" (click)="nouvelle()">Nouvelle demande</button>
+  </cb-toolbar>
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" titre="Lecture impossible" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+      <p class="suite">
+        <button type="button" cbButton="secondaire" (click)="charger(page())">Réessayer</button>
+      </p>
+    </cb-notice>
+  }
+
+  <cb-activity class="activite" [enCours]="chargement()" libelle="Lecture des demandes…" />
+
+  @if (demandes().length > 0) {
+    <div class="tableau">
+      <table cbTable>
+        <caption class="cb-visually-hidden">Demandes de crédit</caption>
+        <thead>
+          <tr>
+            <th scope="col">Référence</th>
+            <th scope="col">Client</th>
+            <th scope="col">Produit</th>
+            <th scope="col">Objet</th>
+            <th scope="col" class="nombre">Montant demandé</th>
+            <th scope="col">Durée</th>
+            <th scope="col">Déposée le</th>
+            <th scope="col">État</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (d of demandes(); track d.id) {
+            <tr class="ligne" tabindex="0" role="button"
+                (click)="ouvrir(d)" (keydown.enter)="ouvrir(d)" (keydown.space)="ouvrir(d)">
+              <td class="cb-mono">{{ d.reference }}</td>
+              <td class="cb-mono">{{ d.customerReference ?? '—' }}</td>
+              <td>{{ d.productCode }}</td>
+              <td class="objet">{{ d.purpose ?? '—' }}</td>
+              <td class="nombre">
+                @if (d.requestedAmount; as m) {
+                  <cb-amount [valeur]="m.amount" [devise]="m.currency" />
+                } @else { — }
+              </td>
+              <td>{{ duree(d.requestedTermMonths) }}</td>
+              <td class="cb-mono">{{ jour(d.requestedOn) }}</td>
+              <td>
+                <cb-state-badge [etat]="etatDeLaDemande(d.status)"
+                                [mot]="LIBELLE_STATUT_DEMANDE[d.status]" />
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <cb-pagination [position]="'Page ' + (page() + 1)" [taille]="taille()"
+                   (tailleChange)="taille.set($event); charger(0)"
+                   [precedent]="precedent()" [suivant]="suivant()"
+                   (reculer)="charger(page() - 1)" (avancer)="charger(page() + 1)" />
+  } @else if (lu() && !chargement()) {
+    <cb-notice nature="information" titre="Aucune demande dans cet état">
+      <p>
+        Rien n'attend ici. Changez de filtre pour voir les autres états, ou déposez
+        une nouvelle demande.
+      </p>
+      <p class="suite">
+        <button type="button" cbButton="primaire" (click)="nouvelle()">Nouvelle demande</button>
+      </p>
+    </cb-notice>
+  }
+</div>

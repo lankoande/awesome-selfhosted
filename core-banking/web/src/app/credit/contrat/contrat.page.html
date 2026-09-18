@@ -1,0 +1,252 @@
+@if (contrat(); as c) {
+  <header class="entete">
+    <div class="qui">
+      <h2>{{ c.reference }}</h2>
+      <p class="sous">
+        {{ c.productCode }} · {{ pourcent(c.tauxAnnuel) }} %
+        @if (c.nombreEcheances) { · {{ c.nombreEcheances }} échéances }
+        @if (c.disbursedOn) { · débloqué le {{ jour(c.disbursedOn) }} }
+      </p>
+    </div>
+    <div class="chiffres">
+      <div class="chiffre">
+        <span class="titre">Exigible</span>
+        @if (exigible(); as m) {
+          <cb-amount [valeur]="m.amount" [devise]="m.currency"
+                     [ton]="c.daysPastDue > 0 ? 'negatif' : 'neutre'" />
+        } @else { <span class="cb-mono">—</span> }
+      </div>
+      <div class="chiffre">
+        <span class="titre">Capital restant</span>
+        @if (capitalRestant(); as m) {
+          <cb-amount [valeur]="m.amount" [devise]="m.currency" />
+        } @else { <span class="cb-mono">—</span> }
+      </div>
+      <div class="chiffre">
+        <span class="titre">Retard</span>
+        <span class="retard cb-mono" [attr.data-gravite]="graviteDuRetard(c.daysPastDue)">
+          @if (c.daysPastDue > 0) { {{ c.daysPastDue }} jours } @else { aucun }
+        </span>
+      </div>
+      <div class="chiffre">
+        <span class="titre">État</span>
+        <cb-state-badge [etat]="etatDuContrat(c.status)" [mot]="LIBELLE_STATUT_CONTRAT[c.status]" />
+      </div>
+    </div>
+  </header>
+}
+
+<div class="corps">
+  <cb-activity class="activite" [enCours]="chargement()" libelle="Lecture du contrat…" />
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" titre="Le socle a refusé" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+    </cb-notice>
+  }
+
+  @if (enAttente(); as operation) {
+    <cb-notice nature="avertissement" titre="Déblocage en attente de validation" [code]="operation">
+      <p>
+        La demande est enregistrée ; <strong>l'argent n'est pas sorti</strong> tant qu'un second
+        regard ne l'a pas approuvée. Ne resaisissez pas.
+      </p>
+    </cb-notice>
+  }
+
+  @if (reglement(); as r) {
+    <cb-notice nature="succes" titre="Règlement imputé">
+      <div class="tableau">
+        <table cbTable>
+          <caption class="cb-visually-hidden">Imputation du règlement</caption>
+          <thead>
+            <tr>
+              <th scope="col">Créance</th>
+              <th scope="col">Échéance</th>
+              <th scope="col" class="nombre">Imputé</th>
+              <th scope="col" class="nombre">Reste dû</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (i of r.imputations; track $index) {
+              <tr>
+                <td>{{ LIBELLE_CREANCE[i.category] }}</td>
+                <td class="cb-mono">{{ i.instalmentNumber ?? '—' }}</td>
+                <td class="nombre">
+                  @if (i.amount; as m) { <cb-amount [valeur]="m.amount" [devise]="m.currency" /> }
+                </td>
+                <td class="nombre">
+                  @if (i.remaining; as m) { <cb-amount [valeur]="m.amount" [devise]="m.currency" /> }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (r.unallocated && r.unallocated.amount !== '0') {
+        <p class="nuance">
+          <strong>Non imputé :</strong>
+          <cb-amount [valeur]="r.unallocated.amount" [devise]="r.unallocated.currency" /> —
+          le versement dépasse ce qui était dû ; le socle le garde en attente d'une échéance.
+        </p>
+      }
+      <p class="nuance">
+        L'ordre d'imputation appartient au socle : frais de recouvrement, pénalités,
+        frais et assurance, intérêts de retard, intérêts, puis capital.
+      </p>
+    </cb-notice>
+  }
+
+  @if (contrat(); as c) {
+    @if (c.status === 'DRAFT') {
+      <cb-notice nature="information" titre="Le contrat n'est pas débloqué">
+        <p>
+          Le contrat existe, l'échéancier n'est pas encore arrêté et le client n'a rien reçu.
+          <strong>Le déblocage passe par un second regard</strong> : c'est l'acte qui fait
+          sortir l'argent.
+        </p>
+        <p class="suite">
+          <button type="button" cbButton="primaire" (click)="ouvrirVolet('deblocage')">
+            Débloquer les fonds
+          </button>
+        </p>
+      </cb-notice>
+    }
+
+    @if (c.status === 'ACTIVE') {
+      <cb-toolbar>
+        <cb-tabs [onglets]="onglets" [(actif)]="onglet" etiquette="Vue du contrat" />
+        <button fin type="button" cbButton="primaire" (click)="ouvrirVolet('reglement')">
+          Enregistrer un règlement
+        </button>
+      </cb-toolbar>
+    }
+
+    @if (onglet() === 'du' && c.status !== 'DRAFT') {
+      <cb-section titre="Créances exigibles"
+                  indication="ce qui est dû aujourd'hui, dans l'ordre où un règlement s'impute">
+        @if (creancesExigibles().length > 0) {
+          <div class="tableau">
+            <table cbTable>
+              <caption class="cb-visually-hidden">Créances exigibles</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Nature</th>
+                  <th scope="col">Échéance n°</th>
+                  <th scope="col">Due le</th>
+                  <th scope="col" class="nombre">Reste dû</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (cr of creancesExigibles(); track cr.id) {
+                  <tr>
+                    <td class="nature">{{ LIBELLE_CREANCE[cr.category] }}</td>
+                    <td class="cb-mono">{{ cr.instalmentNumber ?? '—' }}</td>
+                    <td class="cb-mono">{{ jour(cr.dueDate) }}</td>
+                    <td class="nombre">
+                      @if (cr.outstanding; as m) {
+                        <cb-amount [valeur]="m.amount" [devise]="m.currency" />
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="vide">Rien n'est exigible aujourd'hui : le contrat est à jour.</p>
+        }
+      </cb-section>
+    }
+
+    @if (onglet() === 'echeancier' && c.echeancier.length > 0) {
+      <cb-section titre="Échéancier"
+                  [indication]="c.nombreEcheances + ' échéances · ' + (c.methode ?? '')">
+        <div class="tableau">
+          <table cbTable>
+            <caption class="cb-visually-hidden">Tableau d'amortissement</caption>
+            <thead>
+              <tr>
+                <th scope="col">N°</th>
+                <th scope="col">Due le</th>
+                <th scope="col" class="nombre">Capital</th>
+                <th scope="col" class="nombre">Intérêts</th>
+                <th scope="col" class="nombre">Assurance</th>
+                <th scope="col" class="nombre">Taxe</th>
+                <th scope="col" class="nombre">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (e of c.echeancier; track e.number) {
+                <tr>
+                  <td class="cb-mono">{{ e.number }}</td>
+                  <td class="cb-mono">{{ jour(e.dueDate) }}</td>
+                  <td class="nombre">
+                    @if (e.principal; as m) { <cb-amount [valeur]="m.amount" /> }</td>
+                  <td class="nombre">
+                    @if (e.interest; as m) { <cb-amount [valeur]="m.amount" /> }</td>
+                  <td class="nombre">
+                    @if (e.insurance; as m) { <cb-amount [valeur]="m.amount" /> }</td>
+                  <td class="nombre">
+                    @if (e.tax; as m) { <cb-amount [valeur]="m.amount" /> }</td>
+                  <td class="nombre total">
+                    @if (e.total; as m) { <cb-amount [valeur]="m.amount" [devise]="m.currency" /> }</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </cb-section>
+    }
+
+    <!-- Volets de saisie, en place -->
+    @if (volet() === 'deblocage') {
+      <cb-section titre="Débloquer les fonds"
+                  indication="l'argent sort : un second regard l'approuve">
+        <cb-notice nature="information" titre="Le déblocage passe par un second regard">
+          <p>
+            La demande sera enregistrée puis soumise à validation :
+            <strong>rien ne sort à l'envoi</strong>. L'échéancier sera arrêté à l'approbation.
+          </p>
+        </cb-notice>
+        <p class="suite">
+          <button type="button" cbButton="primaire" [disabled]="envoi() || !peutDebloquer()"
+                  (click)="debloquer()">Soumettre le déblocage</button>
+          <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+        </p>
+      </cb-section>
+    }
+
+    @if (volet() === 'reglement') {
+      <cb-section titre="Enregistrer un règlement"
+                  indication="le socle impute ; l'écran montre où l'argent est allé">
+        <div class="saisie">
+          <cb-field etiquette="Montant reçu" pour="montant-reglement" requis
+                    [aide]="'En ' + c.currency + '. Le socle impute dans son ordre.'">
+            <cb-amount-input champId="montant-reglement" [(valeur)]="montant"
+                             [devise]="c.currency" />
+          </cb-field>
+        </div>
+        @if (exigible(); as m) {
+          <p class="nuance">
+            Exigible aujourd'hui :
+            <cb-amount [valeur]="m.amount" [devise]="m.currency" />.
+            Un versement supérieur reste en attente d'une échéance ; il ne rembourse pas
+            le capital par anticipation — cela se demande séparément.
+          </p>
+        }
+        <p class="suite">
+          <button type="button" cbButton="primaire"
+                  [disabled]="envoi() || (montant() ?? 0) <= 0 || !peutRegler()"
+                  (click)="regler()">Enregistrer le règlement</button>
+          <button type="button" cbButton="discret" (click)="fermerVolet()">Annuler</button>
+        </p>
+      </cb-section>
+    }
+  }
+
+  <p class="retour">
+    <button type="button" cbButton="discret" (click)="auPortefeuille()">← Revenir au portefeuille</button>
+  </p>
+</div>

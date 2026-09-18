@@ -1,0 +1,103 @@
+<div class="corps">
+  <cb-toolbar>
+    <h2>Nouvelle demande de crédit</h2>
+    <cb-state-badge [etat]="etat()" />
+    <cb-kbd fin>Ctrl + Entrée</cb-kbd>
+  </cb-toolbar>
+
+  @if (phase() === 'refuse' && refus(); as r) {
+    <cb-notice nature="refus" titre="Dépôt refusé" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+      @if (issueIncertaine()) {
+        <p class="incertain">
+          <strong>La demande a peut-être été créée.</strong> Cette route ne reconnaît pas
+          de clé d'idempotence : renvoyer maintenant ouvrirait deux dossiers pour le même
+          client, que deux instructeurs traiteraient en parallèle. Cherchez d'abord.
+        </p>
+      }
+      <p class="suite">
+        @if (issueIncertaine()) {
+          <button type="button" cbButton="primaire" (click)="auxDemandes()">
+            Voir les demandes
+          </button>
+        } @else {
+          <button type="button" cbButton="secondaire" (click)="phase.set('saisie')">
+            Reprendre la saisie
+          </button>
+        }
+      </p>
+    </cb-notice>
+  }
+
+  @if (phase() === 'deposee' && deposee()) {
+    <cb-notice nature="succes" titre="Demande déposée">
+      <p>
+        La demande est au dossier. <strong>Rien n'est accordé</strong> : il reste à verser
+        une analyse, à poser les conditions, puis à décider — et la décision passe par un
+        second regard.
+      </p>
+      <p class="suite">
+        <button type="button" cbButton="primaire" (click)="auDossier()">Ouvrir le dossier</button>
+        <button type="button" cbButton="secondaire" (click)="encore()">Déposer une autre demande</button>
+      </p>
+    </cb-notice>
+  }
+
+  @if (phase() !== 'deposee') {
+    <cb-section titre="Ce que le client demande"
+                indication="l'analyse et la décision viennent ensuite, dans le dossier">
+      <div class="saisie">
+        <cb-field etiquette="Client" pour="client" requis
+                  aide="L'identifiant du tiers au référentiel.">
+          <input cbInput id="client" name="client" autocomplete="off" [value]="client()"
+                 (input)="client.set($any($event.target).value); commence.set(true)" />
+        </cb-field>
+
+        <cb-field etiquette="Produit" pour="produit" requis
+                  aide="Le code du produit de crédit.">
+          <input cbInput id="produit" name="produit" autocomplete="off" [value]="produit()"
+                 placeholder="CRED-CONSO"
+                 (input)="produit.set($any($event.target).value); commence.set(true)" />
+        </cb-field>
+
+        <cb-field etiquette="Montant demandé" pour="montant" requis>
+          <cb-amount-input champId="montant" [(valeur)]="montant" devise="XOF" />
+        </cb-field>
+
+        <cb-field etiquette="Durée" pour="duree" requis aide="En mois.">
+          <input cbInput id="duree" name="duree" inputmode="numeric" autocomplete="off"
+                 class="etroit" [value]="duree()"
+                 (input)="duree.set($any($event.target).value); commence.set(true)" />
+        </cb-field>
+
+        <cb-field etiquette="Objet du crédit" pour="objet" requis class="large"
+                  aide="Ce à quoi l'argent sert : il commande le produit et les garanties.">
+          <input cbInput id="objet" name="objet" autocomplete="off" [value]="objet()"
+                 (input)="objet.set($any($event.target).value); commence.set(true)" />
+        </cb-field>
+
+        <cb-field etiquette="Référence interne" pour="reference" class="large"
+                  aide="Facultative. Laissée vide, le socle la compose.">
+          <input cbInput id="reference" name="reference" autocomplete="off" [value]="reference()"
+                 (input)="reference.set($any($event.target).value)" />
+        </cb-field>
+      </div>
+
+      <div class="actions">
+        <button type="button" cbButton="primaire" [disabled]="!peutEnvoyer()" (click)="envoyer()">
+          Déposer la demande
+        </button>
+        <button type="button" cbButton="discret" (click)="auxDemandes()">Annuler</button>
+      </div>
+
+      @if (commence()) {
+        @for (manque of manques(); track manque) {
+          <p class="manque">{{ manque }}</p>
+        }
+      }
+    </cb-section>
+  }
+
+  <cb-activity class="activite" [enCours]="phase() === 'envoi'" libelle="Envoi au socle…" />
+</div>

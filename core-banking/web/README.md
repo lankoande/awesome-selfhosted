@@ -44,6 +44,7 @@ src/app/ui/     le jeu fermé de primitives + son registre
 src/app/atelier/ la page atelier, vivante, servie par l'application elle-même
 src/app/guichet/ le guichet : modèle, port, implémentations, écrans
 src/app/clients/ le référentiel client : recherche, dossier, création, ouverture de compte
+src/app/credit/  le crédit : demandes, dossier d'instruction, portefeuille, contrat
 src/app/validation/ la double validation : le second regard
 src/app/caisse/  la caisse du guichetier et son arrêté
 src/app/siege/   exploitation comptable et restitutions
@@ -65,6 +66,13 @@ compte bloqué, réseau tombé.
 **Le port n'expose aucun calcul de frais, de taxe ou de date de valeur.** Ce sont
 des paramètres du socle ; les recopier ici garantirait la divergence.
 
+### Une convention d'apostrophe
+
+L'apostrophe droite `'` dans le texte ; l'apostrophe typographique `’`
+uniquement **dans les expressions Angular entre apostrophes droites**, où une
+apostrophe droite fermerait la chaîne. Ce n'est pas une incohérence à corriger,
+c'est la seule forme qui compile.
+
 ### Le référentiel client : ce qu'il annonce sans le tenir
 
 `clients.port.ts` suit la même forme. Deux règles méritent d'être connues avant
@@ -77,6 +85,19 @@ d'y toucher :
   contrat ne déclare que `202` et le contrôleur du socle répond `ACCEPTED` sans
   condition. `IssueOuverture` n'a donc qu'une forme : l'identifiant de
   l'opération en attente.
+
+### Le crédit : ce que le socle décide
+
+`credit.port.ts` expose le cycle complet : déposer, analyser, poser et lever
+des conditions, décider, contractualiser, débloquer, régler. Trois règles :
+
+- **la décision d'octroi et le déblocage passent par un second regard** (202).
+  Celui qui instruit ne décide pas seul, et l'argent ne sort pas sans un
+  deuxième porteur ;
+- **une condition suspensive bloque la contractualisation, une résolutoire
+  non.** `obstaclesALaContractualisation()` ne retient que les premières ;
+- **l'imputation d'un règlement appartient au socle.** Le front ne calcule
+  jamais à quoi va un paiement : il affiche ce que le socle a imputé.
 
 **Ces deux routes n'honorent pas de clé d'idempotence** — ni le contrat ni la
 signature des contrôleurs ne la déclarent. Les écrans ne proposent donc aucun

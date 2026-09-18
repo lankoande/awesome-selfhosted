@@ -1,0 +1,32 @@
+:host { display: block; }
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+
+.alerte { color: var(--cb-pending); font-size: var(--cb-fs-sm); font-weight: 600; }
+.activite { display: block; }
+.tableau { overflow-x: auto; }
+.nombre { text-align: right; }
+.suite { margin-top: var(--cb-space-3); }
+
+/* Le retard se lit par sa gravité. La couleur ne porte pas l'information seule :
+   le nombre de jours est écrit, et la colonne est triée dessus. */
+.retard { font-variant-numeric: tabular-nums; }
+.retard[data-gravite='surveille'] { color: var(--cb-pending); font-weight: 600; }
+.retard[data-gravite='douteux'] { color: var(--cb-blocked); font-weight: 600; }
+.retard[data-gravite='compromis'] { color: var(--cb-rejected); font-weight: 700; }
+
+.ligne { cursor: pointer; }
+.ligne:hover td { background: var(--cb-panel); }
+.ligne:focus-visible { outline: 2px solid var(--cb-accent); outline-offset: -2px; }
+
+
+@media (max-width: 1023px) {
+  .tableau th:nth-child(2), .tableau td:nth-child(2),
+  .tableau th:nth-child(5), .tableau td:nth-child(5) { display: none; }
+}

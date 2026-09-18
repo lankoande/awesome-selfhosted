@@ -1,0 +1,63 @@
+:host { display: block; }
+
+.entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter);
+  background: var(--cb-panel);
+  border-bottom: var(--cb-border) solid var(--cb-rule);
+}
+.entete h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+.sous { margin-top: 2px; color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+
+.chiffres { display: flex; gap: var(--cb-space-5); flex-wrap: wrap; }
+.chiffre { display: flex; flex-direction: column; gap: var(--cb-space-1); align-items: flex-end; }
+.chiffre .titre {
+  font-size: var(--cb-fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cb-muted);
+}
+
+.retard[data-gravite='surveille'] { color: var(--cb-pending); font-weight: 600; }
+.retard[data-gravite='douteux'] { color: var(--cb-blocked); font-weight: 600; }
+.retard[data-gravite='compromis'] { color: var(--cb-rejected); font-weight: 700; }
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+.activite { display: block; }
+
+.tableau { overflow-x: auto; }
+.nombre { text-align: right; }
+.nature { font-weight: 600; }
+.total { font-weight: 600; }
+.vide { color: var(--cb-muted); }
+.nuance { margin-top: var(--cb-space-3); color: var(--cb-ink-2); }
+.suite { margin-top: var(--cb-space-3); display: flex; gap: var(--cb-space-2); flex-wrap: wrap; }
+
+.saisie {
+  display: grid;
+  grid-template-columns: minmax(0, 18rem);
+  gap: var(--cb-space-4);
+  margin-top: var(--cb-space-2);
+}
+
+.retour { margin-top: var(--cb-space-2); }
+
+@media (max-width: 1023px) {
+  /* Assurance et taxe sautent : le total et le capital portent la lecture. */
+  .tableau th:nth-child(5), .tableau td:nth-child(5),
+  .tableau th:nth-child(6), .tableau td:nth-child(6) { display: none; }
+}
+
+@media (max-width: 767px) {
+  .chiffres { gap: var(--cb-space-3); }
+  .chiffre { align-items: flex-start; }
+}

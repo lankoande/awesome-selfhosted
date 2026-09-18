@@ -1,0 +1,40 @@
+:host { display: block; }
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+  max-width: 64rem;
+}
+h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+
+.saisie {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 17rem));
+  gap: var(--cb-space-4);
+  align-items: start;
+}
+.saisie .large { grid-column: 1 / -1; max-width: 36rem; }
+.etroit { max-width: 8rem; }
+
+.actions { display: flex; gap: var(--cb-space-2); margin-top: var(--cb-space-4); }
+.manque { margin-top: var(--cb-space-2); color: var(--cb-rejected); font-size: var(--cb-fs-sm); }
+.suite { margin-top: var(--cb-space-3); display: flex; gap: var(--cb-space-2); flex-wrap: wrap; }
+.activite { display: block; }
+
+/* L'issue incertaine se détache du refus : ce n'est pas le socle qui parle,
+   c'est le poste qui avertit qu'il ne sait pas. */
+.incertain {
+  margin-top: var(--cb-space-3);
+  padding: var(--cb-space-2) var(--cb-space-3);
+  border-left: 3px solid var(--cb-pending);
+  background: var(--cb-pending-soft);
+  color: var(--cb-ink-2);
+  font-size: var(--cb-fs-sm);
+}
+
+@media (max-width: 767px) {
+  .saisie { grid-template-columns: 1fr; }
+  cb-kbd { display: none; }
+}

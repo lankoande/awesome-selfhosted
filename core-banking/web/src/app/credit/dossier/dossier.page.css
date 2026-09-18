@@ -1,0 +1,112 @@
+:host { display: block; }
+
+/* L'identité du dossier tient la largeur : elle est le contexte de tout
+   ce qui suit, et disparaît si elle défile avec le reste. */
+.entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter);
+  background: var(--cb-panel);
+  border-bottom: var(--cb-border) solid var(--cb-rule);
+}
+.entete h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+.sous { margin-top: 2px; color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+
+.chiffres { display: flex; gap: var(--cb-space-5); flex-wrap: wrap; }
+.chiffre { display: flex; flex-direction: column; gap: var(--cb-space-1); align-items: flex-end; }
+.chiffre .titre {
+  font-size: var(--cb-fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cb-muted);
+}
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+.activite { display: block; }
+
+/* Le ratio est le chiffre qu'on vient chercher : il se lit de loin, et change
+   de ton quand la grille est dépassée. La couleur ne porte pas l'information
+   seule — les dépassements sont écrits juste dessous. */
+.ratio { display: flex; align-items: baseline; gap: var(--cb-space-3); }
+.ratio-valeur { font-size: 2rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ratio-titre { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+.ratio[data-depasse='true'] .ratio-valeur { color: var(--cb-pending); }
+
+.faits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--cb-space-3) var(--cb-space-4);
+  margin-top: var(--cb-space-3);
+}
+.faits dt {
+  font-size: var(--cb-fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cb-muted);
+}
+.faits dd { margin-top: 2px; }
+
+.liste { margin: var(--cb-space-2) 0 0; padding-left: var(--cb-space-4); }
+.liste li { margin: 2px 0; }
+.nuance { margin-top: var(--cb-space-3); color: var(--cb-ink-2); }
+.vide { color: var(--cb-muted); }
+.rappel { font-weight: 600; }
+.motif { margin-top: var(--cb-space-3); }
+.derogation { margin-top: var(--cb-space-2); color: var(--cb-pending); }
+.suite { margin-top: var(--cb-space-3); display: flex; gap: var(--cb-space-2); flex-wrap: wrap; }
+
+.decision { display: flex; align-items: center; gap: var(--cb-space-3); }
+.decision .date { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+
+.tableau { overflow-x: auto; }
+.description { font-weight: 600; }
+.preuve { color: var(--cb-ink-2); }
+.action { text-align: right; }
+/* Une condition levée reste lisible mais cesse de revendiquer l'attention. */
+.levee td { color: var(--cb-muted); }
+
+.saisie {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 18rem));
+  gap: var(--cb-space-4);
+  align-items: start;
+  margin-top: var(--cb-space-2);
+}
+.saisie .large { grid-column: 1 / -1; }
+.etroit { max-width: 8rem; }
+
+.histoire { list-style: none; display: flex; flex-direction: column; gap: var(--cb-space-2); }
+.histoire li { display: flex; gap: var(--cb-space-3); }
+.histoire .quand { color: var(--cb-muted); flex: 0 0 6.5rem; }
+
+/* Un lien au fil d'une phrase. Il garde l'allure d'un lien mais tient la
+   cible tactile minimale : sous 24 px, il se rate au doigt. */
+.lien {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--cb-accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.retour { margin-top: var(--cb-space-2); }
+
+@media (max-width: 767px) {
+  .chiffres { gap: var(--cb-space-3); }
+  .chiffre { align-items: flex-start; }
+  .saisie { grid-template-columns: 1fr; }
+  .histoire li { flex-direction: column; gap: 0; }
+}
