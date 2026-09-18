@@ -285,6 +285,66 @@ différents de l'original — et l'arrêté devient invérifiable.
 > durée et de montant, taux servi à qui ne tient pas la durée, comptes d'imputation. Le barème
 > peut changer le lendemain sans toucher un contrat déjà signé.
 
+### Le cycle de vie d'une version
+
+Une version se **rédige** (brouillon), s'**active** à deux, puis sa validité se **ferme** — elle ne
+se retire jamais. C'est le cycle entier, et chaque transition a sa raison.
+
+| Acte | Qui | Ce qui se passe |
+|---|---|---|
+| Rédiger | un seul | La version est `DRAFT`. Elle a le droit d'être **incomplète** : rien ne la résout. |
+| Retirer un brouillon | un seul | `WITHDRAWN`. Il reste lisible : ce qui a été saisi une fois explique pourquoi une version attendue n'existe pas. |
+| Activer | **à deux** | Le socle confronte d'abord le paramétrage à sa famille. Le rédacteur ne valide pas sa propre version — la base le refuse aussi. |
+| Fermer la validité | **à deux** | `valid_to` est posé. La version reste `ACTIVE` : les journées qu'elle couvre se rejouent à l'identique. |
+
+**Une version en vigueur ne se retire pas.** `resolveAt` n'accepte qu'une version `ACTIVE`, et
+tout compte rattaché résout son paramétrage à **chaque date de valeur traitée**, y compris passée.
+La sortir de l'état actif ferait échouer l'arrêté de tous les comptes qui la citent, et rendrait
+irrejouable tout ce qu'elle a produit. Les statuts `SUSPENDED` et `WITHDRAWN` déclarés par la
+table ne s'appliquent donc qu'aux brouillons.
+
+**Une fermeture ne peut pas porter sur une date déjà arrêtée.** La borne est la **date comptable
+de l'entité**, pas le jour civil : fermer avant elle changerait ce qu'un arrêté déjà produit
+résoudrait au rejeu, donc les montants. C'est la règle qui fonde tout le paramétrage daté.
+
+**La fermeture n'est pas un confort, c'est ce qui rend le versionnement possible.** La contrainte
+d'exclusion refuse deux validités actives qui se chevauchent sur un même code. Une version active
+**sans terme** interdit donc d'en activer une autre : sans fermeture, un produit ouvert sans date
+de fin ne pouvait plus jamais changer de paramétrage. C'était un blocage dur, et il était invisible
+tant que personne n'essayait la deuxième version.
+
+### Ce que le contrat publie
+
+| Route | Ce qu'elle rend |
+|---|---|
+| `GET /products?on=` | Ce qui est **ouvrable** à une date : une ligne par code, la version en vigueur. C'est ce que lit le guichet. |
+| `GET /products/families` | Le **contrat de paramétrage** lui-même : ce que chaque famille exige, admet, et ce qu'un paramètre rend obligatoire. |
+| `GET /products/versions` | Toutes les versions, **brouillons compris**, filtrées par code et par état. |
+| `GET /products/versions/{id}` | Une version en entier : en-tête, paramètres, barèmes. |
+| `POST /products` | Rédige un brouillon. |
+| `POST /products/{id}/activation` | Active, **à deux**. |
+| `POST /products/versions/{id}/closure` | Ferme la validité, **à deux**. |
+| `POST /products/versions/{id}/withdrawal` | Retire un brouillon. |
+
+Les trois lectures du milieu ont été ajoutées pour rendre un écran de paramétrage possible. Sans
+elles, on rédigeait une version sans pouvoir la retrouver — son identifiant n'existait que dans la
+réponse du `POST`, perdu au rechargement de la page —, on lisait le catalogue sans pouvoir relire
+un taux, et on ignorait ce qu'une famille exige.
+
+**`GET /products/families` mérite une note.** Le socle sert sa propre déclaration
+(`families.json`) plutôt que de la laisser recopier par les postes. Un écran de paramétrage
+construit sa saisie à partir de là : champ par champ, condition par condition. Deux copies d'un
+même contrat divergent, et l'écran finirait par proposer un paramètre que l'activation refuse, ou
+par taire celui qu'elle exige.
+
+### Les barèmes par tranches portent un discriminant
+
+Une version porte plusieurs barèmes : celui des **intérêts** (`INTEREST`) et un par **commission**
+calculée par tranches (`FEE:<code>`). La rédaction ne savait créer que le premier ; une commission
+`TIERED_ON_CLOSING_BALANCE` était donc déclarée par la famille et impossible à paramétrer — le
+socle exigeait à l'activation un barème que son API ne savait pas écrire. `POST /products` accepte
+désormais `feeTiers`, un barème par code de commission.
+
 ---
 
 ## 5. Schémas comptables

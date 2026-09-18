@@ -1,9 +1,10 @@
 # 8. L'espace siège — exploitation, balance et paramétrage
 
-Quatre écrans, réservés aux profils d'exploitation comptable. Deux servent tous les jours :
-**Fin de journée** (le traitement de clôture) et **Balance générale**. Deux servent au
-paramétrage de l'établissement : **Établissement** — la fiche de la banque — et **Numérotation** —
-comment se composent les numéros de clients et de comptes.
+Cinq écrans, réservés aux profils d'exploitation comptable et de paramétrage. Deux servent tous
+les jours : **Fin de journée** (le traitement de clôture) et **Balance générale**. Trois servent
+au paramétrage : **Établissement** — la fiche de la banque —, **Produits** — ce que la banque vend
+et à quelles conditions — et **Numérotation** — comment se composent les numéros de clients et de
+comptes.
 
 L'ordre de la barre suit cet usage : ce qui se touche tous les jours vient devant.
 
@@ -202,3 +203,90 @@ Un bandeau le dit, et nomme les domaines concernés. **Rien n'est posé d'office
 établissement** : c'est la banque qui choisit son plan de numérotation. Tant qu'elle ne l'a pas
 choisi, le numéro doit être fourni à chaque fois — et le système central refuse de composer,
 plutôt que d'inventer une forme dont personne n'aura décidé.
+
+
+---
+
+## Les produits
+
+![Le catalogue des versions, et le paramétrage d'une version relu en clair.](captures/08-produits.png)
+
+C'est ici que se décide ce que la banque vend : les taux, les frais, les plafonds, les comptes sur
+lesquels tout cela s'impute. Rien de ce qui est fait ici n'est anodin — un paramétrage produit des
+montants sur les comptes de tous les clients qui citent le produit.
+
+### Un produit ne s'édite pas : il se versionne
+
+Chaque version porte sa **période de validité**, et tout compte rattaché résout la sienne à
+**chaque date de valeur traitée**. C'est ce qui permet de rejouer un arrêté de l'an dernier et
+d'obtenir exactement les mêmes montants.
+
+Conséquence directe : **on ne corrige pas un taux**, on rédige une nouvelle version qui prend effet
+à une date. L'ancienne reste, et c'est elle qui explique les intérêts déjà versés.
+
+| État | Ce que cela veut dire |
+|---|---|
+| **Brouillon** | Rédigée, jamais activée. Aucun compte ne la cite, aucun arrêté ne la résout. |
+| **À venir** | Activée, mais sa période n'a pas commencé. |
+| **En vigueur** | Elle s'applique aujourd'hui. |
+| **Échue** | Sa période est close. Elle ne s'applique plus, et reste au dossier — un arrêté de cette période la résout encore. |
+| **Retirée** | Un brouillon abandonné. |
+
+### Rédiger une version
+
+![La rédaction : les champs viennent de la famille, pas de l'écran.](captures/08-produits-redaction.png)
+
+*Nouvelle version*, puis le code, la **famille**, l'intitulé, la devise et la date d'entrée en
+vigueur.
+
+> **La famille décide de tout le reste.** Compte courant, compte d'épargne, dépôt à terme, crédit
+> amortissable : chacune déclare ce qu'un produit de son espèce doit porter. Les champs affichés
+> sous le formulaire sont **les siens** — l'écran ne les invente pas, il les demande au système.
+
+Les champs changent à mesure que vous saisissez :
+
+- renseigner un **taux d'agios** rend obligatoires les comptes d'imputation et l'arrêté — l'écran
+  vous dit pourquoi : *« des agios sans comptes d'imputation échoueraient à la première journée
+  débitrice »* ;
+- déclarer une commission dans `fee.codes` **ouvre son bloc** de champs : compte de produit,
+  montant ou taux, périodicité, taxe.
+
+Les **comptes d'imputation** ne se tapent pas : ils se cherchent dans le plan comptable, par leur
+numéro. Ce qui a été retenu s'affiche en clair — `602100 · débit · résultat` — parce qu'un compte
+de produits retenu là où il fallait un compte de charges ne se verrait jamais sur un identifiant.
+
+> **Un brouillon a le droit d'être incomplet.** Ce qui manquera à l'activation est listé au bas du
+> formulaire, et n'empêche pas d'enregistrer. Autant le voir maintenant : ce sont exactement les
+> lignes que le système opposera le jour de l'activation.
+
+**Repartir d'une version existante** copie tout son paramétrage — sauf sa date d'entrée en vigueur,
+qui ne se copie jamais. C'est le geste courant : une nouvelle version change deux lignes sur
+quarante, et tout ressaisir est la meilleure façon d'introduire une faute là où il n'y en avait
+pas.
+
+### Activer
+
+**À deux.** Et le système confronte d'abord le paramétrage à sa famille : ce qui manque est refusé
+ici, devant vous, plutôt que la nuit sur une étape bloquante de l'arrêté.
+
+Le rédacteur ne valide pas sa propre version. Ce n'est pas un réglage : la base elle-même le
+refuse.
+
+### Fermer une validité
+
+**Un produit ne se retire pas : sa validité se ferme.** Les comptes déjà rattachés continuent de
+résoudre ce paramétrage pour les journées qu'il couvre — rien de ce qui a été produit ne change.
+
+> **C'est aussi ce qui débloque la suite.** Deux versions en vigueur ne peuvent pas se chevaucher.
+> Tant qu'une version reste **sans terme**, aucune autre version de ce produit ne peut être
+> activée. L'écran le signale sur la ligne concernée. Pour changer un paramétrage, fermez d'abord
+> la version en cours.
+
+La fermeture se demande **à deux**, et sa date ne peut pas être antérieure à la **date comptable de
+la banque** : fermer une journée déjà arrêtée changerait ce qu'un rejeu résoudrait, donc les
+montants.
+
+### Retirer un brouillon
+
+Seul acte du paramétrage produit qui ne se fasse pas à deux : un brouillon n'engage rien. Il n'est
+pas supprimé pour autant — il passe en *Retirée*, et reste lisible.

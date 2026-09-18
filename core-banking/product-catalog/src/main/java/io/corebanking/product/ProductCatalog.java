@@ -13,6 +13,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -55,6 +56,9 @@ public final class ProductCatalog {
     public static final String P_OD_TAX_RATE       = "overdraft.tax_rate";
     public static final String P_OD_TAX_ACCOUNT    = "overdraft.tax_account";
 
+    /** Discriminant du bareme des interets ; les commissions portent {@code FEE:<code>}. */
+    public static final String PURPOSE_INTEREST = "INTEREST";
+
     private ProductCatalog() {}
 
     /**
@@ -72,7 +76,21 @@ public final class ProductCatalog {
         LocalDate validTo,
         Map<String, String> parameters,
         List<Tier> tiers,
-        UUID createdBy) {}
+        Map<String, List<Tier>> feeTiers,
+        UUID createdBy) {
+
+        public Draft {
+            feeTiers = feeTiers == null ? Map.of() : Map.copyOf(feeTiers);
+        }
+
+        /** Une version sans bareme de commission : le cas courant. */
+        public Draft(UUID legalEntityId, String code, String productType, String label,
+                     String currency, LocalDate validFrom, LocalDate validTo,
+                     Map<String, String> parameters, List<Tier> tiers, UUID createdBy) {
+            this(legalEntityId, code, productType, label, currency, validFrom, validTo,
+                 parameters, tiers, Map.of(), createdBy);
+        }
+    }
 
     // ------------------------------------------------------------------ ecriture
 
@@ -105,7 +123,10 @@ public final class ProductCatalog {
         }
 
         insertParameters(c, id, draft.parameters());
-        insertTiers(c, id, draft.tiers());
+        insertTiers(c, id, PURPOSE_INTEREST, draft.tiers());
+        for (Map.Entry<String, List<Tier>> schedule : draft.feeTiers().entrySet()) {
+            insertTiers(c, id, schedule.getKey(), schedule.getValue());
+        }
         audit(c, id, "CREATE", draft.createdBy(),
               draft.code() + " du " + draft.validFrom()
               + (draft.validTo() == null ? " sans terme" : " au " + draft.validTo()));
@@ -304,7 +325,8 @@ public final class ProductCatalog {
         }
     }
 
-    private static void insertTiers(Connection c, UUID versionId, List<Tier> tiers) {
+    private static void insertTiers(Connection c, UUID versionId, String purpose,
+                                    List<Tier> tiers) {
         if (tiers == null || tiers.isEmpty()) {
             return;
         }
@@ -314,19 +336,20 @@ public final class ProductCatalog {
 
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO product_rate_tier(product_version_id, purpose, tier_order, from_amount,"
-            + " to_amount, annual_rate_percent) VALUES (?,'INTEREST',?,?,?,?)")) {
+            + " to_amount, annual_rate_percent) VALUES (?,?,?,?,?,?)")) {
             for (int i = 0; i < tiers.size(); i++) {
                 Tier tier = tiers.get(i);
                 ps.setObject(1, versionId);
-                ps.setInt(2, i);
-                ps.setBigDecimal(3, tier.from());
-                ps.setBigDecimal(4, tier.to());
-                ps.setBigDecimal(5, tier.annualRatePercent());
+                ps.setString(2, purpose);
+                ps.setInt(3, i);
+                ps.setBigDecimal(4, tier.from());
+                ps.setBigDecimal(5, tier.to());
+                ps.setBigDecimal(6, tier.annualRatePercent());
                 ps.addBatch();
             }
             ps.executeBatch();
         } catch (SQLException e) {
-            throw new LedgerStoreException("Insertion du bareme", e);
+            throw new LedgerStoreException("Insertion du bareme " + purpose, e);
         }
     }
 
@@ -509,6 +532,211 @@ public final class ProductCatalog {
     /** En-tete d'une version : ce qu'il faut savoir d'elle avant de decider de son activation. */
     public record VersionHeader(UUID id, UUID legalEntityId, String code, String productType,
                                 String status, UUID createdBy) {}
+
+    // ------------------------------------------------------------------ lecture du parametrage
+
+    /**
+     * Une version telle qu'on la parcourt : son en-tete, sans ses parametres.
+     *
+     * <p>Toutes les versions figurent ici, brouillons compris — c'est ce qui distingue cette
+     * lecture de {@link #openable}. L'une sert le guichet, qui ne doit voir que ce qui s'ouvre ;
+     * l'autre sert celui qui parametre, qui doit voir ce qu'il a redige et qui attend un second
+     * regard. Les confondre a longtemps oblige a retrouver l'identifiant d'un brouillon dans la
+     * reponse du POST qui l'avait cree : perdu au rechargement de la page, le brouillon devenait
+     * inactivable.
+     */
+    public record VersionSummary(UUID id, String code, String productType, String label,
+                                 String currency, LocalDate validFrom, LocalDate validTo,
+                                 String status, UUID createdBy, Instant createdAt,
+                                 UUID approvedBy, Instant approvedAt) {}
+
+    /** Les versions d'une entite, filtrees par code et par etat ; les plus recentes d'abord. */
+    public static List<VersionSummary> versions(Connection c, UUID legalEntityId, String code,
+                                                String status) {
+        List<VersionSummary> versions = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, code, product_type, label, currency, valid_from, valid_to, status,"
+            + " created_by, created_at, approved_by, approved_at"
+            + "  FROM product_version"
+            + " WHERE legal_entity_id = ?"
+            + "   AND (?::text IS NULL OR code = ?::text)"
+            + "   AND (?::text IS NULL OR status = ?::text)"
+            + " ORDER BY code, valid_from DESC, created_at DESC")) {
+            ps.setObject(1, legalEntityId);
+            ps.setString(2, code);
+            ps.setString(3, code);
+            ps.setString(4, status);
+            ps.setString(5, status);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    versions.add(summary(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des versions de produit", e);
+        }
+        return List.copyOf(versions);
+    }
+
+    /**
+     * Une version en entier : en-tete, parametres, baremes.
+     *
+     * <p>C'est la lecture qui manquait pour qu'un parametrage soit relisible. Sans elle, un taux
+     * active se verifiait en interrogeant la base, et une nouvelle version se saisissait de
+     * memoire — la faute de frappe se decouvrant au premier arrete qui l'appliquait.
+     */
+    public record Version(VersionSummary header, Map<String, String> parameters,
+                          Map<String, List<Tier>> tiers) {}
+
+    public static Optional<Version> version(Connection c, UUID legalEntityId, UUID versionId) {
+        VersionSummary header;
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, code, product_type, label, currency, valid_from, valid_to, status,"
+            + " created_by, created_at, approved_by, approved_at"
+            + "  FROM product_version WHERE id = ? AND legal_entity_id = ?")) {
+            ps.setObject(1, versionId);
+            ps.setObject(2, legalEntityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return Optional.empty();
+                }
+                header = summary(rs);
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture de la version " + versionId, e);
+        }
+        return Optional.of(new Version(header, loadParameters(c, versionId),
+                                       loadTiersByPurpose(c, versionId)));
+    }
+
+    private static VersionSummary summary(ResultSet rs) throws SQLException {
+        return new VersionSummary(
+            rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3), rs.getString(4),
+            rs.getString(5), rs.getObject(6, LocalDate.class), rs.getObject(7, LocalDate.class),
+            rs.getString(8), rs.getObject(9, UUID.class), instant(rs, 10),
+            rs.getObject(11, UUID.class), instant(rs, 12));
+    }
+
+    private static Instant instant(ResultSet rs, int column) throws SQLException {
+        java.sql.Timestamp stamp = rs.getTimestamp(column);
+        return stamp == null ? null : stamp.toInstant();
+    }
+
+    private static Map<String, List<Tier>> loadTiersByPurpose(Connection c, UUID versionId) {
+        Map<String, List<Tier>> schedules = new LinkedHashMap<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT purpose, from_amount, to_amount, annual_rate_percent FROM product_rate_tier"
+            + " WHERE product_version_id = ? ORDER BY purpose, tier_order")) {
+            ps.setObject(1, versionId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    schedules.computeIfAbsent(rs.getString(1), unused -> new ArrayList<>())
+                        .add(new Tier(rs.getBigDecimal(2), rs.getBigDecimal(3),
+                                      rs.getBigDecimal(4)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des baremes de la version " + versionId, e);
+        }
+        return Map.copyOf(schedules);
+    }
+
+    // ------------------------------------------------------------------ fin de vie
+
+    /**
+     * Ferme la validite d'une version active.
+     *
+     * <h2>Pourquoi un statut ne suffirait pas</h2>
+     *
+     * <p>La table declare {@code SUSPENDED} et {@code WITHDRAWN}, et rien ne les pose. Ce n'est pas
+     * un oubli : {@link #resolveAt} n'accepte qu'une version {@code ACTIVE}, et tout compte
+     * rattache a ce produit resout son parametrage a <b>chaque date de valeur traitee</b>, y
+     * compris passee. Sortir une version de l'etat actif ferait donc echouer l'arrete de tous les
+     * comptes qui la citent, et rendrait irrejouable tout ce qu'elle a produit. Un produit ne se
+     * retire pas : sa validite se ferme.
+     *
+     * <h2>Pourquoi la date ne peut pas etre passee</h2>
+     *
+     * <p>C'est la regle qui fonde le parametrage date : un arrete rejoue doit produire exactement
+     * les memes montants. Fermer une version a une date deja traitee changerait ce qu'un rejeu
+     * resoudrait — donc les montants. La borne est la date comptable de l'entite, et non le jour
+     * civil : c'est elle qui dit ou en est la banque.
+     *
+     * <h2>Ce que la fermeture debloque</h2>
+     *
+     * <p>Une version active sans terme interdit d'en activer une autre pour le meme code — la
+     * contrainte d'exclusion refuse deux validites qui se chevauchent. Sans cette fermeture, un
+     * produit ouvert sans date de fin ne pouvait <b>plus jamais</b> changer de parametrage.
+     */
+    public static void close(Connection c, UUID legalEntityId, UUID versionId, LocalDate validTo,
+                             UUID actorId) {
+        LocalDate businessDate = businessDateOf(c, legalEntityId);
+        if (validTo.isBefore(businessDate)) {
+            throw new IllegalArgumentException(
+                "Fermeture au " + validTo + " alors que la banque en est au " + businessDate
+                + " : un arrete deja produit resoudrait un autre parametrage au rejeu, donc "
+                + "d'autres montants. La fermeture prend effet a la date comptable ou apres.");
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE product_version SET valid_to = ?"
+            + " WHERE id = ? AND legal_entity_id = ? AND status = 'ACTIVE'"
+            + "   AND valid_from <= ? AND (valid_to IS NULL OR valid_to > ?)")) {
+            ps.setObject(1, validTo);
+            ps.setObject(2, versionId);
+            ps.setObject(3, legalEntityId);
+            ps.setObject(4, validTo);
+            ps.setObject(5, validTo);
+            if (ps.executeUpdate() == 0) {
+                throw new IllegalStateException(
+                    "Version " + versionId + " introuvable, non active, ou deja fermee a cette "
+                    + "date ou avant. Une fermeture ne raccourcit pas une validite en deca de son "
+                    + "entree en vigueur.");
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Fermeture de la version " + versionId, e);
+        }
+        audit(c, versionId, "CLOSE", actorId, "validite fermee au " + validTo);
+    }
+
+    /**
+     * Retire un brouillon abandonne.
+     *
+     * <p>Un brouillon n'engage rien : celui qui l'a redige peut le retirer seul. On ne le supprime
+     * pas — ce qui a ete saisi une fois se relit, et un parametrage retire explique pourquoi une
+     * version attendue n'existe pas.
+     */
+    public static void withdrawDraft(Connection c, UUID legalEntityId, UUID versionId,
+                                     UUID actorId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE product_version SET status = 'WITHDRAWN'"
+            + " WHERE id = ? AND legal_entity_id = ? AND status = 'DRAFT'")) {
+            ps.setObject(1, versionId);
+            ps.setObject(2, legalEntityId);
+            if (ps.executeUpdate() == 0) {
+                throw new IllegalStateException(
+                    "Version " + versionId + " introuvable ou deja sortie de l'etat brouillon. "
+                    + "Une version activee ne se retire pas : sa validite se ferme.");
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Retrait du brouillon " + versionId, e);
+        }
+        audit(c, versionId, "WITHDRAW", actorId, null);
+    }
+
+    private static LocalDate businessDateOf(Connection c, UUID legalEntityId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT current_business_date FROM legal_entity WHERE id = ?")) {
+            ps.setObject(1, legalEntityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new LedgerStoreException("Entite inconnue : " + legalEntityId);
+                }
+                return rs.getObject(1, LocalDate.class);
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture de la date comptable de l'entite", e);
+        }
+    }
 
     public static java.util.Optional<VersionHeader> findVersion(Connection c, UUID versionId) {
         try (PreparedStatement ps = c.prepareStatement(

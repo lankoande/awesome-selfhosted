@@ -8,6 +8,10 @@ import {
   NatureSegment, PorteeCompteur, RegleNumerotation, RemiseAZero, Segment, StatutRegle,
 } from './modele/etablissement.modele';
 import { FiltreBalance, LigneBalance, PageBalance, RunTfj, TotauxBalance } from './modele/siege.modele';
+import {
+  BAREME_INTERETS, CompteGeneral, EnteteVersion, FamilleProduit, StatutVersion, Tranche,
+  VersionComplete, VersionProduit,
+} from './modele/produits.modele';
 import { EnAttenteSiege, Siege } from './siege.port';
 
 function texte(valeur: unknown): string | null {
@@ -208,6 +212,182 @@ export class SiegeApi implements Siege {
   }
 
   /** Une action à deux : le socle répond 202 et rend l'opération en attente. */
+  // ------------------------------------------------------------ paramétrage produit
+
+  async familles(legalEntityId: string): Promise<readonly FamilleProduit[]> {
+    const brutes = await this.lire<Record<string, unknown>[]>(
+      this.socle.url('/v1/entities/{legalEntityId}/products/families', { legalEntityId }));
+    return (brutes ?? []).map((brute) => this.famille(brute));
+  }
+
+  async versions(legalEntityId: string, code: string | null,
+                 statut: string | null): Promise<readonly VersionProduit[]> {
+    let parametres = new HttpParams();
+    if (code) {
+      parametres = parametres.set('code', code);
+    }
+    if (statut) {
+      parametres = parametres.set('status', statut);
+    }
+    const brutes = await this.lire<Record<string, unknown>[]>(
+      this.socle.url('/v1/entities/{legalEntityId}/products/versions', { legalEntityId }),
+      parametres);
+    return (brutes ?? []).map((brute) => this.versionDe(brute));
+  }
+
+  async version(legalEntityId: string, versionId: string): Promise<VersionComplete> {
+    const brute = await this.lire<Record<string, unknown>>(this.socle.url(
+      '/v1/entities/{legalEntityId}/products/versions/{versionId}', { legalEntityId, versionId }));
+    const baremes: Record<string, readonly Tranche[]> = {};
+    const bruts = (brute?.['tiers'] ?? {}) as Record<string, unknown>;
+    for (const [discriminant, tranches] of Object.entries(bruts)) {
+      baremes[discriminant] = ((tranches ?? []) as Record<string, unknown>[]).map((t) => ({
+        from: texte(t['from']) ?? '0',
+        to: texte(t['to']),
+        annualRatePercent: texte(t['annualRatePercent']) ?? '0',
+      }));
+    }
+    return {
+      header: this.versionDe((brute?.['header'] ?? {}) as Record<string, unknown>),
+      parameters: (brute?.['parameters'] ?? {}) as Record<string, string>,
+      tiers: baremes,
+    };
+  }
+
+  async redigerVersion(legalEntityId: string, entete: EnteteVersion,
+                       parametres: Readonly<Record<string, string>>,
+                       baremes: Readonly<Record<string, readonly Tranche[]>>,
+                       cleIdempotence: string): Promise<{ readonly id: string }> {
+    const commissions: Record<string, readonly Tranche[]> = {};
+    for (const [discriminant, tranches] of Object.entries(baremes)) {
+      if (discriminant !== BAREME_INTERETS) {
+        commissions[discriminant] = tranches;
+      }
+    }
+    const corps = {
+      code: entete.code,
+      productType: entete.productType,
+      label: entete.label,
+      currency: entete.currency,
+      validFrom: entete.validFrom,
+      validTo: entete.validTo,
+      parameters: parametres,
+      tiers: baremes[BAREME_INTERETS] ?? [],
+      feeTiers: commissions,
+    };
+    const entetes = new HttpHeaders({
+      'Idempotency-Key': cleIdempotence,
+      'X-Request-Id': crypto.randomUUID(),
+    });
+    try {
+      const enveloppe = await firstValueFrom(this.http.post<Enveloppe<{ id?: string }>>(
+        this.socle.url('/v1/entities/{legalEntityId}/products', { legalEntityId }), corps,
+        { headers: entetes }));
+      return { id: texte(enveloppe.data?.id) ?? '' };
+    } catch (erreur) {
+      throw this.refus(erreur);
+    }
+  }
+
+  async activerVersion(legalEntityId: string, versionId: string,
+                       cleIdempotence: string): Promise<EnAttenteSiege> {
+    return this.soumettre(this.socle.url(
+      '/v1/entities/{legalEntityId}/products/{versionId}/activation',
+      { legalEntityId, versionId }), {}, cleIdempotence);
+  }
+
+  async fermerVersion(legalEntityId: string, versionId: string, validTo: string,
+                      cleIdempotence: string): Promise<EnAttenteSiege> {
+    return this.soumettre(this.socle.url(
+      '/v1/entities/{legalEntityId}/products/versions/{versionId}/closure',
+      { legalEntityId, versionId }), { validTo }, cleIdempotence);
+  }
+
+  async retirerVersion(legalEntityId: string, versionId: string): Promise<VersionProduit> {
+    const rendu = await this.poster<Record<string, unknown>>(this.socle.url(
+      '/v1/entities/{legalEntityId}/products/versions/{versionId}/withdrawal',
+      { legalEntityId, versionId }), {});
+    // Le socle rend l'acte, pas la version : l'écran relit la liste derrière.
+    return this.versionDe({ ...rendu, status: 'WITHDRAWN' });
+  }
+
+  async comptesGeneraux(legalEntityId: string, texteCherche: string): Promise<readonly CompteGeneral[]> {
+    const parametres = texteCherche.trim()
+      ? new HttpParams().set('q', texteCherche.trim())
+      : new HttpParams();
+    const brutes = await this.lire<Record<string, unknown>[]>(
+      this.socle.url('/v1/entities/{legalEntityId}/accounts/general', { legalEntityId }),
+      parametres);
+    return (brutes ?? []).map((brut) => ({
+      id: texte(brut['id']) ?? '',
+      code: texte(brut['code']) ?? '',
+      kind: texte(brut['kind']) ?? '',
+      normalBalance: texte(brut['normalBalance']) ?? '',
+      currency: this.deviseDe(brut['currency']),
+      nature: texte(brut['nature']) ?? '',
+      status: texte(brut['status']) ?? '',
+      postable: brut['postable'] !== false,
+    }));
+  }
+
+  private famille(brute: Record<string, unknown>): FamilleProduit {
+    const noms = (valeur: unknown): readonly string[] =>
+      Array.isArray(valeur) ? valeur.map((v) => String(v)) : [];
+    const conditions = (valeur: unknown) =>
+      (Array.isArray(valeur) ? valeur : []).map((c) => {
+        const brut = c as Record<string, unknown>;
+        return {
+          when: texte(brut['when']) ?? '',
+          fallback: texte(brut['fallback']),
+          in: noms(brut['in']),
+          presence: brut['presence'] === true,
+          require: noms(brut['require']),
+          requireTier: texte(brut['requireTier']),
+          because: texte(brut['because']) ?? '',
+        };
+      });
+    return {
+      code: texte(brute['code']) ?? '',
+      label: texte(brute['label']) ?? '',
+      required: noms(brute['required']),
+      optional: noms(brute['optional']),
+      requireOneOf: (Array.isArray(brute['requireOneOf']) ? brute['requireOneOf'] : [])
+        .map((a) => {
+          const brut = a as Record<string, unknown>;
+          return { of: noms(brut['of']), because: texte(brut['because']) ?? '' };
+        }),
+      conditions: conditions(brute['conditions']),
+      groups: (Array.isArray(brute['groups']) ? brute['groups'] : []).map((g) => {
+        const brut = g as Record<string, unknown>;
+        return {
+          listParameter: texte(brut['listParameter']) ?? '',
+          required: noms(brut['required']),
+          optional: noms(brut['optional']),
+          conditions: conditions(brut['conditions']),
+          accounts: noms(brut['accounts']),
+        };
+      }),
+      accounts: noms(brute['accounts']),
+    };
+  }
+
+  private versionDe(brute: Record<string, unknown>): VersionProduit {
+    return {
+      id: texte(brute['id']) ?? '',
+      code: texte(brute['code']) ?? '',
+      productType: texte(brute['productType']) ?? '',
+      label: texte(brute['label']) ?? '',
+      currency: this.deviseDe(brute['currency']),
+      validFrom: texte(brute['validFrom']) ?? '',
+      validTo: texte(brute['validTo']),
+      status: (texte(brute['status']) as StatutVersion | null) ?? 'DRAFT',
+      createdBy: texte(brute['createdBy']),
+      createdAt: texte(brute['createdAt']),
+      approvedBy: texte(brute['approvedBy']),
+      approvedAt: texte(brute['approvedAt']),
+    };
+  }
+
   private async soumettre(url: string, corps: unknown,
                           cleIdempotence: string): Promise<EnAttenteSiege> {
     const entetes = new HttpHeaders({
@@ -235,9 +415,10 @@ export class SiegeApi implements Siege {
     return new HttpHeaders({ 'X-Request-Id': crypto.randomUUID() });
   }
 
-  private async lire<T>(url: string): Promise<T> {
+  private async lire<T>(url: string, parametres?: HttpParams): Promise<T> {
     try {
-      return (await firstValueFrom(this.http.get<Enveloppe<T>>(url, { headers: this.entetes() }))).data;
+      return (await firstValueFrom(this.http.get<Enveloppe<T>>(
+        url, { params: parametres, headers: this.entetes() }))).data;
     } catch (erreur) {
       throw this.refus(erreur);
     }

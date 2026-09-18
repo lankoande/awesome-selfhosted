@@ -95,9 +95,21 @@ public final class Requests {
 
     public record RateTier(String from, String to, String annualRatePercent) {}
 
+    /**
+     * Une version de produit a rediger.
+     *
+     * @param tiers    bareme des interets, quand le produit en porte un
+     * @param feeTiers baremes des commissions calculees par tranches, par code de commission.
+     *                 Sans eux, une commission {@code TIERED_ON_CLOSING_BALANCE} serait declaree
+     *                 par la famille et impossible a parametrer par l'API.
+     */
     public record ProductDraft(String code, String productType, String label, String currency,
                                LocalDate validFrom, LocalDate validTo,
-                               java.util.Map<String, String> parameters, List<RateTier> tiers) {}
+                               java.util.Map<String, String> parameters, List<RateTier> tiers,
+                               java.util.Map<String, List<RateTier>> feeTiers) {}
+
+    /** Fermeture de la validite d'une version de produit. */
+    public record ProductClosure(LocalDate validTo) {}
 
     public record ValueDateRuleRequest(String operationType, String channel, String direction,
                                        Integer offset, String unit, String convention,

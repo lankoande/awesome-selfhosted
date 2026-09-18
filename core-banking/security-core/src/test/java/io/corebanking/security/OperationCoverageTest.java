@@ -35,6 +35,7 @@ class OperationCoverageTest {
         Map.entry("ProductCatalog.assignProduct", Operation.ACCOUNT_PRODUCT_ASSIGN),
         Map.entry("ProductCatalog.createDraft", Operation.PRODUCT_DRAFT),
         Map.entry("ProductCatalog.activate", Operation.PRODUCT_ACTIVATE),
+        Map.entry("ProductCatalog.close", Operation.PRODUCT_CLOSE),
         Map.entry("SchemaCatalog.createDraft", Operation.ACCOUNTING_SCHEMA_DRAFT),
         Map.entry("SchemaCatalog.activate", Operation.ACCOUNTING_SCHEMA_ACTIVATE),
         Map.entry("StatementLayouts.createDraft", Operation.STATEMENT_LAYOUT_DRAFT),
@@ -119,7 +120,8 @@ class OperationCoverageTest {
         Operation.DIRECT_DEBIT_READ, Operation.SUSPENSE_READ, Operation.FX_READ,
         Operation.PARTY_FILE_READ, Operation.STANDING_ORDER_READ, Operation.TERM_DEPOSIT_READ,
         Operation.AML_READ, Operation.REGULATORY_READ, Operation.AUDIT_READ,
-        Operation.PRODUCT_READ, Operation.ESTABLISHMENT_READ, Operation.NUMBERING_READ);
+        Operation.PRODUCT_READ, Operation.ESTABLISHMENT_READ, Operation.NUMBERING_READ,
+        Operation.CHART_OF_ACCOUNTS_READ);
 
     @Test
     @DisplayName("toute operation est reclamee par un point d'entree, ou est une consultation")

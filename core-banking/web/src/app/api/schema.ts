@@ -52,6 +52,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/entities/{legalEntityId}/accounts/general": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["Account.general"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/entities/{legalEntityId}/accounts/{accountId}/balance": {
         parameters: {
             query?: never;
@@ -1876,6 +1892,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/entities/{legalEntityId}/products/families": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["Product.families"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entities/{legalEntityId}/products/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["Product.versions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entities/{legalEntityId}/products/versions/{versionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["Product.version"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entities/{legalEntityId}/products/versions/{versionId}/closure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["Product.close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entities/{legalEntityId}/products/versions/{versionId}/withdrawal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["Product.withdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/entities/{legalEntityId}/products/{versionId}/activation": {
         parameters: {
             query?: never;
@@ -2467,6 +2563,17 @@ export interface components {
             code?: string;
             currency?: string;
             current?: components["schemas"]["Money"];
+            status?: string;
+        };
+        "Accounts.General": {
+            code?: string;
+            currency?: string;
+            /** Format: uuid */
+            id?: string;
+            kind?: string;
+            nature?: string;
+            normalBalance?: string;
+            postable?: boolean;
             status?: string;
         };
         "Accounts.Summary": {
@@ -3550,6 +3657,72 @@ export interface components {
             /** Format: date */
             validTo?: string;
         };
+        "ProductCatalog.Version": {
+            header?: components["schemas"]["ProductCatalog.VersionSummary"];
+            parameters?: {
+                [key: string]: string;
+            };
+            tiers?: {
+                [key: string]: components["schemas"]["Tier"][];
+            };
+        };
+        "ProductCatalog.VersionSummary": {
+            /** Format: date-time */
+            approvedAt?: string;
+            /** Format: uuid */
+            approvedBy?: string;
+            code?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: uuid */
+            createdBy?: string;
+            currency?: string;
+            /** Format: uuid */
+            id?: string;
+            label?: string;
+            productType?: string;
+            status?: string;
+            /** Format: date */
+            validFrom?: string;
+            /** Format: date */
+            validTo?: string;
+        };
+        ProductFamily: {
+            accounts?: string[];
+            code?: string;
+            conditions?: components["schemas"]["ProductFamily.Condition"][];
+            groups?: components["schemas"]["ProductFamily.Group"][];
+            label?: string;
+            optional?: string[];
+            requireOneOf?: components["schemas"]["ProductFamily.OneOf"][];
+            required?: string[];
+        };
+        "ProductFamily.Condition": {
+            because?: string;
+            fallback?: string;
+            in?: string[];
+            presence?: boolean;
+            require?: string[];
+            requireTier?: string;
+            when?: string;
+        };
+        "ProductFamily.Group": {
+            accounts?: string[];
+            conditions?: components["schemas"]["ProductFamily.Condition"][];
+            listParameter?: string;
+            optional?: string[];
+            required?: string[];
+        };
+        "ProductFamily.OneOf": {
+            because?: string;
+            of?: string[];
+        };
+        "ProductUseCases.Activation": {
+            code?: string;
+            status?: string;
+            /** Format: uuid */
+            versionId?: string;
+        };
         Receivable: {
             /** @enum {string} */
             category?: "RECOVERY_FEES" | "PENALTIES" | "FEES_AND_INSURANCE" | "LATE_INTEREST" | "INTEREST" | "PRINCIPAL" | "FUTURE_PRINCIPAL";
@@ -4175,9 +4348,16 @@ export interface components {
             reference?: string;
             type?: string;
         };
+        "Requests.ProductClosure": {
+            /** Format: date */
+            validTo?: string;
+        };
         "Requests.ProductDraft": {
             code?: string;
             currency?: string;
+            feeTiers?: {
+                [key: string]: components["schemas"]["Requests.RateTier"][];
+            };
             label?: string;
             parameters?: {
                 [key: string]: string;
@@ -4786,6 +4966,11 @@ export interface components {
             /** Format: int64 */
             written?: number;
         };
+        Tier: {
+            annualRatePercent?: number;
+            from?: number;
+            to?: number;
+        };
         "TillService.Closure": {
             book?: components["schemas"]["Money"];
             /** Format: date */
@@ -5040,6 +5225,46 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["MakerChecker.View"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "Account.general": {
+        parameters: {
+            query?: {
+                q?: string;
+                limit?: number;
+            };
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Accounts.General"][];
                         error: null;
                         meta: components["schemas"]["Meta"];
                         page: null;
@@ -10692,6 +10917,203 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["Requests.Created"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "Product.families": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ProductFamily"][];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "Product.versions": {
+        parameters: {
+            query?: {
+                code?: string;
+                status?: string;
+            };
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ProductCatalog.VersionSummary"][];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "Product.version": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ProductCatalog.Version"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "Product.close": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+                /** @description Cle d'idempotence de la soumission. Envoyee, la meme cle avec la meme requete rend la demande d'origine au lieu d'en creer une seconde ; avec une requete differente, 409. Omise, un envoi rejoue cree une seconde demande. */
+                "Idempotency-Key"?: components["parameters"]["OptionalIdempotencyKey"];
+            };
+            path: {
+                legalEntityId: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Requests.ProductClosure"];
+            };
+        };
+        responses: {
+            /** @description Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["MakerChecker.View"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "Product.withdraw": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ProductUseCases.Activation"];
                         error: null;
                         meta: components["schemas"]["Meta"];
                         page: null;

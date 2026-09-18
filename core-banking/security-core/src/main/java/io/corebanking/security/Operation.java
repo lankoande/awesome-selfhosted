@@ -195,6 +195,10 @@ public enum Operation {
     PRODUCT_DRAFT,
     /** Activation d'une version de produit. */
     PRODUCT_ACTIVATE,
+    /** Fermeture de la validite d'une version de produit : le produit cesse d'etre ouvrable. */
+    PRODUCT_CLOSE,
+    /** Lecture du plan comptable : les comptes qu'un parametrage peut designer. */
+    CHART_OF_ACCOUNTS_READ,
     /** Lecture du catalogue produit : ce qui est ouvrable a une date donnee. */
     PRODUCT_READ,
     /** Redaction d'une grille de risque ou d'un regime de surete. */

@@ -1,0 +1,406 @@
+<div class="ecran">
+  <cb-toolbar>
+    <h1>Produits</h1>
+    <span class="compte">
+      {{ versions().length }} version{{ versions().length > 1 ? 's' : '' }}@if (brouillons() > 0) {,
+      <strong>{{ brouillons() }} en brouillon</strong>}
+    </span>
+    @if (droitDeRediger() && !saisie()) {
+      <button type="button" cbButton="primaire" (click)="ouvrirLaSaisie()">Nouvelle version</button>
+    }
+    <button fin type="button" cbButton="secondaire" [disabled]="travaille()" (click)="charger()">
+      Rafraîchir
+    </button>
+  </cb-toolbar>
+
+  <p class="rappel">
+    Un produit ne s'édite pas : il se <strong>versionne</strong>. Chaque version porte sa période de
+    validité, et tout compte rattaché résout la sienne à <strong>chaque date de valeur traitée</strong>
+    — c'est ce qui permet de rejouer un arrêté à l'identique des années après.
+  </p>
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+      @if (r.detail) { {{ r.detail }} }
+    </cb-notice>
+  }
+
+  @if (acquitte(); as message) {
+    <cb-notice nature="succes" titre="Enregistré">{{ message }}</cb-notice>
+  }
+
+  <cb-activity [enCours]="travaille()" libelle="Lecture du paramétrage produit…" />
+
+  <nav class="filtres" aria-label="Filtrer les versions par état">
+    <button type="button" [class.actif]="filtre() === null"
+            [attr.aria-pressed]="filtre() === null" (click)="filtrer(null)">Toutes</button>
+    @for (statut of STATUTS; track statut) {
+      <button type="button" [class.actif]="filtre() === statut"
+              [attr.aria-pressed]="filtre() === statut" (click)="filtrer(statut)">
+        {{ LIBELLE_STATUT_VERSION[statut] }}
+      </button>
+    }
+  </nav>
+
+  <div class="cb-table-scroll">
+    <table cbTable>
+      <caption class="cb-visually-hidden">Versions de produit</caption>
+      <thead>
+        <tr>
+          <th scope="col">Code</th>
+          <th scope="col">Intitulé</th>
+          <th scope="col">Famille</th>
+          <th scope="col">Devise</th>
+          <th scope="col">Validité</th>
+          <th scope="col">État</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (version of visibles(); track version.id) {
+          <tr [class.choisie]="version.id === choisie()?.header?.id">
+            <td class="cb-ref">
+              <button type="button" class="lien" (click)="ouvrir(version)">{{ version.code }}</button>
+            </td>
+            <td>
+              <span class="nom">{{ version.label }}</span>
+              @if (bloqueLaSuite(version)) {
+                <span class="note">sans terme — aucune version suivante possible</span>
+              }
+            </td>
+            <td>{{ libelleFamille(version.productType) }}</td>
+            <td class="cb-mono">{{ version.currency }}</td>
+            <td class="cb-mono">
+              {{ version.validFrom }} → {{ version.validTo || 'sans terme' }}
+            </td>
+            <td>
+              <cb-state-badge [etat]="etatDe(version)" [mot]="libelleEtat(version)" />
+            </td>
+          </tr>
+        } @empty {
+          @if (phase() === 'prete') {
+            <tr><td colspan="6" class="vide">
+              @if (filtre()) {
+                Aucune version dans cet état. Retirez le filtre pour voir le catalogue entier.
+              } @else {
+                Aucun produit paramétré. Tant qu'aucune version n'est en vigueur, aucun compte ne
+                peut s'ouvrir : c'est le premier paramétrage d'une banque.
+              }
+            </td></tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ------------------------------------------------------------ rédaction -->
+  @if (saisie()) {
+    <cb-section titre="Nouvelle version" indication="brouillon, soumis ensuite à validation">
+      <p class="pourquoi">
+        Un brouillon <strong>a le droit d'être incomplet</strong> : il n'engage rien, aucun compte
+        ne le cite. Ce qui manquera à l'activation est annoncé plus bas, au fur et à mesure.
+      </p>
+
+      <div class="grille">
+        <cb-field etiquette="Code du produit" pour="code-produit" requis
+                  aide="Celui qu'une ouverture de compte citera.">
+          <input cbInput id="code-produit" name="code-produit" autocomplete="off" class="cb-mono"
+                 [value]="code()" (input)="code.set($any($event.target).value)" />
+        </cb-field>
+
+        <cb-field etiquette="Famille" pour="famille" requis
+                  aide="Elle décide de ce que le produit doit porter.">
+          <select cbInput id="famille" name="famille" [value]="famille()"
+                  (change)="changerFamille($any($event.target).value)">
+            <option value="">—</option>
+            @for (f of familles(); track f.code) {
+              <option [value]="f.code">{{ f.label }}</option>
+            }
+          </select>
+        </cb-field>
+
+        <cb-field etiquette="Intitulé" pour="intitule" requis aide="Ce que lira le guichet.">
+          <input cbInput id="intitule" name="intitule" autocomplete="off" [value]="intitule()"
+                 (input)="intitule.set($any($event.target).value)" />
+        </cb-field>
+
+        <cb-field etiquette="Devise" pour="devise-produit" requis
+                  aide="Un compte s'ouvre dans la devise de son produit.">
+          <input cbInput id="devise-produit" name="devise-produit" autocomplete="off"
+                 class="cb-mono" [value]="devise()"
+                 (input)="devise.set($any($event.target).value)" />
+        </cb-field>
+
+        <cb-field etiquette="Entre en vigueur le" pour="debut-le" requis>
+          <cb-date-input champId="debut-le" [valeur]="debutLe()"
+                         (valeurChange)="debutLe.set($event)" />
+        </cb-field>
+
+        <cb-field etiquette="Jusqu'au" pour="fin-le"
+                  aide="Laissez vide pour une version sans terme — mais elle interdira la suivante.">
+          <cb-date-input champId="fin-le" [valeur]="finLe()" (valeurChange)="finLe.set($event)" />
+        </cb-field>
+      </div>
+
+      @if (obstaclesIdentite().length > 0) {
+        <cb-notice nature="avertissement" titre="Cette version ne peut pas être enregistrée">
+          <ul class="obstacles">
+            @for (obstacle of obstaclesIdentite(); track obstacle) { <li>{{ obstacle }}</li> }
+          </ul>
+        </cb-notice>
+      }
+
+      @if (familleChoisie(); as f) {
+        <p class="pourquoi">
+          Les champs ci-dessous sont ceux que la famille <strong>{{ f.label }}</strong> déclare. Ils
+          changent à mesure que vous saisissez : renseigner un taux d'agios rend trois comptes
+          obligatoires, déclarer une commission ouvre son bloc. C'est le socle qui le dit.
+        </p>
+
+        @for (section of sections(); track section.cle) {
+          <fieldset class="section">
+            <legend>{{ section.libelle }}</legend>
+            <div class="grille">
+              @for (champ of section.champs; track champ.nom) {
+                <cb-field [etiquette]="champ.nom" [pour]="'p-' + champ.nom"
+                          [requis]="champ.obligatoire" [aide]="champ.raison || ''">
+                  @if (champ.compte) {
+                    <cb-choix-compte-general [champId]="'p-' + champ.nom"
+                                             [compteId]="valeurDe(champ.nom)"
+                                             (compteIdChange)="saisir(champ.nom, $event)" />
+                  } @else {
+                    <input cbInput [id]="'p-' + champ.nom" [name]="'p-' + champ.nom"
+                           autocomplete="off" class="cb-mono" [value]="valeurDe(champ.nom)"
+                           (input)="saisir(champ.nom, $any($event.target).value)" />
+                  }
+                </cb-field>
+              }
+            </div>
+          </fieldset>
+        }
+
+        <fieldset class="section">
+          <legend>Barème d'intérêts par tranches</legend>
+          <p class="pourquoi">
+            Facultatif : un taux unique suffit à la plupart des produits. Un barème le remplace —
+            les tranches doivent se suivre sans trou, et le socle refuse un barème lacunaire dès la
+            saisie.
+          </p>
+          @if (tranches().length > 0) {
+            <div class="cb-table-scroll">
+              <table cbTable>
+                <caption class="cb-visually-hidden">Tranches du barème</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">À partir de</th>
+                    <th scope="col">Jusqu'à</th>
+                    <th scope="col">Taux annuel %</th>
+                    <th scope="col"><span class="cb-visually-hidden">Retirer</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (tranche of tranches(); track $index) {
+                    <tr>
+                      <td>
+                        <input cbInput class="cb-mono etroit" [value]="tranche.from"
+                               [attr.aria-label]="'Tranche ' + ($index + 1) + ' : à partir de'"
+                               (input)="majTranche($index, 'from', $any($event.target).value)" />
+                      </td>
+                      <td>
+                        <input cbInput class="cb-mono etroit" [value]="tranche.to || ''"
+                               placeholder="sans plafond"
+                               [attr.aria-label]="'Tranche ' + ($index + 1) + ' : jusqu’à'"
+                               (input)="majTranche($index, 'to', $any($event.target).value)" />
+                      </td>
+                      <td>
+                        <input cbInput class="cb-mono etroit" [value]="tranche.annualRatePercent"
+                               [attr.aria-label]="'Tranche ' + ($index + 1) + ' : taux annuel'"
+                               (input)="majTranche($index, 'annualRatePercent',
+                                                   $any($event.target).value)" />
+                      </td>
+                      <td>
+                        <button type="button" cbButton="discret" (click)="retirerTranche($index)">
+                          Retirer
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+          <div class="actions">
+            <button type="button" cbButton="secondaire" (click)="ajouterTranche()">
+              Ajouter une tranche
+            </button>
+          </div>
+        </fieldset>
+
+        @if (manques().length > 0) {
+          <cb-notice nature="information" titre="Ce qui manquera à l'activation">
+            <p class="pourquoi">
+              Rien n'empêche d'enregistrer ce brouillon. Ces lignes sont ce que le socle opposera
+              le jour où on l'activera — autant les voir maintenant.
+            </p>
+            <ul class="obstacles">
+              @for (manque of manques(); track manque) { <li>{{ manque }}</li> }
+            </ul>
+          </cb-notice>
+        }
+      }
+
+      <div class="actions">
+        <button type="button" cbButton="primaire"
+                [disabled]="travaille() || obstaclesIdentite().length > 0"
+                (click)="enregistrer()">Enregistrer le brouillon</button>
+        <button type="button" cbButton="discret" [disabled]="travaille()"
+                (click)="fermerLaSaisie()">Annuler</button>
+      </div>
+    </cb-section>
+  }
+
+  <!-- ------------------------------------------------------------ détail -->
+  @if (choisie(); as version) {
+    <cb-section [titre]="version.header.code" [indication]="version.header.label">
+      <div class="entete-detail">
+        <cb-state-badge [etat]="etatDe(version.header)" [mot]="libelleEtat(version.header)" />
+        <span class="validite cb-mono">
+          {{ version.header.validFrom }} → {{ version.header.validTo || 'sans terme' }}
+        </span>
+      </div>
+
+      <p class="attente">
+        {{ ATTENTE_VERSION[version.header.status] }}
+        @if (estEchue(version.header)) {
+          Sa période est close depuis le {{ version.header.validTo }} : elle ne s'applique plus, et
+          reste au dossier parce qu'un arrêté de cette période la résout encore.
+        }
+      </p>
+
+      <dl class="fiche">
+        <dt>Famille</dt><dd>{{ libelleFamille(version.header.productType) }}</dd>
+        <dt>Devise</dt><dd class="cb-mono">{{ version.header.currency }}</dd>
+        <dt>Rédigée par</dt><dd>{{ version.header.createdBy || '—' }}</dd>
+        @if (version.header.approvedBy) {
+          <dt>Activée par</dt><dd>{{ version.header.approvedBy }}</dd>
+        }
+      </dl>
+
+      @if (bloqueLaSuite(version.header)) {
+        <cb-notice nature="avertissement" titre="Cette version n'a pas de terme">
+          Tant qu'elle reste ouverte, <strong>aucune autre version de ce produit ne peut être
+          activée</strong> : deux validités actives ne peuvent pas se chevaucher. Pour changer le
+          paramétrage, fermez d'abord celle-ci.
+        </cb-notice>
+      }
+
+      @for (section of sectionsLues(); track section.cle) {
+        <div class="lecture">
+          <h3>{{ section.libelle }}</h3>
+          <dl class="fiche">
+            @for (champ of section.champs; track champ.nom) {
+              <dt class="cb-mono">{{ champ.nom }}</dt>
+              <dd class="cb-mono">{{ version.parameters[champ.nom] }}</dd>
+            }
+          </dl>
+        </div>
+      }
+
+      @for (bareme of baremesLus(); track bareme.cle) {
+        <div class="lecture">
+          <h3>Barème {{ bareme.cle }}</h3>
+          <div class="cb-table-scroll">
+            <table cbTable>
+              <caption class="cb-visually-hidden">Tranches du barème {{ bareme.cle }}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">À partir de</th>
+                  <th scope="col">Jusqu'à</th>
+                  <th scope="col" class="cb-num">Taux annuel</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (tranche of bareme.tranches; track $index) {
+                  <tr>
+                    <td class="cb-mono">{{ tranche.from }}</td>
+                    <td class="cb-mono">{{ tranche.to || 'sans plafond' }}</td>
+                    <td class="cb-num cb-mono">{{ tranche.annualRatePercent }} %</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+    </cb-section>
+
+    @if (fermeture()) {
+      <cb-section titre="Fermer la validité" indication="à confirmer">
+        <p class="pourquoi">
+          Le produit cesse d'être ouvrable à cette date. Les comptes déjà rattachés continuent de
+          résoudre ce paramétrage pour les journées qu'il couvre : <strong>rien de ce qui a été
+          produit ne change</strong>. Et le code redevient libre pour une version suivante.
+        </p>
+
+        <cb-field etiquette="Fermer au" pour="fermer-au" requis
+                  [aide]="'La banque en est au ' + journee() + ' : une fermeture antérieure '
+                          + 'changerait ce qu’un arrêté déjà produit résoudrait au rejeu.'">
+          <cb-date-input champId="fermer-au" [valeur]="fermerAu()"
+                         (valeurChange)="fermerAu.set($event)" />
+        </cb-field>
+
+        @if (fermetureADeux()) {
+          <cb-notice nature="information" titre="Cet acte part à la validation">
+            La version reste en vigueur tant qu'un second n'a pas validé la fermeture.
+          </cb-notice>
+        }
+
+        @if (obstaclesFermeture().length > 0) {
+          <cb-notice nature="avertissement" titre="Cette fermeture ne peut pas être demandée">
+            <ul class="obstacles">
+              @for (obstacle of obstaclesFermeture(); track obstacle) { <li>{{ obstacle }}</li> }
+            </ul>
+          </cb-notice>
+        }
+
+        <div class="actions">
+          <button type="button" cbButton="danger"
+                  [disabled]="travaille() || obstaclesFermeture().length > 0" (click)="fermer()">
+            Fermer la validité
+          </button>
+          <button type="button" cbButton="discret" [disabled]="travaille()"
+                  (click)="abandonnerLaFermeture()">Revenir</button>
+        </div>
+      </cb-section>
+    } @else {
+      @if (activationADeux() && version.header.status === 'DRAFT' && droitDActiver()) {
+        <cb-notice nature="information" titre="L'activation part à la validation">
+          Le socle confronte d'abord le paramétrage à sa famille : ce qui manque est refusé ici,
+          devant vous, plutôt que la nuit sur une étape bloquante de l'arrêté.
+        </cb-notice>
+      }
+
+      <div class="actions">
+        @for (acte of actes(); track acte) {
+          <button type="button" [cbButton]="acte === 'ACTIVER' ? 'primaire' : 'danger'"
+                  [disabled]="travaille()" (click)="demarrer(acte)">
+            {{ LIBELLE_ACTE_VERSION[acte] }}{{ acte === 'FERMER' ? '…' : '' }}
+          </button>
+        }
+        @if (droitDeRediger()) {
+          <button type="button" cbButton="secondaire" [disabled]="travaille()"
+                  (click)="repartirDe(version)">Repartir de cette version</button>
+        }
+      </div>
+
+      @if (actes().length === 0 && version.header.status !== 'WITHDRAWN' && !droitDActiver()) {
+        <cb-notice nature="information" titre="Vous lisez ce paramétrage, vous ne l'activez pas">
+          Activer une version décide des montants portés sur les comptes de tous les clients qui
+          citent ce produit. Votre profil ne porte pas
+          <span class="cb-mono">PRODUCT_ACTIVATE</span>.
+        </cb-notice>
+      }
+    }
+  } @else if (phase() === 'prete' && !saisie()) {
+    <p class="rien">Choisissez une version pour lire son paramétrage.</p>
+  }
+</div>

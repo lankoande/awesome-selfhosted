@@ -2,6 +2,9 @@ import { InjectionToken } from '@angular/core';
 import {
   DemandeEtablissement, DemandeRegle, DomaineNumerotation, Etablissement, RegleNumerotation,
 } from './modele/etablissement.modele';
+import {
+  CompteGeneral, EnteteVersion, FamilleProduit, Tranche, VersionComplete, VersionProduit,
+} from './modele/produits.modele';
 import { FiltreBalance, PageBalance, RunTfj, TotauxBalance } from './modele/siege.modele';
 
 /** Ce que rend une action soumise à un second regard. */
@@ -57,6 +60,52 @@ export interface Siege {
   /** Activer décide de l'identité des comptes ouverts demain : à deux. */
   activerRegle(legalEntityId: string, ruleId: string,
                cleIdempotence: string): Promise<EnAttenteSiege>;
+
+  // ---------------------------------------------------------------- paramétrage produit
+
+  /**
+   * Les familles de produit et ce que chacune exige.
+   *
+   * Le socle sert son propre contrat : le poste construit sa saisie à partir de là, et non d'une
+   * copie de ces règles. Deux copies divergent, et l'écran finirait par proposer un paramètre que
+   * l'activation refuse.
+   */
+  familles(legalEntityId: string): Promise<readonly FamilleProduit[]>;
+
+  /** Toutes les versions de produit, brouillons compris ; filtrées par code et par état. */
+  versions(legalEntityId: string, code: string | null,
+           statut: string | null): Promise<readonly VersionProduit[]>;
+
+  /** Une version en entier : en-tête, paramètres, barèmes. */
+  version(legalEntityId: string, versionId: string): Promise<VersionComplete>;
+
+  /**
+   * Rédige une version. Elle ne résout rien tant qu'elle n'est pas activée : un brouillon a le
+   * droit d'être incomplet, c'est ce qui en fait un brouillon.
+   */
+  redigerVersion(legalEntityId: string, entete: EnteteVersion,
+                 parametres: Readonly<Record<string, string>>,
+                 baremes: Readonly<Record<string, readonly Tranche[]>>,
+                 cleIdempotence: string): Promise<{ readonly id: string }>;
+
+  /** Activer : à deux, et le socle confronte d'abord le paramétrage à sa famille. */
+  activerVersion(legalEntityId: string, versionId: string,
+                 cleIdempotence: string): Promise<EnAttenteSiege>;
+
+  /**
+   * Fermer la validité d'une version en vigueur : à deux.
+   *
+   * C'est ainsi qu'un produit cesse d'être commercialisé — et c'est aussi ce qui libère son code
+   * pour une version suivante.
+   */
+  fermerVersion(legalEntityId: string, versionId: string, validTo: string,
+                cleIdempotence: string): Promise<EnAttenteSiege>;
+
+  /** Retirer un brouillon abandonné. Seul acte du paramétrage produit qui ne soit pas à deux. */
+  retirerVersion(legalEntityId: string, versionId: string): Promise<VersionProduit>;
+
+  /** Le plan comptable : les comptes qu'un paramétrage peut désigner. Sans solde. */
+  comptesGeneraux(legalEntityId: string, texte: string): Promise<readonly CompteGeneral[]>;
 }
 
 export const SIEGE = new InjectionToken<Siege>('Siege');

@@ -7,6 +7,7 @@ import io.corebanking.ledger.store.Accounts;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.security.Caller;
 import io.corebanking.security.UseCaseExecutor;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -26,6 +27,7 @@ public class AccountController {
     private final UseCaseExecutor executor;
     private final MakerChecker makerChecker;
     private final AccountUseCases.SearchAccounts search;
+    private final AccountUseCases.ReadChart chart;
     private final AccountUseCases.ReadBalance readBalance;
     private final AccountUseCases.ReadJournal readJournal;
     private final AccountUseCases.ReadLedger readLedger;
@@ -35,6 +37,7 @@ public class AccountController {
                              AccountDirectory accounts, MakerChecker makerChecker) {
         this.executor = executor;
         this.search = new AccountUseCases.SearchAccounts(database);
+        this.chart = new AccountUseCases.ReadChart(database);
         this.makerChecker = makerChecker;
         this.readBalance = new AccountUseCases.ReadBalance(database, accounts);
         this.readJournal = new AccountUseCases.ReadJournal(database, accounts);
@@ -67,6 +70,21 @@ public class AccountController {
             @RequestParam(required = false) String q, Paging.PageRequest page) {
         return executor.run(caller, search, new AccountUseCases.AccountQuery(
             legalEntityId, partyId, branchId, q, page));
+    }
+
+    /**
+     * Le plan comptable : les comptes qu'un parametrage peut designer.
+     *
+     * <p>Distinct de la liste ci-dessus, qui rend les comptes <b>clients</b>. Ici, tout ce qui
+     * n'est pas un compte client : general, interne, nostro, suspens, position. Sans solde — un
+     * compte d'imputation se choisit sur ce qu'il est, pas sur ce qu'il porte.
+     */
+    @GetMapping("/general")
+    public List<Accounts.General> general(Caller caller, @PathVariable UUID legalEntityId,
+                                          @RequestParam(required = false) String q,
+                                          @RequestParam(required = false) Integer limit) {
+        return executor.run(caller, chart, new AccountUseCases.ChartQuery(
+            legalEntityId, q, limit == null ? 50 : limit));
     }
 
     @GetMapping("/{accountId}/balance")

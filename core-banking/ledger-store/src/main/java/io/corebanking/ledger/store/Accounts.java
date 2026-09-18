@@ -223,6 +223,56 @@ public final class Accounts {
     }
 
     /** Le nombre de comptes que la meme recherche rend, pour la pagination. */
+    /**
+     * Un compte general tel qu'on le designe dans un parametrage.
+     *
+     * <p>Pas de solde : ce qu'on cherche ici, c'est le compte d'imputation d'un taux ou d'une
+     * commission, et le choisir ne regarde pas ce qu'il porte.
+     */
+    public record General(UUID id, String code, String kind, String normalBalance, String currency,
+                          String nature, String status, boolean postable) {}
+
+    /**
+     * Les comptes du plan comptable, filtres par un fragment de numero.
+     *
+     * <h2>Ce que cette lecture ferme</h2>
+     *
+     * <p>Un parametrage produit designe des comptes d'imputation : les interets courus, le produit
+     * d'une commission, le compte de collecte d'une taxe. Sans cette lecture, ces champs se
+     * remplissaient avec un identifiant technique recopie d'ailleurs — exactement ce qu'un ecran
+     * ne doit pas demander.
+     *
+     * <p>Les comptes <b>clients</b> en sont exclus : un produit ne s'impute pas sur le compte d'un
+     * client. Les comptes internes, nostro, de suspens et de position y figurent, eux : un
+     * paiement sortant se regle sur un nostro, une remise s'encaisse sur un compte interne.
+     */
+    public static List<General> general(Connection c, UUID legalEntityId, String text, int limit) {
+        List<General> comptes = new ArrayList<>();
+        String motif = text == null || text.isBlank() ? null : "%" + text.trim() + "%";
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, code, account_kind, normal_balance, currency, nature, status, postable"
+            + "  FROM account"
+            + " WHERE legal_entity_id = ? AND account_kind <> 'CUSTOMER'"
+            + "   AND (?::text IS NULL OR code ILIKE ?::text)"
+            + " ORDER BY code LIMIT ?")) {
+            ps.setObject(1, legalEntityId);
+            ps.setString(2, motif);
+            ps.setString(3, motif);
+            ps.setInt(4, Math.max(1, Math.min(limit, 200)));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    comptes.add(new General(
+                        rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3),
+                        rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7),
+                        rs.getBoolean(8)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture du plan comptable", e);
+        }
+        return List.copyOf(comptes);
+    }
+
     public static long countSearch(Connection c, UUID legalEntityId, UUID partyId, UUID branchId,
                                    String text) {
         String motif = text == null || text.isBlank() ? null : "%" + text.trim() + "%";

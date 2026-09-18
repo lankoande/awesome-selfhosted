@@ -63,6 +63,11 @@ export const routes: Routes = [
           .then((m) => m.EtablissementPage),
       },
       {
+        path: 'produits',
+        title: 'Siège — produits',
+        loadComponent: () => import('./siege/produits/produits.page').then((m) => m.Produits),
+      },
+      {
         path: 'numerotation',
         title: 'Siège — numérotation',
         loadComponent: () => import('./siege/numerotation/numerotation.page')

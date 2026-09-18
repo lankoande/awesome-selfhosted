@@ -57,6 +57,18 @@ public final class ProductFamilies {
     }
 
     /**
+     * Toutes les familles, dans l'ordre du fichier.
+     *
+     * <p>Sert a servir le catalogue par l'API : un ecran de parametrage produit se construit a
+     * partir de ce que la famille declare, et non d'une copie de ces regles ecrite ailleurs. Deux
+     * copies d'un meme contrat divergent — l'ecran proposerait un parametre que l'activation
+     * refuse, ou tairait celui qu'elle exige.
+     */
+    public static List<ProductFamily> all() {
+        return List.copyOf(BY_CODE.values());
+    }
+
+    /**
      * Tout ce qu'une famille admet, marqueurs de blocs repetes compris.
      *
      * <p>Sert aux tests d'accord des modules de service : une constante de parametre absente d'ici

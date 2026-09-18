@@ -50,7 +50,12 @@ class ProductFamilyTest {
         assertThat(ProductFamilies.codes())
             .containsExactlyInAnyOrder("CURRENT_ACCOUNT", "SAVINGS_ACCOUNT", "TERM_DEPOSIT",
                                        "TERM_LOAN");
-        assertThat(ProductFamilies.require("TERM_LOAN").label()).isEqualTo("Credit amortissable");
+        // Le libelle d'une famille est du texte d'affichage : il porte ses accents, contrairement
+        // aux commentaires et aux messages techniques du socle.
+        assertThat(ProductFamilies.require("TERM_LOAN").label())
+            .isEqualTo("Cr\u00e9dit amortissable");
+        assertThat(ProductFamilies.all()).as("le catalogue se sert tel quel par l'API")
+            .hasSameSizeAs(ProductFamilies.codes());
     }
 
     @Test

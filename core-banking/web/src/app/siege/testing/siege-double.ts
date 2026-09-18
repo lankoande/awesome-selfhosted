@@ -2,8 +2,50 @@ import {
   DemandeEtablissement, DemandeRegle, DomaineNumerotation, Etablissement, RegleNumerotation,
   Segment,
 } from '../modele/etablissement.modele';
+import {
+  CompteGeneral, EnteteVersion, FamilleProduit, Tranche, VersionComplete, VersionProduit,
+} from '../modele/produits.modele';
 import { FiltreBalance, PageBalance, RunTfj, TotauxBalance } from '../modele/siege.modele';
 import { EnAttenteSiege, Siege } from '../siege.port';
+
+/** Une famille taillée au plus court : intérêts obligatoires, agios exigeants dès qu'on y touche. */
+export const FAMILLE_DOUBLE: FamilleProduit = {
+  code: 'CURRENT_ACCOUNT',
+  label: 'Compte courant',
+  required: ['interest.day_count', 'interest.credit_account'],
+  optional: ['dormancy.months'],
+  requireOneOf: [{ of: ['interest.rate', 'tier:INTEREST'], because: 'sans taux ni barème' }],
+  conditions: [{
+    when: 'overdraft.rate', fallback: null, in: [], presence: true,
+    require: ['overdraft.debit_account'], requireTier: null,
+    because: 'des agios sans compte d’imputation échoueraient à la première journée débitrice',
+  }],
+  groups: [],
+  accounts: ['interest.credit_account', 'overdraft.debit_account'],
+};
+
+export const VERSION_EN_VIGUEUR: VersionProduit = {
+  id: 'pv-1', code: 'CPTE-CHQ-PART', productType: 'CURRENT_ACCOUNT',
+  label: 'Compte chèque particulier', currency: 'XOF', validFrom: '2026-01-01', validTo: null,
+  status: 'ACTIVE', createdBy: 'ADIALLO', createdAt: '2025-12-04T10:12:00Z',
+  approvedBy: 'MKONE', approvedAt: '2025-12-05T08:30:00Z',
+};
+
+export const VERSION_BROUILLON: VersionProduit = {
+  ...VERSION_EN_VIGUEUR, id: 'pv-2', code: 'EPARGNE-PART', label: 'Épargne particulier',
+  validFrom: '2027-01-01', status: 'DRAFT', approvedBy: null, approvedAt: null,
+};
+
+export const PARAMETRES_DOUBLE: Readonly<Record<string, string>> = {
+  'interest.day_count': 'ACT_365',
+  'interest.credit_account': 'gl-1',
+  'interest.rate': '3',
+};
+
+export const COMPTE_GENERAL_DOUBLE: CompteGeneral = {
+  id: 'gl-1', code: '378100', kind: 'GL', normalBalance: 'CREDIT', currency: 'XOF',
+  nature: 'BALANCE_SHEET', status: 'ACTIVE', postable: true,
+};
 
 export const ETABLISSEMENT_DOUBLE: Etablissement = {
   id: 'e-1', code: 'BANQUE-TEST', name: 'Banque de test', countryCode: 'BF',
@@ -107,8 +149,73 @@ export class SiegeDouble implements Siege {
     return { operationId: 'op-regle' };
   }
 
+  // -------------------------------------------------------------- paramétrage produit
+
+  async familles(): Promise<readonly FamilleProduit[]> {
+    return [FAMILLE_DOUBLE];
+  }
+
+  async versions(legalEntityId: string, code: string | null,
+                 statut: string | null): Promise<readonly VersionProduit[]> {
+    this.dernierFiltre = { code, statut };
+    return this.versionsRendues.filter(
+      (v) => (code === null || v.code === code) && (statut === null || v.status === statut));
+  }
+
+  async version(legalEntityId: string, versionId: string): Promise<VersionComplete> {
+    const header = this.versionsRendues.find((v) => v.id === versionId) ?? VERSION_EN_VIGUEUR;
+    return {
+      header,
+      parameters: header.id === VERSION_EN_VIGUEUR.id ? PARAMETRES_DOUBLE : {},
+      tiers: header.id === VERSION_EN_VIGUEUR.id
+        ? { INTEREST: [{ from: '0', to: null, annualRatePercent: '3' }] }
+        : {},
+    };
+  }
+
+  async redigerVersion(legalEntityId: string, entete: EnteteVersion,
+                       parametres: Readonly<Record<string, string>>,
+                       baremes: Readonly<Record<string, readonly Tranche[]>>,
+                       ): Promise<{ readonly id: string }> {
+    this.derniereVersion = { entete, parametres, baremes };
+    return { id: 'pv-neuve' };
+  }
+
+  async activerVersion(legalEntityId: string, versionId: string): Promise<EnAttenteSiege> {
+    this.derniereActivationProduit = versionId;
+    return { operationId: 'op-produit' };
+  }
+
+  async fermerVersion(legalEntityId: string, versionId: string,
+                      validTo: string): Promise<EnAttenteSiege> {
+    this.derniereFermeture = { versionId, validTo };
+    return { operationId: 'op-produit-fermeture' };
+  }
+
+  async retirerVersion(legalEntityId: string, versionId: string): Promise<VersionProduit> {
+    this.dernierRetrait = versionId;
+    return { ...VERSION_BROUILLON, id: versionId, status: 'WITHDRAWN' };
+  }
+
+  async comptesGeneraux(legalEntityId: string, texte: string): Promise<readonly CompteGeneral[]> {
+    this.derniereQuete = texte;
+    return [COMPTE_GENERAL_DOUBLE];
+  }
+
+  versionsRendues: readonly VersionProduit[] = [VERSION_EN_VIGUEUR, VERSION_BROUILLON];
+
   /** Ce que la spec vient vérifier : le poste a-t-il envoyé ce qu'il fallait ? */
   derniereCorrection: DemandeEtablissement | null = null;
   derniereRegle: DemandeRegle | null = null;
   derniereActivation: string | null = null;
+  derniereVersion: {
+    entete: EnteteVersion;
+    parametres: Readonly<Record<string, string>>;
+    baremes: Readonly<Record<string, readonly Tranche[]>>;
+  } | null = null;
+  derniereActivationProduit: string | null = null;
+  derniereFermeture: { versionId: string; validTo: string } | null = null;
+  dernierRetrait: string | null = null;
+  dernierFiltre: { code: string | null; statut: string | null } | null = null;
+  derniereQuete: string | null = null;
 }

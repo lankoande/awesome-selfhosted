@@ -1,0 +1,145 @@
+:host { display: block; }
+
+/* Une seule colonne : la rédaction d'un produit porte des dizaines de champs, et deux colonnes
+   les écraseraient. La table reste courte — un catalogue bancaire tient en quelques dizaines de
+   lignes. */
+.ecran {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+  max-width: 100rem;
+}
+
+.compte { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+
+.rappel, .pourquoi {
+  margin: 0;
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+  max-width: 82ch;
+}
+
+.pourquoi { margin-bottom: var(--cb-space-4); }
+
+.filtres { display: flex; flex-wrap: wrap; gap: var(--cb-space-1); }
+
+.filtres button {
+  flex-shrink: 0;
+  height: var(--cb-tap-h);
+  padding: 0 var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  background: var(--cb-panel);
+  color: var(--cb-muted);
+  font: inherit;
+  font-size: var(--cb-fs-sm);
+  cursor: pointer;
+}
+
+.filtres button:hover { color: var(--cb-ink); }
+
+.filtres button.actif {
+  background: var(--cb-accent);
+  border-color: var(--cb-accent);
+  color: var(--cb-accent-contraste);
+  font-weight: 600;
+}
+
+.lien {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cb-row-h);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cb-accent);
+  font: inherit;
+  font-family: var(--cb-font-mono);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.nom { display: block; }
+.note { display: block; font-size: var(--cb-fs-xs); color: var(--cb-muted); }
+.choisie { background: var(--cb-surface-choisie, var(--cb-panel)); }
+.vide { color: var(--cb-muted); padding: var(--cb-space-4); }
+.rien { color: var(--cb-muted); margin: 0; }
+
+.entete-detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cb-space-3);
+  margin-bottom: var(--cb-space-3);
+}
+
+.validite { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+
+.attente {
+  margin: 0 0 var(--cb-space-4);
+  padding-left: var(--cb-space-3);
+  border-left: 2px solid var(--cb-accent);
+  color: var(--cb-ink);
+  font-size: var(--cb-fs-sm);
+  max-width: 68ch;
+}
+
+.fiche {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--cb-space-1) var(--cb-space-4);
+  margin: 0;
+  max-width: 52rem;
+}
+
+.fiche dt { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+.fiche dd { margin: 0; overflow-wrap: anywhere; }
+
+/* La relecture d'un paramétrage : une section par préfixe, comme à la saisie — c'est le même
+   découpage, et il se relit dans le même ordre. */
+.lecture { margin-top: var(--cb-space-5); }
+
+.lecture h3 {
+  margin: 0 0 var(--cb-space-2);
+  font-size: var(--cb-fs-sm);
+  font-weight: 600;
+  color: var(--cb-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Une section de saisie : encadrée pour qu'on voie où commence le bloc des agios et où il finit. */
+.section {
+  margin: var(--cb-space-5) 0 0;
+  padding: var(--cb-space-4);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+}
+
+.section legend {
+  padding: 0 var(--cb-space-2);
+  color: var(--cb-ink);
+  font-size: var(--cb-fs-sm);
+  font-weight: 600;
+}
+
+.grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: var(--cb-space-3) var(--cb-space-4);
+}
+
+.etroit { max-width: 12rem; }
+
+.obstacles { margin: 0; padding-left: var(--cb-space-4); }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cb-space-3);
+  margin-top: var(--cb-space-4);
+}

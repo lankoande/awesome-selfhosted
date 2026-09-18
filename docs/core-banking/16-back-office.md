@@ -1656,3 +1656,116 @@ plus. Le socle en exige davantage : un **identifiant de créancier** non vide, u
 et une règle absente : le formulaire aurait été rempli, envoyé, refusé — devant le client, sa
 signature au stylo sur le mandat. Les trois champs sont au formulaire, la règle est dans
 `obstaclesAuMandat`, et six spécifications les tiennent.
+
+
+## 26. Le paramétrage produit
+
+C'était **le** manque nommé au §24 : *« ouvrir une banque sur ce socle demande d'écrire les
+produits en JSON »*. Le socle sait tout faire depuis la phase F ; c'est le seul domaine où le
+back-office ne tenait pas sa promesse d'être utilisable sans développeur.
+
+### Quatre lacunes du contrat, et pourquoi elles bloquaient
+
+Le contrat publiait trois routes : le catalogue **ouvrable**, la rédaction d'un brouillon, et son
+activation à deux. Il en manquait quatre choses, et chacune interdisait l'écran à elle seule.
+
+**On ne pouvait pas retrouver un brouillon.** `GET /products` ne rend que ce qui est ouvrable :
+actif, et valide aujourd'hui. Un brouillon n'existait que dans la réponse du `POST` qui l'avait
+créé — rechargée la page, la version devenait **inactivable**. Ajouté : `GET /products/versions`,
+filtrable par code et par état.
+
+**On ne pouvait pas relire une version.** Ni ses paramètres, ni ses barèmes. Un taux activé se
+vérifiait en interrogeant la base, et une nouvelle version se saisissait de mémoire. Ajouté :
+`GET /products/versions/{id}`.
+
+**On ne pouvait pas savoir ce qu'une famille exige.** `families.json` déclare, par famille, ce qui
+est obligatoire, ce qui est admis, et ce qu'un paramètre rend obligatoire — cinq blocs, des
+conditions, des blocs répétés. Sans cette lecture, l'écran aurait porté une **copie** de ces
+règles. Ajouté : `GET /products/families`, qui sert le contrat lui-même.
+
+**Et surtout : on ne pouvait pas fermer une version.** La contrainte d'exclusion refuse deux
+validités actives qui se chevauchent. Une version active **sans terme** — le cas normal d'un
+premier paramétrage — interdisait donc d'en activer une autre pour le même code. **Un produit
+ouvert sans date de fin ne pouvait plus jamais changer de paramétrage**, et rien ne le disait.
+Ajouté : `POST /products/versions/{id}/closure`, à deux.
+
+### Pourquoi fermer et non retirer
+
+La table déclare `SUSPENDED` et `WITHDRAWN` depuis la première migration, et rien ne les posait.
+Ce n'était pas un oubli. `resolveAt` n'accepte qu'une version `ACTIVE`, et tout compte rattaché
+résout son paramétrage à **chaque date de valeur traitée**, y compris passée. Sortir une version
+de l'état actif ferait échouer l'arrêté de tous les comptes qui la citent, et rendrait irrejouable
+tout ce qu'elle a produit.
+
+Un produit ne se retire donc pas : **sa validité se ferme**. Et pas avant la date comptable de
+l'entité — fermer une journée déjà arrêtée changerait ce qu'un rejeu résoudrait, donc les montants.
+C'est la règle qui fonde tout le paramétrage daté, et c'est le socle qui la tient, avec son test.
+
+Les deux statuts inutilisés servent enfin à quelque chose : `WITHDRAWN` marque un **brouillon
+abandonné**. Seul acte du paramétrage produit qui ne se fasse pas à deux — un brouillon n'engage
+rien, aucun compte ne le cite. Il n'est pas supprimé : ce qui a été saisi une fois explique
+pourquoi une version attendue n'existe pas.
+
+### Un trou dans la rédaction
+
+La famille déclare qu'une commission peut se calculer `TIERED_ON_CLOSING_BALANCE`, et exige alors
+un barème `FEE:<code>`. La rédaction ne savait écrire qu'un seul barème, celui des intérêts
+(`purpose` était en dur dans le SQL). Le socle exigeait donc, à l'activation, un barème que son
+API ne savait pas créer : une commission par tranches était **déclarée et impossible**.
+`POST /products` accepte maintenant `feeTiers`, un barème par code de commission.
+
+### Le formulaire est construit par le contrat
+
+C'est la décision qui porte l'écran. Rien de ce qu'un compte courant exige n'est écrit dans le
+poste : le socle sert sa déclaration, et la saisie s'y conforme.
+
+- les champs affichés sont ceux que la famille déclare, **obligatoires ou non** ;
+- une condition qui se déclenche rend ses champs obligatoires **pendant la saisie**, et l'écran
+  affiche le `because` du socle en guise d'explication : *« des agios sans comptes d'imputation
+  échoueraient à la première journée débitrice »* ;
+- déclarer une commission dans `fee.codes` **ouvre son bloc** de champs ;
+- ce qui manquera à l'activation est calculé par le même algorithme que celui du socle, sur les
+  mêmes données, et affiché sans rien bloquer — un brouillon a le droit d'être incomplet.
+
+Une règle ajoutée au socle apparaît à l'écran sans qu'on touche au front. Deux copies auraient
+divergé, et l'écran aurait fini par proposer un paramètre que l'activation refuse.
+
+Ce que le poste ajoute, c'est un **confort de lecture** : un dictionnaire de sections
+(`interest` → « Intérêts », `fee.TENUE` → « Commission TENUE ») qui dégrade proprement — un
+préfixe inconnu s'affiche tel quel. Le poste ne cache jamais un paramètre faute de savoir le
+nommer.
+
+### Un cinquième manque, trouvé en dessinant l'écran
+
+La moitié des paramètres d'une famille sont des **comptes d'imputation** : les intérêts courus, le
+produit d'une commission, le compte de collecte d'une taxe. Le contrat ne publiait aucune liste de
+comptes généraux — `GET /accounts` ne rend que les comptes **clients**, décision du §24. Le
+formulaire aurait donc demandé des identifiants techniques, ce que §20 et §24 ont déjà refusé.
+
+Ajouté : `GET /accounts/general`, les comptes que le paramétrage peut désigner — tout ce qui n'est
+pas un compte client. Sans solde : choisir un compte d'imputation ne regarde pas ce qu'il porte, et
+une lecture de solde laisse une trace que personne n'a demandée. Nouvelle opération
+`CHART_OF_ACCOUNTS_READ`, ouverte au comptable, à l'audit, au responsable produits et au risque —
+et **non tracée**, parce qu'un plan comptable n'est pas une donnée clientèle.
+
+Le sélecteur montre en clair ce qui a été retenu : `602100 · débit · résultat`. Un compte de
+produits retenu là où il fallait un compte de charges ne se verrait jamais sur un UUID.
+
+### Deux défauts trouvés en regardant l'écran tourner
+
+**Une version échue s'affichait « en vigueur ».** Le socle ne connaît que `ACTIVE`, et ce statut
+couvre trois situations : ce qui s'applique, ce qui s'appliquera, ce qui s'est appliqué. Une
+version 2025 marquée « en vigueur » un jour de septembre 2026 ferait chercher longtemps pourquoi le
+produit ne s'ouvre plus. L'écran distingue maintenant **En vigueur**, **À venir** et **Échue** — à
+la date comptable de la banque, jamais au jour civil du poste.
+
+**Rafraîchir effaçait l'acquittement.** Un acte relit derrière lui, et la relecture réinitialisait
+le message qui venait d'expliquer ce qu'on avait fait. Trouvé par une spécification, pas à l'œil.
+
+### Ce qui reste du paramétrage du siège
+
+Le siège compte désormais cinq écrans : exploitation, balance, établissement, **produits**,
+numérotation. Restent sans écran, avec API : **agences**, **calendrier** (jours fériés, dates de
+valeur, heures limites), **schémas comptables**, **maquettes** (relevé et états financiers),
+**politiques** (KYC, crédit, risque, sûretés, suspens) et **change**. Après les produits, ce sont
+les agences et le calendrier qui bloquent le démarrage d'un établissement.

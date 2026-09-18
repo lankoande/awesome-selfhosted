@@ -505,6 +505,22 @@ public final class SecurityConfig {
             AccessRule.allow(PRODUCT_MANAGER, RISK_OFFICER)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
+        // Fermer la validite d'une version arrete la commercialisation d'un produit et libere
+        // le code pour une version suivante. Meme regime que l'activation : ce qui ouvre un
+        // parametrage et ce qui le ferme engagent autant.
+        policy.put(Operation.PRODUCT_CLOSE,
+            AccessRule.allow(PRODUCT_MANAGER, RISK_OFFICER)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        // Designer un compte d'imputation est le prealable a tout parametrage : un taux se porte
+        // sur un compte de charges, une commission sur un compte de produits. Sans cette lecture,
+        // ces champs se remplissent avec un identifiant technique recopie d'ailleurs.
+        // Aucune trace a la lecture : un plan comptable n'est pas une donnee clientele, et il ne
+        // porte aucun solde.
+        policy.put(Operation.CHART_OF_ACCOUNTS_READ,
+            AccessRule.allow(ACCOUNTANT, AUDITOR, PRODUCT_MANAGER, RISK_OFFICER)
+                .within(Scope.OWN_ENTITY).build());
+
         // Lire le catalogue est le prealable a l'ouverture d'un compte : les roles qui ouvrent
         // doivent pouvoir savoir ce qui est ouvrable. Sans quoi le code produit se saisit de
         // memoire, et une ouverture se refuse au bout de la chaine pour une faute de frappe.

@@ -2536,6 +2536,71 @@ class ApiIT {
         assertThat(get(officer, "/products").items())
             .extracting(pr -> pr.get("code")).doesNotContain("EP-BROUILLON");
 
+        // ------------------------------------------------------------------ le parametrage relu
+        // Trois lectures manquaient au contrat, et sans elles un ecran de parametrage produit
+        // etait impossible : on redigeait une version sans pouvoir la retrouver, on lisait le
+        // catalogue sans pouvoir relire un taux, et on ignorait ce qu'une famille exige.
+        List<Map<String, Object>> familles = get(productManager, "/products/families").items();
+        assertThat(familles).as("le socle sert son propre contrat de parametrage")
+            .extracting(f -> f.get("code")).contains("CURRENT_ACCOUNT", "SAVINGS_ACCOUNT");
+
+        List<Map<String, Object>> versions = get(productManager, "/products/versions").items();
+        assertThat(versions).as("les brouillons figurent ici, contrairement au catalogue ouvrable")
+            .extracting(v -> v.get("code")).contains("EP-BROUILLON", "EP-API");
+        List<Map<String, Object>> brouillons =
+            get(productManager, "/products/versions?status=DRAFT").items();
+        assertThat(brouillons).extracting(v -> v.get("status")).containsOnly("DRAFT");
+
+        UUID versionBrouillon = UUID.fromString((String) brouillon.body().get("id"));
+        Reponse relue = get(productManager, "/products/versions/" + versionBrouillon);
+        assertThat(relue.status()).as(String.valueOf(relue.body())).isEqualTo(200);
+        assertThat(((Map<?, ?>) relue.body().get("header")).get("code")).isEqualTo("EP-BROUILLON");
+
+        // Un brouillon abandonne se retire — seul acte du parametrage produit qui ne soit pas a
+        // deux : il n'engage rien, aucun compte ne le cite.
+        Reponse retrait = post(productManager,
+                               "/products/versions/" + versionBrouillon + "/withdrawal", null,
+                               Map.of());
+        assertThat(retrait.status()).as(String.valueOf(retrait.body())).isEqualTo(200);
+        assertThat(get(productManager, "/products/versions?status=WITHDRAWN").items())
+            .extracting(v -> v.get("code")).contains("EP-BROUILLON");
+
+        // ------------------------------------------------------------------ la fermeture
+        // Une version active sans terme interdit d'en activer une autre pour le meme code : sans
+        // fermeture, un produit ouvert sans date de fin ne pouvait plus jamais changer.
+        UUID versionEpargne = UUID.fromString((String) versions.stream()
+            .filter(v -> "EP-API".equals(v.get("code")) && "ACTIVE".equals(v.get("status")))
+            .findFirst().orElseThrow().get("id"));
+        Reponse fermeture = post(productManager,
+                                 "/products/versions/" + versionEpargne + "/closure", null,
+                                 Map.of("validTo", J.plusMonths(1).toString()));
+        assertThat(fermeture.status()).as(String.valueOf(fermeture.body())).isEqualTo(202);
+        Reponse fermee = post(riskOfficer,
+                              "/pending-operations/" + attente(fermeture) + "/approve", null,
+                              Map.of());
+        assertThat(fermee.status()).as(String.valueOf(fermee.body())).isEqualTo(200);
+        assertThat(((Map<?, ?>) get(productManager, "/products/versions/" + versionEpargne)
+            .body().get("header")).get("validTo")).isEqualTo(J.plusMonths(1).toString());
+
+        // Fermer avant la date comptable changerait ce qu'un arrete deja produit resoudrait au
+        // rejeu, donc les montants : le socle refuse, et c'est la regle qui fonde tout le
+        // parametrage date.
+        Reponse tropTot = post(productManager,
+                               "/products/versions/" + versionEpargne + "/closure", null,
+                               Map.of("validTo", J.minusDays(1).toString()));
+        Reponse refusee = post(riskOfficer,
+                               "/pending-operations/" + attente(tropTot) + "/approve", null,
+                               Map.of());
+        assertThat(refusee.status()).as(String.valueOf(refusee.body())).isNotEqualTo(200);
+
+        // ------------------------------------------------------------------ le plan comptable
+        // Un parametrage designe des comptes d'imputation. Sans cette lecture, ces champs se
+        // remplissaient avec un identifiant technique recopie d'ailleurs.
+        List<Map<String, Object>> plan = get(productManager, "/accounts/general").items();
+        assertThat(plan).as("le plan comptable ne rend aucun compte client")
+            .extracting(c -> c.get("kind")).doesNotContain("CUSTOMER");
+        assertThat(plan).isNotEmpty();
+
         // ------------------------------------------------------------------ le rejeu
         // Une soumission ne touche pas le registre : c'est ce qui rendait le doublon indolore a
         // ecrire et couteux a decouvrir, le jour ou un valideur approuve deux fois la meme chose.

@@ -1,5 +1,10 @@
 import { Injectable } from '@angular/core';
 import { Montant, RefusMetier } from '../guichet/modele/guichet.modele';
+import { FAMILLES_DEMONSTRATION } from './modele/produits.demonstration';
+import {
+  actesSurVersion, CompteGeneral, EnteteVersion, FamilleProduit, manquesDuParametrage, Tranche,
+  VersionComplete, VersionProduit,
+} from './modele/produits.modele';
 import {
   DemandeEtablissement, DemandeRegle, DomaineNumerotation, Etablissement, RegleNumerotation,
   Segment,
@@ -101,6 +106,120 @@ const ANOMALIES: Readonly<Record<string, readonly string[]>> = {
 function montant(valeur: number): Montant {
   return { amount: String(Math.round(valeur)), currency: DEVISE };
 }
+
+/**
+ * Le plan comptable de la démonstration : ce qu'un paramétrage désigne.
+ *
+ * Quelques comptes, pas un plan SYSCOHADA entier — assez pour que le choix d'un compte
+ * d'imputation se fasse à l'écran plutôt qu'au clavier, et pour qu'on voie la différence entre un
+ * compte de charges et un compte de produits.
+ */
+const COMPTES_GENERAUX: CompteGeneral[] = [
+  { id: 'gl-6021', code: '602100', kind: 'GL', normalBalance: 'DEBIT', currency: 'XOF',
+    nature: 'INCOME_STATEMENT', status: 'ACTIVE', postable: true },
+  { id: 'gl-7021', code: '702100', kind: 'GL', normalBalance: 'CREDIT', currency: 'XOF',
+    nature: 'INCOME_STATEMENT', status: 'ACTIVE', postable: true },
+  { id: 'gl-7031', code: '703100', kind: 'GL', normalBalance: 'CREDIT', currency: 'XOF',
+    nature: 'INCOME_STATEMENT', status: 'ACTIVE', postable: true },
+  { id: 'gl-3781', code: '378100', kind: 'GL', normalBalance: 'CREDIT', currency: 'XOF',
+    nature: 'BALANCE_SHEET', status: 'ACTIVE', postable: true },
+  { id: 'gl-4421', code: '442100', kind: 'GL', normalBalance: 'CREDIT', currency: 'XOF',
+    nature: 'BALANCE_SHEET', status: 'ACTIVE', postable: true },
+  { id: 'gl-3711', code: '371100', kind: 'GL', normalBalance: 'DEBIT', currency: 'XOF',
+    nature: 'BALANCE_SHEET', status: 'ACTIVE', postable: true },
+  { id: 'nos-boa', code: 'NOSTRO-BOA', kind: 'NOSTRO', normalBalance: 'DEBIT', currency: 'XOF',
+    nature: 'BALANCE_SHEET', status: 'ACTIVE', postable: true },
+  { id: 'int-cpn', code: 'INTERNE-COMPENSATION', kind: 'INTERNAL', normalBalance: 'DEBIT',
+    currency: 'XOF', nature: 'BALANCE_SHEET', status: 'ACTIVE', postable: true },
+];
+
+/** Deux produits en vigueur, un brouillon qui attend, une version fermée : une vraie table. */
+const PARAMETRES_COURANT: Record<string, string> = {
+  'interest.day_count': 'ACT_365',
+  'interest.side': 'CREDITOR',
+  'interest.rate': '0',
+  'interest.capitalisation': 'QUARTERLY',
+  'interest.debit_account': 'gl-6021',
+  'interest.credit_account': 'gl-3781',
+  'overdraft.limit': '250000',
+  'overdraft.rate': '13.5',
+  'overdraft.excess_rate': '18',
+  'overdraft.day_count': 'ACT_360',
+  'overdraft.debit_account': 'gl-3711',
+  'overdraft.credit_account': 'gl-7021',
+  'overdraft.settlement': 'QUARTERLY',
+  'overdraft.tax_rate': '18',
+  'overdraft.tax_account': 'gl-4421',
+  'ops.withdrawal_fee': '500',
+  'ops.transfer_fee': '1500',
+  'ops.fee_income_account': 'gl-7031',
+  'ops.tax_rate': '18',
+  'ops.tax_account': 'gl-4421',
+  'ops.daily_debit_max': '2000000',
+  'ops.cheque_book_fee': '3000',
+  'ops.cheque_collection_account': 'int-cpn',
+  'ops.payment_clearing_account': 'nos-boa',
+  'dormancy.months': '24',
+  'fee.codes': 'TENUE',
+  'fee.TENUE.label': 'Frais de tenue de compte',
+  'fee.TENUE.income_account': 'gl-7031',
+  'fee.TENUE.frequency': 'MONTHLY',
+  'fee.TENUE.basis': 'FLAT',
+  'fee.TENUE.amount': '1000',
+  'fee.TENUE.tax_rate': '18',
+  'fee.TENUE.tax_account': 'gl-4421',
+};
+
+const PARAMETRES_EPARGNE: Record<string, string> = {
+  'interest.day_count': 'ACT_365',
+  'interest.side': 'CREDITOR',
+  'interest.tiering_mode': 'PROGRESSIVE',
+  'interest.capitalisation': 'QUARTERLY',
+  'interest.debit_account': 'gl-6021',
+  'interest.credit_account': 'gl-3781',
+  'interest.withholding': 'IRVM',
+};
+
+const VERSIONS: VersionProduit[] = [
+  { id: 'pv-cc-2026', code: 'CPTE-CHQ-PART', productType: 'CURRENT_ACCOUNT',
+    label: 'Compte chèque particulier', currency: 'XOF', validFrom: '2026-01-01', validTo: null,
+    status: 'ACTIVE', createdBy: 'ADIALLO', createdAt: '2025-12-04T10:12:00Z',
+    approvedBy: 'MKONE', approvedAt: '2025-12-05T08:30:00Z' },
+  { id: 'pv-cc-2025', code: 'CPTE-CHQ-PART', productType: 'CURRENT_ACCOUNT',
+    label: 'Compte chèque particulier', currency: 'XOF', validFrom: '2025-01-01',
+    validTo: '2025-12-31', status: 'ACTIVE', createdBy: 'ADIALLO',
+    createdAt: '2024-12-02T09:00:00Z', approvedBy: 'MKONE', approvedAt: '2024-12-03T09:00:00Z' },
+  { id: 'pv-ep-2026', code: 'EPARGNE-PART', productType: 'SAVINGS_ACCOUNT',
+    label: 'Compte d’épargne particulier', currency: 'XOF', validFrom: '2026-01-01',
+    validTo: null, status: 'ACTIVE', createdBy: 'ADIALLO', createdAt: '2025-12-04T10:40:00Z',
+    approvedBy: 'MKONE', approvedAt: '2025-12-05T08:31:00Z' },
+  { id: 'pv-ep-2027', code: 'EPARGNE-PART', productType: 'SAVINGS_ACCOUNT',
+    label: 'Compte d’épargne particulier', currency: 'XOF', validFrom: '2027-01-01',
+    validTo: null, status: 'DRAFT', createdBy: 'ADIALLO', createdAt: '2026-09-15T14:22:00Z',
+    approvedBy: null, approvedAt: null },
+  { id: 'pv-dat-retire', code: 'DAT-12M', productType: 'TERM_DEPOSIT',
+    label: 'Dépôt à terme 12 mois', currency: 'XOF', validFrom: '2026-10-01', validTo: null,
+    status: 'WITHDRAWN', createdBy: 'ADIALLO', createdAt: '2026-08-30T11:00:00Z',
+    approvedBy: null, approvedAt: null },
+];
+
+const BAREMES: Record<string, Record<string, Tranche[]>> = {
+  'pv-ep-2026': {
+    INTEREST: [
+      { from: '0', to: '500000', annualRatePercent: '2.5' },
+      { from: '500000', to: '5000000', annualRatePercent: '3.5' },
+      { from: '5000000', to: null, annualRatePercent: '4.25' },
+    ],
+  },
+};
+
+const PARAMETRES: Record<string, Record<string, string>> = {
+  'pv-cc-2026': PARAMETRES_COURANT,
+  'pv-cc-2025': { ...PARAMETRES_COURANT, 'overdraft.rate': '12', 'fee.TENUE.amount': '800' },
+  'pv-ep-2026': PARAMETRES_EPARGNE,
+  'pv-ep-2027': { ...PARAMETRES_EPARGNE, 'interest.rate': '3' },
+  'pv-dat-retire': {},
+};
 
 /**
  * Source de démonstration du siège.
@@ -396,6 +515,114 @@ export class SiegeFactice implements Siege {
         : regle;
     });
     return { operationId: `op-regle-${Date.now()}` };
+  }
+
+  // ------------------------------------------------------------ paramétrage produit
+
+  private versionsEnCours: readonly VersionProduit[] = VERSIONS;
+  private readonly parametres: Record<string, Record<string, string>> = { ...PARAMETRES };
+  private readonly baremes: Record<string, Record<string, Tranche[]>> = { ...BAREMES };
+
+  async familles(): Promise<readonly FamilleProduit[]> {
+    await this.latence();
+    return FAMILLES_DEMONSTRATION;
+  }
+
+  async versions(legalEntityId: string, code: string | null,
+                 statut: string | null): Promise<readonly VersionProduit[]> {
+    await this.latence();
+    return this.versionsEnCours.filter(
+      (v) => (code === null || v.code === code) && (statut === null || v.status === statut));
+  }
+
+  async version(legalEntityId: string, versionId: string): Promise<VersionComplete> {
+    await this.latence();
+    const header = this.versionsEnCours.find((v) => v.id === versionId);
+    if (!header) {
+      throw new RefusMetier(404, 'VERSION_INCONNUE', 'Version de produit inconnue.');
+    }
+    return {
+      header,
+      parameters: this.parametres[versionId] ?? {},
+      tiers: this.baremes[versionId] ?? {},
+    };
+  }
+
+  async redigerVersion(legalEntityId: string, entete: EnteteVersion,
+                       parametres: Readonly<Record<string, string>>,
+                       baremes: Readonly<Record<string, readonly Tranche[]>>,
+                       ): Promise<{ readonly id: string }> {
+    await this.latence();
+    const id = `pv-${Date.now()}`;
+    // Le brouillon a le droit d'être incomplet : la démonstration ne contrôle rien ici, comme le
+    // socle. C'est l'activation qui confronte le paramétrage à sa famille.
+    this.versionsEnCours = [{
+      id, code: entete.code, productType: entete.productType, label: entete.label,
+      currency: entete.currency, validFrom: entete.validFrom ?? '', validTo: entete.validTo,
+      status: 'DRAFT', createdBy: 'VOUS', createdAt: new Date().toISOString(),
+      approvedBy: null, approvedAt: null,
+    }, ...this.versionsEnCours];
+    this.parametres[id] = { ...parametres };
+    this.baremes[id] = Object.fromEntries(
+      Object.entries(baremes).map(([cle, tranches]) => [cle, [...tranches]]));
+    return { id };
+  }
+
+  async activerVersion(legalEntityId: string, versionId: string): Promise<EnAttenteSiege> {
+    await this.latence();
+    const version = this.requise(versionId);
+    this.refuserSiHorsEtat(actesSurVersion(version).includes('ACTIVER'), 'Activer', version.status);
+    // Le socle confronte d'abord le paramétrage à sa famille : la démonstration aussi, sinon
+    // l'écran n'apprendrait jamais à présenter un refus de complétude.
+    const famille = FAMILLES_DEMONSTRATION.find((f) => f.code === version.productType);
+    const manques = famille
+      ? manquesDuParametrage(famille, this.parametres[versionId] ?? {},
+                             Object.keys(this.baremes[versionId] ?? {}))
+      : [];
+    if (manques.length > 0) {
+      throw new RefusMetier(400, 'PARAMETRAGE_INCOMPLET',
+        `Produit ${version.code} : le paramétrage ne tient pas.`, manques.join(' | '));
+    }
+    return { operationId: `op-produit-${Date.now()}` };
+  }
+
+  async fermerVersion(legalEntityId: string, versionId: string,
+                      validTo: string): Promise<EnAttenteSiege> {
+    await this.latence();
+    const version = this.requise(versionId);
+    this.refuserSiHorsEtat(actesSurVersion(version).includes('FERMER'), 'Fermer', version.status);
+    return { operationId: `op-produit-${Date.now()}` };
+  }
+
+  async retirerVersion(legalEntityId: string, versionId: string): Promise<VersionProduit> {
+    await this.latence();
+    const version = this.requise(versionId);
+    this.refuserSiHorsEtat(actesSurVersion(version).includes('RETIRER'), 'Retirer', version.status);
+    const retiree: VersionProduit = { ...version, status: 'WITHDRAWN' };
+    this.versionsEnCours = this.versionsEnCours.map((v) => (v.id === versionId ? retiree : v));
+    return retiree;
+  }
+
+  async comptesGeneraux(legalEntityId: string, texte: string): Promise<readonly CompteGeneral[]> {
+    await this.latence();
+    const cherche = texte.trim().toUpperCase();
+    return cherche === '' ? COMPTES_GENERAUX
+                          : COMPTES_GENERAUX.filter((c) => c.code.toUpperCase().includes(cherche));
+  }
+
+  private requise(versionId: string): VersionProduit {
+    const version = this.versionsEnCours.find((v) => v.id === versionId);
+    if (!version) {
+      throw new RefusMetier(404, 'VERSION_INCONNUE', 'Version de produit inconnue.');
+    }
+    return version;
+  }
+
+  private refuserSiHorsEtat(permis: boolean, acte: string, etat: string): void {
+    if (!permis) {
+      throw new RefusMetier(409, 'ETAT_INCOMPATIBLE', 'Cet acte ne se fait plus.',
+        `La version est ${etat} : ${acte.toLowerCase()} n'est plus possible dans cet état.`);
+    }
   }
 
   private latence(): Promise<void> {

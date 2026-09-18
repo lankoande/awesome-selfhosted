@@ -13,6 +13,7 @@ import io.corebanking.security.Operation;
 import io.corebanking.security.UseCase;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -384,6 +385,41 @@ public final class AccountUseCases {
                 query.page(),
                 Accounts.countSearch(c, query.legalEntityId(), query.partyId(), query.branchId(),
                                      query.text())));
+        }
+    }
+
+    /** Ce qu'on demande au plan comptable : un fragment de numero, et rien d'autre. */
+    public record ChartQuery(UUID legalEntityId, String text, int limit) {}
+
+    /**
+     * Les comptes du plan comptable : ceux qu'un parametrage peut designer.
+     *
+     * <p>Un taux s'impute sur un compte de charges, une commission sur un compte de produits, une
+     * taxe sur un compte de collecte. Sans cette lecture, ces champs se remplissaient avec un
+     * identifiant technique recopie d'ailleurs — la meme faute que celle corrigee pour les comptes
+     * clients, sur la moitie du parametrage.
+     *
+     * <p>Aucun solde : choisir un compte d'imputation ne regarde pas ce qu'il porte, et une lecture
+     * de solde laisse une trace que personne n'a demandee.
+     */
+    public static final class ReadChart implements UseCase<ChartQuery, List<Accounts.General>> {
+        private final Database database;
+
+        public ReadChart(Database database) {
+            this.database = database;
+        }
+
+        @Override public Operation operation() { return Operation.CHART_OF_ACCOUNTS_READ; }
+
+        @Override
+        public AccessTarget targetOf(ChartQuery query) {
+            return AccessTarget.inEntity(query.legalEntityId());
+        }
+
+        @Override
+        public List<Accounts.General> execute(ChartQuery query) {
+            return database.inTransaction(
+                c -> Accounts.general(c, query.legalEntityId(), query.text(), query.limit()));
         }
     }
 }

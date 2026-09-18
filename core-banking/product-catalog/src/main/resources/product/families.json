@@ -277,7 +277,7 @@
     },
     {
       "code": "SAVINGS_ACCOUNT",
-      "label": "Compte d'epargne",
+      "label": "Compte d'épargne",
       "includes": [
         "interest",
         "fees",
@@ -287,7 +287,7 @@
     },
     {
       "code": "TERM_DEPOSIT",
-      "label": "Depot a terme",
+      "label": "Dépôt à terme",
       "comment": [
         "Le DAT ne porte pas le bloc « interest » : son taux est celui du contrat, fige a la",
         "souscription, quand le bloc « interest » decrit la remuneration d'un solde au bareme",
@@ -330,7 +330,7 @@
     },
     {
       "code": "TERM_LOAN",
-      "label": "Credit amortissable",
+      "label": "Crédit amortissable",
       "required": [
         "loan.accrued_receivable",
         "loan.accrued_interest",

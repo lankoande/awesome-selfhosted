@@ -58,6 +58,10 @@ export const OPERATION_PAR_ECRAN: Readonly<Record<string, string>> = {
   // qui ouvre déjà les remises. Délivrer, payer, opposer, enregistrer et
   // révoquer portent chacun leur droit, et ce sont les boutons qui les voient.
   'paiements/compte': 'CHEQUE_READ',
+  // Le paramétrage produit se lit avec PRODUCT_READ, que porte aussi le guichet — il doit savoir
+  // ce qui est ouvrable. Rédiger, activer et fermer portent chacun leur droit, et ce sont les
+  // boutons qui les voient, pas la navigation.
+  'siege/produits': 'PRODUCT_READ',
   'guichet/versement': 'CASH_OPERATION',
   'guichet/retrait': 'CASH_OPERATION',
   'guichet/virement': 'TRANSFER',

@@ -80,6 +80,7 @@ public final class DualControlHandlers {
                        new PlaceHold(database, accounts), new ReleaseHold(database, accounts),
                        new VerifyKyc(parties), new DisburseLoan(database, loans),
                        new PrepayLoan(database, loans), new ActivateProduct(database),
+                       new CloseProductVersion(database),
                        new AddValueDateRule(database), new AddChannelCutoff(database),
                        new AddHoliday(database),
                        new CreateBranch(database), new CreateTill(database, accounts),
@@ -927,6 +928,52 @@ public final class DualControlHandlers {
             }
             database.inTransaction(c -> {
                 ProductCatalog.activate(c, version.id(), approver);
+                return null;
+            });
+            return new ProductUseCases.Activation(version.id(), version.code(), "ACTIVE");
+        }
+    }
+
+    /**
+     * Fermeture de la validite d'une version de produit.
+     *
+     * <p>Elle arrete la commercialisation d'un produit et libere son code pour une version
+     * suivante : sans elle, une version active sans terme interdit d'en activer une autre pour le
+     * meme code, et le produit ne peut plus jamais changer de parametrage.
+     *
+     * <p>Ce qui ferme un parametrage engage autant que ce qui l'ouvre : meme double regard que
+     * l'activation.
+     */
+    static final class CloseProductVersion implements MakerChecker.Handler {
+        private final Database database;
+
+        CloseProductVersion(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "PRODUCT_CLOSE"; }
+        @Override public Operation operation() { return Operation.PRODUCT_CLOSE; }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            ProductCatalog.VersionHeader version = ProductUseCases.requireVersion(
+                database, uuid(payload, "legalEntityId"), uuid(payload, "versionId"));
+            return AccessTarget.inEntity(version.legalEntityId());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "versionId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            ProductCatalog.VersionHeader version = ProductUseCases.requireVersion(
+                database, uuid(payload, "legalEntityId"), uuid(payload, "versionId"));
+            UUID entity = uuid(payload, "legalEntityId");
+            LocalDate validTo = date(payload, "validTo");
+            database.inTransaction(c -> {
+                ProductCatalog.close(c, entity, version.id(), validTo, Callers.actorId(checker));
                 return null;
             });
             return new ProductUseCases.Activation(version.id(), version.code(), "ACTIVE");

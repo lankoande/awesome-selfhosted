@@ -52,8 +52,9 @@ src/app/paiements/ les moyens de paiement : virements émis, remises de chèques
                  et mandats d'un compte, qui partent d'un compte et non d'une file
 src/app/validation/ la double validation : le second regard
 src/app/caisse/  la caisse du guichetier et son arrêté
-src/app/siege/   exploitation comptable, restitutions, et le paramétrage de
-                 l'établissement : identité et plan de numérotation
+src/app/siege/   exploitation comptable, restitutions, et le paramétrage : identité de
+                 l'établissement, produits (saisie pilotée par le contrat servi par le
+                 socle), plan de numérotation
 src/app/auth/    session OAuth2 PKCE, jeton porté, verrouillage, habilitations
                  (droits complets : portée, second regard, plafonds — voir plus bas)
 src/app/api/    le contrat : types générés (`schema.ts`, ne jamais éditer), chemins
