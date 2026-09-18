@@ -193,7 +193,8 @@ public class PlatformConfiguration {
             io.corebanking.api.web.DualControlHandlers.all(database, lifecycle, parties, accounts,
                                                            loans, engines, postingService,
                                                            cheques, directDebits, writeOffs,
-                                                           standingOrders, termDeposits));
+                                                           standingOrders, termDeposits),
+            new io.corebanking.api.web.HttpIdempotencyKeys());
     }
 
     @Bean

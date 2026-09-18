@@ -6,7 +6,7 @@ import { RefusMetier } from '../guichet/modele/guichet.modele';
 import { Clients } from './clients.port';
 import {
   BeneficiaireEffectif, DemandeOuverture, DemandeTiers, Dossier, IssueOuverture,
-  PageTiers, Piece, Tiers,
+  PageTiers, Piece, ProduitOuvrable, Tiers,
 } from './modele/clients.modele';
 
 interface Enveloppe<T> {
@@ -141,12 +141,17 @@ export class ClientsApi implements Clients {
     }
   }
 
-  async produits(): Promise<readonly { code: string; libelle: string }[]> {
-    // Lacune de contrat : `GET /v1/entities/{id}/products` n'existe pas — le
-    // socle sait rédiger et activer un produit, pas lister ceux qui sont
-    // ouvrables. Rendre une liste devinée ferait proposer au guichetier des
-    // produits qui n'existent peut-être pas ; l'écran passe en saisie libre.
-    return [];
+  async produits(legalEntityId: string): Promise<readonly ProduitOuvrable[]> {
+    // Le socle ne rend que les versions **actives** dont la validité couvre le
+    // jour : un brouillon ou un produit retiré proposé ici ferait saisir une
+    // ouverture que le socle refuserait ensuite, après que le client a signé.
+    const brutes = await this.obtenir<readonly Record<string, unknown>[]>(this.socle.url(
+      '/v1/entities/{legalEntityId}/products', { legalEntityId }));
+    return (brutes ?? []).map((p) => ({
+      code: texte(p['code']) ?? '',
+      libelle: texte(p['label']) ?? texte(p['code']) ?? '',
+      devise: texte(p['currency']),
+    })).filter((p) => p.code !== '');
   }
 
   // ------------------------------------------------------------------ transport

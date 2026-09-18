@@ -2490,6 +2490,83 @@ class ApiIT {
 
     // ------------------------------------------------------------------ outillage
 
+    @Test
+    @Order(24)
+    @DisplayName("le socle dit qui appelle, ce que ses roles admettent, et ne cree pas deux demandes sous la meme cle")
+    void identite_habilitations_catalogue_et_rejeu() throws Exception {
+        // ------------------------------------------------------------------ qui appelle
+        Map<String, Object> moi = get(officer, "/v1/me").body();
+        assertThat(moi.get("username")).isEqualTo("charge.clientele");
+        assertThat(moi.get("legalEntityId")).isEqualTo(ENTITY.toString());
+        assertThat(((List<?>) moi.get("roles")).contains(Roles.CUSTOMER_OFFICER))
+            .as("le poste sait de qui il porte le jeton").isTrue();
+
+        // ------------------------------------------------------------------ ce qu'il peut faire
+        // Sans cette route, le poste n'aurait que deux choix : tout montrer, ou deduire les droits
+        // du jeton — ce qui ferait du navigateur une source d'habilitation.
+        List<Map<String, Object>> droits = get(officer, "/v1/me/permissions").items();
+        assertThat(droits).extracting(d -> d.get("operation")).contains("ACCOUNT_OPEN");
+        Map<String, Object> ouverture = droits.stream()
+            .filter(d -> "ACCOUNT_OPEN".equals(d.get("operation"))).findFirst().orElseThrow();
+        assertThat(ouverture.get("dualControl")).as("l'ecran peut annoncer le second regard")
+            .isEqualTo(true);
+        assertThat(ouverture.get("scope")).isEqualTo("OWN_BRANCH");
+
+        // Un guichetier ne voit pas l'ouverture de compte : la politique ne la lui ouvre pas.
+        assertThat(get(teller, "/v1/me/permissions").items())
+            .extracting(d -> d.get("operation")).doesNotContain("ACCOUNT_OPEN");
+        // Il voit en revanche ses versements, avec le plafond que la politique lui donne.
+        Map<String, Object> especes = get(teller, "/v1/me/permissions").items().stream()
+            .filter(d -> "CASH_OPERATION".equals(d.get("operation"))).findFirst().orElseThrow();
+        assertThat(((Map<?, ?>) especes.get("ceilings")).containsKey("XOF"))
+            .as("le plafond du guichetier est celui que la politique lui donne").isTrue();
+
+        // ------------------------------------------------------------------ ce qui est ouvrable
+        List<Map<String, Object>> catalogue = get(officer, "/products").items();
+        assertThat(catalogue).as("le produit actif du decor est ouvrable")
+            .extracting(pr -> pr.get("code")).contains("EP-API");
+        assertThat(catalogue).extracting(pr -> pr.get("currency")).containsOnly("XOF");
+        // Un brouillon n'est pas ouvrable : le proposer ferait saisir une ouverture refusee
+        // au bout de la chaine, apres que le client a signe.
+        Reponse brouillon = post(productManager, "/products", null, Map.of(
+            "code", "EP-BROUILLON", "productType", "SAVINGS_ACCOUNT",
+            "label", "Version non activee", "currency", "XOF",
+            "validFrom", J.minusMonths(1).toString()));
+        assertThat(brouillon.status()).as(String.valueOf(brouillon.envelope())).isEqualTo(201);
+        assertThat(get(officer, "/products").items())
+            .extracting(pr -> pr.get("code")).doesNotContain("EP-BROUILLON");
+
+        // ------------------------------------------------------------------ le rejeu
+        // Une soumission ne touche pas le registre : c'est ce qui rendait le doublon indolore a
+        // ecrire et couteux a decouvrir, le jour ou un valideur approuve deux fois la meme chose.
+        String cle = UUID.randomUUID().toString();
+        Map<String, Object> demande = Map.of(
+            "code", "CLI-REJEU", "holderPartyId", party.toString(), "productCode", "EP-API",
+            "currency", "XOF");
+        Reponse premiere = post(officer, "/accounts", cle, demande);
+        assertThat(premiere.status()).as(String.valueOf(premiere.envelope())).isEqualTo(202);
+        Reponse rejeu = post(officer, "/accounts", cle, demande);
+        assertThat(rejeu.status()).isEqualTo(202);
+        assertThat(rejeu.body().get("id")).as("le rejeu rend la demande d'origine")
+            .isEqualTo(premiere.body().get("id"));
+
+        // La meme cle pour une autre demande n'est pas un rejeu mais une confusion.
+        Map<String, Object> autre = new LinkedHashMap<>(demande);
+        autre.put("code", "CLI-REJEU-BIS");
+        Reponse confusion = post(officer, "/accounts", cle, autre);
+        assertThat(confusion.status()).as(String.valueOf(confusion.envelope())).isEqualTo(409);
+
+        // Sans cle, deux envois font deux demandes : c'est le comportement qu'on protege.
+        Reponse sansCle1 = post(officer, "/accounts", null, autre);
+        Reponse sansCle2 = post(officer, "/accounts", null, autre);
+        assertThat(sansCle1.body().get("id")).isNotEqualTo(sansCle2.body().get("id"));
+
+        // La cle d'un autre maker ne donne acces a rien : elle fait sa propre demande.
+        Reponse parUnAutre = post(manager, "/accounts", cle, demande);
+        assertThat(parUnAutre.status()).isEqualTo(202);
+        assertThat(parUnAutre.body().get("id")).isNotEqualTo(premiere.body().get("id"));
+    }
+
     private static UUID attente(Reponse reponse) {
         return UUID.fromString((String) reponse.body().get("id"));
     }
@@ -2569,9 +2646,15 @@ class ApiIT {
         return new Reponse(response.statusCode(), body, envelope);
     }
 
+    /**
+     * Les chemins sont relatifs a l'entite, qui prefixe presque tout. Un chemin qui commence
+     * deja par {@code /v1/} est pris tel quel : quelques routes — l'identite de l'appelant —
+     * ne relevent d'aucune entite du chemin, elles la tiennent du jeton.
+     */
     private URI uri(String path) {
-        return URI.create("http://localhost:" + environment.getProperty("local.server.port")
-                          + "/v1/entities/" + ENTITY + path);
+        String racine = "http://localhost:" + environment.getProperty("local.server.port");
+        return URI.create(path.startsWith("/v1/") ? racine + path
+                                                  : racine + "/v1/entities/" + ENTITY + path);
     }
 
     @SuppressWarnings("unchecked")

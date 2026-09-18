@@ -8,7 +8,9 @@ import {
 } from '../../ui';
 import { CLIENTS } from '../clients.port';
 import { IdentiteTiers } from '../composants/identite-tiers';
-import { Dossier, IssueOuverture, Tiers, obstaclesAOuverture } from '../modele/clients.modele';
+import {
+  Dossier, IssueOuverture, ProduitOuvrable, Tiers, obstaclesAOuverture,
+} from '../modele/clients.modele';
 
 type Phase = 'chargement' | 'saisie' | 'envoi' | 'en-attente' | 'refuse';
 
@@ -65,8 +67,8 @@ export class OuvertureCompte {
 
   protected readonly produit = signal('');
   protected readonly devise = signal('');
-  /** La liste des produits ouvrables ; vide tant que le contrat ne l'expose pas. */
-  protected readonly produits = signal<readonly { code: string; libelle: string }[]>([]);
+  /** Les produits ouvrables, tels que le socle les rend. */
+  protected readonly produits = signal<readonly ProduitOuvrable[]>([]);
 
   /**
    * Une clé par demande, envoyée bien que le socle l'ignore aujourd'hui : le
@@ -82,6 +84,24 @@ export class OuvertureCompte {
   });
 
   /** Ce que l'écran empêche est ergonomique ; ce qui est interdit, le socle le refuse. */
+  /**
+   * Choisir un produit fixe la devise : elle appartient au produit, pas à la
+   * saisie. Laisser les deux libres produirait des couples impossibles, refusés
+   * par le socle après que le client a signé.
+   */
+  protected choisirProduit(code: string): void {
+    this.commence.set(true);
+    this.produit.set(code);
+    const choisi = this.produits().find((p) => p.code === code);
+    if (choisi?.devise) this.devise.set(choisi.devise);
+  }
+
+  /** La devise se saisit tant que le catalogue ne la donne pas. */
+  protected readonly deviseImposee = computed(() => {
+    const choisi = this.produits().find((p) => p.code === this.produit());
+    return choisi?.devise != null && choisi.devise !== '';
+  });
+
   protected readonly manques = computed(() => {
     const manques: string[] = [];
     if (!this.produit().trim()) manques.push('Le code produit est obligatoire.');

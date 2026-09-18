@@ -20,6 +20,38 @@ public final class ProductUseCases {
 
     private ProductUseCases() {}
 
+    /**
+     * Ce qui est ouvrable a une date, dans une entite.
+     *
+     * @param on la date a laquelle la validite s'apprecie ; le jour meme par defaut. Elle se
+     *           choisit pour preparer une ouverture a venir, pas pour reecrire le passe.
+     */
+    public record Catalogue(UUID legalEntityId, LocalDate on) {}
+
+    /** Lecture du catalogue produit : le prealable a toute ouverture de compte. */
+    public static final class ListOpenable
+            implements UseCase<Catalogue, List<ProductCatalog.Openable>> {
+        private final Database database;
+
+        public ListOpenable(Database database) {
+            this.database = database;
+        }
+
+        @Override public Operation operation() { return Operation.PRODUCT_READ; }
+
+        @Override
+        public AccessTarget targetOf(Catalogue query) {
+            return AccessTarget.inEntity(query.legalEntityId());
+        }
+
+        @Override
+        public List<ProductCatalog.Openable> execute(Catalogue query) {
+            LocalDate on = query.on() == null ? LocalDate.now() : query.on();
+            return database.inTransaction(c ->
+                ProductCatalog.openable(c, query.legalEntityId(), on));
+        }
+    }
+
     public record Draft(UUID legalEntityId, String code, String productType, String label,
                         String currency, LocalDate validFrom, LocalDate validTo,
                         Map<String, String> parameters, List<Tier> tiers, UUID actorId) {}

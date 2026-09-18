@@ -41,6 +41,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.ValueConstants;
 
@@ -161,12 +162,29 @@ public final class OpenApiDocument {
             return path.length > 0 ? path[0] : "";
         }
 
+        /** La methode soumet-elle a double validation : une View rendue avec un 202. */
+        private static boolean submitsForApproval(Method method) {
+            ResponseStatus status = method.getAnnotation(ResponseStatus.class);
+            return io.corebanking.api.web.MakerChecker.View.class
+                       .isAssignableFrom(method.getReturnType())
+                   && status != null && status.value() == HttpStatus.ACCEPTED;
+        }
+
         private Map<String, Object> operation(Method method, String tag) {
             Map<String, Object> operation = new LinkedHashMap<>();
             operation.put("operationId", tag + "." + method.getName());
             operation.put("tags", List.of(tag));
             List<Object> parameters = new ArrayList<>();
             parameters.add(ref("#/components/parameters/RequestId"));
+            // Une soumission a double validation porte sa cle dans l'en-tete, pas dans sa
+            // signature : la mecanique est la meme pour les cinquante-huit routes concernees, et
+            // c'est ici qu'elle se declare, une fois, pour toutes. Le critere est la soumission
+            // elle-meme — une reponse 202 — et non le type rendu : lire, approuver et rejeter
+            // une operation en attente rendent aussi une View sans rien soumettre, et annoncer
+            // une cle qui n'y sert a rien ferait mentir le contrat.
+            if (submitsForApproval(method)) {
+                parameters.add(ref("#/components/parameters/OptionalIdempotencyKey"));
+            }
             Map<String, Object> requestBody = null;
             for (Parameter parameter : method.getParameters()) {
                 Class<?> type = parameter.getType();
@@ -332,6 +350,11 @@ public final class OpenApiDocument {
             parameters.put("IdempotencyKey", header("Idempotency-Key", true,
                 Map.of("type", "string"),
                 "Cle d'idempotence : un rejeu repond 200 avec le premier recu"));
+            parameters.put("OptionalIdempotencyKey", header("Idempotency-Key", false,
+                Map.of("type", "string"),
+                "Cle d'idempotence de la soumission. Envoyee, la meme cle avec la meme requete "
+                + "rend la demande d'origine au lieu d'en creer une seconde ; avec une requete "
+                + "differente, 409. Omise, un envoi rejoue cree une seconde demande."));
             parameters.put("Page", query("page", Map.of("type", "integer", "minimum", 0, "default", 0),
                 "Numero de page, a partir de zero"));
             parameters.put("PageSize", query("size",

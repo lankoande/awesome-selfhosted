@@ -716,3 +716,97 @@ d'obstacles s'allonge et que la mise en page se tend). Deux corrections sont ven
   signature des contrôleurs. C'est la lacune la plus coûteuse de ce lot : elle oblige le poste à
   refuser le rejeu là où il devrait l'offrir, et laisse au guichetier un aller-retour de
   vérification que la clé rendrait inutile.
+
+---
+
+## 16. Trois lacunes comblées côté socle
+
+Les écrans construits jusqu'ici ont nommé douze manques du contrat. Trois sont comblés — les
+trois qui coûtaient le plus cher — et le front a été rebranché dessus dans la foulée.
+
+### `GET /v1/me` et `GET /v1/me/permissions`
+
+C'était la lacune n° 1, et la plus chère : elle était la raison pour laquelle le menu montrait
+tout. Le socle connaissait déjà la réponse — la politique vit dans `SecurityConfig`, il l'applique
+à chaque appel — il ne l'exposait pas.
+
+`AuthorizationService.grants(caller)` rend, opération par opération, ce que les rôles de
+l'appelant admettent, avec le périmètre, le second regard exigé, et le plafond le plus favorable
+de ses rôles par devise. `MeController` l'expose, et rend aussi l'identité établie depuis le
+jeton.
+
+Trois décisions à connaître :
+
+- **Ces deux routes ne portent pas d'opération d'habilitation.** Exiger un droit pour lire ses
+  propres droits serait circulaire. Le cloisonnement tient par construction : tout vient du
+  `Caller`, jamais d'un paramètre, donc personne ne peut lire l'identité d'un autre.
+- **Ce n'est pas une décision d'accès.** L'agence, le montant et l'objet visé n'y sont pas connus.
+  Une opération présente peut être refusée au moment d'agir ; `require()` reste le seul contrôle.
+- **Aucune trace d'audit.** Lire ses propres droits n'est pas un accès à une donnée clientèle, et
+  tracer chaque ouverture d'écran noierait les traces qui comptent.
+
+Côté front, `lireHabilitations()` perd la seule adresse écrite à la main du poste : elle passe par
+le constructeur d'URL vérifié à la compilation, comme toutes les autres.
+
+### La clé d'idempotence sur les soumissions à double validation
+
+Une soumission ne touche pas le registre — c'est précisément ce qui rendait le doublon indolore à
+écrire et coûteux à découvrir : deux ouvertures pour le même client, deux chéquiers, deux caisses,
+qu'un valideur approuve de bonne foi des jours plus tard sans savoir qu'il valide deux fois la
+même chose. `posting_idempotency` ne couvrait pas ce cas : il protège les écritures, et une
+soumission n'en produit aucune.
+
+`V57` porte la clé et une empreinte de la requête sur `pending_operation`, sous un index unique
+partiel `(entité, maker, clé)`. Trois choix dans ce triplet :
+
+- **borné au maker** : deux personnes qui emploient par hasard la même clé font deux demandes, ce
+  qui est la vérité ; et la clé d'un tiers ne peut pas servir à lire ce qu'il a soumis ;
+- **empreinte comparée** : la même clé avec une requête différente n'est pas un rejeu mais une
+  confusion. Le socle répond 409 plutôt que de rendre un résultat qui ne répond pas à la demande
+  faite ;
+- **index partiel** : un appelant qui n'envoie pas de clé garde le comportement d'avant, et les
+  soumissions sans clé ne se gênent pas entre elles.
+
+**La clé est lue dans l'en-tête, pas ajoutée aux cinquante-huit signatures qui soumettent.**
+`MakerChecker` est une classe de la couche web : y lire un en-tête n'est pas une entorse de
+couche. Elle passe par une interface `Keys` — la double validation se teste donc sans servlet, et
+un appelant qui n'est pas un navigateur dit lui-même ce qu'il porte. Porter la clé cinquante-huit
+fois dans une signature aurait surtout garanti qu'elle finisse par manquer à l'une d'elles, sans
+que rien ne le dise.
+
+Le contrat, lui, l'annonce route par route : le générateur la déclare dès qu'une méthode **rend
+une `View` avec un 202**. Le critère est la soumission, pas le type rendu — lire, approuver et
+rejeter une opération en attente rendent aussi une `View` sans rien soumettre, et annoncer une clé
+qui n'y sert à rien ferait mentir le contrat. Exactement 58 routes la déclarent.
+
+**Elle reste facultative**, et c'est un choix assumé : la rendre obligatoire aujourd'hui casserait
+les quatre-vingt-dix-sept appels de test qui n'en envoient pas, et une bascule de cette nature se
+décide, elle ne se subit pas comme effet de bord. Un client qui l'envoie a la garantie ; le
+back-office l'envoie déjà, sur toutes les routes.
+
+### `GET /v1/entities/{id}/products`
+
+Le socle savait rédiger et activer un produit, pas dire lesquels sont ouvrables. Le guichet
+saisissait donc un code de mémoire, et l'ouverture se refusait au bout de la chaîne pour une faute
+de frappe — après que le client a signé.
+
+`ProductCatalog.openable(entité, date)` rend les versions **actives** dont la validité couvre ce
+jour, **une seule ligne par code** — la plus récemment entrée en vigueur. Proposer deux fois le
+même produit avec deux paramétrages ferait choisir au guichet ce qui ne se choisit pas là. Les
+brouillons, les produits suspendus et les produits retirés n'y figurent pas.
+
+L'opération `PRODUCT_READ` est nouvelle, ouverte aux rôles qui ouvrent des comptes : lire le
+catalogue est le préalable à l'ouverture. Elle n'est pas tracée à la lecture — un catalogue n'est
+pas une donnée clientèle. Le test d'exhaustivité du catalogue d'opérations l'a d'ailleurs
+immédiatement réclamée : une opération que rien ne revendique fait croire à une protection qui ne
+s'exerce nulle part.
+
+Côté front, l'écran d'ouverture passe de la saisie libre à une liste — et **reprend la devise du
+produit choisi**, qu'il verrouille alors. La devise appartient au produit ; la laisser saisir à
+côté produirait des couples impossibles, refusés par le socle après la signature.
+
+### Ce qui reste des douze lacunes
+
+Neuf, dont les plus utiles à l'écran : le lien compte → titulaire, la recherche de compte, la
+lecture des blocages, la cotation d'une opération avant de la passer, l'identité structurée du
+remettant, les lignes d'écriture du reçu, `GET /v1/me/till` et le solde théorique d'une caisse.

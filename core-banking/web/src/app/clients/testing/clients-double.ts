@@ -1,7 +1,7 @@
 import { Clients } from '../clients.port';
 import {
   BeneficiaireEffectif, DemandeOuverture, DemandeTiers, Dossier, IssueOuverture,
-  PageTiers, Piece, Tiers,
+  PageTiers, Piece, ProduitOuvrable, Tiers,
 } from '../modele/clients.modele';
 
 export const TIERS_DOUBLE_ID = '33333333-3333-4333-8333-000000004217';
@@ -59,7 +59,7 @@ export class ClientsDouble implements Clients {
   beneficiairesRendus: readonly BeneficiaireEffectif[] = [];
   resultats: readonly Tiers[] = [TIERS_DOUBLE];
   suivant = false;
-  produitsRendus: readonly { code: string; libelle: string }[] = [];
+  produitsRendus: readonly ProduitOuvrable[] = [];
 
   /** Ce que rend l'ouverture. Un test la remplace pour lever un refus. */
   issueOuverture: () => Promise<IssueOuverture> = async () => ({ operationId: 'PND-000207' });
@@ -98,7 +98,7 @@ export class ClientsDouble implements Clients {
     return this.issueOuverture();
   }
 
-  async produits(): Promise<readonly { code: string; libelle: string }[]> {
+  async produits(): Promise<readonly ProduitOuvrable[]> {
     return this.produitsRendus;
   }
 }

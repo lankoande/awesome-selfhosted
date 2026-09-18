@@ -19,6 +19,15 @@
           "type" : "string"
         }
       },
+      "OptionalIdempotencyKey" : {
+        "description" : "Cle d'idempotence de la soumission. Envoyee, la meme cle avec la meme requete rend la demande d'origine au lieu d'en creer une seconde ; avec une requete differente, 409. Omise, un envoi rejoue cree une seconde demande.",
+        "in" : "header",
+        "name" : "Idempotency-Key",
+        "required" : false,
+        "schema" : {
+          "type" : "string"
+        }
+      },
       "Page" : {
         "description" : "Numero de page, a partir de zero",
         "in" : "query",
@@ -1944,6 +1953,60 @@
         },
         "type" : "object"
       },
+      "MeController.Identity" : {
+        "properties" : {
+          "branchId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "legalEntityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "roles" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "subjectId" : {
+            "type" : "string"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "MeController.Permission" : {
+        "properties" : {
+          "ceilings" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/Money"
+            },
+            "type" : "object"
+          },
+          "dualControl" : {
+            "type" : "boolean"
+          },
+          "operation" : {
+            "type" : "string"
+          },
+          "remoteAllowed" : {
+            "type" : "boolean"
+          },
+          "remoteCeilings" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/Money"
+            },
+            "type" : "object"
+          },
+          "scope" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Meta" : {
         "properties" : {
           "requestId" : {
@@ -2430,6 +2493,31 @@
             "type" : "string"
           },
           "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ProductCatalog.Openable" : {
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "productType" : {
+            "type" : "string"
+          },
+          "validFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "validTo" : {
+            "format" : "date",
             "type" : "string"
           }
         },
@@ -5553,6 +5641,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -5625,6 +5715,8 @@
         "operationId" : "Account.open",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -5774,6 +5866,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -5856,6 +5950,8 @@
         "operationId" : "Account.lift",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -6021,6 +6117,8 @@
         "operationId" : "Cheque.issueBook",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -6583,6 +6681,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -6852,6 +6952,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -6934,6 +7036,8 @@
         "operationId" : "Account.release",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -7392,6 +7496,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -7548,6 +7654,8 @@
         "operationId" : "DirectDebit.register",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -7852,6 +7960,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -7935,6 +8045,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -8009,6 +8121,8 @@
         "operationId" : "Calendar.addCutoff",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -8085,6 +8199,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -8159,6 +8275,8 @@
         "operationId" : "Calendar.addRule",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -8628,6 +8746,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -8700,6 +8820,8 @@
         "operationId" : "Collateral.register",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -8775,6 +8897,8 @@
         "operationId" : "Collateral.allocate",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -8858,6 +8982,8 @@
         "operationId" : "Collateral.release",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -9395,6 +9521,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -9618,6 +9746,8 @@
         "operationId" : "Compliance.declareScenario",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -10489,6 +10619,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -10637,6 +10769,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -10720,6 +10854,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -10792,6 +10928,8 @@
         "operationId" : "YearEnd.run",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -10941,6 +11079,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -11023,6 +11163,8 @@
         "operationId" : "YearEnd.resume",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -11166,6 +11308,8 @@
         "operationId" : "FiscalYear.open",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -11315,6 +11459,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -11463,6 +11609,8 @@
         "operationId" : "Fx.declare",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -11620,6 +11768,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -11760,6 +11910,8 @@
         "operationId" : "PartyFile.setPolicy",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -12193,6 +12345,8 @@
         "operationId" : "Origination.setPolicy",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -12739,6 +12893,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -12902,6 +13058,8 @@
         "operationId" : "Origination.clear",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -13211,6 +13369,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -13293,6 +13453,8 @@
         "operationId" : "Loan.prepay",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -13378,6 +13540,8 @@
         "operationId" : "Loan.reviseRate",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -13632,6 +13796,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -13785,6 +13951,8 @@
         "operationId" : "Loan.writeOff",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -14429,6 +14597,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -14742,6 +14912,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -14898,6 +15070,8 @@
         "operationId" : "PartyFile.declareRelationship",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -15753,6 +15927,80 @@
       }
     },
     "/v1/entities/{legalEntityId}/products" : {
+      "get" : {
+        "operationId" : "Product.openable",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "on",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "items" : {
+                        "$ref" : "#/components/schemas/ProductCatalog.Openable"
+                      },
+                      "type" : "array"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Product" ]
+      },
       "post" : {
         "operationId" : "Product.draft",
         "parameters" : [ {
@@ -15832,6 +16080,8 @@
         "operationId" : "Product.activate",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -15972,6 +16222,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -16046,6 +16298,8 @@
         "operationId" : "Regulatory.declareElimination",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -16263,6 +16517,8 @@
         "operationId" : "Regulatory.declare",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -16653,6 +16909,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -16885,6 +17143,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -17026,6 +17286,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -17100,6 +17362,8 @@
         "operationId" : "PartyFile.endRelationship",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -17259,6 +17523,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -17404,6 +17670,8 @@
         "operationId" : "StandingOrder.register",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -17783,6 +18051,8 @@
         "operationId" : "StatementLayout.activate",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -18218,6 +18488,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -18365,6 +18637,8 @@
         "operationId" : "TermDeposit.subscribe",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -18514,6 +18788,8 @@
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
         }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
           "in" : "path",
           "name" : "legalEntityId",
           "required" : true,
@@ -18596,6 +18872,8 @@
         "operationId" : "Till.create",
         "parameters" : [ {
           "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
         }, {
           "in" : "path",
           "name" : "legalEntityId",
@@ -18849,6 +19127,123 @@
           }
         },
         "tags" : [ "Operation" ]
+      }
+    },
+    "/v1/me" : {
+      "get" : {
+        "operationId" : "Me.me",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MeController.Identity"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Me" ]
+      }
+    },
+    "/v1/me/permissions" : {
+      "get" : {
+        "operationId" : "Me.permissions",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "items" : {
+                        "$ref" : "#/components/schemas/MeController.Permission"
+                      },
+                      "type" : "array"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Me" ]
       }
     },
     "/v1/openapi.json" : {

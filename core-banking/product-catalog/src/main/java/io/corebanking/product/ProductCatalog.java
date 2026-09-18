@@ -129,6 +129,55 @@ public final class ProductCatalog {
      * second regard un parametrage que la machine sait incomplet lui ferait porter une
      * responsabilite sur une piece incomplete.
      */
+    /**
+     * Ce qui est ouvrable a une date : les versions actives dont la validite couvre ce jour.
+     *
+     * <p>Un produit peut avoir plusieurs versions ; celle qui compte est celle en vigueur. On ne
+     * rend donc <b>qu'une ligne par code</b>, la plus recemment entree en vigueur — proposer deux
+     * fois le meme produit avec deux parametrages ferait choisir au guichet ce qui ne se choisit
+     * pas la.
+     *
+     * <p>Les versions {@code DRAFT}, {@code SUSPENDED} et {@code WITHDRAWN} n'y figurent pas : un
+     * brouillon n'engage rien, un produit suspendu ou retire ne s'ouvre plus. Un catalogue qui les
+     * montrerait ferait saisir des ouvertures que le socle refuserait ensuite.
+     */
+    public static List<Openable> openable(Connection c, UUID legalEntityId, LocalDate on) {
+        List<Openable> catalogue = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT DISTINCT ON (code) code, label, product_type, currency, valid_from, valid_to"
+            + " FROM product_version"
+            + " WHERE legal_entity_id = ? AND status = 'ACTIVE'"
+            + "   AND valid_from <= ? AND (valid_to IS NULL OR valid_to >= ?)"
+            + " ORDER BY code, valid_from DESC")) {
+            ps.setObject(1, legalEntityId);
+            ps.setObject(2, on);
+            ps.setObject(3, on);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    catalogue.add(new Openable(
+                        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4),
+                        rs.getObject(5, LocalDate.class), rs.getObject(6, LocalDate.class)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture du catalogue produit", e);
+        }
+        return List.copyOf(catalogue);
+    }
+
+    /**
+     * Un produit ouvrable.
+     *
+     * @param code        code du produit, celui qu'une ouverture de compte cite
+     * @param label       intitule lisible
+     * @param productType famille du produit
+     * @param currency    devise du produit ; un compte s'ouvre dans celle-la
+     * @param validFrom   entree en vigueur de la version retenue
+     * @param validTo     fin de validite, nulle quand la version est sans terme
+     */
+    public record Openable(String code, String label, String productType, String currency,
+                           LocalDate validFrom, LocalDate validTo) {}
+
     public static void activate(Connection c, UUID versionId, UUID approverId) {
         validate(c, versionId);
         try (PreparedStatement ps = c.prepareStatement(

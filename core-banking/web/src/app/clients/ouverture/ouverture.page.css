@@ -39,7 +39,7 @@ h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
    l'un de l'autre sans rien gagner. */
 .saisie {
   display: grid;
-  grid-template-columns: minmax(0, 22rem) minmax(0, 8rem);
+  grid-template-columns: minmax(0, 24rem) minmax(0, 11rem);
   gap: var(--cb-space-4);
   align-items: start;
 }

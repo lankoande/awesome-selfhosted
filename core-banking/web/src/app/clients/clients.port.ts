@@ -1,7 +1,7 @@
 import { InjectionToken } from '@angular/core';
 import {
   BeneficiaireEffectif, DemandeOuverture, DemandeTiers, Dossier, IssueOuverture,
-  PageTiers, Piece, Tiers,
+  PageTiers, Piece, ProduitOuvrable, Tiers,
 } from './modele/clients.modele';
 
 /**
@@ -40,8 +40,11 @@ export interface Clients {
    */
   ouvrirCompte(demande: DemandeOuverture, cleIdempotence: string): Promise<IssueOuverture>;
 
-  /** Les produits ouvrables, quand le socle sait les dire. Vide : saisie libre. */
-  produits(legalEntityId: string): Promise<readonly { code: string; libelle: string }[]>;
+  /**
+   * Les produits ouvrables aujourd'hui. Le socle ne rend que les versions
+   * actives en vigueur ; un brouillon ou un produit retiré n'y figure pas.
+   */
+  produits(legalEntityId: string): Promise<readonly ProduitOuvrable[]>;
 }
 
 export const CLIENTS = new InjectionToken<Clients>('Clients');

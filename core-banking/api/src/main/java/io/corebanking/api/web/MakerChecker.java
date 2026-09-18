@@ -63,18 +63,39 @@ public final class MakerChecker {
                        Instant decidedAt, String decisionReason, Map<String, Object> payload,
                        Object result, String error) {}
 
+    /**
+     * D'ou vient la cle d'idempotence de la soumission en cours. Une interface plutot qu'une
+     * lecture directe de la requete HTTP : la double validation se teste alors sans servlet, et
+     * un appelant qui n'est pas un navigateur — un lot, un test — dit lui-meme ce qu'il porte.
+     */
+    @FunctionalInterface
+    public interface Keys {
+        /** La cle de la requete en cours, ou vide quand l'appelant n'en porte pas. */
+        java.util.Optional<String> current();
+
+        /** Aucune cle : la soumission n'est protegee d'aucun doublon. */
+        Keys NONE = java.util.Optional::empty;
+    }
+
     private final Database database;
     private final AuthorizationService authorization;
     private final ObjectMapper json;
     private final Duration validity;
+    private final Keys keys;
     private final Map<String, Handler> handlers = new LinkedHashMap<>();
 
     public MakerChecker(Database database, AuthorizationService authorization, ObjectMapper json,
                         Duration validity, List<Handler> handlers) {
+        this(database, authorization, json, validity, handlers, Keys.NONE);
+    }
+
+    public MakerChecker(Database database, AuthorizationService authorization, ObjectMapper json,
+                        Duration validity, List<Handler> handlers, Keys keys) {
         this.database = Objects.requireNonNull(database);
         this.authorization = Objects.requireNonNull(authorization);
         this.json = Objects.requireNonNull(json);
         this.validity = Objects.requireNonNull(validity);
+        this.keys = Objects.requireNonNull(keys);
         for (Handler handler : handlers) {
             if (!SecurityConfig.ruleFor(handler.operation()).dualControl()) {
                 throw new IllegalStateException(
@@ -85,7 +106,18 @@ public final class MakerChecker {
         }
     }
 
-    /** Soumet une requete : le maker doit etre habilite a l'operation ; elle attend un checker. */
+    /**
+     * Soumet une requete : le maker doit etre habilite a l'operation ; elle attend un checker.
+     *
+     * <p><b>Le rejeu ne cree pas une seconde demande.</b> Une soumission ne touche pas le
+     * registre — c'est ce qui rendait le doublon indolore a ecrire et couteux a decouvrir : deux
+     * ouvertures pour le meme client, deux chequiers, qu'un valideur approuve de bonne foi des
+     * jours plus tard sans savoir qu'il valide deux fois la meme chose. Quand l'appelant porte
+     * une cle d'idempotence, la meme cle avec la meme requete rend la demande d'origine.
+     *
+     * <p>La meme cle avec une requete <b>differente</b> n'est pas un rejeu mais une confusion :
+     * elle est refusee, plutot que de rendre un resultat qui ne repond pas a la demande faite.
+     */
     public View submit(Caller maker, UUID legalEntityId, String handlerName,
                        Map<String, Object> payload) {
         Handler handler = require(handlerName);
@@ -94,16 +126,59 @@ public final class MakerChecker {
         AccessTarget target = handler.targetOf(maker, request);
         authorization.require(maker, handler.operation(), target);
 
+        String corps = write(request);
+        String cle = keys.current().filter(valeur -> !valeur.isBlank()).orElse(null);
+        String empreinte = cle == null ? null : digest(handlerName + '\n' + corps);
+
+        if (cle != null) {
+            java.util.Optional<PendingOperations.Replay> deja = database.inTransaction(
+                c -> PendingOperations.findByIdempotencyKey(c, legalEntityId, maker.subjectId(),
+                                                            cle, empreinte));
+            if (deja.isPresent()) {
+                PendingOperations.Replay rejeu = deja.get();
+                if (!rejeu.sameRequest()) {
+                    throw new ReusedKeyException(cle);
+                }
+                LOG.info("double validation : rejeu de {} par {} sous la cle {}, demande {}",
+                         handler.name(), maker.username(), cle, rejeu.id());
+                return read(maker, rejeu.id());
+            }
+        }
+
         UUID id = database.inTransaction(c -> PendingOperations.submit(c,
             new PendingOperations.Draft(legalEntityId, handler.operation().name(), handler.name(),
-                                        handler.resourceOf(request), write(request),
+                                        handler.resourceOf(request), corps,
                                         target.amount() == null ? null : target.amount().amount(),
                                         target.amount() == null ? null
                                                                 : target.amount().currency().code(),
-                                        maker, validity)));
+                                        maker, validity, cle, empreinte)));
         LOG.info("double validation : {} soumise par {} ({}), en attente {}", handler.name(),
                  maker.username(), maker.subjectId(), id);
         return read(maker, id);
+    }
+
+    /** L'empreinte d'une requete : ce qui distingue un rejeu d'une cle reemployee. */
+    private static String digest(String contenu) {
+        try {
+            byte[] somme = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(contenu.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(somme);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 absent de la plateforme", e);
+        }
+    }
+
+    /**
+     * La cle a deja servi, pour une autre requete. Ce n'est pas un rejeu : rendre la premiere
+     * demande repondrait a cote, en creer une seconde annulerait la protection.
+     */
+    public static final class ReusedKeyException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        public ReusedKeyException(String key) {
+            super("La cle d'idempotence " + key + " a deja servi pour une autre demande. "
+                  + "Une nouvelle demande se fait sous une nouvelle cle.");
+        }
     }
 
     /**

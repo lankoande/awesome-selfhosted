@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -29,9 +30,23 @@ public final class PendingOperations {
 
     public enum Status { PENDING, APPROVED, REJECTED, EXPIRED, EXECUTED, FAILED }
 
+    /**
+     * @param idempotencyKey cle portee par l'appelant ; nulle quand il n'en envoie pas, et la
+     *                       soumission n'est alors protegee d'aucun doublon
+     * @param requestDigest  empreinte de la requete, comparee au rejeu
+     */
     public record Draft(UUID legalEntityId, String operation, String handler, String resource,
                         String payload, BigDecimal amount, String currency, Caller maker,
-                        Duration validity) {
+                        Duration validity, String idempotencyKey, String requestDigest) {
+
+        /** Soumission sans cle : aucune protection contre le doublon. */
+        public Draft(UUID legalEntityId, String operation, String handler, String resource,
+                     String payload, BigDecimal amount, String currency, Caller maker,
+                     Duration validity) {
+            this(legalEntityId, operation, handler, resource, payload, amount, currency, maker,
+                 validity, null, null);
+        }
+
         public Draft {
             Objects.requireNonNull(legalEntityId, "legalEntityId");
             Objects.requireNonNull(operation, "operation");
@@ -59,7 +74,8 @@ public final class PendingOperations {
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO pending_operation(id, legal_entity_id, operation, handler, resource,"
             + " payload, amount, currency, maker_id, maker_username, maker_branch_id, made_at,"
-            + " expires_at) VALUES (?,?,?,?,?,?::jsonb,?,?,?,?,?,?,?)")) {
+            + " expires_at, idempotency_key, request_digest)"
+            + " VALUES (?,?,?,?,?,?::jsonb,?,?,?,?,?,?,?,?,?)")) {
             ps.setObject(1, id);
             ps.setObject(2, draft.legalEntityId());
             ps.setString(3, draft.operation());
@@ -73,12 +89,55 @@ public final class PendingOperations {
             ps.setObject(11, draft.maker().branchId());
             ps.setTimestamp(12, Timestamp.from(now));
             ps.setTimestamp(13, Timestamp.from(now.plus(draft.validity())));
+            ps.setString(14, draft.idempotencyKey());
+            ps.setString(15, draft.requestDigest());
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new LedgerStoreException("Enregistrement de l'operation en attente", e);
         }
         return id;
     }
+
+    /**
+     * Une soumission deja faite sous cette cle par ce meme maker, s'il y en a une.
+     *
+     * <p>La cle est cherchee <b>dans le perimetre du maker</b> : celle d'un tiers ne peut donc
+     * pas servir a decouvrir ce qu'il a soumis, et deux personnes qui emploient la meme cle font
+     * deux demandes distinctes — ce qui est la verite.
+     *
+     * @param requestDigest empreinte de la requete rejouee ; {@link Replay#sameRequest} dit si
+     *                      elle correspond a celle d'origine
+     */
+    public static Optional<Replay> findByIdempotencyKey(Connection c, UUID legalEntityId,
+                                                        String makerId, String idempotencyKey,
+                                                        String requestDigest) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, request_digest FROM pending_operation"
+            + " WHERE legal_entity_id = ? AND maker_id = ? AND idempotency_key = ?")) {
+            ps.setObject(1, legalEntityId);
+            ps.setString(2, makerId);
+            ps.setString(3, idempotencyKey);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return Optional.empty();
+                }
+                String origine = rs.getString(2);
+                return Optional.of(new Replay(rs.getObject(1, UUID.class),
+                                              Objects.equals(origine, requestDigest)));
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Recherche d'une soumission par cle d'idempotence", e);
+        }
+    }
+
+    /**
+     * Une soumission retrouvee par sa cle.
+     *
+     * @param id          la soumission d'origine
+     * @param sameRequest vrai si la requete rejouee est bien celle d'origine ; faux, la cle est
+     *                    reemployee pour autre chose, ce qui n'est pas un rejeu
+     */
+    public record Replay(UUID id, boolean sameRequest) {}
 
     public static Pending require(Connection c, UUID id) {
         try (PreparedStatement ps = c.prepareStatement(SELECT + " WHERE id = ? FOR UPDATE")) {

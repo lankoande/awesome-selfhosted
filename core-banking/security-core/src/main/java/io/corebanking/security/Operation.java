@@ -195,6 +195,8 @@ public enum Operation {
     PRODUCT_DRAFT,
     /** Activation d'une version de produit. */
     PRODUCT_ACTIVATE,
+    /** Lecture du catalogue produit : ce qui est ouvrable a une date donnee. */
+    PRODUCT_READ,
     /** Redaction d'une grille de risque ou d'un regime de surete. */
     RISK_PARAMETER_DRAFT,
     /** Activation d'une grille de risque ou d'un regime de surete. */

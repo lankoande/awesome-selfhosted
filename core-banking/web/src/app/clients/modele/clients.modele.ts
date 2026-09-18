@@ -101,6 +101,19 @@ export interface DemandeTiers {
   readonly segment: string | null;
 }
 
+/**
+ * Un produit ouvrable, tel que le socle le rend.
+ *
+ * **La devise appartient au produit.** La laisser saisir à côté du produit
+ * produirait des ouvertures refusées pour un couple impossible ; l'écran la
+ * reprend du produit choisi.
+ */
+export interface ProduitOuvrable {
+  readonly code: string;
+  readonly libelle: string;
+  readonly devise: string | null;
+}
+
 export interface DemandeOuverture {
   readonly legalEntityId: string;
   readonly holderPartyId: string;

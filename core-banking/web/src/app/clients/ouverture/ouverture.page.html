@@ -76,19 +76,33 @@
     <cb-section titre="Le compte à ouvrir"
                 indication="le numéro de compte est composé par le socle, pas au guichet">
       <div class="saisie">
-        <cb-field etiquette="Code produit" pour="produit" requis
+        <cb-field etiquette="Produit" pour="produit" requis
                   [aide]="produits().length === 0
-                    ? 'Le contrat n’expose pas la liste des produits ouvrables : le code se saisit.'
-                    : 'Choisissez le produit ouvert à ce client.'">
-          <input cbInput id="produit" name="produit" autocomplete="off"
-                 [value]="produit()" placeholder="CPTE-CHQ-PART"
-                 (input)="produit.set($any($event.target).value); commence.set(true)" />
+                    ? 'Aucun produit n’est ouvrable aujourd’hui : le code se saisit.'
+                    : 'Seuls les produits en vigueur aujourd’hui sont proposés.'">
+          @if (produits().length > 0) {
+            <select cbInput id="produit" name="produit"
+                    (change)="choisirProduit($any($event.target).value)">
+              <option value="" [selected]="produit() === ''">— choisir —</option>
+              @for (p of produits(); track p.code) {
+                <option [value]="p.code" [selected]="produit() === p.code">
+                  {{ p.libelle }} ({{ p.code }})
+                </option>
+              }
+            </select>
+          } @else {
+            <input cbInput id="produit" name="produit" autocomplete="off"
+                   [value]="produit()" placeholder="CPTE-CHQ-PART"
+                   (input)="produit.set($any($event.target).value); commence.set(true)" />
+          }
         </cb-field>
 
         <cb-field etiquette="Devise" pour="devise" requis
-                  aide="Code ISO de trois lettres.">
+                  [aide]="deviseImposee()
+                    ? 'Elle vient du produit : un compte s’ouvre dans la sienne.'
+                    : 'Code ISO de trois lettres.'">
           <input cbInput id="devise" name="devise" maxlength="3" autocomplete="off"
-                 class="devise" [value]="devise()"
+                 class="devise" [value]="devise()" [disabled]="deviseImposee()"
                  (input)="devise.set($any($event.target).value.toUpperCase()); commence.set(true)" />
         </cb-field>
       </div>

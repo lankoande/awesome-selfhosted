@@ -131,6 +131,7 @@ public class ApiExceptionHandler {
                        io.corebanking.ledger.store.FiscalYears.NotAppropriableException.class,
                        io.corebanking.deposits.Limits.LimitExceededException.class,
                        MakerChecker.NotDecidableException.class,
+                       MakerChecker.ReusedKeyException.class,
                        LoanService.ArrearsOutstandingException.class,
                        TillUseCases.NoTillException.class,
                        Tills.TillClosedException.class,

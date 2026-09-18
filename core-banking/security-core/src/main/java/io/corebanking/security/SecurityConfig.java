@@ -505,6 +505,15 @@ public final class SecurityConfig {
             AccessRule.allow(PRODUCT_MANAGER, RISK_OFFICER)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
+        // Lire le catalogue est le prealable a l'ouverture d'un compte : les roles qui ouvrent
+        // doivent pouvoir savoir ce qui est ouvrable. Sans quoi le code produit se saisit de
+        // memoire, et une ouverture se refuse au bout de la chaine pour une faute de frappe.
+        // Aucune trace a la lecture : un catalogue n'est pas une donnee clientele.
+        policy.put(Operation.PRODUCT_READ,
+            AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER, PRODUCT_MANAGER,
+                             RISK_OFFICER, ACCOUNTANT, AUDITOR)
+                .within(Scope.OWN_ENTITY).build());
+
         // Une grille de risque decide du niveau de provision de tout le portefeuille : elle est
         // redigee par le risque et validee par une seconde main, comptable ou risque.
         policy.put(Operation.RISK_PARAMETER_DRAFT,

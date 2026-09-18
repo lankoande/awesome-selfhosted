@@ -117,6 +117,66 @@ public final class AuthorizationService {
     }
 
     /**
+     * Ce que les roles de l'appelant admettent, operation par operation.
+     *
+     * <p><b>Ce n'est pas une decision d'acces.</b> L'agence, le montant et l'objet vise ne sont
+     * pas connus ici : seules les regles de role sont evaluees. Une operation presente dans cette
+     * liste peut parfaitement etre refusee au moment d'agir — plafond depasse, objet d'une autre
+     * agence, auteur qui voudrait valider sa propre ecriture. {@link #require} reste le seul
+     * controle d'acces ; ceci sert a ne pas proposer une porte qu'on sait fermee.
+     *
+     * <p>La liste ne passe par aucun journal d'audit : lire ses propres droits n'est pas un acces
+     * a une donnee clientele, et tracer chaque ouverture d'ecran noierait les traces qui comptent.
+     */
+    public java.util.List<Grant> grants(Caller caller) {
+        Objects.requireNonNull(caller, "caller");
+        return java.util.Arrays.stream(Operation.values())
+            .filter(operation -> caller.hasAnyRole(SecurityConfig.ruleFor(operation).roles()))
+            .map(operation -> grantOf(caller, operation))
+            .toList();
+    }
+
+    private static Grant grantOf(Caller caller, Operation operation) {
+        AccessRule rule = SecurityConfig.ruleFor(operation);
+        return new Grant(operation, rule.scope(), rule.dualControl(), rule.remoteAllowed(),
+                         bestCeilings(caller, rule.ceilings()),
+                         bestCeilings(caller, rule.remoteCeilings()));
+    }
+
+    /**
+     * Le plafond le plus favorable de l'appelant, par devise. Une regle qui porte des plafonds
+     * sans qu'aucun role de l'appelant n'en ait rend une carte vide : l'operation lui est alors
+     * refusee des qu'un montant est en jeu, le defaut etant l'absence de droit.
+     */
+    private static Map<String, Money> bestCeilings(Caller caller, Map<String, Money> ceilings) {
+        Map<String, Money> parDevise = new java.util.TreeMap<>();
+        for (Map.Entry<String, Money> entry : ceilings.entrySet()) {
+            if (!caller.roles().contains(entry.getKey())) {
+                continue;
+            }
+            Money plafond = entry.getValue();
+            parDevise.merge(plafond.currency().code(), plafond,
+                            (a, b) -> a.compareTo(b) >= 0 ? a : b);
+        }
+        return Map.copyOf(parDevise);
+    }
+
+    /**
+     * Une operation que les roles de l'appelant admettent, et ce que la politique en dit.
+     *
+     * @param operation      operation du catalogue
+     * @param scope          perimetre : entite, agence, ou toute entite
+     * @param dualControl    l'operation exige un second regard, distinct de l'auteur
+     * @param remoteAllowed  l'operation peut se faire hors de l'agence gestionnaire de l'objet
+     * @param ceilings       plafond par devise, le plus favorable des roles de l'appelant ; vide
+     *                       quand la regle n'en porte pas, ou qu'aucun role de l'appelant n'en a
+     * @param remoteCeilings plafond par devise pour une operation deplacee, quand il differe
+     */
+    public record Grant(Operation operation, Scope scope, boolean dualControl,
+                        boolean remoteAllowed, Map<String, Money> ceilings,
+                        Map<String, Money> remoteCeilings) {}
+
+    /**
      * Plafond le plus favorable parmi les roles de l'appelant, dans la devise du montant.
      *
      * <p>Un plafond exprime dans une autre devise n'est pas converti : le cours introduirait une

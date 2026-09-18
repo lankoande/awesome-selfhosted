@@ -3,7 +3,7 @@ import { RefusMetier } from '../guichet/modele/guichet.modele';
 import { Clients } from './clients.port';
 import {
   BeneficiaireEffectif, DemandeOuverture, DemandeTiers, Dossier, IssueOuverture,
-  PageTiers, Piece, Tiers,
+  PageTiers, Piece, ProduitOuvrable, Tiers,
 } from './modele/clients.modele';
 
 /**
@@ -221,11 +221,15 @@ export class ClientsFactice implements Clients {
     return { operationId: `PND-0002${this.rang++}` };
   }
 
-  async produits(): Promise<readonly { code: string; libelle: string }[]> {
-    // Le contrat n'expose pas la liste des produits ouvrables : il sait les
-    // rédiger et les activer, pas les lire. On ne devine pas un catalogue —
-    // l'écran passe en saisie libre et le dit.
-    return [];
+  async produits(): Promise<readonly ProduitOuvrable[]> {
+    await this.attendre(150);
+    // Ce que rendrait un socle branché : les versions actives en vigueur.
+    return [
+      { code: 'CPTE-CHQ-PART', libelle: 'Compte chèque particulier', devise: 'XOF' },
+      { code: 'CPTE-CHQ-ENT', libelle: 'Compte chèque entreprise', devise: 'XOF' },
+      { code: 'EPARGNE-CLASSIQUE', libelle: 'Compte d\'épargne', devise: 'XOF' },
+      { code: 'CPTE-DEVISE-EUR', libelle: 'Compte en devise', devise: 'EUR' },
+    ];
   }
 
   private attendre(ms = 250): Promise<void> {

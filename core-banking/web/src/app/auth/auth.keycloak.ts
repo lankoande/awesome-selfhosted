@@ -3,7 +3,6 @@ import { DOCUMENT } from '@angular/common';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AppConfig } from '../core/config/runtime-config';
-import { PREFIXE_SOCLE } from '../api/routes';
 import { Socle } from '../api/socle';
 import { Authentification, EtatSession, Habilitations, Porteur } from './auth.port';
 import { DefiPkce, defi, memeState, urlAutorisation } from './pkce';
@@ -182,17 +181,24 @@ export class AuthKeycloak implements Authentification {
    * refusera — ce qui est la seule frontière qui compte.
    */
   private async lireHabilitations(): Promise<Habilitations> {
-    // Seule adresse du poste écrite à la main, et pour une raison qui se voit :
-    // `GET /v1/me/permissions` **n'est pas dans le contrat** (lacune n° 1). Le
-    // constructeur d'URL la refuserait donc — à juste titre. Le jour où le
-    // socle l'expose, cette ligne devient un `socle.url(...)` comme les autres,
-    // et sa disparition marquera la lacune comblée.
-    const url = `${this.socle.origine()}${PREFIXE_SOCLE}/me/permissions`;
+    // Le socle rend une ligne par opération que les rôles de l'appelant
+    // admettent, avec ce que la politique en dit. Le poste ne retient ici que
+    // les noms : le reste — périmètre, second regard, plafonds — appartient aux
+    // écrans qui en ont besoin, et sera lu le jour où l'un d'eux le demandera.
+    //
+    // **Ce n'est pas une décision d'accès.** Le socle refuse toujours au moment
+    // d'agir ; on s'en sert pour ne pas proposer une porte qu'on sait fermée.
+    const url = this.socle.url('/v1/me/permissions');
     try {
       const reponse = await firstValueFrom(
-        this.http.get<{ data: { operations: string[] } }>(url));
-      return { connues: true, operations: new Set(reponse.data?.operations ?? []) };
+        this.http.get<{ data: { operation?: string }[] }>(url));
+      const operations = (reponse.data ?? [])
+        .map((droit) => droit.operation)
+        .filter((nom): nom is string => typeof nom === 'string' && nom.length > 0);
+      return { connues: true, operations: new Set(operations) };
     } catch {
+      // Le socle injoignable ne vaut pas interdiction : on ne cache rien, et
+      // c'est lui qui refusera. Cacher au hasard ferait croire à un écran absent.
       return { connues: false, operations: new Set() };
     }
   }

@@ -67,6 +67,26 @@ describe("clients — ouverture de compte", () => {
     expect(bouton("Soumettre l'ouverture")?.disabled).toBe(true);
   });
 
+  it('propose les produits ouvrables et reprend la devise du produit choisi', async () => {
+    socle.produitsRendus = [
+      { code: 'CPTE-CHQ-PART', libelle: 'Compte chèque particulier', devise: 'XOF' },
+      { code: 'CPTE-DEVISE-EUR', libelle: 'Compte en devise', devise: 'EUR' },
+    ];
+    await monter();
+
+    const produit = html().querySelector<HTMLSelectElement>('#produit')!;
+    expect(produit.tagName).toBe('SELECT');
+    produit.value = 'CPTE-DEVISE-EUR';
+    produit.dispatchEvent(new Event('change'));
+    await calme(fixture);
+
+    // La devise appartient au produit : la laisser libre produirait un couple
+    // impossible, refusé par le socle après que le client a signé.
+    const devise = html().querySelector<HTMLInputElement>('#devise')!;
+    expect(devise.value).toBe('EUR');
+    expect(devise.disabled).toBe(true);
+  });
+
   it("rend l'identifiant de l'opération en attente, jamais un numéro de compte", async () => {
     await monter();
     saisir('#produit', 'CPTE-CHQ-PART');

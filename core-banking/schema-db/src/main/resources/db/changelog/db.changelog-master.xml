@@ -74,5 +74,6 @@
   <include file="db/V54__declarations_reglementaires.sql" relativeToChangelogFile="false"/>
   <include file="db/V55__fiscalite.sql" relativeToChangelogFile="false"/>
   <include file="db/V56__liasse_consolidation.sql" relativeToChangelogFile="false"/>
+  <include file="db/V57__idempotence_double_validation.sql" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
