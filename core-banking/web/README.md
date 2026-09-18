@@ -87,7 +87,7 @@ Ce qui est vrai des deux côtés :
 ## La barrière d'intégration
 
 Les trois commandes ci-dessus sont obligatoires à chaque poussée :
-[`.github/workflows/front.yml`](../../.github/workflows/front.yml) joue `npm test`,
+la tâche `front` de [`.gitlab-ci.yml`](../../.gitlab-ci.yml) joue `npm test`,
 `npm run build` (budgets de taille compris) et `npm run check:largeurs`.
 
 Playwright est pour cette raison une **dépendance déclarée** et non un paquet arrivé par

@@ -231,7 +231,8 @@ traitements (protection des données, conservation). Ce sont des conditions de p
 entière, à instruire séparément.
 
 **Une de ces conditions a été levée depuis** : il y a désormais une chaîne d'intégration
-([`.github/workflows`](../../.github/workflows)), et les garde-fous qui n'étaient que des
+([`.gitlab-ci.yml`](../../.gitlab-ci.yml), documentée dans [`ci/`](../../ci/README.md)),
+et les garde-fous qui n'étaient que des
 commandes documentées sont devenus des barrières — tests du socle sur PostgreSQL embarqué,
 tests et budgets de taille du front, conformité des largeurs, liens de la documentation.
 Ce n'est pas de l'exploitation, mais c'était le préalable à tout le reste : un dépôt sans

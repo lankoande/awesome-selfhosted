@@ -30,8 +30,8 @@ core-banking/
 mvn test
 ```
 
-Cette commande est aussi la barrière d'intégration : [`.github/workflows/socle.yml`](../.github/workflows/socle.yml)
-ne fait que la rendre obligatoire à chaque poussée. Les mesures (`*Benchmark.java`) n'y sont pas —
+Cette commande est aussi la barrière d'intégration : la tâche `socle` de
+[`.gitlab-ci.yml`](../.gitlab-ci.yml) ne fait que la rendre obligatoire à chaque poussée. Les mesures (`*Benchmark.java`) n'y sont pas —
 elles ne sont pas prises par le motif de surefire, et un build qui échoue sur un débit est un build
 qu'on finit par désactiver.
 

@@ -2,6 +2,7 @@
 
 # Compiled output
 /dist
+rapport-junit.xml
 /tmp
 /out-tsc
 /bazel-out
