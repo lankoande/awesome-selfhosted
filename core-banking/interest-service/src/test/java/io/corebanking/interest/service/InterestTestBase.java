@@ -9,7 +9,6 @@ import io.corebanking.ledger.store.Accounts;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.Entities;
 import io.corebanking.ledger.store.JdbcPostingService;
-import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.ledger.store.SchemaMigrator;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import java.io.IOException;

@@ -2,7 +2,6 @@ package io.corebanking.loan.service;
 
 import io.corebanking.kernel.concurrent.Parallel;
 import io.corebanking.kernel.id.IdempotencyKey;
-import io.corebanking.kernel.money.CurrencyRef;
 import io.corebanking.kernel.money.Money;
 import io.corebanking.ledger.domain.posting.PostingCommand;
 import io.corebanking.ledger.domain.posting.PostingLine;

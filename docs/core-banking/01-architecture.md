@@ -132,7 +132,7 @@ métier. Une règle ArchUnit l'impose au build : un cycle casse la CI.
 | Langage | Java 21 (LTS) | Standard de fait en core banking, maturité transactionnelle, recrutement |
 | Framework | **Spring Boot 4.1** (Spring Framework 7, Spring Security 7, Jackson 3, Tomcat 11 embarqué) — couche d'exposition seule ; le socle reste sans framework | Un seul exécutable à déployer ; les frontières de modules sont des modules Maven, vérifiées au build |
 | Base | PostgreSQL 16, Patroni HA | ACID strict, `NUMERIC` exact, partitionnement natif, RLS |
-| Migrations | Liquibase | Historisation versionnée, rollback, pipelines contrôlés |
+| Migrations | **`SchemaMigrator`, du SQL pur** (Liquibase envisagé, non retenu) | Un changelog XML au-dessus de SQL ajoute une couche à apprendre pour décrire ce que le SQL dit déjà. Le runner tient l'ordre global, la somme de contrôle et le verrou — et **il monte chaque base de test**, donc le chemin de déploiement est exercé à chaque build. Pas de retour arrière : une migration se répare par une migration, comme une écriture se contre-passe |
 | Batch | Spring Batch | Reprise, partitionnement, traçabilité native des runs |
 | Messagerie | Kafka (+ outbox transactionnel) | Publication atomique avec la transaction métier |
 | Cache | Caffeine local ; Redis pour les sessions | Le ledger n'est **jamais** mis en cache |

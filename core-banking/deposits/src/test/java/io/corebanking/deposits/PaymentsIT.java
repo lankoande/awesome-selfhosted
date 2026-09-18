@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.corebanking.kernel.id.IdempotencyKey;
 import io.corebanking.kernel.money.Currencies;
-import io.corebanking.kernel.money.Money;
 import io.corebanking.ledger.domain.account.Account;
 import io.corebanking.ledger.domain.account.AccountKind;
 import io.corebanking.ledger.domain.account.NormalBalance;

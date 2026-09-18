@@ -70,7 +70,10 @@ public final class Paging {
         }
 
         public int totalPages() {
-            return (int) Math.ceil((double) total / request.size());
+            // Division entiere arrondie au superieur. Le passage par un double
+            // donnait le bon resultat jusqu'a 2^53 elements, mais il n'y a
+            // aucune raison d'introduire un flottant pour compter des pages.
+            return (int) ((total + request.size() - 1) / request.size());
         }
 
         public boolean hasNext() {

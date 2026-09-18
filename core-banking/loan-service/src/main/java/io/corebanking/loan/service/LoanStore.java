@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 
 /** Acces aux contrats, echeanciers, creances et reglements. */
 public final class LoanStore {
@@ -1214,7 +1215,8 @@ public final class LoanStore {
                                      boolean reserved, UUID creditAccountId) {}
 
     public static void insertInterestAccruals(Connection c, List<InterestAccrualRow> rows,
-                                              LocalDate accrualDate, java.util.function.Function<InterestAccrualRow, UUID> entryOf,
+                                              LocalDate accrualDate,
+                                              Function<InterestAccrualRow, UUID> entryOf,
                                               UUID batchRunId) {
         try (PreparedStatement ps = c.prepareStatement(
             "INSERT INTO loan_interest_accrual(id, contract_id, schedule_id, instalment_number,"

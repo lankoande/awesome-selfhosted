@@ -8,7 +8,6 @@ import io.corebanking.kernel.money.Currencies;
 import io.corebanking.kernel.money.Money;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.Entities;
-import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.ledger.store.SchemaMigrator;
 import io.corebanking.security.AccessDeniedException;
 import io.corebanking.security.AccessTarget;

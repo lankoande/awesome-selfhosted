@@ -1,7 +1,6 @@
 package io.corebanking.api.web;
 
 import io.corebanking.security.Caller;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;

@@ -48,6 +48,7 @@
     <zonky.version>2.0.7</zonky.version>
     <zonky.binaries.version>16.2.0</zonky.binaries.version>
     <slf4j.version>2.0.13</slf4j.version>
+    <checkstyle.version>10.21.1</checkstyle.version>
   </properties>
 
   <dependencyManagement>
@@ -123,6 +124,16 @@
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-checkstyle-plugin</artifactId><version>3.6.0</version>
+          <dependencies>
+            <dependency>
+              <groupId>com.puppycrawl.tools</groupId>
+              <artifactId>checkstyle</artifactId><version>${checkstyle.version}</version>
+            </dependency>
+          </dependencies>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId><version>3.2.5</version>
           <configuration>
             <includes>
@@ -134,5 +145,37 @@
         </plugin>
       </plugins>
     </pluginManagement>
+
+    <plugins>
+      <!--
+        Le style est verifie avant la compilation : une violation ne doit pas
+        attendre la fin des tests pour se voir. `mvn test` echoue donc dessus,
+        et la chaine d'integration avec.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <configuration>
+          <configLocation>${maven.multiModuleProjectDirectory}/checkstyle.xml</configLocation>
+          <!--
+            Le chemin du fichier d'exceptions est passe en propriete : un
+            `${config_loc}` ne se resout pas quand la configuration est lue
+            depuis un autre module que celui ou elle est posee.
+          -->
+          <propertyExpansion>suppressions.file=${maven.multiModuleProjectDirectory}/checkstyle-suppressions.xml</propertyExpansion>
+          <consoleOutput>true</consoleOutput>
+          <failOnViolation>true</failOnViolation>
+          <violationSeverity>error</violationSeverity>
+          <includeTestSourceDirectory>true</includeTestSourceDirectory>
+        </configuration>
+        <executions>
+          <execution>
+            <id>style</id>
+            <phase>validate</phase>
+            <goals><goal>check</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
   </build>
 </project>

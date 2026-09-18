@@ -1,0 +1,113 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+  "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+  "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+  Le style du socle.
+
+  Ce n'est ni `sun_checks` ni `google_checks` : ces jeux imposent une mise en
+  forme que ce code ne suit pas, et une barriere qui echoue sur des centaines
+  de lignes le jour ou on la pose est une barriere qu'on desactive le
+  lendemain. Les regles retenues sont celles qui attrapent un **defaut**, pas
+  celles qui imposent un gout, et le code les respecte deja — sauf six lignes,
+  corrigees dans le meme lot.
+
+  La mise en forme (indentation, espaces, ordre des imports) reste dehors :
+  c'est le travail d'un formateur, et l'appliquer a 503 fichiers produirait un
+  diff qui enterre l'historique. C'est une decision a prendre seule.
+-->
+<module name="Checker">
+  <property name="severity" value="error"/>
+  <property name="fileExtensions" value="java"/>
+
+  <!-- Un fichier sans saut de ligne final casse `git diff` sur la derniere ligne. -->
+  <module name="NewlineAtEndOfFile"/>
+  <module name="FileTabCharacter"/>
+
+  <module name="LineLength">
+    <property name="max" value="120"/>
+    <!--
+      Un libelle de test, un commentaire ou un import ne se coupent pas : les
+      replier nuirait a la lecture sans rien prouver. Le reste du code tient.
+    -->
+    <property name="ignorePattern"
+              value="^\s*(\*|//|/\*|import |package |@DisplayName)|^\s*\*/"/>
+  </module>
+
+  <module name="SuppressionFilter">
+    <property name="file" value="${suppressions.file}"/>
+  </module>
+
+  <module name="TreeWalker">
+
+    <!--
+      La regle la plus chere de ce depot : **aucun montant en virgule
+      flottante**. 0,1 + 0,2 ne fait pas 0,3 en binaire, et un centime perdu
+      par ecriture devient un ecart de balance que personne ne retrouve. Les
+      montants sont des BigDecimal ou des entiers de la plus petite unite.
+
+      La regle porte sur tout le code principal, pas seulement sur le domaine :
+      un arrondi fait dans un controleur est aussi faux qu'un arrondi fait dans
+      le ledger.
+      La regle porte sur l'arbre syntaxique, pas sur le texte : « Double
+      validation » ecrit dans une chaine ou un commentaire n'est pas un type,
+      et une regle textuelle le prenait pour tel — verifie, deux faux positifs
+      au premier passage.
+    -->
+    <module name="MatchXpath">
+      <property name="query" value="//LITERAL_DOUBLE | //LITERAL_FLOAT"/>
+      <message key="matchxpath.match"
+               value="Aucun nombre a virgule flottante : les montants sont des BigDecimal ou des entiers."/>
+    </module>
+    <module name="IllegalType">
+      <property name="illegalClassNames" value="java.lang.Double,java.lang.Float,Double,Float"/>
+      <message key="illegal.type"
+               value="Aucun nombre a virgule flottante : les montants sont des BigDecimal ou des entiers."/>
+    </module>
+
+    <!-- Imports : ce qui ne sert pas, ce qui est en double, ce qui est interdit. -->
+    <module name="UnusedImports"/>
+    <module name="RedundantImport"/>
+    <module name="AvoidStarImport"/>
+    <module name="IllegalImport"/>
+
+    <!--
+      Egalite et comparaison : les fautes qui compilent et se taisent.
+
+      `EqualsAvoidNull` a ete essaye puis retire. Il imposait d'ecrire
+      `"CONTRACT".equals(x)` la ou `x` est un local qu'on vient de calculer et
+      qui ne peut pas etre nul : la protection ne protege de rien, et la
+      condition inversee se lit moins bien. `StringLiteralEquality` reste, lui :
+      comparer deux chaines avec `==` est un vrai defaut.
+    -->
+    <module name="EqualsHashCode"/>
+    <module name="CovariantEquals"/>
+    <module name="StringLiteralEquality"/>
+
+    <!--
+      Flot de controle.
+
+      `OneStatementPerLine` a ete essaye puis retire : il condamnait vingt-cinq
+      accesseurs de constructeur alignes sur une ligne (`public Builder x(T v)
+      { this.x = v; return this; }`), un style delibere et lisible, sans
+      designer le moindre defaut. Une regle qui fait corriger du code correct
+      apprend a passer outre les regles.
+    -->
+    <module name="FallThrough"/>
+    <module name="EmptyStatement"/>
+    <module name="SimplifyBooleanExpression"/>
+    <module name="SimplifyBooleanReturn"/>
+    <module name="NeedBraces">
+      <property name="allowSingleLineStatement" value="true"/>
+    </module>
+
+    <!-- Divers, tous des pieges connus. -->
+    <module name="NoFinalizer"/>
+    <module name="ModifierOrder"/>
+    <module name="UpperEll"/>
+    <module name="ArrayTypeStyle"/>
+    <module name="DefaultComesLast"/>
+    <module name="MissingDeprecated"/>
+  </module>
+</module>

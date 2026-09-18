@@ -84,7 +84,8 @@ class InterestAccrualIT extends InterestTestBase {
         InterestTerms terms = terms(charges, courus, "3.5");
         for (int day = 0; day < 60; day++) {
             AccrualOutcome outcome = interestService.accrueThrough(
-                ENTITY, client.id(), DEPART.plusDays(day), InterestTermsResolver.fixed(terms), BUSINESS_DATE, ACTOR, RUN);
+                ENTITY, client.id(), DEPART.plusDays(day), InterestTermsResolver.fixed(terms),
+                BUSINESS_DATE, ACTOR, RUN);
 
             // Aucun montant a decimales n'atteint jamais le journal.
             assertThat(outcome.postedDelta().isBookable()).isTrue();

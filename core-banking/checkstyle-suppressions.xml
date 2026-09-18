@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+  "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+  "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<!--
+  Les exceptions, et la raison de chacune.
+
+  Une exception sans motif est une regle qu'on a renoncee a tenir. Les deux
+  qui suivent sont exactes : dans les deux cas, un nombre a virgule flottante
+  n'est pas un montant.
+-->
+<suppressions>
+
+  <!--
+    Les mesures ne sont pas des montants. Une latence p99 en millisecondes, un
+    debit en ecritures par seconde, un percentile : ce sont des grandeurs
+    physiques, et les tenir en BigDecimal n'ajouterait aucune exactitude —
+    seulement du bruit. Ce module ne comptabilise rien : il chronometre.
+  -->
+  <suppress files="[\\/]benchmark[\\/]" checks="MatchXpath|IllegalType"/>
+
+  <!--
+    Le document OpenAPI ne calcule pas, il **nomme des types** : `c ==
+    double.class` traduit un type Java en type JSON. Retirer cette ligne
+    n'enleverait pas un flottant du code, elle empecherait de decrire ceux que
+    l'API pourrait recevoir.
+  -->
+  <suppress files="OpenApiDocument\.java" checks="MatchXpath|IllegalType"/>
+
+</suppressions>

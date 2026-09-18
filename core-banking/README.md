@@ -24,6 +24,13 @@ core-banking/
 └── benchmark           Mesures de débit et de durée, extrapolées à la volumétrie cible
 ```
 
+## Par où commencer
+
+Ce README est une **référence** : ce que chaque garantie promet et quel test la prouve.
+Il se lit par recherche, pas de bout en bout. Pour démarrer — outils, carte des modules,
+règles à connaître, comment ajouter une migration — lisez d'abord
+[17-prise-en-main](../docs/core-banking/17-prise-en-main.md).
+
 ## Lancer les tests
 
 ```bash
@@ -31,7 +38,13 @@ mvn test
 ```
 
 Cette commande est aussi la barrière d'intégration : la tâche `socle` de
-[`.gitlab-ci.yml`](../.gitlab-ci.yml) ne fait que la rendre obligatoire à chaque poussée. Les mesures (`*Benchmark.java`) n'y sont pas —
+[`.gitlab-ci.yml`](../.gitlab-ci.yml) ne fait que la rendre obligatoire à chaque poussée.
+
+Elle vérifie aussi le **style** avant de compiler ([`checkstyle.xml`](checkstyle.xml)) :
+les règles retenues attrapent un défaut, pas un goût — et la première d'entre elles est
+qu'**aucun montant n'est en virgule flottante**. Les deux exceptions sont motivées dans
+[`checkstyle-suppressions.xml`](checkstyle-suppressions.xml) : les mesures du banc
+d'essai et la description des types OpenAPI, où un flottant n'est pas un montant. Les mesures (`*Benchmark.java`) n'y sont pas —
 elles ne sont pas prises par le motif de surefire, et un build qui échoue sur un débit est un build
 qu'on finit par désactiver.
 

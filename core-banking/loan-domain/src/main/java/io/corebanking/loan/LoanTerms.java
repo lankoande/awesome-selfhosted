@@ -205,7 +205,10 @@ public record LoanTerms(
         public Builder dayCount(DayCountConvention v)  { this.dayCount = v; return this; }
         public Builder periodicFee(Money value)        { this.periodicFee = value; return this; }
         public Builder insuranceRatePercent(String v)  { this.insuranceRatePercent = new BigDecimal(v); return this; }
-        public Builder taxOnInterestPercent(String v)  { this.taxOnInterestRatePercent = new BigDecimal(v); return this; }
+        public Builder taxOnInterestPercent(String v) {
+            this.taxOnInterestRatePercent = new BigDecimal(v);
+            return this;
+        }
 
         public Builder insurance(InsuranceBasis basis, String ratePercent) {
             this.insuranceBasis = basis;

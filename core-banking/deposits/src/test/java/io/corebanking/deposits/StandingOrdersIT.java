@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.corebanking.kernel.time.Periodicity;
-import io.corebanking.ledger.store.Database;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;

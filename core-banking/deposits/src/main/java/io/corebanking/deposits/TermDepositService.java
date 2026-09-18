@@ -15,7 +15,6 @@ import io.corebanking.ledger.domain.posting.PostingResult;
 import io.corebanking.ledger.domain.posting.PostingService;
 import io.corebanking.ledger.store.Accounts;
 import io.corebanking.ledger.store.Balances;
-import io.corebanking.ledger.store.Branches;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.LedgerStoreException;
 import io.corebanking.product.ProductCatalog;
