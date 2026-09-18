@@ -5,6 +5,7 @@ import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from 
 import { routes } from './app.routes';
 import { AppConfig } from './core/config/runtime-config';
 import { Apparence } from './core/apparence/apparence';
+import { provideClients } from './clients/clients.providers';
 import { provideGuichet } from './guichet/guichet.providers';
 import { provideValidation } from './validation/validation.providers';
 import { provideCaisse } from './caisse/caisse.providers';
@@ -23,6 +24,7 @@ export const appConfig: ApplicationConfig = {
     ),
     provideHttpClient(withFetch(), withInterceptors([jetonInterceptor])),
     provideAuthentification(),
+    provideClients(),
     provideGuichet(),
     provideValidation(),
     provideCaisse(),

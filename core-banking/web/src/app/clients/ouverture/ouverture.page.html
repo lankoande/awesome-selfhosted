@@ -1,0 +1,112 @@
+@if (tiers(); as t) {
+  <cb-identite-tiers [tiers]="t" />
+}
+
+<div class="corps">
+  <cb-toolbar>
+    <h2>Ouvrir un compte</h2>
+    <cb-state-badge [etat]="etat()" />
+    <span class="cle">
+      <span class="cle-titre">Validation</span>
+      <span class="cle-valeur">par un second</span>
+    </span>
+    <cb-kbd fin>Ctrl + Entrée</cb-kbd>
+  </cb-toolbar>
+
+  @if (obstacles().length > 0 && phase() !== 'en-attente') {
+    <cb-notice nature="avertissement" titre="Aucun compte ne peut être ouvert à ce client">
+      <ul class="obstacles">
+        @for (obstacle of obstacles(); track obstacle) { <li>{{ obstacle }}</li> }
+      </ul>
+      <p class="suite">
+        <button type="button" cbButton="secondaire" (click)="auDossier()">Voir le dossier</button>
+      </p>
+    </cb-notice>
+  }
+
+  @if (phase() === 'saisie' && obstacles().length === 0) {
+    <cb-notice nature="information" titre="L'ouverture passe par un second regard">
+      <p>
+        La demande sera enregistrée puis soumise à validation : <strong>aucun compte
+        n'est ouvert à l'envoi</strong>. Elle apparaîtra dans la file de validation.
+      </p>
+    </cb-notice>
+  }
+
+  @if (phase() === 'refuse' && refus(); as r) {
+    <cb-notice nature="refus" titre="Ouverture refusée" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+      @if (issueIncertaine()) {
+        <p class="incertain">
+          <strong>La demande a peut-être été enregistrée.</strong> Cette route ne reconnaît
+          pas de clé d'idempotence : renvoyer maintenant ouvrirait un second compte au
+          même client. Vérifiez d'abord la file de validation.
+        </p>
+      }
+      <p class="suite">
+        @if (issueIncertaine()) {
+          <button type="button" cbButton="primaire" (click)="aLaValidation()">
+            Voir la file de validation
+          </button>
+        } @else {
+          <button type="button" cbButton="secondaire" (click)="nouveau()">Reprendre la saisie</button>
+        }
+        <button type="button" cbButton="discret" (click)="auDossier()">Revenir au dossier</button>
+      </p>
+    </cb-notice>
+  }
+
+  @if (phase() === 'en-attente' && issue(); as i) {
+    <cb-notice nature="avertissement" titre="En attente de validation" [code]="i.operationId">
+      <p>
+        La demande est enregistrée ; <strong>aucun compte n'est ouvert</strong> tant qu'un
+        second regard ne l'a pas approuvée. Ne resaisissez pas la demande.
+      </p>
+      <p class="suite">
+        <button type="button" cbButton="primaire" (click)="aLaValidation()">
+          Voir la file de validation
+        </button>
+        <button type="button" cbButton="secondaire" (click)="auDossier()">Revenir au dossier</button>
+      </p>
+    </cb-notice>
+  }
+
+  @if (phase() !== 'en-attente') {
+    <cb-section titre="Le compte à ouvrir"
+                indication="le numéro de compte est composé par le socle, pas au guichet">
+      <div class="saisie">
+        <cb-field etiquette="Code produit" pour="produit" requis
+                  [aide]="produits().length === 0
+                    ? 'Le contrat n’expose pas la liste des produits ouvrables : le code se saisit.'
+                    : 'Choisissez le produit ouvert à ce client.'">
+          <input cbInput id="produit" name="produit" autocomplete="off"
+                 [value]="produit()" placeholder="CPTE-CHQ-PART"
+                 (input)="produit.set($any($event.target).value); commence.set(true)" />
+        </cb-field>
+
+        <cb-field etiquette="Devise" pour="devise" requis
+                  aide="Code ISO de trois lettres.">
+          <input cbInput id="devise" name="devise" maxlength="3" autocomplete="off"
+                 class="devise" [value]="devise()"
+                 (input)="devise.set($any($event.target).value.toUpperCase()); commence.set(true)" />
+        </cb-field>
+      </div>
+
+      <div class="actions">
+        <button type="button" cbButton="primaire" [disabled]="!peutEnvoyer()" (click)="envoyer()">
+          Soumettre l'ouverture
+        </button>
+        <button type="button" cbButton="discret" (click)="auDossier()">Annuler</button>
+      </div>
+
+      @if (commence()) {
+        @for (manque of manques(); track manque) {
+          <p class="manque">{{ manque }}</p>
+        }
+      }
+    </cb-section>
+  }
+
+  <cb-activity class="activite" [enCours]="phase() === 'envoi'" libelle="Envoi au socle…" />
+</div>

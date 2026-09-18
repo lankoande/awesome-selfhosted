@@ -59,6 +59,35 @@ export const routes: Routes = [
     ],
   },
   {
+    path: 'clients',
+    loadComponent: () => import('./clients/clients.shell').then((m) => m.ClientsShell),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'recherche' },
+      {
+        path: 'recherche',
+        title: 'Clients — recherche',
+        loadComponent: () => import('./clients/recherche/recherche.page').then((m) => m.RechercheClient),
+      },
+      {
+        path: 'nouveau',
+        title: 'Clients — nouveau client',
+        loadComponent: () => import('./clients/nouveau/nouveau.page').then((m) => m.NouveauClient),
+      },
+      // Le dossier et l'ouverture viennent après les chemins fixes : sinon
+      // `:id` avalerait « recherche » et « nouveau ».
+      {
+        path: ':id/compte',
+        title: "Clients — ouverture de compte",
+        loadComponent: () => import('./clients/ouverture/ouverture.page').then((m) => m.OuvertureCompte),
+      },
+      {
+        path: ':id',
+        title: 'Clients — dossier',
+        loadComponent: () => import('./clients/dossier/dossier.page').then((m) => m.DossierClient),
+      },
+    ],
+  },
+  {
     path: 'validation',
     title: 'File de validation',
     loadComponent: () => import('./validation/file/file-validation.page').then((m) => m.FileValidation),

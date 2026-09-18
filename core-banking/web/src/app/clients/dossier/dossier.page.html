@@ -1,0 +1,139 @@
+@if (tiers(); as t) {
+  <cb-identite-tiers [tiers]="t" />
+}
+
+<div class="corps">
+  <cb-activity class="activite" [enCours]="chargement()" libelle="Lecture du dossier…" />
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" titre="Dossier illisible" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+      <p class="suite">
+        <button type="button" cbButton="secondaire" (click)="retour()">Revenir à la recherche</button>
+      </p>
+    </cb-notice>
+  }
+
+  @if (tiers() && !chargement() && !refus()) {
+    <!-- La réponse d'abord : peut-on ouvrir un compte ? -->
+    @if (obstacles().length === 0) {
+      <cb-notice nature="succes" titre="Ce client peut recevoir un nouveau compte">
+        <p>
+          Le dossier est complet et la connaissance client est à jour. Le socle vérifiera
+          à nouveau au moment de l'ouverture — c'est son contrôle qui fait foi.
+        </p>
+        <p class="suite">
+          <button type="button" cbButton="primaire" (click)="ouvrirCompte()">Ouvrir un compte</button>
+        </p>
+      </cb-notice>
+    } @else {
+      <cb-notice nature="avertissement" titre="Aucun compte ne peut être ouvert à ce client">
+        <ul class="obstacles">
+          @for (obstacle of obstacles(); track obstacle) { <li>{{ obstacle }}</li> }
+        </ul>
+        <p class="nuance">
+          <strong>Ses comptes existants continuent de fonctionner.</strong> Ce contrôle arrête
+          ce qu'on allait ouvrir, pas ce qui existe.
+        </p>
+      </cb-notice>
+    }
+
+    @if (dossier(); as d) {
+      @if (!d.policyDeclared) {
+        <cb-notice nature="information" titre="Aucune politique de connaissance client n'est déclarée">
+          <p>
+            Sans politique, le socle n'exige aucune pièce : le dossier est réputé complet
+            faute de règle à lui opposer. Ce n'est pas une conformité, c'est une absence
+            de contrôle — à corriger dans le paramétrage.
+          </p>
+        </cb-notice>
+      }
+    }
+
+    <cb-section titre="Pièces du dossier"
+                [indication]="pieces().length + ' pièce(s) — les remplacées sont conservées'">
+      @if (pieces().length === 0) {
+        <p class="vide">Aucune pièce n'a encore été versée à ce dossier.</p>
+      } @else {
+        <div class="tableau">
+          <table cbTable>
+            <caption class="cb-visually-hidden">Pièces du dossier client</caption>
+            <thead>
+              <tr>
+                <th scope="col">Nature</th>
+                <th scope="col">Référence</th>
+                <th scope="col">Émetteur</th>
+                <th scope="col">Émise le</th>
+                <th scope="col">Expire le</th>
+                <th scope="col">Recueillie le</th>
+                <th scope="col">État</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of piecesTriees(); track p.id) {
+                <tr [class.remplacee]="p.supersededBy">
+                  <td class="nature">{{ LIBELLE_PIECE[p.kind] }}</td>
+                  <td>{{ p.reference ?? '—' }}</td>
+                  <td>{{ p.issuer ?? '—' }}</td>
+                  <td class="cb-mono">{{ jour(p.issuedOn) }}</td>
+                  <td class="cb-mono">{{ jour(p.expiresOn) }}</td>
+                  <td class="cb-mono">{{ jour(p.collectedOn) }}</td>
+                  <td>
+                    @if (p.supersededBy) {
+                      <cb-state-badge etat="contre-passe" mot="Remplacée" />
+                    } @else if (perimee(p)) {
+                      <cb-state-badge etat="expire" mot="Expirée" />
+                    } @else {
+                      <cb-state-badge etat="comptabilise" mot="En vigueur" />
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </cb-section>
+
+    @if (tiers()!.kind === 'LEGAL_PERSON') {
+      <cb-section titre="Bénéficiaires effectifs"
+                  indication="personnes physiques, part détenue, somme au plus 100 %">
+        @if (beneficiaires().length === 0) {
+          <p class="vide">
+            Aucun bénéficiaire effectif déclaré. Une personne morale sans bénéficiaire
+            déclaré ne passe pas le contrôle de complétude.
+          </p>
+        } @else {
+          <div class="tableau">
+            <table cbTable>
+              <caption class="cb-visually-hidden">Bénéficiaires effectifs</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Personne</th>
+                  <th scope="col" class="nombre">Part</th>
+                  <th scope="col">Déclarée le</th>
+                  <th scope="col">Fin</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (b of beneficiaires(); track b.id) {
+                  <tr [class.remplacee]="b.validTo">
+                    <td class="nature">{{ b.ownerName }}</td>
+                    <td class="nombre cb-mono">{{ b.ownershipPercent }} %</td>
+                    <td class="cb-mono">{{ jour(b.declaredOn) }}</td>
+                    <td class="cb-mono">{{ jour(b.validTo) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </cb-section>
+    }
+
+    <p class="retour">
+      <button type="button" cbButton="discret" (click)="retour()">← Revenir à la recherche</button>
+    </p>
+  }
+</div>

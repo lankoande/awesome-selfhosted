@@ -43,6 +43,7 @@ src/app/core/   configuration de déploiement, apparence (thème, densité), for
 src/app/ui/     le jeu fermé de primitives + son registre
 src/app/atelier/ la page atelier, vivante, servie par l'application elle-même
 src/app/guichet/ le guichet : modèle, port, implémentations, écrans
+src/app/clients/ le référentiel client : recherche, dossier, création, ouverture de compte
 src/app/validation/ la double validation : le second regard
 src/app/caisse/  la caisse du guichetier et son arrêté
 src/app/siege/   exploitation comptable et restitutions
@@ -63,6 +64,24 @@ compte bloqué, réseau tombé.
 
 **Le port n'expose aucun calcul de frais, de taxe ou de date de valeur.** Ce sont
 des paramètres du socle ; les recopier ici garantirait la divergence.
+
+### Le référentiel client : ce qu'il annonce sans le tenir
+
+`clients.port.ts` suit la même forme. Deux règles méritent d'être connues avant
+d'y toucher :
+
+- **la complétude du dossier commande l'ouverture d'un compte**, pas les comptes
+  déjà ouverts. `obstaclesAOuverture()` affiche le refus à l'avance pour éviter
+  une saisie perdue, mais c'est le socle qui tranche ;
+- **une ouverture de compte part toujours à la validation d'un second.** Le
+  contrat ne déclare que `202` et le contrôleur du socle répond `ACCEPTED` sans
+  condition. `IssueOuverture` n'a donc qu'une forme : l'identifiant de
+  l'opération en attente.
+
+**Ces deux routes n'honorent pas de clé d'idempotence** — ni le contrat ni la
+signature des contrôleurs ne la déclarent. Les écrans ne proposent donc aucun
+rejeu quand l'issue est incertaine (réseau coupé, 5xx) : ils renvoient vérifier.
+La clé continue d'être envoyée, pour le jour où le socle la reconnaîtra.
 
 ### L'authentification : mêmes règles, deux fournisseurs
 

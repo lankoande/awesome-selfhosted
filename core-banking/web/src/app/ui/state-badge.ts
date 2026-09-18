@@ -45,5 +45,14 @@ import { EtatOperation, LIBELLE_ETAT } from './etat';
 })
 export class CbStateBadge {
   readonly etat = input.required<EtatOperation>();
-  readonly libelle = computed(() => LIBELLE_ETAT[this.etat()]);
+
+  /**
+   * Le mot du domaine, quand l'objet n'est pas une écriture. Un client n'est
+   * pas « comptabilisé » : il est actif. La couleur reste celle de l'état —
+   * c'est elle qui porte la gravité — mais le vocabulaire reste celui du
+   * métier qu'on regarde.
+   */
+  readonly mot = input<string | null>(null);
+
+  readonly libelle = computed(() => this.mot() ?? LIBELLE_ETAT[this.etat()]);
 }

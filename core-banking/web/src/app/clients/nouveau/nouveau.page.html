@@ -1,0 +1,102 @@
+<div class="corps">
+  <cb-toolbar>
+    <h2>Nouveau client</h2>
+    <cb-state-badge [etat]="etat()" />
+    <cb-kbd fin>Ctrl + Entrée</cb-kbd>
+  </cb-toolbar>
+
+  @if (phase() === 'refuse' && refus(); as r) {
+    <cb-notice nature="refus" titre="Création refusée" [code]="r.code">
+      <p>{{ r.message }}</p>
+      @if (r.detail) { <p>{{ r.detail }}</p> }
+      @if (issueIncertaine()) {
+        <p class="incertain">
+          <strong>Le client a peut-être été créé.</strong> Cette route ne reconnaît pas
+          de clé d'idempotence : renvoyer maintenant inscrirait deux fois la même
+          personne au référentiel. Cherchez-la d'abord.
+        </p>
+      }
+      <p class="suite">
+        @if (issueIncertaine()) {
+          <button type="button" cbButton="primaire" (click)="chercherLeNom()">
+            Chercher « {{ nom() }} » au référentiel
+          </button>
+        } @else {
+          <button type="button" cbButton="secondaire" (click)="phase.set('saisie')">Reprendre la saisie</button>
+        }
+      </p>
+    </cb-notice>
+  }
+
+  @if (phase() === 'cree' && cree(); as t) {
+    <cb-notice nature="succes" titre="Client créé" [code]="t.reference">
+      <p>
+        {{ t.displayName }} existe au référentiel. <strong>Sa connaissance client est
+        à vérifier</strong> : aucun compte ne s'ouvrira tant que le dossier ne sera pas
+        constitué et vérifié.
+      </p>
+      <p class="suite">
+        <button type="button" cbButton="primaire" (click)="auDossier()">Ouvrir son dossier</button>
+        <button type="button" cbButton="secondaire" (click)="encore()">Créer un autre client</button>
+      </p>
+    </cb-notice>
+  }
+
+  @if (phase() !== 'cree') {
+    <cb-section titre="Identité" indication="les pièces et la vérification viennent ensuite">
+      <div class="saisie">
+        <cb-field etiquette="Nature" pour="nature" requis
+                  aide="Elle détermine les pièces que la politique exigera.">
+          <select cbInput id="nature" name="nature"
+                  (change)="nature.set($any($event.target).value)">
+            <option value="NATURAL_PERSON" [selected]="nature() === 'NATURAL_PERSON'">
+              {{ LIBELLE_NATURE['NATURAL_PERSON'] }}
+            </option>
+            <option value="LEGAL_PERSON" [selected]="nature() === 'LEGAL_PERSON'">
+              {{ LIBELLE_NATURE['LEGAL_PERSON'] }}
+            </option>
+          </select>
+        </cb-field>
+
+        <cb-field class="large" etiquette="Nom ou raison sociale" pour="nom" requis>
+          <input cbInput id="nom" name="nom" autocomplete="off"
+                 [value]="nom()" (input)="nom.set($any($event.target).value); commence.set(true)" />
+        </cb-field>
+
+        <cb-field etiquette="Pays" pour="pays" requis aide="Code ISO de deux lettres.">
+          <input cbInput id="pays" name="pays" maxlength="2" autocomplete="off" class="pays"
+                 [value]="pays()" (input)="pays.set($any($event.target).value.toUpperCase()); commence.set(true)" />
+        </cb-field>
+
+        <cb-field [etiquette]="etiquetteDate()" pour="date">
+          <cb-date-input champId="date" [(valeur)]="date" />
+        </cb-field>
+
+        <cb-field etiquette="Référence interne" pour="reference"
+                  aide="Facultative. Laissée vide, le socle la compose.">
+          <input cbInput id="reference" name="reference" autocomplete="off"
+                 [value]="reference()" (input)="reference.set($any($event.target).value)" />
+        </cb-field>
+
+        <cb-field etiquette="Segment" pour="segment" aide="Facultatif : Particulier, Entreprise…">
+          <input cbInput id="segment" name="segment" autocomplete="off"
+                 [value]="segment()" (input)="segment.set($any($event.target).value)" />
+        </cb-field>
+      </div>
+
+      <div class="actions">
+        <button type="button" cbButton="primaire" [disabled]="!peutEnvoyer()" (click)="envoyer()">
+          Créer le client
+        </button>
+      </div>
+
+      @if (commence()) {
+        @for (manque of manques(); track manque) {
+          <p class="manque">{{ manque }}</p>
+        }
+      }
+    </cb-section>
+  }
+
+  <cb-activity class="activite" [enCours]="phase() === 'envoi'" libelle="Envoi au socle…" />
+</div>

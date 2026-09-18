@@ -1,0 +1,70 @@
+<cb-toolbar>
+  <h2>Rechercher un client</h2>
+  <form class="quete" (submit)="$event.preventDefault(); charger(0)" role="search">
+    <input cbInput type="search" name="q" autocomplete="off" [value]="q()"
+           (input)="q.set($any($event.target).value)"
+           placeholder="Nom, raison sociale ou référence"
+           aria-label="Nom, raison sociale ou référence" />
+    <button type="submit" cbButton="primaire" [disabled]="chargement()">Rechercher</button>
+  </form>
+  <button fin type="button" cbButton="secondaire" (click)="creer()">Nouveau client</button>
+</cb-toolbar>
+
+@if (refus(); as r) {
+  <cb-notice nature="refus" titre="Recherche impossible" [code]="r.code">
+    <p>{{ r.message }}</p>
+    @if (r.detail) { <p>{{ r.detail }}</p> }
+  </cb-notice>
+}
+
+<cb-activity class="activite" [enCours]="chargement()" libelle="Recherche en cours…" />
+
+@if (!chargement() && cherche() && resultats().length === 0) {
+  <cb-notice nature="information" titre="Aucun client ne correspond">
+    <p>
+      La recherche porte sur le nom, la raison sociale et la référence. Si le client
+      n'existe pas encore, créez-le : son dossier se constituera ensuite.
+    </p>
+    <p class="suite">
+      <button type="button" cbButton="primaire" (click)="creer()">Créer ce client</button>
+    </p>
+  </cb-notice>
+}
+
+@if (resultats().length > 0) {
+  <div class="liste">
+    <table cbTable>
+      <caption class="cb-visually-hidden">Clients trouvés</caption>
+      <thead>
+        <tr>
+          <th scope="col">Référence</th>
+          <th scope="col">Nom</th>
+          <th scope="col">Nature</th>
+          <th scope="col">Client</th>
+          <th scope="col">Connaissance client</th>
+          <th scope="col">Revue due</th>
+          <th scope="col">Risque</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (t of resultats(); track t.id) {
+          <tr class="ligne" tabindex="0" role="button"
+              (click)="ouvrir(t)" (keydown.enter)="ouvrir(t)" (keydown.space)="$event.preventDefault(); ouvrir(t)">
+            <td class="cb-mono">{{ t.reference }}</td>
+            <td class="nom">{{ t.displayName }}</td>
+            <td>{{ LIBELLE_NATURE[t.kind] }}</td>
+            <td><cb-state-badge [etat]="etatDuTiers(t.status)" [mot]="LIBELLE_STATUT[t.status]" /></td>
+            <td><cb-state-badge [etat]="etatDuKyc(t.kycStatus)" [mot]="LIBELLE_KYC[t.kycStatus]" /></td>
+            <td class="cb-mono">{{ jour(t.kycReviewDue) }}</td>
+            <td class="risque" [attr.data-risque]="t.riskRating">{{ LIBELLE_RISQUE[t.riskRating] }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <cb-pagination [position]="'Page ' + (page() + 1)" [taille]="taille()"
+                 (tailleChange)="taille.set($event); charger(0)"
+                 [precedent]="precedent()" [suivant]="suivant()"
+                 (reculer)="charger(page() - 1)" (avancer)="charger(page() + 1)" />
+}

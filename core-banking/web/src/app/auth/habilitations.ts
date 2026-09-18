@@ -9,6 +9,13 @@ import { Habilitations } from './auth.port';
  * proposer une porte qu'on sait fermée.
  */
 export const OPERATION_PAR_ECRAN: Readonly<Record<string, string>> = {
+  'clients/recherche': 'PARTY_READ',
+  'clients/nouveau': 'PARTY_CREATE',
+  // Ni le dossier ni l'ouverture ne sont des entrées de barre : on y arrive
+  // depuis un client. Ils figurent ici pour que l'espace reste visible d'un
+  // opérateur qui n'aurait que l'ouverture de compte.
+  'clients/dossier': 'PARTY_READ',
+  'clients/compte': 'ACCOUNT_OPEN',
   'guichet/versement': 'CASH_OPERATION',
   'guichet/retrait': 'CASH_OPERATION',
   'guichet/virement': 'TRANSFER',

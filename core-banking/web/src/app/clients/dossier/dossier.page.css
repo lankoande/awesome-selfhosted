@@ -1,0 +1,35 @@
+:host { display: block; }
+
+/* Les blocs de l'écran — barre, avis, sections — se suivent à intervalle
+   constant. Sans cela un avis colle au titre de la section qui le suit et les
+   deux se lisent comme un seul pavé. */
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+}
+.activite { display: block; }
+
+.obstacles { margin: var(--cb-space-2) 0 0; padding-left: var(--cb-space-4); }
+.obstacles li { margin: 2px 0; }
+.nuance { margin-top: var(--cb-space-3); color: var(--cb-ink-2); }
+.suite { margin-top: var(--cb-space-3); }
+
+.tableau { overflow-x: auto; }
+.nature { font-weight: 600; }
+.nombre { text-align: right; }
+
+/* Une pièce remplacée reste lisible mais cesse de revendiquer l'attention :
+   elle appartient à l'histoire du dossier, pas à son état. */
+.remplacee td { color: var(--cb-muted); }
+
+.vide { color: var(--cb-muted); }
+.retour { margin-top: var(--cb-space-2); }
+
+.tableau tbody td { height: auto; padding-block: var(--cb-space-2); }
+
+@media (max-width: 1023px) {
+  .tableau th:nth-child(3), .tableau td:nth-child(3),
+  .tableau th:nth-child(6), .tableau td:nth-child(6) { display: none; }
+}

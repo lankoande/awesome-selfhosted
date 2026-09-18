@@ -602,3 +602,117 @@ Rappel du principe qui rend cette lacune vivable : **déduire les droits du JWT 
 serait faire du poste une source d'habilitation.** Les rôles Keycloak (`TELLER`,
 `BRANCH_MANAGER`) servent au fournisseur d'identité, pas au contrôle d'accès du socle ; les
 confondre donnerait un front qui se croit autorisé et un socle qui refuse, ou pire, l'inverse.
+
+---
+
+## 15. L'espace client : ce qu'il a tranché
+
+Quatre écrans sous `/clients` : rechercher, dossier, nouveau client, ouverture de compte. C'est
+le premier espace où l'interface ne saisit pas une opération mais **constitue un dossier** — et
+la grammaire change en conséquence.
+
+### La relecture du contrat a payé quatre fois
+
+L'instruction était de relire le contrat OpenAPI à chaque écran. Elle a trouvé quatre choses que
+le code supposait à tort :
+
+1. **Les bénéficiaires effectifs étaient lus sous de faux noms.** Le front lisait `personName`,
+   `sharePercent`, `endedOn` ; `BeneficialOwners.Owner` déclare `ownerName`, `ownershipPercent`,
+   `validTo`. L'écran aurait affiché des colonnes vides dès le premier branchement réel, sans
+   erreur, sans trace — le pire mode de défaillance qui soit. Le modèle miroite désormais le
+   contrat champ pour champ, comme `Tiers` miroite `Party`.
+
+2. **Une ouverture de compte n'a qu'une issue favorable.** `POST /v1/entities/{id}/accounts` ne
+   déclare que `202`, et `AccountController.open` porte `@ResponseStatus(ACCEPTED)` sans
+   condition : **aucun compte ne s'ouvre dans la foulée, jamais**. Le premier jet reprenait la
+   grammaire du guichet à trois issues ; la branche « ouvert » était du code mort qui promettait
+   au guichetier quelque chose que le socle ne fait pas. Elle est supprimée — modèle, adaptateur,
+   factice et gabarit — et l'écran annonce le second regard **avant** l'envoi.
+
+3. **Ni `POST /parties` ni `POST /accounts` ne reconnaissent de clé d'idempotence.** L'en-tête
+   n'est résolu que là où un contrôleur déclare un paramètre `IdempotencyKey` — les opérations de
+   guichet. Voir ci-dessous ce que l'écran en fait.
+
+4. **`PARTY_MANAGE` n'existe pas.** L'opération du socle est `PARTY_CREATE`. La table
+   `OPERATION_PAR_ECRAN` citait un nom inventé ; il aurait rendu l'espace invisible le jour où le
+   socle expose les habilitations.
+
+### L'issue incertaine : la décision la plus lourde de ce lot
+
+Sans clé d'idempotence honorée, un envoi qui se perd — réseau coupé, 5xx — laisse une question
+sans réponse : la demande a-t-elle été enregistrée ? Rejouer créerait **un second client au
+référentiel**, ou **une seconde demande d'ouverture**. Un doublon de client se paie ensuite en
+rapprochements manuels, et un compte ouvert en double se paie en clôture et en explications.
+
+L'écran distingue donc deux familles de refus, ce que `RefusMetier.rejouable` ne peut pas faire
+seul puisqu'il suppose la clé honorée :
+
+- **refus certain** (4xx métier) : le socle n'a rien écrit, la saisie se reprend ;
+- **issue incertaine** (statut 0 ou ≥ 500) : **aucun rejeu n'est proposé.** L'ouverture renvoie
+  vers la file de validation, la création vers la recherche, préremplie du nom saisi — pour
+  aller vérifier avant de recommencer.
+
+La clé continue d'être envoyée : le jour où ces routes la reconnaîtront, le poste n'aura rien à
+changer, et `issueIncertaine` deviendra une précaution inutile plutôt qu'un garde-fou nécessaire.
+
+### Le vocabulaire du référentiel n'est pas celui des écritures
+
+Les captures ont montré un client affiché « COMPTABILISÉ » et une pièce d'identité « EXPIRÉE ».
+Les couleurs d'état sont justes — la gravité se lit pareil — mais les mots venaient de
+`LIBELLE_ETAT`, qui nomme des écritures. `CbStateBadge` accepte désormais une entrée `mot` : la
+couleur reste celle de l'état, le vocabulaire redevient celui du métier qu'on regarde. Un client
+est **actif**, **bloqué** ou **clos** ; une pièce est **en vigueur**, **expirée** ou
+**remplacée** ; la connaissance client est **vérifiée**, **à vérifier**, **revue dépassée** ou
+**bloquée**.
+
+### Ce que les écrans refusent de faire
+
+- **La recherche ne se déclenche pas à la frappe.** Un guichetier tape un nom pendant que le
+  client l'épelle : interroger à chaque lettre ferait défiler des résultats faux sous ses yeux.
+  Une recherche vide n'est pas une erreur — elle rend les premiers clients, ce qu'on veut en
+  ouvrant l'écran. Aucun résultat n'est une réponse, et elle propose la seule suite utile.
+- **Le dossier répond d'abord à « puis-je ouvrir un compte ? »**, avant l'inventaire des pièces.
+  Il ne dit jamais « dossier incomplet » sans nommer ce qui manque : un guichetier a besoin de
+  savoir quoi réclamer, pas d'un verdict.
+- **Une pièce remplacée reste au dossier**, grisée. Un dossier client se relit des années après ;
+  une pièce disparue est une question sans réponse.
+- **La création ne recueille que l'identité.** Un formulaire qui prétendrait tout collecter d'un
+  coup serait abandonné en cours de route. Il dit à la création qu'**un client naît non vérifié**.
+- **L'ouverture ne compose pas de numéro de compte.** Le contrat l'accepte vide et le socle le
+  compose selon le plan de numérotation ; le saisir au guichet produirait des numéros hors règle.
+- **Un formulaire vierge ne reproche rien.** Les manques n'apparaissent qu'à partir de la première
+  frappe : lister « le code produit est obligatoire » avant que l'opérateur ait touché un champ,
+  c'est le gronder pour ce qu'il n'a pas encore eu l'occasion de faire.
+
+### Deux pièges Angular que les tests ont attrapés
+
+- **Une entrée de route n'est pas posée à la construction.** `input.required` lève `NG0950` si le
+  constructeur la lit ; une `input()` avec valeur par défaut est pire — elle rend silencieusement
+  la valeur par défaut, et l'amorçage de la recherche par `?q=` ne marchait donc pas du tout. Les
+  trois écrans concernés chargent maintenant depuis un `effect`, ce qui règle aussi le passage
+  d'un client à l'autre sans quitter l'écran.
+- **`untracked` borne la dépendance de l'effect au seul paramètre d'URL.** Sans lui, la lecture
+  de `q` par le chargement ferait de la frappe un déclencheur — exactement ce que cet écran
+  refuse.
+
+### Responsivité
+
+`scripts/largeurs.mjs` couvre désormais 14 pages, dont les quatre nouvelles et deux dossiers de
+démonstration (personne physique complète, personne morale incomplète — c'est là que la liste
+d'obstacles s'allonge et que la mise en page se tend). Deux corrections sont venues de là :
+
+- le raccourci clavier et la mention de validation disparaissent sous 768 px, comme au guichet ;
+- **le glyphe `⏎` a été remplacé par « Entrée »** sur les six écrans qui l'affichaient. Il ne
+  s'est pas rendu dans le Chromium de capture, faute de couverture dans la police mono ; un poste
+  d'agence sous Linux minimal poserait le même problème, et un raccourci illisible n'est pas un
+  raccourci.
+
+### Lacunes du contrat ajoutées à la liste
+
+- **`GET /v1/entities/{id}/products`** — la liste des produits ouvrables. Le socle sait rédiger et
+  activer un produit, pas dire lesquels sont ouvrables. L'écran passe en saisie libre et le dit
+  dans l'aide du champ, plutôt que de proposer un catalogue deviné.
+- **Clé d'idempotence sur `POST /parties` et `POST /accounts`** — absente du contrat comme de la
+  signature des contrôleurs. C'est la lacune la plus coûteuse de ce lot : elle oblige le poste à
+  refuser le rejeu là où il devrait l'offrir, et laisse au guichetier un aller-retour de
+  vérification que la clé rendrait inutile.

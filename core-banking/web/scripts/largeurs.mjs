@@ -16,7 +16,18 @@
  * jour sans rapport le retirerait, et le garde-fou tomberait en silence.
  */
 const BASE = process.argv[2] ?? 'http://127.0.0.1:8181/';
-const CHEMINS = ['atelier', 'guichet/versement', 'guichet/retrait', 'guichet/virement', 'guichet/releve', 'guichet/caisse', 'siege/exploitation', 'siege/balance', 'validation'];
+// Les écrans qui prennent un identifiant sont visités sur un client de la
+// démonstration : `p-sankara` (dossier complet) et `p-kabore-ets` (personne
+// morale, dossier incomplet — c'est là que la liste d'obstacles s'allonge et
+// que la mise en page se tend).
+const CHEMINS = [
+  'atelier',
+  'guichet/versement', 'guichet/retrait', 'guichet/virement', 'guichet/releve', 'guichet/caisse',
+  'clients/recherche', 'clients/nouveau',
+  'clients/p-sankara', 'clients/p-kabore-ets', 'clients/p-sankara/compte',
+  'siege/exploitation', 'siege/balance',
+  'validation',
+];
 const LARGEURS = [1920, 1440, 1366, 1100, 1024, 768, 390];
 /**
  * 24 px : le minimum du critère « Target Size (Minimum) » (WCAG 2.2, 2.5.8).

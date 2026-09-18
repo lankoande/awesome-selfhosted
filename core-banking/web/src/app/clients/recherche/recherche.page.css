@@ -1,0 +1,34 @@
+:host { display: block; padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6); }
+
+h2 { font-size: var(--cb-fs-lg); font-weight: 600; }
+
+.quete { display: flex; gap: var(--cb-space-2); flex: 1 1 340px; max-width: 520px; }
+.quete input { flex: 1 1 auto; }
+
+.activite { display: block; margin: var(--cb-space-2) 0; }
+
+/* La table défile dans son conteneur : un référentiel client ne se replie pas
+   en cartes, on y compare des lignes. */
+.liste { margin-top: var(--cb-space-3); overflow-x: auto; }
+
+.ligne { cursor: pointer; }
+.ligne:hover { background: var(--cb-panel); }
+.ligne:focus-visible { outline: var(--cb-focus-w) solid var(--cb-accent); outline-offset: -2px; }
+.nom { font-weight: 600; }
+
+.risque { font-weight: 600; color: var(--cb-ink-2); }
+.risque[data-risque='MEDIUM'] { color: var(--cb-pending); }
+.risque[data-risque='HIGH'] { color: var(--cb-rejected); }
+
+.suite { margin-top: var(--cb-space-3); }
+
+/* En dessous de 1024, on garde les colonnes qui décident : la revue et le
+   risque se lisent dans le dossier, pas dans la liste. */
+@media (max-width: 1023px) {
+  .liste th:nth-child(6), .liste td:nth-child(6),
+  .liste th:nth-child(7), .liste td:nth-child(7) { display: none; }
+}
+@media (max-width: 767px) {
+  .liste th:nth-child(3), .liste td:nth-child(3) { display: none; }
+  .quete { flex-basis: 100%; max-width: none; }
+}
