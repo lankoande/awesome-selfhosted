@@ -1,7 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { AUTHENTIFICATION } from '../../auth/auth.port';
-import { AuthentificationDouble } from '../../auth/testing/auth-double';
+import { describe, expect, it } from 'vitest';
 import { CLIENTS } from '../clients.port';
 import { ClientsDouble } from '../testing/clients-double';
 import { RechercheClient } from './recherche.page';
@@ -11,51 +10,48 @@ async function calme(fixture: ComponentFixture<RechercheClient>): Promise<void> 
   fixture.detectChanges();
 }
 
-/**
- * Une recherche vide sous périmètre d'agence est le scénario qui crée les
- * doublons : l'agent conclut que le client n'existe pas, et le recrée.
- */
-describe('clients — le périmètre explique une liste vide', () => {
-  let socle: ClientsDouble;
-  let session: AuthentificationDouble;
-  let fixture: ComponentFixture<RechercheClient>;
-
-  function html(): HTMLElement {
-    return fixture.nativeElement as HTMLElement;
+class SansResultat extends ClientsDouble {
+  override async chercher() {
+    return { tiers: [], page: 0, precedent: false, suivant: false };
   }
+}
 
-  async function chercher(): Promise<void> {
-    fixture = TestBed.createComponent(RechercheClient);
-    fixture.componentRef.setInput('q', 'introuvable');
-    await calme(fixture);
-  }
-
-  beforeEach(() => {
-    socle = new ClientsDouble();
-    socle.resultats = [];
-    session = new AuthentificationDouble();
+describe('la recherche client sans résultat', () => {
+  async function monter(): Promise<ComponentFixture<RechercheClient>> {
     TestBed.configureTestingModule({
-      providers: [provideRouter([{ path: '**', children: [] }]),
-                  { provide: CLIENTS, useValue: socle },
-                  { provide: AUTHENTIFICATION, useValue: session }],
+      providers: [
+        provideRouter([{ path: '**', children: [] }]),
+        { provide: CLIENTS, useValue: new SansResultat() },
+      ],
     });
+    const fixture = TestBed.createComponent(RechercheClient);
+    (fixture.componentInstance as unknown as { q: { set(v: string): void } }).q.set('SANKARA');
+    await (fixture.componentInstance as unknown as { charger(p: number): Promise<void> })
+      .charger(0);
+    await calme(fixture);
+    return fixture;
+  }
+
+  it('nomme le risque de doublon avant de proposer la création', async () => {
+    // Le socle rend les tiers de l'entité entière : la portée OWN_BRANCH de
+    // PARTY_READ n'y filtre rien — un tiers ne porte pas d'agence. Le vrai
+    // piège est la saisie du nom, pas le périmètre.
+    const texte = (await monter()).nativeElement.textContent ?? '';
+
+    expect(texte).toContain('Aucun client ne correspond');
+    expect(texte).toContain('référence ou la pièce');
+    expect(texte).toContain('doublon');
   });
 
-  it('avertit du périmètre quand la lecture est bornée à l’agence', async () => {
-    session.accorder('PARTY_READ', { portee: 'OWN_BRANCH' });
-    await chercher();
-    expect(html().textContent).toContain('ne voit que les clients de votre agence');
-    expect(html().textContent).toContain('doublon');
+  it("ne prétend pas que la liste s'arrête à l'agence", async () => {
+    const texte = (await monter()).nativeElement.textContent ?? '';
+
+    expect(texte).not.toContain('que les clients de');
   });
 
-  it('ne dit rien quand la lecture porte sur tout l’établissement', async () => {
-    session.accorder('PARTY_READ', { portee: 'OWN_ENTITY' });
-    await chercher();
-    expect(html().textContent).not.toContain('que les clients de');
-  });
+  it('propose quand même de créer : un client absent est une réponse', async () => {
+    const texte = (await monter()).nativeElement.textContent ?? '';
 
-  it('ne dit rien tant qu’on ne connaît pas la portée', async () => {
-    await chercher();
-    expect(html().textContent).not.toContain('que les clients de');
+    expect(texte).toContain('Créer ce client');
   });
 });

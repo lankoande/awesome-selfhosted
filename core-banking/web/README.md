@@ -216,9 +216,12 @@ Trois règles à tenir :
 4. **Une liste ne se filtre pas d'office sur les droits.** La file de validation lit le
    droit de *chaque ligne* (approuver, c'est exécuter) : elle le compte, l'offre en
    filtre, marque la ligne hors droits — mais ne la cache pas, sinon la banque se croit
-   à jour. La portée sert de même à **expliquer un vide** : `PARTY_READ` en `OWN_BRANCH`
-   fait dire à la recherche sans résultat que le client existe peut-être ailleurs, et
-   que le recréer ferait un doublon.
+   à jour.
+5. **La portée `OWN_BRANCH` ne filtre aucune liste.** Elle borne les actes sur un objet
+   qui porte une agence, par `AccessTarget.branchId`. Un tiers n'en porte pas : la
+   recherche client rend les tiers de l'entité entière, et un écran qui dirait
+   « vous ne voyez que votre agence » mentirait. Vérifier dans le socle avant
+   d'expliquer — une explication plausible non vérifiée est une erreur qu'on livre.
 
 Le profil de démonstration est dans `auth/habilitations.demonstration.ts` — une copie de
 `SecurityConfig` pour un chef d'agence, **chargée à la demande** pour rester hors du

@@ -1299,15 +1299,31 @@ droits reste visible, en retrait, marquée. Sur le détail, les boutons de déci
 filtrer d'office ferait croire la banque à jour alors qu'une demande attend un autre valideur. Le
 filtre est offert, jamais imposé.
 
-### La portée explique une liste qui paraît incomplète
+### Une recherche sans résultat nomme le risque de doublon
 
 Une recherche client sans résultat a deux causes très différentes : le client n'existe pas, ou il
-existe **ailleurs**. La seconde est invisible, et c'est la dangereuse : l'opérateur crée un second
-dossier pour la même personne, avec sa propre connaissance client et son propre risque.
+existe **et la recherche ne l'a pas trouvé**. La seconde est invisible, et c'est la dangereuse :
+l'opérateur crée un second dossier pour la même personne, avec sa propre connaissance client et
+son propre risque.
 
-Quand la portée de `PARTY_READ` vaut `OWN_BRANCH`, l'avis d'absence le dit et nomme le risque —
-*le recréer ferait un doublon* —, puis oriente vers l'agence qui gère le client. C'est le premier
-usage de la portée, et le modèle des suivants : elle ne ferme rien, elle **explique un vide**.
+L'avis d'absence nomme donc ce risque et dit quoi faire : chercher sur la **référence ou la
+pièce** avant de créer, parce que la recherche porte sur le nom tel qu'il a été saisi — une lettre
+de différence, un prénom inversé, et le dossier existant ne remonte pas.
+
+> **Correction.** Cette explication a d'abord été écrite autrement : *« votre profil ne voit que
+> les clients de votre agence »*, à partir de la portée `OWN_BRANCH` de `PARTY_READ`. **C'était
+> faux**, et la vérification menée avant le lot suivant l'a montré : un tiers **ne porte pas
+> d'agence** — la table `party` n'a pas de colonne d'agence —, et `Parties.search` rend les tiers
+> de l'entité entière. La portée `OWN_BRANCH` d'une règle ne filtre une liste nulle part : elle
+> borne les **actes sur un objet qui porte une agence**, par `AccessTarget.branchId`. Pour un
+> tiers, elle exige seulement que l'appelant soit rattaché à une agence.
+>
+> La leçon est celle du lot précédent, retournée contre moi : **une explication plausible qui
+> n'est pas vérifiée dans le code est une erreur qu'on livre**. Un opérateur qui aurait cru
+> l'écran serait allé appeler une agence qui n'avait rien à lui dire.
+
+La portée reste lue et disponible ; son premier usage juste viendra des **comptes**, qui portent
+une agence, eux.
 
 ### Ce qui reste
 
