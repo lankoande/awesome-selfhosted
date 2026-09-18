@@ -45,3 +45,21 @@
   font-size: var(--cb-fs-sm);
   max-width: 64ch;
 }
+
+/* Le passage vers les moyens de paiement du compte : un lien dans la ligne,
+   pas un bouton — c'est une navigation, pas un acte. */
+.lien {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cb-row-h);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cb-accent);
+  font: inherit;
+  font-size: var(--cb-fs-sm);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+}

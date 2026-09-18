@@ -13,7 +13,7 @@ Java 21 · PostgreSQL 16 · Spring Boot 4.1 (exposition seule) · Angular 22
 | | |
 |---|---|
 | **Socle** | Fonctionnellement complet — **732 tests verts**, dont l'API de bout en bout sur PostgreSQL réel |
-| **Back-office** | Guichet, validation, caisse, siège, clients, crédit, paiements, conformité et réglementaire — **34 écrans, 385 tests**, conformes à sept largeurs, habilitations lues à la granularité de l'action |
+| **Back-office** | Guichet, validation, caisse, siège, clients, crédit, paiements, conformité et réglementaire — **35 écrans, 421 tests**, conformes à sept largeurs, habilitations lues à la granularité de l'action |
 | **Documentation** | 17 documents de conception + un guide utilisateur illustré de 23 captures |
 | **Ce qui manque** | Les bords nommés dans [l'audit §7](docs/core-banking/14-audit.md), l'infrastructure, la reprise de données |
 

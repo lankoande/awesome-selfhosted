@@ -1546,12 +1546,113 @@ les deux étant chargées paresseusement.
 
 ### Ce qui reste
 
-Les actes **par compte** des chèques — délivrer un chéquier, payer un chèque au guichet, faire
-opposition — et les **mandats** de prélèvement : le blocage est levé, ils n'attendent plus que
-leur écran.
-
 Les **sûretés** et la **consolidation** restent bloquées par les lacunes de contrat nommées au
 §20. Le **profil d'activité déclaré** et le **consentement au bureau d'information du crédit**
 appartiennent au dossier client et n'y sont pas encore. Le reste du paramétrage du siège —
 produits, agences, calendrier, barèmes — existe dans le socle avec son API et n'a pas encore
 d'écran.
+
+## 25. Les chèques et les mandats d'un compte
+
+Les trois écrans du §23 sont des **files** : on y regarde ce qui attend, tous comptes confondus.
+Les actes que ce lot livre n'ont pas de file, et c'est la seule raison pour laquelle ils
+manquaient encore. Un chéquier appartient à un compte ; une opposition porte sur un numéro ; un
+mandat est signé par un titulaire. Le socle les expose ainsi — `/accounts/{id}/cheque-books`,
+`/accounts/{id}/cheques`, `/accounts/{id}/mandates` — et §24 vient de donner de quoi désigner ce
+compte.
+
+L'écran est donc le quatrième de l'espace Paiements, `paiements/compte`, atteint depuis la barre
+ou **depuis une ligne de compte du dossier client**, compte déjà désigné : le dossier sait quel
+compte on regarde, le faire retaper serait le faire chercher deux fois.
+
+### Quatre onglets, quatre natures d'objet
+
+**Chéquiers** — les carnets délivrés : numéros du premier au dernier, date, frais, état. Un bouton
+*Délivrer un chéquier*, qui demande un nombre de chèques entre 1 et 200.
+
+**Chèques** — filtrables par état. Un chèque choisi montre **ce que son état veut dire**, au
+présent, et les actes qu'il accepte encore.
+
+**Incidents de paiement** — en lecture seule, avec la raison de l'être écrite dessus.
+
+**Mandats** — les autorisations de prélèvement : créancier, plafond, validité, état. Un mandat
+choisi se révoque sur motif.
+
+### Cinq décisions
+
+**« Demandé », jamais « délivré ».** Un chéquier se délivre à deux : le socle répond une opération
+en attente, pas un carnet, et les numéros sont attribués à la validation. L'écran écrit donc
+*« Chéquier de 25 chèques demandé »* et dit que les numéros viendront après. Écrire « délivré »
+enverrait un client attendre au guichet un carnet qui n'existe pas. Le même soin vaut pour le
+mandat : *« il n'autorisera aucun prélèvement tant qu'un second ne l'aura pas validé »*.
+
+**Quatre motifs d'opposition, et ce sont les seuls.** La loi uniforme UEMOA enferme l'opposition
+sur chèque dans la perte, le vol, l'utilisation frauduleuse et l'insolvabilité du porteur. L'écran
+n'offre pas de champ libre : une opposition hors de ces motifs — un client mécontent de sa
+livraison — engage la banque, et le guichetier qui la passe. Un champ libre aurait laissé cette
+faute se commettre en deux clics.
+
+**La caisse du paiement au guichet ne se choisit pas.** Le socle la lit dans le jeton de
+l'appelant (`TillUseCases.ofCaller`). L'écran ne la montre pas et n'envoie rien : il écrit *« le
+chèque se paie sur votre caisse »*. Un champ « caisse » aurait laissé croire qu'on paie sur celle
+du voisin — et aurait été ignoré. En compensation, en revanche, le nostro se désigne, et l'écran
+l'exige avant d'envoyer.
+
+**Le porteur est exigé au guichet, pas en compensation.** C'est le seul endroit où l'écran est
+**plus strict que le socle**, et c'est assumé : au comptoir, celui qui présente le chèque est
+devant vous ; ne pas le nommer, c'est payer à personne et n'avoir rien à opposer le jour où le
+tireur conteste. En compensation, le nom vient de la banque présentatrice : l'exiger du poste
+bloquerait un paiement que le socle accepte.
+
+**Le créancier d'un mandat se désigne une fois.** Le socle pose un ou exclusif : un compte de la
+banque, **ou** une banque et un compte d'ailleurs — jamais les deux, jamais aucun. L'écran pose la
+question (« Où le créancier tient-il son compte ? ») et n'affiche que les champs de la réponse.
+Laisser les quatre champs ouverts aurait produit un refus après signature du client.
+
+### Ce que l'écran annonce sans le tenir
+
+Le plafond de `CHEQUE_PAY` **avant** la saisie, puis l'avertissement dès que le montant le
+dépasse : un guichetier qui apprend son plafond dans un refus a compté les billets pour rien. Le
+second regard sur le chéquier et sur le mandat, avant l'envoi. Et sur un mandat sans plafond, un
+avertissement qui n'empêche rien — *« le créancier peut prélever ce qu'il veut sur ce compte ;
+c'est légal, et c'est au client de le savoir »*.
+
+### Un numéro dans l'URL, pas un identifiant
+
+Le dossier client renvoie ici avec le compte déjà désigné. La première version passait
+l'identifiant technique (`?compte=cpt-sankara`) : l'adresse ne disait rien, et le sélecteur de
+compte restait vide au-dessus d'une page pleine des données de ce compte — deux états
+contradictoires côte à côte.
+
+L'adresse porte désormais le **numéro** (`?compte=1001500021000000000018`), et `cb-choix-compte`
+gagne une entrée `preselection` qui le résout : il cherche, et ne retient d'office que si la
+recherche ramène **un** compte. Un numéro désigne un compte et un seul ; s'il en ramène plusieurs,
+ce n'était pas un numéro, et l'opérateur choisit — retenir le premier ouvrirait le dossier d'un
+autre client sans le dire. Trois spécifications le tiennent.
+
+Le bénéfice dépasse cet écran : une adresse qui porte un numéro de compte se recopie, se met en
+favori, se dicte au téléphone.
+
+### Deux débordements, trouvés par la barrière des largeurs
+
+Le contrôle des sept largeurs a refusé la première version, et les deux causes valaient d'être
+corrigées **à la racine** :
+
+**Un en-tête invisible s'échappait du tableau défilant.** La colonne d'actes ajoutée au dossier
+client portait `<span class="cb-visually-hidden">`, qui est positionné en absolu. Un élément
+absolu n'est pas découpé par le `overflow` d'un ancêtre qui n'est pas son bloc conteneur : il
+sortait du `cb-table-scroll` et étirait la page de 200 px à 390 px — sur le dossier client, pas
+sur l'écran neuf. La colonne porte maintenant un en-tête visible.
+
+**La piste d'onglets débordait.** `cb-tabs` était `display: flex` sans défilement : quatre onglets
+ne tiennent pas sous 400 px. Corrigé **dans la primitive** — elle défile comme la barre des
+espaces et la barre des filtres — ce qui profite aux trois écrans qui l'utilisent.
+
+### Un défaut du modèle, trouvé en relisant le socle
+
+La première version du modèle exigeait du mandat une référence et un nom de créancier, et rien de
+plus. Le socle en exige davantage : un **identifiant de créancier** non vide, une date de
+**signature**, une date de **prise d'effet**, et le ou exclusif ci-dessus. Trois champs manquants
+et une règle absente : le formulaire aurait été rempli, envoyé, refusé — devant le client, sa
+signature au stylo sur le mandat. Les trois champs sont au formulaire, la règle est dans
+`obstaclesAuMandat`, et six spécifications les tiennent.

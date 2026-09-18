@@ -146,6 +146,7 @@
                 <th scope="col">Devise</th>
                 <th scope="col">Ouvert le</th>
                 <th scope="col">État</th>
+                <th scope="col">Moyens de paiement</th>
               </tr>
             </thead>
             <tbody>
@@ -157,6 +158,12 @@
                   <td class="cb-mono">{{ compte.currency }}</td>
                   <td class="cb-mono">{{ jour(compte.openedOn) }}</td>
                   <td>{{ compte.status === 'ACTIVE' ? 'Actif' : compte.status }}</td>
+                  <td>
+                    <button type="button" class="lien" (click)="moyensDePaiement(compte)"
+                            [attr.aria-label]="'Chèques et mandats du compte ' + compte.code">
+                      Ouvrir
+                    </button>
+                  </td>
                 </tr>
               }
             </tbody>

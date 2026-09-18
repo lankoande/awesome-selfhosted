@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject, model, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy, Component, computed, effect, inject, input, model, signal, untracked,
+} from '@angular/core';
 import { AppConfig } from '../../core/config/runtime-config';
 import { CbButton, CbInput } from '../../ui';
 import { CLIENTS } from '../clients.port';
@@ -15,6 +17,12 @@ import { CompteClient } from '../modele/clients.modele';
  * Le composant rend l'identifiant au formulaire, et **montre en clair ce qui a
  * été choisi** : numéro, titulaire, agence. Ce qui est envoyé au socle doit se
  * relire avant d'être envoyé.
+ *
+ * Un écran qui arrive avec un compte déjà désigné passe son **numéro** par
+ * `preselection` — pas son identifiant. Le numéro se lit dans une URL, se
+ * recopie, se dicte au téléphone ; l'identifiant technique ne dit rien à
+ * personne. Le composant le résout, et l'écran reçoit l'identifiant comme si
+ * quelqu'un l'avait cherché.
  */
 @Component({
   selector: 'cb-choix-compte',
@@ -125,6 +133,9 @@ export class CbChoixCompte {
   readonly compteId = model<string>('');
   readonly champId = model<string>('choix-compte');
 
+  /** Un numéro de compte venu d'ailleurs : d'une URL, d'un écran qui renvoie ici. */
+  readonly preselection = input<string>('');
+
   protected readonly texte = signal('');
   protected readonly resultats = signal<readonly CompteClient[]>([]);
   protected readonly choisi = signal<CompteClient | null>(null);
@@ -132,6 +143,33 @@ export class CbChoixCompte {
   protected readonly cherche = signal(false);
 
   protected readonly vide = computed(() => this.compteId() === '');
+
+  constructor() {
+    effect(() => {
+      const numero = this.preselection().trim();
+      if (numero === '' || untracked(() => this.compteId()) !== '') {
+        return;
+      }
+      untracked(() => void this.resoudre(numero));
+    });
+  }
+
+  /**
+   * Résout un numéro venu d'ailleurs.
+   *
+   * On ne retient d'office que si la recherche ramène **un** compte : un numéro
+   * désigne un compte et un seul, et s'il en ramène plusieurs, ce n'était pas un
+   * numéro. Dans ce cas l'opérateur choisit — retenir le premier serait ouvrir
+   * le dossier d'un autre client sans le dire.
+   */
+  private async resoudre(numero: string): Promise<void> {
+    this.texte.set(numero);
+    await this.chercher();
+    const trouves = this.resultats();
+    if (trouves.length === 1 && trouves[0]) {
+      this.retenir(trouves[0]);
+    }
+  }
 
   protected async chercher(): Promise<void> {
     this.enCours.set(true);

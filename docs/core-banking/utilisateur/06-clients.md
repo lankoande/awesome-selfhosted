@@ -80,6 +80,10 @@ existé, et un client s'en souvient.
 Un client **sans compte** n'est pas une anomalie : il peut porter un crédit, ou n'être qu'un
 bénéficiaire effectif.
 
+Chaque ligne porte un lien **Chèques et mandats** : il ouvre les moyens de paiement de ce compte —
+chéquiers, chèques, incidents, mandats de prélèvement — sans avoir à le retrouver par son numéro.
+Voir le chapitre 11.
+
 ## Créer un client
 
 *Nouveau client* ne recueille que l'**identité** : nature (personne physique ou morale), nom ou

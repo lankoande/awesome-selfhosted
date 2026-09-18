@@ -11,6 +11,10 @@ import { PROVIDERS_PAIEMENTS } from './paiements.providers';
  * regarde : les **virements émis** partent le jour même et coûtent cher quand
  * ils traînent ; les **remises** immobilisent l'argent d'un client jusqu'au
  * règlement ; les **prélèvements** se dénouent au rythme des échéances.
+ *
+ * Puis un quatrième écran, qui ne part pas d'une file mais d'un **compte** :
+ * un chéquier appartient à un compte, une opposition porte sur un numéro, un
+ * mandat est signé par un titulaire. Ces actes-là n'ont pas de file.
  */
 @Component({
   selector: 'cb-paiements',
@@ -67,5 +71,6 @@ export class PaiementsShell {
     { chemin: 'virements', libelle: 'Virements émis' },
     { chemin: 'remises', libelle: 'Remises de chèques' },
     { chemin: 'prelevements', libelle: 'Prélèvements' },
+    { chemin: 'compte', libelle: 'Chèques d’un compte' },
   ];
 }

@@ -93,6 +93,12 @@ export const routes: Routes = [
         loadComponent: () => import('./paiements/prelevements/prelevements.page')
           .then((m) => m.Prelevements),
       },
+      {
+        path: 'compte',
+        title: 'Paiements — chèques et mandats d\'un compte',
+        loadComponent: () => import('./paiements/compte/compte.page')
+          .then((m) => m.MoyensDePaiementDuCompte),
+      },
     ],
   },
   {

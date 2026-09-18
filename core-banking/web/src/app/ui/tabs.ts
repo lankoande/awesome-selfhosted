@@ -38,7 +38,17 @@ export interface Onglet {
   `,
   styles: `
     :host { display: block; }
-    .piste { display: flex; gap: var(--cb-space-1); border-bottom: var(--cb-border) solid var(--cb-rule); }
+    /* La piste défile plutôt que de déborder : sous 400 px, quatre onglets ne
+       tiennent pas, et les faire passer à la ligne casserait le trait qui les
+       porte. */
+    .piste {
+      display: flex;
+      gap: var(--cb-space-1);
+      border-bottom: var(--cb-border) solid var(--cb-rule);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .piste::-webkit-scrollbar { display: none; }
     .onglet {
       display: inline-flex;
       align-items: center;

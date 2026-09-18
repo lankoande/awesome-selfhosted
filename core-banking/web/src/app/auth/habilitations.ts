@@ -54,6 +54,10 @@ export const OPERATION_PAR_ECRAN: Readonly<Record<string, string>> = {
   'paiements/virements': 'PAYMENT_READ',
   'paiements/remises': 'CHEQUE_READ',
   'paiements/prelevements': 'DIRECT_DEBIT_READ',
+  // Les chèques et les mandats d'un compte : l'écran se lit avec CHEQUE_READ,
+  // qui ouvre déjà les remises. Délivrer, payer, opposer, enregistrer et
+  // révoquer portent chacun leur droit, et ce sont les boutons qui les voient.
+  'paiements/compte': 'CHEQUE_READ',
   'guichet/versement': 'CASH_OPERATION',
   'guichet/retrait': 'CASH_OPERATION',
   'guichet/virement': 'TRANSFER',

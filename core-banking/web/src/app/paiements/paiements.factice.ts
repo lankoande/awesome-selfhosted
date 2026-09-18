@@ -1,10 +1,15 @@
 import { Injectable } from '@angular/core';
 import { RefusMetier } from '../guichet/modele/guichet.modele';
 import {
+  actesSurCheque, Cheque, Chequier, DemandeChequier, DemandeMandat, DemandeOpposition,
+  DemandePaiementCheque, IncidentCheque, Mandat, obstaclesAuChequier, obstaclesAuMandat,
+  obstaclesAuPaiement, peutRevoquer, StatutCheque,
+} from './modele/compte.modele';
+import {
   actesSurOrdre, actesSurPrelevement, actesSurRemise, DemandeOrdre, DemandeRemise, OrdrePaiement,
   Prelevement, Remise, SensPrelevement, StatutOrdre, StatutPrelevement, StatutRemise,
 } from './modele/paiements.modele';
-import { Decision, Page, Paiements } from './paiements.port';
+import { Decision, EnAttentePaiements, Page, Paiements } from './paiements.port';
 
 const xof = (valeur: number) => ({ amount: String(valeur), currency: 'XOF' });
 
@@ -123,6 +128,70 @@ const PRELEVEMENTS: Prelevement[] = [
 ];
 
 /**
+ * Le compte que la démonstration instrumente.
+ *
+ * Un seul : un jeu qui donnerait des chéquiers à tous les comptes ferait croire
+ * que tout compte en a un. Ici, `cpt-sankara` a son carnet, ses chèques et son
+ * mandat ; les autres montrent ce que montre un compte sans moyens de paiement,
+ * et c'est aussi un état à savoir présenter.
+ */
+const COMPTE_INSTRUMENTE = 'cpt-sankara';
+
+const CHEQUIERS: Chequier[] = [
+  {
+    id: 'cb-0044', firstNumber: 4211801, lastNumber: 4211825, deliveredOn: '2026-07-03',
+    status: 'ACTIVE', fee: xof(3000),
+  },
+  {
+    id: 'cb-0031', firstNumber: 4208101, lastNumber: 4208125, deliveredOn: '2026-02-11',
+    status: 'CANCELLED', fee: xof(3000),
+  },
+];
+
+const CHEQUES: Cheque[] = [
+  {
+    number: 4211804, bookId: 'cb-0044', status: 'UNUSED', amount: null, beneficiary: null,
+    paidOn: null, stoppedOn: null, stopReason: null,
+  },
+  {
+    number: 4211803, bookId: 'cb-0044', status: 'STOPPED', amount: null, beneficiary: null,
+    paidOn: null, stoppedOn: '2026-09-12', stopReason: 'THEFT',
+  },
+  {
+    number: 4211802, bookId: 'cb-0044', status: 'REJECTED', amount: xof(1750000),
+    beneficiary: 'ETS ZONGO & Fils', paidOn: null, stoppedOn: null, stopReason: null,
+  },
+  {
+    number: 4211801, bookId: 'cb-0044', status: 'PAID', amount: xof(420000),
+    beneficiary: 'SAWADOGO Boukary', paidOn: '2026-08-29', stoppedOn: null, stopReason: null,
+  },
+];
+
+const INCIDENTS: IncidentCheque[] = [
+  {
+    id: 'ic-0007', number: 4211802, amount: xof(1750000), occurredOn: '2026-09-05',
+    reason: 'Provision insuffisante', presentedBy: 'Coris Bank International',
+  },
+];
+
+const MANDATS: Mandat[] = [
+  {
+    id: 'md-0031', reference: 'MDT-SONABEL-0031', creditorId: 'BF-SONABEL-001',
+    creditorName: 'SONABEL', creditorAccountId: null,
+    creditorBank: 'Coris Bank International', creditorAccount: 'BF7602002000000998877665',
+    signedOn: '2025-11-04', validFrom: '2025-12-01', validTo: null, maxAmount: xof(150000),
+    status: 'ACTIVE', revokedOn: null, revocationReason: null,
+  },
+  {
+    id: 'md-0012', reference: 'MDT-ORANGE-0012', creditorId: 'BF-ORANGE-004',
+    creditorName: 'ORANGE BF', creditorAccountId: null, creditorBank: 'Ecobank Burkina',
+    creditorAccount: 'BF7603003000000112233445', signedOn: '2024-06-18',
+    validFrom: '2024-07-01', validTo: null, maxAmount: null, status: 'REVOKED',
+    revokedOn: '2026-04-30', revocationReason: 'Résiliation de l’abonnement',
+  },
+];
+
+/**
  * La source de démonstration des moyens de paiement.
  *
  * Elle applique les mêmes gardes que le socle — c'est le sujet : un écran qui
@@ -132,6 +201,9 @@ const PRELEVEMENTS: Prelevement[] = [
 export class PaiementsFactice implements Paiements {
   latenceMs = 300;
 
+  private chequiersEnCours: readonly Chequier[] = CHEQUIERS;
+  private chequesEnCours: readonly Cheque[] = CHEQUES;
+  private mandatsEnCours: readonly Mandat[] = MANDATS;
   private ordresEnCours: readonly OrdrePaiement[] = ORDRES;
   private remisesEnCours: readonly Remise[] = REMISES;
   private prelevementsEnCours: readonly Prelevement[] = PRELEVEMENTS;
@@ -264,6 +336,99 @@ export class PaiementsFactice implements Paiements {
     return modifie;
   }
 
+  // ------------------------------------------------------------ chèques d'un compte
+
+  async chequiers(legalEntityId: string, accountId: string): Promise<readonly Chequier[]> {
+    await this.latence();
+    return accountId === COMPTE_INSTRUMENTE ? this.chequiersEnCours : [];
+  }
+
+  async delivrerChequier(legalEntityId: string, accountId: string,
+                         demande: DemandeChequier): Promise<EnAttentePaiements> {
+    await this.latence();
+    this.refuserSiObstacle(obstaclesAuChequier(demande));
+    // Le socle rend une opération en attente, pas un carnet : la démonstration
+    // aussi, sinon l'écran apprendrait à afficher un chéquier qui n'existe pas.
+    this.dernierChequier = demande;
+    return { operationId: 'op-attente-chequier' };
+  }
+
+  async cheques(legalEntityId: string, accountId: string,
+                statut: StatutCheque | null): Promise<readonly Cheque[]> {
+    await this.latence();
+    if (accountId !== COMPTE_INSTRUMENTE) {
+      return [];
+    }
+    return this.chequesEnCours.filter((c) => statut === null || c.status === statut);
+  }
+
+  async payerCheque(legalEntityId: string, accountId: string,
+                    demande: DemandePaiementCheque): Promise<Cheque> {
+    await this.latence();
+    this.refuserSiObstacle(obstaclesAuPaiement(demande));
+    const cheque = this.requis(this.chequesEnCours.find((c) => c.number === demande.number),
+                               'Chèque');
+    this.refuserSiHorsEtat(actesSurCheque(cheque).includes('PAYER'), 'Payer', cheque.status);
+    const paye: Cheque = {
+      ...cheque, status: 'PAID', paidOn: '2026-09-18',
+      amount: { amount: demande.amount, currency: demande.currency },
+      beneficiary: demande.beneficiary,
+    };
+    this.chequesEnCours = this.chequesEnCours.map(
+      (c) => (c.number === demande.number ? paye : c));
+    return paye;
+  }
+
+  async opposer(legalEntityId: string, accountId: string,
+                demande: DemandeOpposition): Promise<Cheque> {
+    await this.latence();
+    const cheque = this.requis(this.chequesEnCours.find((c) => c.number === demande.number),
+                               'Chèque');
+    this.refuserSiHorsEtat(actesSurCheque(cheque).includes('OPPOSER'), 'Faire opposition',
+                           cheque.status);
+    const oppose: Cheque = {
+      ...cheque, status: 'STOPPED', stoppedOn: '2026-09-18', stopReason: demande.reason,
+    };
+    this.chequesEnCours = this.chequesEnCours.map(
+      (c) => (c.number === demande.number ? oppose : c));
+    return oppose;
+  }
+
+  async incidents(legalEntityId: string, accountId: string): Promise<readonly IncidentCheque[]> {
+    await this.latence();
+    return accountId === COMPTE_INSTRUMENTE ? INCIDENTS : [];
+  }
+
+  // ------------------------------------------------------------ mandats d'un compte
+
+  async mandats(legalEntityId: string, accountId: string): Promise<readonly Mandat[]> {
+    await this.latence();
+    return accountId === COMPTE_INSTRUMENTE ? this.mandatsEnCours : [];
+  }
+
+  async enregistrerMandat(legalEntityId: string, accountId: string,
+                          demande: DemandeMandat): Promise<EnAttentePaiements> {
+    await this.latence();
+    this.refuserSiObstacle(obstaclesAuMandat(demande));
+    this.dernierMandat = demande;
+    return { operationId: 'op-attente-mandat' };
+  }
+
+  async revoquerMandat(legalEntityId: string, mandateId: string, motif: string): Promise<Mandat> {
+    await this.latence();
+    const mandat = this.requis(this.mandatsEnCours.find((m) => m.id === mandateId), 'Mandat');
+    this.refuserSiHorsEtat(peutRevoquer(mandat), 'Révoquer', mandat.status);
+    const revoque: Mandat = {
+      ...mandat, status: 'REVOKED', revokedOn: '2026-09-18', revocationReason: motif,
+    };
+    this.mandatsEnCours = this.mandatsEnCours.map((m) => (m.id === mandateId ? revoque : m));
+    return revoque;
+  }
+
+  /** Ce que la démonstration a reçu : les écrans de bout en bout s'en servent. */
+  dernierChequier: DemandeChequier | null = null;
+  dernierMandat: DemandeMandat | null = null;
+
   private page<T>(lignes: readonly T[], page: number, taille: number): Page<T> {
     const debut = page * taille;
     return {
@@ -280,6 +445,13 @@ export class PaiementsFactice implements Paiements {
       throw new RefusMetier(404, 'OBJET_INCONNU', `${quoi} inconnu.`);
     }
     return valeur;
+  }
+
+  /** Le même refus que le socle : la demande ne tient pas. */
+  private refuserSiObstacle(obstacles: readonly string[]): void {
+    if (obstacles.length > 0) {
+      throw new RefusMetier(400, 'DEMANDE_INVALIDE', 'La demande ne tient pas.', obstacles[0]);
+    }
   }
 
   /** Le même refus que le socle : l'état de l'objet ne permet pas cet acte. */

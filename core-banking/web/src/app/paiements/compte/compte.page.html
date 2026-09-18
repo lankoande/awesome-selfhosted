@@ -1,0 +1,628 @@
+<div class="ecran">
+  <cb-toolbar>
+    <h1>Chèques et mandats d'un compte</h1>
+    @if (compteId() && phase() !== 'repos') {
+      <span class="compte">
+        {{ chequiers().length }} chéquier{{ chequiers().length > 1 ? 's' : '' }}@if (enCirculation() > 0) {,
+        <strong>{{ enCirculation() }} chèque{{ enCirculation() > 1 ? 's' : '' }} en circulation</strong>}
+      </span>
+      <button fin type="button" cbButton="secondaire" [disabled]="travaille()" (click)="charger()">
+        Rafraîchir
+      </button>
+    }
+  </cb-toolbar>
+
+  <!-- Une fois le compte désigné, l'explication a fait son office : elle cède
+       la place aux instruments. La garder pousserait la première table sous la
+       ligne de flottaison à chaque visite. -->
+  <cb-section titre="Le compte" indication="chéquiers, chèques, incidents, mandats">
+    @if (compteId() === '') {
+      <p class="pourquoi">
+        Ces actes ne se lisent pas en file : un chéquier appartient à un compte, une opposition
+        porte sur un numéro, un mandat est signé par un titulaire. Désignez le compte.
+      </p>
+    }
+    <cb-field etiquette="Compte" pour="compte" requis
+              [aide]="compteId() === ''
+                      ? 'Cherchez par numéro de compte, par nom ou par référence du client.' : ''">
+      <cb-choix-compte champId="compte" [preselection]="numeroDemande"
+                       [compteId]="compteId()" (compteIdChange)="compteId.set($event)" />
+    </cb-field>
+  </cb-section>
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+      @if (r.detail) { {{ r.detail }} }
+    </cb-notice>
+  }
+
+  @if (acquitte(); as message) {
+    <cb-notice nature="succes" titre="Enregistré">{{ message }}</cb-notice>
+  }
+
+  <cb-activity [enCours]="travaille()" libelle="Lecture des moyens de paiement…" />
+
+  @if (compteId() && phase() !== 'repos' && phase() !== 'chargement') {
+    <cb-tabs [onglets]="onglets()" [(actif)]="onglet"
+             etiquette="Moyens de paiement du compte" />
+
+    <!-- ------------------------------------------------------------ chéquiers -->
+    @if (onglet() === 'chequiers') {
+      <section class="panneau" role="tabpanel" aria-labelledby="onglet-chequiers">
+        <div class="tete">
+          <p class="pourquoi">
+            Un chéquier <strong>se délivre à deux</strong> : ce que vous demandez ici part à la
+            validation. Les numéros sont attribués au moment de la validation, pas maintenant.
+          </p>
+          @if (droitDeDelivrer() && !saisieChequier()) {
+            <button type="button" cbButton="primaire" (click)="ouvrirLaDemande()">
+              Délivrer un chéquier
+            </button>
+          }
+        </div>
+
+        @if (saisieChequier()) {
+          <cb-section titre="Nouveau chéquier" indication="demande soumise à validation">
+            <div class="grille">
+              <cb-field etiquette="Nombre de chèques" pour="nombre-cheques" requis
+                        aide="De 1 à 200. Un carnet trop gros ne se suit plus en cas de perte.">
+                <cb-amount-input champId="nombre-cheques" [valeur]="nombreDeCheques()"
+                                 (valeurChange)="nombreDeCheques.set($event ?? 0)" />
+              </cb-field>
+            </div>
+
+            @if (chequierADeux()) {
+              <cb-notice nature="information" titre="Cet acte part à la validation">
+                Le carnet ne sera pas délivré à l'instant : un second opérateur devra valider la
+                demande. Dites-le au client plutôt que de le faire attendre au guichet.
+              </cb-notice>
+            }
+
+            @if (obstaclesChequier().length > 0) {
+              <cb-notice nature="avertissement" titre="Ce chéquier ne peut pas être demandé">
+                <ul class="obstacles">
+                  @for (obstacle of obstaclesChequier(); track obstacle) { <li>{{ obstacle }}</li> }
+                </ul>
+              </cb-notice>
+            }
+
+            <div class="actions">
+              <button type="button" cbButton="primaire"
+                      [disabled]="travaille() || obstaclesChequier().length > 0"
+                      (click)="delivrer()">Demander le chéquier</button>
+              <button type="button" cbButton="discret" [disabled]="travaille()"
+                      (click)="fermerLaDemande()">Annuler</button>
+            </div>
+          </cb-section>
+        }
+
+        <div class="cb-table-scroll">
+          <table cbTable>
+            <caption class="cb-visually-hidden">Chéquiers délivrés sur ce compte</caption>
+            <thead>
+              <tr>
+                <th scope="col">Carnet</th>
+                <th scope="col">Numéros</th>
+                <th scope="col">Délivré le</th>
+                <th scope="col" class="cb-num">Frais</th>
+                <th scope="col">État</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (chequier of chequiers(); track chequier.id) {
+                <tr>
+                  <td class="cb-ref cb-mono">{{ chequier.id }}</td>
+                  <td class="cb-mono">{{ chequier.firstNumber }} — {{ chequier.lastNumber }}</td>
+                  <td class="cb-mono">{{ chequier.deliveredOn }}</td>
+                  <td class="cb-num">
+                    @if (chequier.fee; as frais) {
+                      <cb-amount [valeur]="frais.amount" [devise]="frais.currency" />
+                    } @else { — }
+                  </td>
+                  <td>
+                    <cb-state-badge [etat]="etatDuChequier(chequier)"
+                                    [mot]="LIBELLE_STATUT_CHEQUIER[chequier.status]" />
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td colspan="5" class="vide">
+                  Aucun chéquier sur ce compte. Tous les comptes n'en ont pas : c'est une décision
+                  commerciale, et elle se prend au vu du dossier.
+                </td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
+
+    <!-- ------------------------------------------------------------ chèques -->
+    @if (onglet() === 'cheques') {
+      <section class="panneau" role="tabpanel" aria-labelledby="onglet-cheques">
+        <nav class="filtres" aria-label="Filtrer les chèques par état">
+          <button type="button" [class.actif]="filtreCheque() === null"
+                  [attr.aria-pressed]="filtreCheque() === null"
+                  (click)="filtrerCheques(null)">Tous</button>
+          @for (statut of STATUTS_CHEQUE; track statut) {
+            <button type="button" [class.actif]="filtreCheque() === statut"
+                    [attr.aria-pressed]="filtreCheque() === statut"
+                    (click)="filtrerCheques(statut)">{{ LIBELLE_STATUT_CHEQUE[statut] }}</button>
+          }
+        </nav>
+
+        <div class="cb-table-scroll">
+          <table cbTable>
+            <caption class="cb-visually-hidden">Chèques du compte</caption>
+            <thead>
+              <tr>
+                <th scope="col">Numéro</th>
+                <th scope="col" class="cb-num">Montant</th>
+                <th scope="col">Porteur</th>
+                <th scope="col">Dénouement</th>
+                <th scope="col">État</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (cheque of chequesVisibles(); track cheque.number) {
+                <tr [class.choisie]="cheque.number === chequeChoisi()?.number">
+                  <td class="cb-ref">
+                    <button type="button" class="lien" (click)="ouvrirCheque(cheque)">
+                      {{ cheque.number }}
+                    </button>
+                  </td>
+                  <td class="cb-num">
+                    @if (cheque.amount; as valeur) {
+                      <cb-amount [valeur]="valeur.amount" [devise]="valeur.currency" />
+                    } @else { — }
+                  </td>
+                  <td>{{ cheque.beneficiary || '—' }}</td>
+                  <td class="cb-mono">{{ cheque.paidOn || cheque.stoppedOn || '—' }}</td>
+                  <td>
+                    <cb-state-badge [etat]="etatDuCheque(cheque)"
+                                    [mot]="LIBELLE_STATUT_CHEQUE[cheque.status]" />
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td colspan="5" class="vide">
+                  @if (filtreCheque()) {
+                    Aucun chèque dans cet état. Retirez le filtre pour voir le carnet entier.
+                  } @else {
+                    Aucun chèque connu sur ce compte.
+                  }
+                </td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        @if (chequeChoisi(); as cheque) {
+          <cb-section [titre]="'Chèque n° ' + cheque.number" [indication]="cheque.bookId">
+            <div class="entete-detail">
+              <cb-state-badge [etat]="etatDuCheque(cheque)"
+                              [mot]="LIBELLE_STATUT_CHEQUE[cheque.status]" />
+              @if (cheque.amount; as valeur) {
+                <cb-amount [valeur]="valeur.amount" [devise]="valeur.currency" ton="accent" />
+              }
+            </div>
+
+            <p class="attente">{{ ATTENTE_CHEQUE[cheque.status] }}</p>
+
+            <dl class="fiche">
+              <dt>Porteur</dt><dd>{{ cheque.beneficiary || '—' }}</dd>
+              @if (cheque.paidOn) { <dt>Payé le</dt><dd class="cb-mono">{{ cheque.paidOn }}</dd> }
+              @if (cheque.stoppedOn) {
+                <dt>Opposition le</dt><dd class="cb-mono">{{ cheque.stoppedOn }}</dd>
+                <dt>Motif</dt><dd>{{ libelleOpposition(cheque) }}</dd>
+              }
+            </dl>
+          </cb-section>
+
+          @if (acteCheque(); as acte) {
+            @if (acte === 'PAYER') {
+              <cb-section titre="Payer le chèque" indication="à confirmer">
+                <p class="pourquoi">
+                  Le compte est débité à l'instant. Sans provision, le socle refuse et
+                  <strong>l'incident reste au dossier</strong> : il se déclare.
+                </p>
+
+                <div class="grille">
+                  <cb-field etiquette="Montant du chèque" pour="montant-cheque" requis
+                            aide="Celui qui figure sur le chèque, en toutes lettres comme en chiffres.">
+                    <cb-amount-input champId="montant-cheque" [devise]="devise()"
+                                     [valeur]="montant()" (valeurChange)="montant.set($event)" />
+                  </cb-field>
+
+                  <cb-field etiquette="Porteur" pour="porteur"
+                            [requis]="mode() === 'CASH'"
+                            aide="Celui que le chèque nomme, tel qu'il se présente.">
+                    <input cbInput id="porteur" name="porteur" autocomplete="off"
+                           [value]="porteur()"
+                           (input)="porteur.set($any($event.target).value)" />
+                  </cb-field>
+                </div>
+
+                <fieldset class="modes">
+                  <legend>Comment ce chèque est-il payé ?</legend>
+                  @for (m of MODES; track m) {
+                    <label class="mode">
+                      <input type="radio" name="mode" [value]="m" [checked]="mode() === m"
+                             (change)="mode.set(m)" />
+                      <span>{{ LIBELLE_MODE_PAIEMENT[m] }}</span>
+                    </label>
+                  }
+                </fieldset>
+
+                @if (mode() === 'CLEARING') {
+                  <cb-field etiquette="Compte nostro" pour="nostro-cheque" requis
+                            aide="Le compte de correspondant par lequel la compensation règle.">
+                    <input cbInput id="nostro-cheque" name="nostro-cheque" autocomplete="off"
+                           class="cb-mono" [value]="nostro()"
+                           (input)="nostro.set($any($event.target).value)" />
+                  </cb-field>
+                } @else {
+                  <p class="pourquoi">
+                    Au guichet, le chèque se paie sur <strong>votre caisse</strong> : le socle la
+                    lit dans votre jeton. Elle ne se choisit pas ici.
+                  </p>
+                }
+
+                @if (plafondPaiement(); as limite) {
+                  <p class="plafond">
+                    Votre profil paie jusqu'à
+                    <cb-amount [valeur]="limite.amount" [devise]="limite.currency" /> par chèque.
+                  </p>
+                }
+
+                @if (depasseLePlafond()) {
+                  <cb-notice nature="avertissement" titre="Ce montant dépasse votre plafond">
+                    Le socle refusera. Faites payer ce chèque par un profil qui porte le montant
+                    plutôt que de compter deux fois.
+                  </cb-notice>
+                }
+
+                @if (obstaclesPaiement().length > 0) {
+                  <cb-notice nature="avertissement" titre="Ce chèque ne peut pas être payé">
+                    <ul class="obstacles">
+                      @for (obstacle of obstaclesPaiement(); track obstacle) {
+                        <li>{{ obstacle }}</li>
+                      }
+                    </ul>
+                  </cb-notice>
+                }
+
+                <div class="actions">
+                  <button type="button" cbButton="primaire"
+                          [disabled]="travaille() || obstaclesPaiement().length > 0"
+                          (click)="payer()">Payer le chèque</button>
+                  <button type="button" cbButton="discret" [disabled]="travaille()"
+                          (click)="abandonnerLActe()">Revenir</button>
+                </div>
+              </cb-section>
+            } @else {
+              <cb-section titre="Faire opposition" indication="à confirmer">
+                <p class="pourquoi">
+                  L'opposition n'est pas libre : la loi uniforme l'enferme dans ces quatre cas. Une
+                  opposition hors de ces motifs — un client mécontent de sa livraison — engage la
+                  banque, et celui qui la passe.
+                </p>
+
+                <fieldset class="modes">
+                  <legend>Motif de l'opposition</legend>
+                  @for (m of MOTIFS; track m) {
+                    <label class="mode">
+                      <input type="radio" name="motif-opposition" [value]="m"
+                             [checked]="motifOpposition() === m" (change)="motifOpposition.set(m)" />
+                      <span>{{ LIBELLE_MOTIF_OPPOSITION[m] }}</span>
+                    </label>
+                  }
+                </fieldset>
+
+                <div class="actions">
+                  <button type="button" cbButton="danger" [disabled]="travaille()"
+                          (click)="opposer()">Enregistrer l'opposition</button>
+                  <button type="button" cbButton="discret" [disabled]="travaille()"
+                          (click)="abandonnerLActe()">Revenir</button>
+                </div>
+              </cb-section>
+            }
+          } @else if (actesDuCheque().length > 0) {
+            <div class="actions">
+              @for (acte of actesDuCheque(); track acte) {
+                <button type="button" [cbButton]="acte === 'OPPOSER' ? 'danger' : 'primaire'"
+                        [disabled]="travaille()" (click)="demarrerSurCheque(acte)">
+                  {{ acte === 'PAYER' ? 'Payer' : 'Faire opposition' }}…
+                </button>
+              }
+            </div>
+          } @else if (cheque.status === 'UNUSED') {
+            <cb-notice nature="information" titre="Vous lisez ce chèque, vous n'agissez pas dessus">
+              Payer un chèque débite un client, une opposition l'empêche d'être payé. Votre profil
+              ne porte ni <span class="cb-mono">CHEQUE_PAY</span> ni
+              <span class="cb-mono">CHEQUE_STOP</span> : ces actes reviennent au guichet et au
+              service des moyens de paiement.
+            </cb-notice>
+          } @else {
+            <cb-notice nature="information" titre="Ce chèque est dénoué">
+              Il ne reste rien à faire dessus. Un chèque payé ne se reprend pas ; un chèque sous
+              opposition n'a pas besoin d'une seconde.
+            </cb-notice>
+          }
+        }
+      </section>
+    }
+
+    <!-- ------------------------------------------------------------ incidents -->
+    @if (onglet() === 'incidents') {
+      <section class="panneau" role="tabpanel" aria-labelledby="onglet-incidents">
+        <p class="pourquoi">
+          Un incident naît d'un chèque présenté sans provision suffisante. Il se lit ici et
+          <strong>ne se corrige pas</strong> : il est daté, il se déclare à la Centrale des
+          incidents de paiement, et il suit le client.
+        </p>
+
+        <div class="cb-table-scroll">
+          <table cbTable>
+            <caption class="cb-visually-hidden">Incidents de paiement du compte</caption>
+            <thead>
+              <tr>
+                <th scope="col">Chèque</th>
+                <th scope="col" class="cb-num">Montant</th>
+                <th scope="col">Survenu le</th>
+                <th scope="col">Motif</th>
+                <th scope="col">Présenté par</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (incident of incidents(); track incident.id) {
+                <tr>
+                  <td class="cb-ref cb-mono">{{ incident.number }}</td>
+                  <td class="cb-num">
+                    <cb-amount [valeur]="incident.amount.amount"
+                               [devise]="incident.amount.currency" />
+                  </td>
+                  <td class="cb-mono">{{ incident.occurredOn }}</td>
+                  <td>{{ incident.reason }}</td>
+                  <td>{{ incident.presentedBy || '—' }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="5" class="vide">
+                  Aucun incident de paiement sur ce compte.
+                </td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
+
+    <!-- ------------------------------------------------------------ mandats -->
+    @if (onglet() === 'mandats') {
+      <section class="panneau" role="tabpanel" aria-labelledby="onglet-mandats">
+        <div class="tete">
+          <p class="pourquoi">
+            Un mandat autorise un créancier à prélever sur ce compte. Il
+            <strong>s'enregistre à deux</strong>, et sa révocation prend effet tout de suite : plus
+            rien ne se prélève dessus.
+          </p>
+          @if (droitDEnregistrer() && !saisieMandat()) {
+            <button type="button" cbButton="primaire" (click)="ouvrirLeMandat()">
+              Enregistrer un mandat
+            </button>
+          }
+        </div>
+
+        @if (saisieMandat()) {
+          <cb-section titre="Nouveau mandat" indication="demande soumise à validation">
+            <div class="grille">
+              <cb-field etiquette="Référence du mandat" pour="reference-mandat" requis
+                        aide="Celle que le créancier citera à chaque prélèvement.">
+                <input cbInput id="reference-mandat" name="reference-mandat" autocomplete="off"
+                       class="cb-mono" [value]="reference()"
+                       (input)="reference.set($any($event.target).value)" />
+              </cb-field>
+
+              <cb-field etiquette="Identifiant du créancier" pour="ics" requis
+                        aide="Ce qui identifie le préleveur sur chaque présentation.">
+                <input cbInput id="ics" name="ics" autocomplete="off" class="cb-mono"
+                       [value]="identifiantCreancier()"
+                       (input)="identifiantCreancier.set($any($event.target).value)" />
+              </cb-field>
+
+              <cb-field etiquette="Nom du créancier" pour="nom-creancier" requis>
+                <input cbInput id="nom-creancier" name="nom-creancier" autocomplete="off"
+                       [value]="nomCreancier()"
+                       (input)="nomCreancier.set($any($event.target).value)" />
+              </cb-field>
+            </div>
+
+            <fieldset class="modes">
+              <legend>Où le créancier tient-il son compte ?</legend>
+              <label class="mode">
+                <input type="radio" name="nature-creancier" [checked]="!creancierInterne()"
+                       (change)="creancierInterne.set(false)" />
+                <span>Dans une autre banque</span>
+              </label>
+              <label class="mode">
+                <input type="radio" name="nature-creancier" [checked]="creancierInterne()"
+                       (change)="creancierInterne.set(true)" />
+                <span>Chez vous : c'est un compte de la banque</span>
+              </label>
+            </fieldset>
+
+            <div class="grille">
+              @if (creancierInterne()) {
+                <cb-field etiquette="Compte du créancier" pour="compte-creancier" requis
+                          aide="L'identifiant du compte qu'il tient chez vous.">
+                  <input cbInput id="compte-creancier" name="compte-creancier" autocomplete="off"
+                         class="cb-mono" [value]="compteCreancier()"
+                         (input)="compteCreancier.set($any($event.target).value)" />
+                </cb-field>
+              } @else {
+                <cb-field etiquette="Banque du créancier" pour="banque-creancier" requis>
+                  <input cbInput id="banque-creancier" name="banque-creancier" autocomplete="off"
+                         [value]="banqueCreancier()"
+                         (input)="banqueCreancier.set($any($event.target).value)" />
+                </cb-field>
+
+                <cb-field etiquette="Compte du créancier" pour="iban-creancier" requis>
+                  <input cbInput id="iban-creancier" name="iban-creancier" autocomplete="off"
+                         class="cb-mono" [value]="ibanCreancier()"
+                         (input)="ibanCreancier.set($any($event.target).value)" />
+                </cb-field>
+              }
+
+              <cb-field etiquette="Signé le" pour="signe-le" requis
+                        aide="La date que le client a portée sur le mandat : elle fait foi.">
+                <cb-date-input champId="signe-le" [valeur]="signeLe()"
+                               (valeurChange)="signeLe.set($event)" />
+              </cb-field>
+
+              <cb-field etiquette="Prend effet le" pour="effet-le" requis>
+                <cb-date-input champId="effet-le" [valeur]="effetLe()"
+                               (valeurChange)="effetLe.set($event)" />
+              </cb-field>
+
+              <cb-field etiquette="Jusqu'au" pour="fin-le"
+                        aide="Laissez vide pour un mandat sans terme.">
+                <cb-date-input champId="fin-le" [valeur]="finLe()"
+                               (valeurChange)="finLe.set($event)" />
+              </cb-field>
+
+              <cb-field etiquette="Plafond par prélèvement" pour="plafond-mandat"
+                        aide="Facultatif — mais sans plafond, le créancier prélève ce qu'il veut.">
+                <cb-amount-input champId="plafond-mandat" [devise]="devise()"
+                                 [valeur]="plafond()" (valeurChange)="plafond.set($event)" />
+              </cb-field>
+            </div>
+
+            @if (mandatADeux()) {
+              <cb-notice nature="information" titre="Cet acte part à la validation">
+                Le mandat n'autorisera aucun prélèvement tant qu'un second opérateur ne l'aura pas
+                validé.
+              </cb-notice>
+            }
+
+            @if (obstaclesMandat().length > 0) {
+              <cb-notice nature="avertissement" titre="Ce mandat ne peut pas être enregistré">
+                <ul class="obstacles">
+                  @for (obstacle of obstaclesMandat(); track obstacle) { <li>{{ obstacle }}</li> }
+                </ul>
+              </cb-notice>
+            }
+
+            <div class="actions">
+              <button type="button" cbButton="primaire"
+                      [disabled]="travaille() || obstaclesMandat().length > 0"
+                      (click)="enregistrerLeMandat()">Enregistrer le mandat</button>
+              <button type="button" cbButton="discret" [disabled]="travaille()"
+                      (click)="fermerLeMandat()">Annuler</button>
+            </div>
+          </cb-section>
+        }
+
+        <div class="cb-table-scroll">
+          <table cbTable>
+            <caption class="cb-visually-hidden">Mandats de prélèvement du compte</caption>
+            <thead>
+              <tr>
+                <th scope="col">Référence</th>
+                <th scope="col">Créancier</th>
+                <th scope="col" class="cb-num">Plafond</th>
+                <th scope="col">Validité</th>
+                <th scope="col">État</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (mandat of mandats(); track mandat.id) {
+                <tr [class.choisie]="mandat.id === mandatChoisi()?.id">
+                  <td class="cb-ref">
+                    <button type="button" class="lien" (click)="choisirMandat(mandat)">
+                      {{ mandat.reference }}
+                    </button>
+                  </td>
+                  <td>
+                    <span class="nom">{{ mandat.creditorName }}</span>
+                    <span class="banque">{{ creancierDe(mandat) }}</span>
+                  </td>
+                  <td class="cb-num">
+                    @if (mandat.maxAmount; as limite) {
+                      <cb-amount [valeur]="limite.amount" [devise]="limite.currency" />
+                    } @else { sans plafond }
+                  </td>
+                  <td class="cb-mono">
+                    {{ mandat.validFrom || '—' }} → {{ mandat.validTo || 'sans terme' }}
+                  </td>
+                  <td>
+                    <cb-state-badge [etat]="etatDuMandat(mandat)"
+                                    [mot]="LIBELLE_STATUT_MANDAT[mandat.status]" />
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td colspan="5" class="vide">
+                  Aucun mandat sur ce compte : aucun créancier n'est autorisé à y prélever.
+                </td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        @if (mandatChoisi(); as mandat) {
+          <cb-section [titre]="mandat.creditorName" [indication]="mandat.reference">
+            <div class="entete-detail">
+              <cb-state-badge [etat]="etatDuMandat(mandat)"
+                              [mot]="LIBELLE_STATUT_MANDAT[mandat.status]" />
+              @if (mandat.maxAmount; as limite) {
+                <cb-amount [valeur]="limite.amount" [devise]="limite.currency" ton="accent" />
+              }
+            </div>
+
+            <dl class="fiche">
+              <dt>Identifiant du créancier</dt><dd class="cb-mono">{{ mandat.creditorId }}</dd>
+              <dt>Compte du créancier</dt><dd>{{ creancierDe(mandat) }}</dd>
+              <dt>Signé le</dt><dd class="cb-mono">{{ mandat.signedOn || '—' }}</dd>
+              <dt>Prend effet le</dt><dd class="cb-mono">{{ mandat.validFrom || '—' }}</dd>
+              <dt>Jusqu'au</dt><dd class="cb-mono">{{ mandat.validTo || 'sans terme' }}</dd>
+              @if (mandat.revokedOn) {
+                <dt>Révoqué le</dt><dd class="cb-mono">{{ mandat.revokedOn }}</dd>
+                <dt>Motif</dt><dd>{{ mandat.revocationReason || '—' }}</dd>
+              }
+            </dl>
+
+            @if (!mandat.maxAmount && mandat.status === 'ACTIVE') {
+              <cb-notice nature="avertissement" titre="Ce mandat n'a pas de plafond">
+                Le créancier peut prélever ce qu'il veut sur ce compte. C'est légal, et c'est au
+                client de le savoir.
+              </cb-notice>
+            }
+
+            @if (peutRevoquer(mandat)) {
+              <cb-field etiquette="Motif de la révocation" pour="motif-revocation" requis
+                        aide="Il reste au dossier et s'oppose au créancier.">
+                <textarea cbInput id="motif-revocation" rows="3" [value]="motifRevocation()"
+                          (input)="motifRevocation.set($any($event.target).value)"></textarea>
+              </cb-field>
+
+              <div class="actions">
+                <button type="button" cbButton="danger"
+                        [disabled]="travaille() || !motifRevocation().trim()"
+                        (click)="revoquer()">Révoquer le mandat</button>
+              </div>
+            } @else if (mandat.status === 'REVOKED') {
+              <cb-notice nature="information" titre="Ce mandat est révoqué">
+                Il ne se révoque pas deux fois. Pour autoriser à nouveau ce créancier, enregistrez
+                un nouveau mandat : c'est une nouvelle signature du client.
+              </cb-notice>
+            } @else {
+              <cb-notice nature="information" titre="Vous lisez ce mandat, vous ne le révoquez pas">
+                Révoquer coupe une autorisation de prélèvement. Votre profil ne porte pas
+                <span class="cb-mono">MANDATE_REVOKE</span>.
+              </cb-notice>
+            }
+          </cb-section>
+        }
+      </section>
+    }
+  } @else if (phase() === 'repos') {
+    <p class="rien">Choisissez un compte pour voir ses chéquiers, ses chèques et ses mandats.</p>
+  }
+</div>

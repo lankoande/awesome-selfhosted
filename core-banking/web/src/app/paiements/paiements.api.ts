@@ -4,10 +4,14 @@ import { firstValueFrom } from 'rxjs';
 import { Socle } from '../api/socle';
 import { Montant, RefusMetier } from '../guichet/modele/guichet.modele';
 import {
+  Cheque, Chequier, DemandeChequier, DemandeMandat, DemandeOpposition, DemandePaiementCheque,
+  IncidentCheque, Mandat, StatutCheque, StatutChequier, StatutMandat,
+} from './modele/compte.modele';
+import {
   DemandeOrdre, DemandeRemise, OrdrePaiement, Prelevement, Remise, SensPrelevement, StatutOrdre,
   StatutPrelevement, StatutRemise,
 } from './modele/paiements.modele';
-import { Decision, Page, Paiements } from './paiements.port';
+import { Decision, EnAttentePaiements, Page, Paiements } from './paiements.port';
 
 interface Enveloppe<T> {
   readonly data: T;
@@ -31,6 +35,12 @@ function montant(valeur: unknown): Montant | null {
 
 function montantRequis(valeur: unknown): Montant {
   return montant(valeur) ?? { amount: '0', currency: 'XOF' };
+}
+
+/** Un numéro de chèque voyage en nombre ; un JSON peut le rendre en chaîne. */
+function nombre(valeur: unknown): number {
+  const lu = typeof valeur === 'number' ? valeur : Number(valeur);
+  return Number.isFinite(lu) ? lu : 0;
 }
 
 @Injectable()
@@ -191,6 +201,110 @@ export class PaiementsApi implements Paiements {
     return this.prelevementDe(await this.poster(url, this.corps(decision)));
   }
 
+  // ------------------------------------------------------------ chèques d'un compte
+
+  async chequiers(legalEntityId: string, accountId: string): Promise<readonly Chequier[]> {
+    const brutes = await this.listeDe(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounts/{accountId}/cheque-books',
+      { legalEntityId, accountId }));
+    return brutes.map((brute) => this.chequierDe(brute));
+  }
+
+  async delivrerChequier(legalEntityId: string, accountId: string,
+                         demande: DemandeChequier): Promise<EnAttentePaiements> {
+    const brut = await this.poster(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounts/{accountId}/cheque-books',
+      { legalEntityId, accountId }), { count: demande.count });
+    return { operationId: texte(brut['id']) ?? '' };
+  }
+
+  async cheques(legalEntityId: string, accountId: string,
+                statut: StatutCheque | null): Promise<readonly Cheque[]> {
+    const brutes = await this.listeDe(
+      this.socle.url('/v1/entities/{legalEntityId}/accounts/{accountId}/cheques',
+                     { legalEntityId, accountId }),
+      statut === null ? undefined : new HttpParams().set('status', statut));
+    return brutes.map((brute) => this.chequeDe(brute));
+  }
+
+  /**
+   * Le socle rend le chèque payé **et** le reçu de l'écriture ; l'écran ne
+   * montre que le chèque. Le reçu vit au journal, pas sur un écran de guichet.
+   */
+  async payerCheque(legalEntityId: string, accountId: string, demande: DemandePaiementCheque,
+                    cleIdempotence: string): Promise<Cheque> {
+    const brut = await this.poster(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounts/{accountId}/cheques/{number}/payment',
+      { legalEntityId, accountId, number: String(demande.number) }), {
+        amount: demande.amount,
+        currency: demande.currency,
+        mode: demande.mode,
+        // Au guichet, la caisse vient du jeton : l'envoyer serait laisser
+        // l'écran choisir sur quelle caisse le chèque se paie.
+        nostroAccountId: demande.mode === 'CLEARING' ? demande.nostroAccountId : null,
+        beneficiary: demande.beneficiary,
+        channel: 'BRANCH',
+      }, cleIdempotence);
+    const cheque = brut['cheque'];
+    return this.chequeDe((cheque ?? brut) as Record<string, unknown>);
+  }
+
+  async opposer(legalEntityId: string, accountId: string,
+                demande: DemandeOpposition): Promise<Cheque> {
+    return this.chequeDe(await this.poster(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounts/{accountId}/cheques/{number}/stop',
+      { legalEntityId, accountId, number: String(demande.number) }), { reason: demande.reason }));
+  }
+
+  async incidents(legalEntityId: string, accountId: string): Promise<readonly IncidentCheque[]> {
+    const brutes = await this.listeDe(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounts/{accountId}/cheque-incidents',
+      { legalEntityId, accountId }));
+    return brutes.map((brute) => ({
+      id: texte(brute['id']) ?? '',
+      number: nombre(brute['number']),
+      amount: montantRequis(brute['amount']),
+      occurredOn: texte(brute['occurredOn']) ?? '',
+      reason: texte(brute['reason']) ?? '',
+      presentedBy: texte(brute['presentedBy']),
+    }));
+  }
+
+  // ------------------------------------------------------------ mandats d'un compte
+
+  async mandats(legalEntityId: string, accountId: string): Promise<readonly Mandat[]> {
+    const brutes = await this.listeDe(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounts/{accountId}/mandates',
+      { legalEntityId, accountId }));
+    return brutes.map((brute) => this.mandatDe(brute));
+  }
+
+  async enregistrerMandat(legalEntityId: string, accountId: string,
+                          demande: DemandeMandat): Promise<EnAttentePaiements> {
+    const brut = await this.poster(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounts/{accountId}/mandates',
+      { legalEntityId, accountId }), {
+        reference: demande.reference,
+        creditorId: demande.creditorId,
+        creditorName: demande.creditorName,
+        creditorAccountId: demande.creditorAccountId,
+        creditorBank: demande.creditorBank,
+        creditorAccount: demande.creditorAccount,
+        signedOn: demande.signedOn,
+        validFrom: demande.validFrom,
+        validTo: demande.validTo,
+        maxAmount: demande.maxAmount,
+        currency: demande.currency,
+      });
+    return { operationId: texte(brut['id']) ?? '' };
+  }
+
+  async revoquerMandat(legalEntityId: string, mandateId: string, motif: string): Promise<Mandat> {
+    return this.mandatDe(await this.poster(this.socle.url(
+      '/v1/entities/{legalEntityId}/mandates/{mandateId}/revocation',
+      { legalEntityId, mandateId }), { reason: motif }));
+  }
+
   // ------------------------------------------------------------ lecture des formes
 
   private ordreDe(brut: Record<string, unknown>): OrdrePaiement {
@@ -260,6 +374,49 @@ export class PaiementsApi implements Paiements {
     };
   }
 
+  private chequierDe(brut: Record<string, unknown>): Chequier {
+    return {
+      id: texte(brut['id']) ?? '',
+      firstNumber: nombre(brut['firstNumber']),
+      lastNumber: nombre(brut['lastNumber']),
+      deliveredOn: texte(brut['deliveredOn']) ?? '',
+      status: (texte(brut['status']) as StatutChequier | null) ?? 'ACTIVE',
+      fee: montant(brut['fee']),
+    };
+  }
+
+  private chequeDe(brut: Record<string, unknown>): Cheque {
+    return {
+      number: nombre(brut['number']),
+      bookId: texte(brut['bookId']) ?? '',
+      status: (texte(brut['status']) as StatutCheque | null) ?? 'UNUSED',
+      amount: montant(brut['amount']),
+      beneficiary: texte(brut['beneficiary']),
+      paidOn: texte(brut['paidOn']),
+      stoppedOn: texte(brut['stoppedOn']),
+      stopReason: texte(brut['stopReason']),
+    };
+  }
+
+  private mandatDe(brut: Record<string, unknown>): Mandat {
+    return {
+      id: texte(brut['id']) ?? '',
+      reference: texte(brut['reference']) ?? '',
+      creditorId: texte(brut['creditorId']) ?? '',
+      creditorName: texte(brut['creditorName']) ?? '',
+      creditorAccountId: texte(brut['creditorAccountId']),
+      creditorBank: texte(brut['creditorBank']),
+      creditorAccount: texte(brut['creditorAccount']),
+      signedOn: texte(brut['signedOn']),
+      validFrom: texte(brut['validFrom']),
+      validTo: texte(brut['validTo']),
+      maxAmount: montant(brut['maxAmount']),
+      status: (texte(brut['status']) as StatutMandat | null) ?? 'ACTIVE',
+      revokedOn: texte(brut['revokedOn']),
+      revocationReason: texte(brut['revocationReason']),
+    };
+  }
+
   // ------------------------------------------------------------ transport
 
   /** Ce que l'acte porte : le nostro du règlement, ou le motif qui reste au dossier. */
@@ -302,6 +459,19 @@ export class PaiementsApi implements Paiements {
         precedent: enveloppe.page?.hasPrevious ?? page > 0,
         suivant: enveloppe.page?.hasNext ?? false,
       };
+    } catch (erreur) {
+      throw this.refus(erreur);
+    }
+  }
+
+  /** Ces lectures ne paginent pas : le socle rend la liste entière d'un compte. */
+  private async listeDe(url: string,
+                        parametres?: HttpParams): Promise<Record<string, unknown>[]> {
+    try {
+      const enveloppe = await firstValueFrom(
+        this.http.get<Enveloppe<Record<string, unknown>[]>>(
+          url, { params: parametres, headers: this.entetes() }));
+      return enveloppe.data ?? [];
     } catch (erreur) {
       throw this.refus(erreur);
     }

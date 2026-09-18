@@ -115,6 +115,18 @@ export class DossierClient {
     void this.router.navigate(['/clients/recherche']);
   }
 
+  /**
+   * Les moyens de paiement de ce compte, compte déjà désigné.
+   *
+   * Le dossier sait quel compte on regarde ; faire retaper son numéro dans
+   * l'autre espace serait le lui faire chercher deux fois.
+   */
+  protected moyensDePaiement(compte: CompteClient): void {
+    // Le **numéro**, pas l'identifiant : l'adresse se recopie et se met en
+    // favori, et un numéro de compte se relit.
+    void this.router.navigate(['/paiements/compte'], { queryParams: { compte: compte.code } });
+  }
+
   protected jour(iso: string | null): string {
     if (!iso) return '—';
     const [a, m, j] = iso.split('-');

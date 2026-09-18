@@ -48,7 +48,8 @@ src/app/credit/  le crédit : demandes, dossier d'instruction, portefeuille, con
 src/app/conformite/ la conformité LCB-FT : alertes, déclarations de soupçon, scénarios
 src/app/reglementaire/ le réglementaire : échéances, états, catalogue, fiscalité
 src/app/paiements/ les moyens de paiement : virements émis, remises de chèques,
-                 prélèvements — trois files de compensation
+                 prélèvements — trois files de compensation — puis les chèques
+                 et mandats d'un compte, qui partent d'un compte et non d'une file
 src/app/validation/ la double validation : le second regard
 src/app/caisse/  la caisse du guichetier et son arrêté
 src/app/siege/   exploitation comptable, restitutions, et le paramétrage de

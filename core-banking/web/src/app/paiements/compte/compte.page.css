@@ -1,0 +1,168 @@
+:host { display: block; }
+
+/* Un écran d'instruments se lit en une colonne : chaque onglet porte une liste
+   puis ce qu'on en fait. Deux colonnes laisseraient la moitié de la page vide
+   tant qu'aucun chèque n'est choisi. */
+.ecran {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+  max-width: 100rem;
+}
+
+.compte { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+
+.panneau {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  min-width: 0;
+}
+
+/* Le pourquoi et l'acte sur une ligne, et l'acte passe dessous quand la phrase
+   n'a plus la place : c'est la phrase qui doit rester lisible. */
+.tete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cb-space-3);
+}
+
+.tete .pourquoi { margin: 0; flex: 1 1 32rem; }
+
+.pourquoi {
+  margin: 0;
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+  max-width: 78ch;
+}
+
+.filtres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cb-space-1);
+}
+
+.filtres button {
+  flex-shrink: 0;
+  height: var(--cb-tap-h);
+  padding: 0 var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  background: var(--cb-panel);
+  color: var(--cb-muted);
+  font: inherit;
+  font-size: var(--cb-fs-sm);
+  cursor: pointer;
+}
+
+.filtres button:hover { color: var(--cb-ink); }
+
+.filtres button.actif {
+  background: var(--cb-accent);
+  border-color: var(--cb-accent);
+  color: var(--cb-accent-contraste);
+  font-weight: 600;
+}
+
+.lien {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cb-row-h);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cb-accent);
+  font: inherit;
+  font-family: var(--cb-font-mono);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.nom { display: block; }
+.banque { display: block; font-size: var(--cb-fs-xs); color: var(--cb-muted); }
+.choisie { background: var(--cb-surface-choisie, var(--cb-panel)); }
+.vide { color: var(--cb-muted); padding: var(--cb-space-4); }
+.rien { color: var(--cb-muted); margin: 0; }
+
+.entete-detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cb-space-3);
+  margin-bottom: var(--cb-space-3);
+}
+
+/* Ce que l'état du chèque veut dire, au présent : la phrase que l'agent
+   répétera au client qui appelle. */
+.attente {
+  margin: 0 0 var(--cb-space-4);
+  padding-left: var(--cb-space-3);
+  border-left: 2px solid var(--cb-accent);
+  color: var(--cb-ink);
+  font-size: var(--cb-fs-sm);
+  max-width: 60ch;
+}
+
+.fiche {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--cb-space-1) var(--cb-space-4);
+  margin: 0;
+  max-width: 42rem;
+}
+
+.fiche dt { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+.fiche dd { margin: 0; overflow-wrap: anywhere; }
+
+.grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--cb-space-3) var(--cb-space-4);
+}
+
+/* Un choix qui change la suite du formulaire : il se voit, il ne se devine
+   pas dans une liste déroulante. */
+.modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cb-space-2) var(--cb-space-4);
+  margin: var(--cb-space-4) 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.modes legend {
+  padding: 0;
+  margin-bottom: var(--cb-space-2);
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+}
+
+.mode {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cb-space-2);
+  min-height: var(--cb-tap-h);
+  cursor: pointer;
+}
+
+.plafond {
+  margin: var(--cb-space-3) 0 0;
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+}
+
+.obstacles { margin: 0; padding-left: var(--cb-space-4); }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cb-space-3);
+  margin-top: var(--cb-space-4);
+}
