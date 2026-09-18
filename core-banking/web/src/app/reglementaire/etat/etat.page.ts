@@ -2,14 +2,13 @@ import {
   ChangeDetectionStrategy, Component, computed, effect, inject, input, signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { AUTHENTIFICATION } from '../../auth/auth.port';
-import { autorise } from '../../auth/habilitations';
+import { Droits } from '../../auth/habilitations';
 import { AppConfig } from '../../core/config/runtime-config';
 import { formaterTaux } from '../../core/format/montant';
 import { RefusMetier } from '../../guichet/modele/guichet.modele';
 import {
-  CbActivity, CbAmount, CbButton, CbDateInput, CbField, CbInput, CbNotice, CbSection,
-  CbStateBadge, CbTable,
+  CbActivity, CbAmount, CbButton, CbDateInput, CbField, CbInput, CbInterdit, CbNotice,
+  CbSection, CbStateBadge, CbTable,
 } from '../../ui';
 import { REGLEMENTAIRE } from '../reglementaire.port';
 import {
@@ -44,8 +43,8 @@ type Volet = 'aucun' | 'transmettre' | 'annuler';
   selector: 'cb-etat',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CbActivity, CbAmount, CbButton, CbDateInput, CbField, CbInput, CbNotice, CbSection,
-    CbStateBadge, CbTable,
+    CbActivity, CbAmount, CbButton, CbDateInput, CbField, CbInput, CbInterdit, CbNotice,
+    CbSection, CbStateBadge, CbTable,
   ],
   templateUrl: './etat.page.html',
   styleUrl: './etat.page.css',
@@ -55,7 +54,7 @@ export class DetailEtat {
 
   private readonly reglementaire = inject(REGLEMENTAIRE);
   private readonly config = inject(AppConfig);
-  private readonly authentification = inject(AUTHENTIFICATION);
+  private readonly droits = inject(Droits);
   private readonly router = inject(Router);
 
   protected readonly LIBELLE_STATUT_ETAT = LIBELLE_STATUT_ETAT;
@@ -96,8 +95,8 @@ export class DetailEtat {
    * la banque déclarera, pas un travail de production. Un comptable qui produit
    * ne défait pas seul ce qu'il a produit.
    */
-  protected readonly peutTransmettre = computed(() =>
-    autorise(this.authentification.habilitations(), 'REGULATORY_REPORT_TRANSMIT'));
+  protected readonly peutTransmettre = computed(
+    () => this.droits.peut('REGULATORY_REPORT_TRANSMIT'));
 
   constructor() {
     effect(() => {

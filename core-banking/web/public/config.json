@@ -27,6 +27,10 @@
     "siege": true
   },
   "sourceDonnees": "factice",
+  "demonstration": {
+    "_lisezMoi": "Opérations retirées au profil de démonstration. La démonstration ouvre toutes les portes ; en retirer une montre l'autre moitié du sujet — une porte fermée, et la phrase qui l'explique. Ignoré dès que sourceDonnees vaut api.",
+    "droitsRetires": []
+  },
   "legalEntityId": "00000000-0000-4000-8000-000000000001",
   "auth": {
     "_lisezMoi": "Client Keycloak public : PKCE remplace le secret. Aucun secret ne doit figurer ici.",

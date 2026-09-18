@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { AUTHENTIFICATION } from '../auth/auth.port';
-import { OPERATION_PAR_ECRAN, autorise } from '../auth/habilitations';
+import { Droits, OPERATION_PAR_ECRAN } from '../auth/habilitations';
 import { PROVIDERS_CAISSE } from '../caisse/caisse.providers';
 import { PROVIDERS_GUICHET } from './guichet.providers';
 
@@ -57,7 +56,7 @@ import { PROVIDERS_GUICHET } from './guichet.providers';
   `,
 })
 export class GuichetShell {
-  private readonly authentification = inject(AUTHENTIFICATION);
+  private readonly droits = inject(Droits);
 
   /**
    * On ne propose pas une porte qu'on sait fermée. Tant que le socle n'expose
@@ -66,7 +65,7 @@ export class GuichetShell {
    */
   protected readonly visibles = computed(() =>
     this.ecrans.filter((ecran) =>
-      autorise(this.authentification.habilitations(), OPERATION_PAR_ECRAN['guichet/' + ecran.chemin]),
+      this.droits.peut(OPERATION_PAR_ECRAN['guichet/' + ecran.chemin]),
     ),
   );
 

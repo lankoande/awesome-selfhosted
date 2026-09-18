@@ -30,4 +30,5 @@ export const PRIMITIVES_UI: readonly PrimitiveUI[] = [
   { id: 'drawer', nom: 'Tiroir de contexte', role: 'La liste reste visible. Remplace la modale de travail.' },
   { id: 'dialog', nom: 'Confirmation', role: "La seule modale : confirmer l'irréversible." },
   { id: 'activity', nom: 'Activité', role: 'Un filet de deux pixels. Le mouvement ne décore pas.' },
+  { id: 'interdit', nom: 'Porte fermée', role: "Un acte qu'on ne peut pas faire, et la raison qui le ferme." },
 ] as const;

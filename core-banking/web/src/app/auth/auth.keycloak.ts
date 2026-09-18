@@ -4,7 +4,8 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AppConfig } from '../core/config/runtime-config';
 import { Socle } from '../api/socle';
-import { Authentification, EtatSession, Habilitations, Porteur } from './auth.port';
+import { Authentification, Droit, EtatSession, Habilitations, Montant, Portee, Porteur } from './auth.port';
+import { HABILITATIONS_INCONNUES } from './habilitations';
 import { DefiPkce, defi, memeState, urlAutorisation } from './pkce';
 import { Session } from './session';
 
@@ -182,24 +183,38 @@ export class AuthKeycloak implements Authentification {
    */
   private async lireHabilitations(): Promise<Habilitations> {
     // Le socle rend une ligne par opération que les rôles de l'appelant
-    // admettent, avec ce que la politique en dit. Le poste ne retient ici que
-    // les noms : le reste — périmètre, second regard, plafonds — appartient aux
-    // écrans qui en ont besoin, et sera lu le jour où l'un d'eux le demandera.
+    // admettent, avec ce que la politique en dit : portée, second regard,
+    // plafonds. Le poste retient **tout** — le nom seul ne permet que de
+    // montrer ou cacher, alors qu'un écran a besoin de dire ce qu'il sait avant
+    // que l'opérateur ne bute dessus.
     //
     // **Ce n'est pas une décision d'accès.** Le socle refuse toujours au moment
     // d'agir ; on s'en sert pour ne pas proposer une porte qu'on sait fermée.
     const url = this.socle.url('/v1/me/permissions');
     try {
-      const reponse = await firstValueFrom(
-        this.http.get<{ data: { operation?: string }[] }>(url));
-      const operations = (reponse.data ?? [])
-        .map((droit) => droit.operation)
-        .filter((nom): nom is string => typeof nom === 'string' && nom.length > 0);
-      return { connues: true, operations: new Set(operations) };
+      const reponse = await firstValueFrom(this.http.get<{ data: PermissionRendue[] }>(url));
+      const droits = new Map<string, Droit>();
+      for (const rendue of reponse.data ?? []) {
+        const operation = rendue?.operation;
+        if (typeof operation !== 'string' || operation.length === 0) continue;
+        droits.set(operation, {
+          operation,
+          // Une portée inconnue est ramenée à la plus étroite : se tromper dans
+          // ce sens fait dire « votre agence » à tort, ce qui se corrige d'un
+          // regard ; l'inverse promettrait une portée qu'on n'a pas.
+          portee: PORTEES.includes(rendue.scope as Portee)
+            ? (rendue.scope as Portee) : 'OWN_BRANCH',
+          secondRegard: rendue.dualControl === true,
+          horsAgence: rendue.remoteAllowed === true,
+          plafonds: versPlafonds(rendue.ceilings),
+          plafondsHorsAgence: versPlafonds(rendue.remoteCeilings),
+        });
+      }
+      return { connues: true, droits };
     } catch {
       // Le socle injoignable ne vaut pas interdiction : on ne cache rien, et
       // c'est lui qui refusera. Cacher au hasard ferait croire à un écran absent.
-      return { connues: false, operations: new Set() };
+      return HABILITATIONS_INCONNUES;
     }
   }
 
@@ -264,4 +279,29 @@ export class AuthKeycloak implements Authentification {
       /* rien à oublier */
     }
   }
+}
+
+/** Une ligne de `/v1/me/permissions`, telle qu'elle arrive. */
+interface PermissionRendue {
+  readonly operation?: string;
+  readonly scope?: string;
+  readonly dualControl?: boolean;
+  readonly remoteAllowed?: boolean;
+  readonly ceilings?: Record<string, { amount?: string; currency?: string }>;
+  readonly remoteCeilings?: Record<string, { amount?: string; currency?: string }>;
+}
+
+const PORTEES: readonly Portee[] = ['OWN_BRANCH', 'OWN_ENTITY', 'ANY_ENTITY'];
+
+/** Les plafonds arrivent indexés par devise, chacun en montant du socle. */
+function versPlafonds(
+  rendus: Record<string, { amount?: string; currency?: string }> | undefined,
+): ReadonlyMap<string, Montant> {
+  const plafonds = new Map<string, Montant>();
+  for (const [devise, montant] of Object.entries(rendus ?? {})) {
+    if (typeof montant?.amount === 'string' && montant.amount.length > 0) {
+      plafonds.set(devise, { amount: montant.amount, currency: montant.currency ?? devise });
+    }
+  }
+  return plafonds;
 }

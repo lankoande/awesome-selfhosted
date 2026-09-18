@@ -115,9 +115,16 @@
           @else { — }</dd></div>
       </dl>
       <p class="suite">
-        <button type="button" cbButton="primaire" (click)="ouvrirVolet('recouvrer')">
-          Enregistrer un recouvrement
-        </button>
+        @if (droitDeRecouvrer()) {
+          <button type="button" cbButton="primaire" (click)="ouvrirVolet('recouvrer')">
+            Enregistrer un recouvrement
+          </button>
+        } @else {
+          <cb-interdit>
+            Votre profil ne constate pas les recouvrements : cet acte appartient au
+            recouvrement, pas à la décision de crédit.
+          </cb-interdit>
+        }
       </p>
     </cb-notice>
 
@@ -162,6 +169,13 @@
           <button type="button" cbButton="secondaire" (click)="ouvrirVolet('passer')">
             Demander le passage en perte
           </button>
+        </p>
+      } @else if (!droitDePasser()) {
+        <p class="suite">
+          <cb-interdit>
+            Votre profil ne sort pas un actif des livres : la décision appartient au
+            responsable du crédit ou à la comptabilité.
+          </cb-interdit>
         </p>
       } @else {
         <p class="nuance">

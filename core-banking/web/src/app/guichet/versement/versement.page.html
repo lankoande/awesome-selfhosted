@@ -83,8 +83,7 @@
           }
         </cb-field>
 
-        <cb-field etiquette="Montant remis" pour="v-montant" requis
-                  [aide]="'Devise du compte : ' + devise() + ' — échelle imposée par la devise'">
+        <cb-field etiquette="Montant remis" pour="v-montant" requis [aide]="aideMontant()">
           <cb-amount-input champId="v-montant" [valeur]="montant()" (valeurChange)="majMontant($event)"
                            [devise]="devise()" [desactive]="enCours() || termine() || !compteActif()" />
         </cb-field>

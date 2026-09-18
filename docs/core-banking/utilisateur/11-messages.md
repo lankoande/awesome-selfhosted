@@ -170,6 +170,26 @@ Comme partout : une décision sans raison écrite ne se contrôle pas.
 Une retenue se loge quelque part. Sans compte de collecte, elle serait prise au client sans être
 due à personne.
 
+## Les refus d'habilitation
+
+### Le bouton que j'attendais n'est pas là
+Votre profil ne porte pas cet acte. Deux cas : soit l'écran affiche la raison à la place du bouton
+— lisez-la, elle dit qui le porte —, soit l'acte n'apparaît pas du tout parce qu'il n'était qu'une
+option parmi d'autres. Voir [le chapitre 1](01-prise-en-main.md).
+
+### Le montant dépasse votre plafond
+Le plafond de votre profil est écrit sous le champ du montant. Au-delà, l'opération remonte à un
+profil qui le porte — votre chef d'agence, ou le siège selon l'acte. **Ne découpez pas l'opération
+en plusieurs** pour passer dessous : c'est un fractionnement, et la conformité le verra.
+
+### Un plafond plus bas hors de votre agence
+Normal : vous opérez sur le compte d'une autre agence sans avoir le dossier sous les yeux. Les
+deux plafonds sont écrits côte à côte.
+
+### « Séparation des tâches : l'auteur d'une opération ne peut pas la valider »
+Vous avez soumis cette demande : un autre doit l'approuver. Voir
+[le chapitre 5](05-validation.md).
+
 ## Les incidents techniques
 
 ### Le réseau est tombé pendant l'envoi

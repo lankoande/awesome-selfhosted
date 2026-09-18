@@ -11,16 +11,60 @@ export interface Porteur {
   readonly caisse: string | null;
 }
 
+/** Un montant, tel que le socle le rend : jamais un nombre flottant. */
+export interface Montant {
+  readonly amount: string;
+  readonly currency: string;
+}
+
+/** Jusqu'où l'opération porte. */
+export type Portee = 'OWN_BRANCH' | 'OWN_ENTITY' | 'ANY_ENTITY';
+
+/**
+ * Ce que la politique du socle dit d'une opération, pour cet appelant.
+ *
+ * C'est une ligne de `/v1/me/permissions`, rendue entière. Le poste n'en
+ * retenait que le nom ; il retient désormais tout, parce que **le nom seul ne
+ * suffit pas à proposer honnêtement** :
+ *
+ *   `secondRegard` change le libellé d'un bouton — « Soumettre à validation »
+ *   n'est pas « Valider », et l'opérateur doit le savoir avant de cliquer, pas
+ *   après ;
+ *
+ *   `plafonds` change ce qu'on peut annoncer — un guichetier plafonné à
+ *   2 000 000 le lit avant de saisir 5 000 000, pas dans un refus ;
+ *
+ *   `portee` explique ce qu'un écran ne montre pas : « votre profil ne voit
+ *   que son agence » vaut mieux qu'une liste qui paraît incomplète.
+ */
+export interface Droit {
+  readonly operation: string;
+  readonly portee: Portee;
+  /** L'acte part à la validation d'un second, distinct de l'auteur. */
+  readonly secondRegard: boolean;
+  /** L'acte est possible hors de l'agence gestionnaire de l'objet. */
+  readonly horsAgence: boolean;
+  /** Plafond par devise. Vide : aucun plafond ne s'applique. */
+  readonly plafonds: ReadonlyMap<string, Montant>;
+  /** Plafond par devise en opération déplacée, quand il diffère. */
+  readonly plafondsHorsAgence: ReadonlyMap<string, Montant>;
+}
+
 /**
  * Les opérations autorisées, telles que l'API les rend.
  *
  * `inconnues` quand le socle ne les expose pas : le menu montre alors tout, et
  * l'API refuse ce qui n'est pas permis. Deviner la politique d'habilitation
  * dans le navigateur garantirait la divergence — c'est la règle du §2.
+ *
+ * **Ce n'est jamais une décision d'accès.** L'agence, le montant et l'objet
+ * visé n'y sont pas connus ; le socle refuse toujours au moment d'agir. Le
+ * poste s'en sert pour ne pas proposer une porte qu'il sait fermée, et pour
+ * dire ce qu'il sait avant que l'opérateur ne bute dessus.
  */
 export interface Habilitations {
   readonly connues: boolean;
-  readonly operations: ReadonlySet<string>;
+  readonly droits: ReadonlyMap<string, Droit>;
 }
 
 export type EtatSession = 'inconnue' | 'anonyme' | 'ouverte' | 'verrouillee';

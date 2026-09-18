@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { Droits } from '../../auth/habilitations';
 import { AppConfig } from '../../core/config/runtime-config';
 import { formaterMontant } from '../../core/format/montant';
 import {
@@ -49,6 +50,8 @@ export class Virement {
   protected readonly destination = signal<SoldeCompte | null>(null);
   protected readonly contexte = signal<ContexteCompte | null>(null);
 
+  private readonly droits = inject(Droits);
+
   protected readonly montant = signal<number | null>(null);
   protected readonly libelle = signal('');
 
@@ -75,6 +78,35 @@ export class Virement {
     () => `Disponible : ${formaterMontant(this.disponible())} ${this.devise()}`,
   );
 
+  /**
+   * Le plafond du profil sur cette opération, quand la politique en pose un.
+   *
+   * **Il s'annonce avant la saisie.** Apprendre son plafond dans un refus,
+   * après avoir engagé le client, fait perdre deux minutes et la face.
+   */
+  protected readonly plafond = computed(() => this.droits.plafond('TRANSFER', this.devise()));
+
+  /** Le plafond en opération déplacée, plus bas : le dossier n'est pas sous les yeux. */
+  protected readonly plafondDeplace = computed(
+    () => this.droits.plafond('TRANSFER', this.devise(), true));
+  /**
+   * Ce qu'on dit sous le champ du montant : la devise, et le plafond quand il
+   * y en a un. Les deux comptent avant la frappe, pas après.
+   */
+  protected readonly aideMontant = computed(() => {
+    const parties = ["Les frais et la taxe s'ajoutent au débit du donneur d'ordre."];
+    const limite = this.plafond();
+    if (limite) {
+      parties.push(`plafond de votre profil : `
+        + `${formaterMontant(Number(limite.amount))} ${this.devise()}`);
+      const deplace = this.plafondDeplace();
+      if (deplace && deplace.amount !== limite.amount) {
+        parties.push(`${formaterMontant(Number(deplace.amount))} hors de votre agence`);
+      }
+    }
+    return parties.join(' — ');
+  });
+
   protected readonly obstacles = computed<readonly string[]>(() => {
     const obstacles: string[] = [];
     if (!this.sourceActive()) obstacles.push("Le compte à débiter n'est pas actif.");
@@ -92,6 +124,13 @@ export class Virement {
     if ((this.montant() ?? 0) <= 0) obstacles.push('Le montant est obligatoire.');
     else if ((this.montant() ?? 0) > this.disponible()) {
       obstacles.push('Le montant dépasse le disponible du débiteur : le socle refusera.');
+    }
+    // Le plafond en agence est le plus favorable des deux : bloquer dessus ne
+    // peut jamais refuser à tort. Le socle tranche toujours — il connaît
+    // l'agence du compte, que le poste ignore.
+    if (this.droits.depasse('TRANSFER', this.montant(), this.devise())) {
+      obstacles.push('Le montant dépasse votre plafond de '
+        + `${formaterMontant(Number(this.plafond()?.amount ?? 0))} ${this.devise()} pour cette opération.`);
     }
     return obstacles;
   });

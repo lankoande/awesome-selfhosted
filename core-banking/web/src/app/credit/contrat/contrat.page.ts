@@ -2,12 +2,13 @@ import {
   ChangeDetectionStrategy, Component, computed, effect, inject, input, signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
+import { Droits } from '../../auth/habilitations';
 import { AppConfig } from '../../core/config/runtime-config';
-import { formaterTaux } from '../../core/format/montant';
+import { formaterMontant, formaterTaux } from '../../core/format/montant';
 import { RefusMetier } from '../../guichet/modele/guichet.modele';
 import {
-  CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbNotice,
-  CbSection, CbStateBadge, CbTable, CbTabs, CbToolbar, Onglet,
+  CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbInterdit,
+  CbNotice, CbSection, CbStateBadge, CbTable, CbTabs, CbToolbar, Onglet,
 } from '../../ui';
 import { CREDIT } from '../credit.port';
 import {
@@ -36,8 +37,8 @@ type Volet = 'aucun' | 'deblocage' | 'reglement' | 'anticipe' | 'reechelonnement
   selector: 'cb-contrat-credit',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbNotice,
-    CbSection, CbStateBadge, CbTable, CbTabs, CbToolbar,
+    CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbInterdit,
+    CbNotice, CbSection, CbStateBadge, CbTable, CbTabs, CbToolbar,
   ],
   templateUrl: './contrat.page.html',
   styleUrl: './contrat.page.css',
@@ -46,6 +47,7 @@ export class ContratCredit {
   readonly id = input.required<string>();
 
   private readonly credit = inject(CREDIT);
+  private readonly droits = inject(Droits);
   private readonly config = inject(AppConfig);
   private readonly router = inject(Router);
 
@@ -125,6 +127,35 @@ export class ContratCredit {
     } finally {
       this.chargement.set(false);
     }
+  }
+
+  /**
+   * Cinq actes sur un écran, cinq droits.
+   *
+   * C'est le cas le plus courant du back-office, et celui qu'une habilitation
+   * « par écran » rate : un chargé de crédit encaisse un règlement mais ne
+   * débloque pas ; un chef d'agence débloque mais ne rééchelonne pas. L'écran
+   * demande donc chacun séparément, et ce qui est fermé porte sa raison plutôt
+   * que de disparaître — le contrat existe justement pour ces actes.
+   */
+  protected readonly droitDeDebloquer = computed(() => this.droits.peut('LOAN_DISBURSE'));
+  protected readonly droitDeRegler = computed(() => this.droits.peut('LOAN_REPAYMENT'));
+  protected readonly droitDAnticiper = computed(() => this.droits.peut('LOAN_PREPAY'));
+  protected readonly droitDeReechelonner = computed(() => this.droits.peut('LOAN_RESCHEDULE'));
+  protected readonly droitDeReviser = computed(() => this.droits.peut('LOAN_RATE_REVISION'));
+  protected readonly droitDePasserEnPerte = computed(() => this.droits.peut('LOAN_WRITE_OFF'));
+
+  /** Le plafond de déblocage : l'argent qui sort, c'est là qu'un plafond compte. */
+  protected readonly plafondDeblocage = computed(
+    () => this.droits.plafond('LOAN_DISBURSE', this.contrat()?.currency ?? 'XOF'));
+
+  /** Le plafond d'encaissement d'un règlement. */
+  protected readonly plafondReglement = computed(
+    () => this.droits.plafond('LOAN_REPAYMENT', this.contrat()?.currency ?? 'XOF'));
+
+  /** Un plafond se lit en clair, pas en chiffres bruts du socle. */
+  protected montantLisible(valeur: string): string {
+    return formaterMontant(Number(valeur));
   }
 
   protected ouvrirVolet(volet: Volet): void {

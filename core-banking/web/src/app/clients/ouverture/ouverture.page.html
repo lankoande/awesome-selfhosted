@@ -24,7 +24,7 @@
     </cb-notice>
   }
 
-  @if (phase() === 'saisie' && obstacles().length === 0) {
+  @if (phase() === 'saisie' && obstacles().length === 0 && ouvertureADeuxRegards()) {
     <cb-notice nature="information" titre="L'ouverture passe par un second regard">
       <p>
         La demande sera enregistrée puis soumise à validation : <strong>aucun compte
@@ -109,7 +109,7 @@
 
       <div class="actions">
         <button type="button" cbButton="primaire" [disabled]="!peutEnvoyer()" (click)="envoyer()">
-          Soumettre l'ouverture
+          {{ ouvertureADeuxRegards() ? "Soumettre l'ouverture" : 'Ouvrir le compte' }}
         </button>
         <button type="button" cbButton="discret" (click)="auDossier()">Annuler</button>
       </div>

@@ -182,15 +182,15 @@
             rendu. L'acte <strong>passe par un second regard</strong>.
           </p>
           @if (obstaclesTransmission().length > 0) {
-            <p class="ferme">
+            <cb-interdit ton="attention">
               @if (e.status === 'PRODUCED') {
                 Fermé tant que les anomalies ci-dessus ne sont pas levées.
               } @else {
                 {{ obstaclesTransmission()[0] }}
               }
-            </p>
+            </cb-interdit>
           } @else if (!peutTransmettre()) {
-            <p class="ferme">Votre profil ne transmet pas : il produit.</p>
+            <cb-interdit>Votre profil ne transmet pas : il produit.</cb-interdit>
           } @else {
             <button type="button" cbButton="primaire" [disabled]="envoi()"
                     (click)="ouvrirVolet('transmettre')">Enregistrer le dépôt</button>
@@ -204,12 +204,12 @@
             dossier : deux états pour un même mois seraient deux déclarations contradictoires.
           </p>
           @if (obstaclesAnnulation().length > 0) {
-            <p class="ferme">{{ obstaclesAnnulation()[0] }}</p>
+            <cb-interdit>{{ obstaclesAnnulation()[0] }}</cb-interdit>
           } @else if (!peutTransmettre()) {
-            <p class="ferme">
+            <cb-interdit>
               Reprendre un état est une décision sur ce que la banque déclarera, pas un travail
               de production : elle demande le droit de transmettre.
-            </p>
+            </cb-interdit>
           } @else {
             <button type="button" cbButton="secondaire" [disabled]="envoi()"
                     (click)="ouvrirVolet('annuler')">Annuler cet état</button>

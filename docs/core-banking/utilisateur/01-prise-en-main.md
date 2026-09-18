@@ -50,6 +50,33 @@ rien de ce que vous validez n'est comptabilisé.
 Ce bandeau ne se ferme pas. En formation, c'est ce qu'on veut. En production, s'il apparaît,
 prévenez immédiatement : l'application n'est pas raccordée.
 
+## Ce que votre profil vous permet
+
+![Le plafond de votre profil, annoncé sous le champ du montant.](captures/01-plafond.png)
+
+L'application ne vous montre que ce que vos droits admettent, et elle le fait à trois niveaux.
+
+**Les espaces et les écrans.** Un espace dont aucun écran ne vous est ouvert n'apparaît pas dans
+la barre. Ce n'est pas qu'il n'existe pas : c'est qu'il n'est pas pour vous.
+
+**Les actions à l'intérieur d'un écran.** C'est le cas le plus fréquent, et le moins évident :
+**un même écran porte souvent des actes qui n'appellent pas les mêmes droits.** Sur le détail d'un
+état réglementaire, produire et transmettre sont deux droits différents ; sur un crédit passé en
+perte, constater un recouvrement et sortir l'actif des livres aussi.
+
+Quand l'écran existe pour un acte que vous ne portez pas, il **ne cache pas le bouton** : il le
+remplace par la raison, et dit ce que votre profil fait — *« votre profil ne transmet pas : il
+produit »*. Quand l'acte n'est qu'une option parmi d'autres, il disparaît simplement : une liste
+d'impossibilités n'aide personne.
+
+**Les plafonds.** Quand votre profil en a un, il est écrit **sous le champ du montant, avant la
+saisie**, et l'écran vous arrête au-delà. Un second plafond, plus bas, s'applique aux opérations
+faites hors de votre agence : vous opérez alors sans avoir le dossier sous les yeux.
+
+> Rien de tout cela n'est une décision : **c'est le système central qui autorise ou refuse**, et
+> lui seul connaît l'agence du compte et l'objet visé. L'application évite simplement de vous
+> proposer une porte qu'elle sait fermée.
+
 ## Ce que l'écran vérifie, et ce qu'il ne vérifie pas
 
 L'écran ne bloque que ce qui est **certain** : un montant vide, un compte non choisi, un billetage

@@ -8,6 +8,7 @@ export { CbDrawer, CbDrawerEntete } from './drawer';
 export { ETATS, LIBELLE_ETAT, type EtatOperation } from './etat';
 export { CbField } from './field';
 export { CbInput } from './input';
+export { CbInterdit } from './interdit';
 export { CbKbd } from './kbd';
 export { CbNotice, type NatureNotice } from './notice';
 export { CbPagination } from './pagination';

@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { AUTHENTIFICATION } from '../../auth/auth.port';
-import { autorise } from '../../auth/habilitations';
+import { Droits } from '../../auth/habilitations';
 import { AppConfig } from '../../core/config/runtime-config';
 import {
   CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbNotice,
@@ -52,7 +51,7 @@ const FREQUENCES: readonly Frequence[] = ['MONTHLY', 'QUARTERLY', 'YEARLY'];
 export class CatalogueReglementaire {
   private readonly reglementaire = inject(REGLEMENTAIRE);
   private readonly config = inject(AppConfig);
-  private readonly authentification = inject(AUTHENTIFICATION);
+  private readonly droits = inject(Droits);
   private readonly router = inject(Router);
 
   protected readonly METHODES = METHODES;
@@ -91,11 +90,11 @@ export class CatalogueReglementaire {
 
   protected readonly admetUnSeuil = computed(() => METHODES_A_SEUIL.includes(this.methode()));
 
-  protected readonly peutProduire = computed(() =>
-    autorise(this.authentification.habilitations(), 'REGULATORY_REPORT_PRODUCE'));
+  protected readonly peutProduire = computed(
+    () => this.droits.peut('REGULATORY_REPORT_PRODUCE'));
 
-  protected readonly peutDeclarer = computed(() =>
-    autorise(this.authentification.habilitations(), 'REGULATORY_DECLARATION_MANAGE'));
+  protected readonly peutDeclarer = computed(
+    () => this.droits.peut('REGULATORY_DECLARATION_MANAGE'));
 
   /** Les périodes closes de la déclaration en production, la plus récente d'abord. */
   protected readonly periodesProposees = computed(() => {

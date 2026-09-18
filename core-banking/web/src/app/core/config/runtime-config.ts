@@ -54,6 +54,23 @@ export interface RuntimeConfig {
   /** Entité juridique du poste, tant que le jeton ne la porte pas. */
   readonly legalEntityId: string;
   readonly auth: Auth;
+  /**
+   * Ce qui ne vaut qu'en démonstration. Ignoré dès que `sourceDonnees` vaut
+   * `api` : les droits viennent alors du socle, et de lui seul.
+   */
+  readonly demonstration: Demonstration;
+}
+
+export interface Demonstration {
+  /**
+   * Les opérations retirées au profil de démonstration.
+   *
+   * La démonstration ouvre toutes les portes, parce qu'une démonstration où la
+   * moitié des écrans est invisible devient un appel au support. Retirer une
+   * opération ici montre l'autre moitié du sujet : une porte fermée, et la
+   * phrase qui l'explique. Vide par défaut.
+   */
+  readonly droitsRetires: readonly string[];
 }
 
 /**
@@ -108,6 +125,7 @@ export const CONFIG_PAR_DEFAUT: RuntimeConfig = {
     scope: 'openid profile',
     verrouillageMinutes: 15,
   },
+  demonstration: { droitsRetires: [] },
 };
 
 @Injectable({ providedIn: 'root' })
@@ -122,6 +140,7 @@ export class AppConfig {
   readonly sourceDonnees = computed(() => this.etat().sourceDonnees);
   readonly legalEntityId = computed(() => this.etat().legalEntityId);
   readonly demonstration = computed(() => this.etat().sourceDonnees === 'factice');
+  readonly droitsRetires = computed(() => this.etat().demonstration.droitsRetires);
 
   /**
    * Charge `config.json`. Une configuration absente ou illisible n'empêche
@@ -152,6 +171,7 @@ export class AppConfig {
       affichage: { ...CONFIG_PAR_DEFAUT.affichage, ...(partiel.affichage ?? {}) },
       espaces: { ...CONFIG_PAR_DEFAUT.espaces, ...(partiel.espaces ?? {}) },
       auth: { ...CONFIG_PAR_DEFAUT.auth, ...(partiel.auth ?? {}) },
+      demonstration: { ...CONFIG_PAR_DEFAUT.demonstration, ...(partiel.demonstration ?? {}) },
     };
     this.etat.set(fusion);
     this.peindreAccent(fusion);

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { Droits } from '../../auth/habilitations';
 import { AppConfig } from '../../core/config/runtime-config';
 import { RefusMetier } from '../../guichet/modele/guichet.modele';
 import {
@@ -50,6 +51,7 @@ export class OuvertureCompte {
 
   private readonly clients = inject(CLIENTS);
   private readonly config = inject(AppConfig);
+  private readonly droits = inject(Droits);
   private readonly router = inject(Router);
 
   protected readonly tiers = signal<Tiers | null>(null);
@@ -77,6 +79,20 @@ export class OuvertureCompte {
    */
   private readonly cle = signal(crypto.randomUUID());
   private readonly empreinteDeLaCle = signal('');
+
+  /**
+   * Le second regard n'est pas écrit en dur : il est lu de la politique.
+   *
+   * Le socle peut cesser de l'exiger. Une phrase codée en dur deviendrait alors
+   * fausse sans que rien ne le signale, et c'est une phrase qui engage : elle
+   * dit à l'opérateur que rien n'est fait tant qu'un second n'a pas approuvé.
+   *
+   * On *annonce* plutôt qu'on ne *sait* : tant que le socle n'a rien dit, on
+   * prévient. Se taire à tort ferait annoncer au client un compte qui n'existe
+   * pas encore.
+   */
+  protected readonly ouvertureADeuxRegards = computed(
+    () => this.droits.annonceDeuxRegards('ACCOUNT_OPEN'));
 
   protected readonly obstacles = computed(() => {
     const t = this.tiers();

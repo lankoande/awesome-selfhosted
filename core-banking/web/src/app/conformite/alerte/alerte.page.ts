@@ -2,10 +2,12 @@ import {
   ChangeDetectionStrategy, Component, computed, effect, inject, input, signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
+import { Droits } from '../../auth/habilitations';
 import { AppConfig } from '../../core/config/runtime-config';
 import { RefusMetier } from '../../guichet/modele/guichet.modele';
 import {
-  CbActivity, CbAmount, CbButton, CbField, CbInput, CbNotice, CbSection, CbStateBadge, CbTable,
+  CbActivity, CbAmount, CbButton, CbField, CbInput, CbInterdit, CbNotice, CbSection,
+  CbStateBadge, CbTable,
 } from '../../ui';
 import { CONFORMITE } from '../conformite.port';
 import {
@@ -34,7 +36,8 @@ type Volet = 'aucun' | 'classer' | 'declarer';
   selector: 'cb-alerte',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CbActivity, CbAmount, CbButton, CbField, CbInput, CbNotice, CbSection, CbStateBadge, CbTable,
+    CbActivity, CbAmount, CbButton, CbField, CbInput, CbInterdit, CbNotice, CbSection,
+    CbStateBadge, CbTable,
   ],
   templateUrl: './alerte.page.html',
   styleUrl: './alerte.page.css',
@@ -44,6 +47,7 @@ export class DossierAlerte {
 
   private readonly conformite = inject(CONFORMITE);
   private readonly config = inject(AppConfig);
+  private readonly droits = inject(Droits);
   private readonly router = inject(Router);
 
   protected readonly LIBELLE_STATUT_ALERTE = LIBELLE_STATUT_ALERTE;
@@ -66,6 +70,17 @@ export class DossierAlerte {
   protected readonly citees = signal<readonly string[]>([]);
 
   private cle = crypto.randomUUID();
+
+  /**
+   * Instruire et déclarer ne sont pas le même droit.
+   *
+   * Un analyste prend en charge et classe (`AML_ALERT_REVIEW`) ; rédiger une
+   * déclaration de soupçon met en cause une personne et engage la banque
+   * (`AML_REPORT`, à deux). Le même dossier, deux profils — c'est d'ailleurs la
+   * séparation que l'inspection vient vérifier.
+   */
+  protected readonly droitDInstruire = computed(() => this.droits.peut('AML_ALERT_REVIEW'));
+  protected readonly droitDeDeclarer = computed(() => this.droits.peut('AML_REPORT'));
 
   protected readonly ouverte = computed(() => {
     const a = this.alerte();

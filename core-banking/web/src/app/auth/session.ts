@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { EtatSession, Habilitations, Porteur } from './auth.port';
+import { HABILITATIONS_INCONNUES } from './habilitations';
 
 /**
  * Ce qu'une session tient en mémoire, et rien d'autre.
@@ -16,8 +17,17 @@ export class Session {
   private acces: string | null = null;
   private rafraichissement: string | null = null;
   private expiration = 0;
-  private titulaire: Porteur | null = null;
-  private droits: Habilitations = { connues: false, operations: new Set() };
+  /**
+   * Porteur et habilitations sont des **signaux**, pas des champs.
+   *
+   * Ils n'arrivent pas au même instant que la session : les habilitations sont
+   * lues par un appel au socle, qui peut aboutir après le premier rendu, et
+   * elles sont relues à chaque reprise. Un champ ordinaire laisserait la barre
+   * et les boutons figés sur ce qu'ils savaient au démarrage — une porte
+   * resterait fermée alors qu'elle vient de s'ouvrir.
+   */
+  private readonly titulaire = signal<Porteur | null>(null);
+  private readonly droits = signal<Habilitations>(HABILITATIONS_INCONNUES);
 
   ouvrir(acces: string, rafraichissement: string | null, dureeSecondes: number, porteur: Porteur): void {
     this.acces = acces;
@@ -25,12 +35,12 @@ export class Session {
     // On considère le jeton périmé un peu avant l'heure : une horloge décalée
     // de trente secondes ne doit pas produire un 401 en pleine saisie.
     this.expiration = Date.now() + Math.max(0, dureeSecondes - 30) * 1000;
-    this.titulaire = porteur;
+    this.titulaire.set(porteur);
     this.etat.set('ouverte');
   }
 
   poserHabilitations(habilitations: Habilitations): void {
-    this.droits = habilitations;
+    this.droits.set(habilitations);
   }
 
   jeton(): string | null {
@@ -46,11 +56,11 @@ export class Session {
   }
 
   porteur(): Porteur | null {
-    return this.titulaire;
+    return this.titulaire();
   }
 
   habilitations(): Habilitations {
-    return this.droits;
+    return this.droits();
   }
 
   /**
@@ -70,8 +80,8 @@ export class Session {
     this.acces = null;
     this.rafraichissement = null;
     this.expiration = 0;
-    this.titulaire = null;
-    this.droits = { connues: false, operations: new Set() };
+    this.titulaire.set(null);
+    this.droits.set(HABILITATIONS_INCONNUES);
     this.etat.set('anonyme');
   }
 }

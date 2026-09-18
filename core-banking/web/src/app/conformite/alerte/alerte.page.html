@@ -126,8 +126,14 @@
                 L'alerte passe à l'instruction et porte votre nom. C'est ce qui rend le dossier
                 traçable — et ce qui évite que deux analystes instruisent le même fait.
               </p>
-              <button type="button" cbButton="primaire" [disabled]="envoi()"
-                      (click)="prendreEnCharge()">Prendre en charge</button>
+              @if (droitDInstruire()) {
+                <button type="button" cbButton="primaire" [disabled]="envoi()"
+                        (click)="prendreEnCharge()">Prendre en charge</button>
+              } @else {
+                <cb-interdit>
+                  Votre profil lit les alertes, il ne les instruit pas.
+                </cb-interdit>
+              }
             </div>
           } @else if (a.assignedTo) {
             <div class="issue">
@@ -142,8 +148,14 @@
               Ce qui a été constaté s'explique. Le classement porte son motif — une alerte
               classée sans raison écrite ne se contrôle pas, et le socle la refuse.
             </p>
-            <button type="button" cbButton="secondaire" [disabled]="envoi() || !ouverte()"
-                    (click)="ouvrirVolet('classer')">Classer avec motif</button>
+            @if (droitDInstruire()) {
+              <button type="button" cbButton="secondaire" [disabled]="envoi() || !ouverte()"
+                      (click)="ouvrirVolet('classer')">Classer avec motif</button>
+            } @else {
+              <cb-interdit>
+                Classer engage l'instruction : votre profil ne la porte pas.
+              </cb-interdit>
+            }
           </div>
 
           <div class="issue">
@@ -152,8 +164,15 @@
               Le soupçon tient. La déclaration part à la cellule de renseignement financier,
               et elle <strong>se rédige à deux</strong>.
             </p>
-            <button type="button" cbButton="secondaire" [disabled]="envoi() || !ouverte()"
-                    (click)="ouvrirVolet('declarer')">Rédiger une déclaration</button>
+            @if (droitDeDeclarer()) {
+              <button type="button" cbButton="secondaire" [disabled]="envoi() || !ouverte()"
+                      (click)="ouvrirVolet('declarer')">Rédiger une déclaration</button>
+            } @else {
+              <cb-interdit>
+                Déclarer met en cause une personne et engage la banque : votre profil
+                instruit, il ne déclare pas. Passez le dossier au responsable conformité.
+              </cb-interdit>
+            }
           </div>
         </div>
       </cb-section>

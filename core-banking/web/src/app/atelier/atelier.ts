@@ -11,6 +11,7 @@ import {
   CbDrawer,
   CbField,
   CbInput,
+  CbInterdit,
   CbKbd,
   CbNotice,
   CbPagination,
@@ -34,7 +35,7 @@ import { AtelierTiroir } from './atelier-tiroir';
   selector: 'cb-atelier',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput,
+    CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbInterdit,
     CbKbd, CbNotice, CbPagination, CbSection, CbStateBadge, CbTable, CbTabs, CbToolbar,
   ],
   templateUrl: './atelier.html',

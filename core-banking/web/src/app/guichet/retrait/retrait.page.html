@@ -93,7 +93,7 @@
         </cb-field>
 
         <cb-field etiquette="Montant à retirer" pour="r-montant" requis
-                  aide="Les frais et la taxe s'ajoutent au débit : le socle vérifie le disponible, commission comprise.">
+                  [aide]="aideMontant()">
           <cb-amount-input champId="r-montant" [valeur]="montant()" (valeurChange)="majMontant($event)"
                            [devise]="devise()" [desactive]="enCours() || termine() || !compteActif()" />
         </cb-field>

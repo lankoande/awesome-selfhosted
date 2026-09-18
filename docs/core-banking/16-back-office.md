@@ -250,11 +250,11 @@ un exploitant doit faire devant eux est dans le [guide de l'utilisateur](utilisa
 
 | Étape du §7 | État |
 |---|---|
-| 1. Socle visuel | **Livré** — tokens, deux thèmes, deux densités, jeu fermé de 17 primitives, page atelier, budgets, types générés |
+| 1. Socle visuel | **Livré** — tokens, deux thèmes, deux densités, jeu fermé de 18 primitives, page atelier, budgets, types générés |
 | 2. Guichet — versement d'espèces | **Livré** — bandeau client, billetage BCEAO contrôlé, imputation en projection puis reçu, idempotence conservée, refus lisible |
 | 3. File de validation | **Livré** — file paginée, détail de la requête soumise, approbation qui exécute, rejet motivé, auto-approbation signalée, échec d'exécution après approbation |
 | 4. Reste du guichet, puis siège | **Livré** — guichet complet (versement, retrait, virement, relevé, arrêté de caisse) ; siège ouvert (fin de journée, balance générale) |
-| 5. Authentification et habilitations | **Livré** — OAuth2 PKCE contre Keycloak, jeton porté aux seuls appels du socle, rafraîchissement silencieux, verrouillage du poste, menu filtré par les habilitations que le socle expose désormais (§16) |
+| 5. Authentification et habilitations | **Livré** — OAuth2 PKCE contre Keycloak, jeton porté aux seuls appels du socle, rafraîchissement silencieux, verrouillage du poste, menu filtré (§16) ; droits lus **à la granularité de l'action**, plafonds et seconds regards annoncés (§21) |
 | 6. Référentiel client | **Livré** — recherche, dossier avec obstacles nommés, création, ouverture de compte (§15) |
 | 7. Crédit | **Livré** — demandes, dossier d'instruction, portefeuille, contrat (§17) ; fin de vie : remboursement anticipé, rééchelonnement, révision de taux, passage en perte et recouvrement (§18) |
 | 8. Conformité LCB-FT | **Livré** — file des alertes, dossier avec ses pièces, classement motivé, déclaration de soupçon et son dépôt, scénarios de surveillance (§19) |
@@ -1193,3 +1193,100 @@ La **liasse réglementaire** (`/regulatory/statement-packs`) et la **consolidati
 la même lacune que les sûretés : un périmètre de consolidation cite des **entités membres**, et le
 contrat ne publie aucune route qui liste les entités juridiques. Sans elle, l'écran demanderait de
 taper des identifiants techniques à la main — ce qui n'est pas une interface.
+
+---
+
+## 21. Les habilitations, à la granularité de l'action
+
+Jusqu'ici le poste ne retenait de `/v1/me/permissions` que **le nom** des opérations, et ne s'en
+servait qu'à un seul endroit : montrer ou cacher une entrée de menu. C'était le strict minimum, et
+le commentaire de `auth.keycloak.ts` le disait — *« le reste sera lu le jour où un écran le
+demandera »*. Ce lot est ce jour-là.
+
+### Le constat qui l'a déclenché
+
+**Un écran porte rarement un seul droit.** Le détail d'un état réglementaire se lit avec
+`REGULATORY_READ`, s'y produit avec `REGULATORY_REPORT_PRODUCE`, s'y transmet et s'y annule avec
+`REGULATORY_REPORT_TRANSMIT` — trois droits, un écran. Un contrat de crédit en porte cinq. Une
+alerte LCB-FT en porte deux, et ce sont deux métiers différents : instruire, et déclarer.
+
+Une habilitation « par écran » rate tout cela. Elle ouvre l'écran, l'opérateur clique, et le socle
+refuse — au pire moment, celui où le client attend.
+
+### Ce que le poste retient désormais
+
+Chaque ligne de `/permissions` est gardée entière : **portée**, **second regard**, **plafonds**,
+**plafond en opération déplacée**. Trois usages, et aucun n'est une décision d'accès :
+
+| Ce qu'on en fait | Où ça se voit |
+|---|---|
+| Ouvrir ou fermer une action | Le bouton, ou la raison à sa place |
+| Annoncer un second regard | Le libellé du bouton et l'avis avant l'envoi |
+| Annoncer un plafond | Sous le champ du montant, **avant** la saisie |
+
+Le socle refuse toujours au moment d'agir : il connaît l'agence du compte et l'objet visé, que le
+poste ignore. Ce qui est lu ici sert à ne pas proposer une porte qu'on sait fermée, et à dire ce
+qu'on sait avant que l'opérateur ne bute dessus.
+
+### Cacher, ou expliquer ?
+
+La règle est tranchée par **la raison d'être de l'écran** :
+
+- l'écran existe pour cet acte → l'acte fermé **se dit**, et prend la place du bouton. Un bouton
+  grisé sans explication envoie chercher la cause chez le voisin ; un bouton absent fait croire que
+  la fonction n'existe pas, et la banque découvre un an plus tard qu'un geste prévu n'a jamais été
+  fait ;
+- l'acte n'est qu'une option parmi d'autres → il **disparaît**. Une liste d'impossibilités n'aide
+  personne.
+
+La phrase dit ce que le profil **fait**, pas seulement ce qu'il ne fait pas : *« votre profil ne
+transmet pas : il produit »* oriente, *« accès refusé »* laisse sur place. C'est une primitive du
+jeu fermé, `cb-interdit`, visible à l'atelier — dix-huit primitives désormais.
+
+### Deux défauts par défaut, et ils ne vont pas dans le même sens
+
+`exigeUnSecondRegard` rend **faux** quand on ne sait pas : c'est la question stricte, celle qu'on
+pose pour décider. `annonceUnSecondRegard` rend **vrai** quand on ne sait pas, et l'asymétrie est
+le sujet :
+
+- se taire alors qu'un second regard existe fait dire à un guichetier qu'un compte est ouvert
+  quand il ne l'est pas. Il l'annonce au client, et la banque découvre l'erreur au retour du
+  client ;
+- l'annoncer alors qu'il n'existe pas n'est qu'une attente déçue d'une seconde, que l'écran de
+  résultat corrige aussitôt.
+
+L'écran choisit l'opération qu'il interroge, donc le défaut permissif ne déborde pas ailleurs.
+
+### Bloquer sur un plafond, sans jamais refuser à tort
+
+Le plafond rendu est **le plus favorable des rôles de l'appelant**, en agence. Le plafond de
+l'opération déplacée est plus bas. Le poste bloque sur le premier : tout ce qu'il bloque serait
+certainement refusé par le socle, et tout ce qu'il laisse passer reste soumis au socle, qui seul
+sait si l'opération est déplacée. L'erreur ne peut aller que dans le sens permissif — celui qui ne
+coûte qu'un aller-retour.
+
+### Un défaut de réactivité, corrigé au passage
+
+`porteur` et `droits` étaient des champs ordinaires de la session, pas des signaux. Ils
+fonctionnaient par accident : l'initialiseur de l'application les posait avant le premier rendu.
+Dès que les droits arrivent plus tard — et ils arrivent plus tard depuis ce lot, la politique de
+démonstration étant chargée à la demande — la barre et les boutons seraient restés figés sur ce
+qu'ils savaient au démarrage. Ce sont désormais des signaux.
+
+### La démonstration, et comment lui fermer une porte
+
+Le profil de démonstration **accorde toutes les opérations** : une démonstration où la moitié des
+écrans est invisible devient un appel au support. Il porte en revanche les **plafonds** et les
+**seconds regards** réels du profil déclaré — un chef d'agence qui tient une caisse —, et ce sont
+eux qui rendent la granularité visible partout.
+
+Pour montrer l'autre moitié du sujet, `config.json` porte
+`demonstration.droitsRetires` : la liste des opérations à retirer. Vide par défaut. En mode `api`,
+rien de tout cela n'est lu — les droits viennent du socle, et de lui seul.
+
+### Ce qui reste
+
+L'écran de validation ne lit pas encore le droit de l'opération qu'il présente : il montre la file
+entière et laisse le socle refuser l'approbation. C'est correct, mais un valideur gagnerait à voir
+d'abord ce qu'il peut décider. La **portée** (`OWN_BRANCH`, `OWN_ENTITY`) est lue et disponible,
+mais aucun écran ne s'en sert encore pour expliquer une liste qui paraît incomplète.

@@ -2,11 +2,12 @@ import {
   ChangeDetectionStrategy, Component, computed, effect, inject, input, signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
+import { Droits } from '../../auth/habilitations';
 import { AppConfig } from '../../core/config/runtime-config';
-import { formaterTaux } from '../../core/format/montant';
+import { formaterMontant, formaterTaux } from '../../core/format/montant';
 import { RefusMetier } from '../../guichet/modele/guichet.modele';
 import {
-  CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbNotice,
+  CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbInterdit, CbNotice,
   CbSection, CbStateBadge, CbTable,
 } from '../../ui';
 import { CREDIT } from '../credit.port';
@@ -50,7 +51,7 @@ type Volet = 'aucun' | 'analyse' | 'condition' | 'condition-levee' | 'decision'
   selector: 'cb-dossier-credit',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbNotice,
+    CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbInterdit, CbNotice,
     CbSection, CbStateBadge, CbTable,
   ],
   templateUrl: './dossier.page.html',
@@ -61,6 +62,7 @@ export class DossierCreditPage {
 
   private readonly credit = inject(CREDIT);
   private readonly config = inject(AppConfig);
+  private readonly droits = inject(Droits);
   private readonly router = inject(Router);
 
   protected readonly LIBELLE_STATUT_DEMANDE = LIBELLE_STATUT_DEMANDE;
@@ -160,6 +162,32 @@ export class DossierCreditPage {
     } finally {
       this.chargement.set(false);
     }
+  }
+
+  /**
+   * Quatre actes, trois droits — et ce n'est pas le même métier.
+   *
+   * Instruire (analyser, poser une condition, retirer la demande) est le
+   * travail du chargé de crédit. **Décider** engage la banque sur un montant :
+   * à deux, et sous plafond. **Lever une condition suspensive** vérifie une
+   * preuve : à deux aussi. **Contractualiser** rédige l'acte, une fois décidé.
+   */
+  protected readonly droitDInstruire = computed(() => this.droits.peut('LOAN_APPLICATION'));
+  protected readonly droitDeDecider = computed(
+    () => this.droits.peut('LOAN_APPLICATION_DECIDE'));
+  protected readonly droitDeLeverUneCondition = computed(
+    () => this.droits.peut('LOAN_CONDITION_CLEAR'));
+  protected readonly droitDeContractualiser = computed(
+    () => this.droits.peut('LOAN_CONTRACT_CREATE'));
+
+  /** Le plafond de décision : au-delà, le dossier remonte au crédit. */
+  protected readonly plafondDeDecision = computed(
+    () => this.droits.plafond('LOAN_APPLICATION_DECIDE',
+                              this.dossier()?.demande.requestedAmount?.currency ?? 'XOF'));
+
+  /** Un plafond se lit en clair, pas en chiffres bruts du socle. */
+  protected montantLisible(valeur: string): string {
+    return formaterMontant(Number(valeur));
   }
 
   protected ouvrirVolet(volet: Volet, condition: Condition | null = null): void {

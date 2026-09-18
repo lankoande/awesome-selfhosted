@@ -24,7 +24,7 @@ class AuthEspion implements Authentification {
     return true;
   }
   porteur(): Porteur | null { return null; }
-  habilitations(): Habilitations { return { connues: false, operations: new Set() }; }
+  habilitations(): Habilitations { return { connues: false, droits: new Map() }; }
   verrouiller(): void {}
   async deverrouiller(): Promise<boolean> { return true; }
   async fermer(): Promise<void> {}

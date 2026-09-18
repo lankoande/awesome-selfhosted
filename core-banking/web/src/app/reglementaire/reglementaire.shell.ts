@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { AUTHENTIFICATION } from '../auth/auth.port';
-import { OPERATION_PAR_ECRAN, autorise } from '../auth/habilitations';
+import { Droits, OPERATION_PAR_ECRAN } from '../auth/habilitations';
 import { PROVIDERS_REGLEMENTAIRE } from './reglementaire.providers';
 
 /**
@@ -56,12 +55,11 @@ import { PROVIDERS_REGLEMENTAIRE } from './reglementaire.providers';
   `,
 })
 export class ReglementaireShell {
-  private readonly authentification = inject(AUTHENTIFICATION);
+  private readonly droits = inject(Droits);
 
   protected readonly visibles = computed(() =>
     this.ecrans.filter((ecran) =>
-      autorise(this.authentification.habilitations(),
-               OPERATION_PAR_ECRAN['reglementaire/' + ecran.chemin])),
+      this.droits.peut(OPERATION_PAR_ECRAN['reglementaire/' + ecran.chemin])),
   );
 
   private readonly ecrans = [

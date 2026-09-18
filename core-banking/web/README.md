@@ -51,6 +51,7 @@ src/app/validation/ la double validation : le second regard
 src/app/caisse/  la caisse du guichetier et son arrêté
 src/app/siege/   exploitation comptable et restitutions
 src/app/auth/    session OAuth2 PKCE, jeton porté, verrouillage, habilitations
+                 (droits complets : portée, second regard, plafonds — voir plus bas)
 src/app/api/    le contrat : types générés (`schema.ts`, ne jamais éditer), chemins
                 vérifiés à la compilation (`routes.ts`), origine + chemin (`socle.ts`)
 scripts/        contrôles qui demandent un navigateur
@@ -166,7 +167,7 @@ silence le jour d'une mise à jour sans rapport.
   échouer les tests.
 - **Budgets de taille** dans `angular.json` : une régression de poids fait
   échouer la compilation, elle ne se découvre pas en production. Repère actuel :
-  393 Ko bruts, 104 Ko transférés pour l'application initiale.
+  396 Ko bruts, 105 Ko transférés pour l'application initiale.
 
   Ce budget avait été franchi en silence — l'avertissement ne fait pas échouer
   le build. Cause : `app.config.ts` déclarait les fournisseurs des six espaces,
@@ -180,6 +181,40 @@ silence le jour d'une mise à jour sans rapport.
   couleur, une taille ou un espacement. Les composants lisent des variables.
 - **Types générés** : `src/app/api/schema.ts` vient du contrat OpenAPI vérifié
   côté socle. Le front ne peut pas diverger de l'API en silence.
+
+## Les habilitations, à la granularité de l'action
+
+`/v1/me/permissions` rend une ligne par opération, avec **portée**, **second regard**,
+**plafonds** et **plafond en opération déplacée**. Le poste garde tout : le nom seul ne
+permet que de montrer ou cacher un menu, alors qu'un écran porte presque toujours
+plusieurs droits — un contrat de crédit en porte cinq, un état réglementaire trois.
+
+Les écrans passent par le service `Droits` (`auth/habilitations.ts`) :
+
+```ts
+private readonly droits = inject(Droits);
+
+protected readonly droitDeTransmettre = computed(
+  () => this.droits.peut('REGULATORY_REPORT_TRANSMIT'));
+protected readonly plafond = computed(
+  () => this.droits.plafond('CASH_OPERATION', this.devise()));
+```
+
+Trois règles à tenir :
+
+1. **Cacher ou expliquer** se décide par la raison d'être de l'écran. L'écran existe pour
+   l'acte → `<cb-interdit>` prend la place du bouton et dit ce que le profil *fait*.
+   L'acte n'est qu'une option → il disparaît.
+2. **`aDeuxRegards` et `annonceDeuxRegards` n'ont pas le même défaut.** Le premier rend
+   faux quand on ne sait pas (question stricte), le second vrai (on prévient plutôt que
+   de laisser annoncer au client un compte qui n'existe pas encore).
+3. **Un plafond se bloque, jamais à tort.** Celui qu'on lit est le plus favorable, en
+   agence ; le socle, qui sait si l'opération est déplacée, tranche toujours.
+
+Le profil de démonstration est dans `auth/habilitations.demonstration.ts` — une copie de
+`SecurityConfig` pour un chef d'agence, **chargée à la demande** pour rester hors du
+paquet initial. `config.json` → `demonstration.droitsRetires` retire des opérations pour
+montrer une porte fermée.
 
 ## Les trois axes de réglage, qui ne se mélangent pas
 

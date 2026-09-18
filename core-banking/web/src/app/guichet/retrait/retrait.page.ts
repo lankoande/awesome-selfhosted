@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { Droits } from '../../auth/habilitations';
+import { formaterMontant } from '../../core/format/montant';
 import { AppConfig } from '../../core/config/runtime-config';
 import {
   CbActivity, CbAmount, CbAmountInput, CbButton, CbDrawer, CbField, CbInput,
@@ -51,6 +53,8 @@ export class Retrait {
   protected readonly solde = signal<SoldeCompte | null>(null);
   protected readonly contexte = signal<ContexteCompte | null>(null);
 
+  private readonly droits = inject(Droits);
+
   protected readonly montant = signal<number | null>(null);
   protected readonly comptage = signal<Comptage>({});
   protected readonly porteur = signal<Porteur>('titulaire');
@@ -89,6 +93,35 @@ export class Retrait {
    * l'aller-retour. En dessous, les frais peuvent encore faire basculer — et
    * c'est le socle qui tranche, pas le navigateur.
    */
+  /**
+   * Le plafond du profil sur cette opération, quand la politique en pose un.
+   *
+   * **Il s'annonce avant la saisie.** Apprendre son plafond dans un refus,
+   * après avoir engagé le client, fait perdre deux minutes et la face.
+   */
+  protected readonly plafond = computed(() => this.droits.plafond('CASH_OPERATION', this.devise()));
+
+  /** Le plafond en opération déplacée, plus bas : le dossier n'est pas sous les yeux. */
+  protected readonly plafondDeplace = computed(
+    () => this.droits.plafond('CASH_OPERATION', this.devise(), true));
+  /**
+   * Ce qu'on dit sous le champ du montant : la devise, et le plafond quand il
+   * y en a un. Les deux comptent avant la frappe, pas après.
+   */
+  protected readonly aideMontant = computed(() => {
+    const parties = ["Les frais et la taxe s'ajoutent au débit : le socle vérifie le disponible, commission comprise."];
+    const limite = this.plafond();
+    if (limite) {
+      parties.push(`plafond de votre profil : `
+        + `${formaterMontant(Number(limite.amount))} ${this.devise()}`);
+      const deplace = this.plafondDeplace();
+      if (deplace && deplace.amount !== limite.amount) {
+        parties.push(`${formaterMontant(Number(deplace.amount))} hors de votre agence`);
+      }
+    }
+    return parties.join(' — ');
+  });
+
   protected readonly obstacles = computed<readonly string[]>(() => {
     const obstacles: string[] = [];
     if (!this.compteActif()) obstacles.push("Le compte n'est pas actif : aucune opération n'est acceptée.");
@@ -99,6 +132,13 @@ export class Retrait {
     if (this.ecartBilletage() !== 0) obstacles.push('Le comptage ne retrouve pas le montant annoncé.');
     if (this.porteur() === 'mandataire' && this.identite().trim().length < 3) {
       obstacles.push("Un retrait par un mandataire exige son identité et sa pièce.");
+    }
+    // Le plafond en agence est le plus favorable des deux : bloquer dessus ne
+    // peut jamais refuser à tort. Le socle tranche toujours — il connaît
+    // l'agence du compte, que le poste ignore.
+    if (this.droits.depasse('CASH_OPERATION', this.montant(), this.devise())) {
+      obstacles.push('Le montant dépasse votre plafond de '
+        + `${formaterMontant(Number(this.plafond()?.amount ?? 0))} ${this.devise()} pour cette opération.`);
     }
     return obstacles;
   });

@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { AUTHENTIFICATION } from '../auth/auth.port';
-import { OPERATION_PAR_ECRAN, autorise } from '../auth/habilitations';
+import { Droits, OPERATION_PAR_ECRAN } from '../auth/habilitations';
 import { PROVIDERS_CLIENTS } from './clients.providers';
 
 /**
@@ -55,12 +54,12 @@ import { PROVIDERS_CLIENTS } from './clients.providers';
   `,
 })
 export class ClientsShell {
-  private readonly authentification = inject(AUTHENTIFICATION);
+  private readonly droits = inject(Droits);
 
   /** Même règle que les autres espaces : on ne propose pas une porte fermée. */
   protected readonly visibles = computed(() =>
     this.ecrans.filter((ecran) =>
-      autorise(this.authentification.habilitations(), OPERATION_PAR_ECRAN['clients/' + ecran.chemin]),
+      this.droits.peut(OPERATION_PAR_ECRAN['clients/' + ecran.chemin]),
     ),
   );
 

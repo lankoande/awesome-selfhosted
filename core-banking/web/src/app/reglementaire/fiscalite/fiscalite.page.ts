@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { AUTHENTIFICATION } from '../../auth/auth.port';
-import { autorise } from '../../auth/habilitations';
+import { Droits } from '../../auth/habilitations';
 import { AppConfig } from '../../core/config/runtime-config';
 import { formaterTaux } from '../../core/format/montant';
 import { RefusMetier } from '../../guichet/modele/guichet.modele';
@@ -42,7 +41,7 @@ const ASSIETTES: readonly AssietteTaxe[] = ['INTEREST_PAID', 'FEES_CHARGED', 'TR
 export class Fiscalite {
   private readonly reglementaire = inject(REGLEMENTAIRE);
   private readonly config = inject(AppConfig);
-  private readonly authentification = inject(AUTHENTIFICATION);
+  private readonly droits = inject(Droits);
 
   protected readonly ASSIETTES = ASSIETTES;
   protected readonly LIBELLE_ASSIETTE = LIBELLE_ASSIETTE;
@@ -67,8 +66,7 @@ export class Fiscalite {
 
   private cle = crypto.randomUUID();
 
-  protected readonly peutDeclarer = computed(() =>
-    autorise(this.authentification.habilitations(), 'TAX_RULE_MANAGE'));
+  protected readonly peutDeclarer = computed(() => this.droits.peut('TAX_RULE_MANAGE'));
 
   protected readonly obstacles = computed(() => obstaclesALaRegleFiscale({
     code: this.code(),

@@ -2,12 +2,13 @@ import {
   ChangeDetectionStrategy, Component, computed, effect, inject, input, signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
+import { Droits } from '../../auth/habilitations';
 import { AppConfig } from '../../core/config/runtime-config';
 import { formaterTaux } from '../../core/format/montant';
 import { RefusMetier } from '../../guichet/modele/guichet.modele';
 import {
-  CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbNotice,
-  CbSection, CbStateBadge, CbTable,
+  CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbInterdit,
+  CbNotice, CbSection, CbStateBadge, CbTable,
 } from '../../ui';
 import { CREDIT } from '../credit.port';
 import {
@@ -41,8 +42,8 @@ type Volet = 'aucun' | 'passer' | 'recouvrer';
   selector: 'cb-perte-credit',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbNotice,
-    CbSection, CbStateBadge, CbTable,
+    CbActivity, CbAmount, CbAmountInput, CbButton, CbDateInput, CbField, CbInput, CbInterdit,
+    CbNotice, CbSection, CbStateBadge, CbTable,
   ],
   templateUrl: './perte.page.html',
   styleUrl: './perte.page.css',
@@ -52,6 +53,7 @@ export class PerteCredit {
 
   private readonly credit = inject(CREDIT);
   private readonly config = inject(AppConfig);
+  private readonly droits = inject(Droits);
   private readonly router = inject(Router);
 
   protected readonly LIBELLE_STATUT_CONTRAT = LIBELLE_STATUT_CONTRAT;
@@ -95,10 +97,21 @@ export class PerteCredit {
     };
   });
 
-  protected readonly peutPasser = computed(() =>
-    this.perte() === null && this.contrat()?.status === 'ACTIVE');
+  /**
+   * Deux actes sur cet écran, et **deux droits opposés**.
+   *
+   * Passer en perte sort un actif des livres : c'est une décision de crédit,
+   * qui se prend à deux. Enregistrer un recouvrement constate de l'argent déjà
+   * rentré : c'est du travail de recouvrement, qu'un seul fait. Le même écran,
+   * deux profils — et souvent deux personnes.
+   */
+  protected readonly droitDePasser = computed(() => this.droits.peut('LOAN_WRITE_OFF'));
+  protected readonly droitDeRecouvrer = computed(() => this.droits.peut('LOAN_RECOVERY'));
 
-  protected readonly peutRecouvrer = computed(() => this.perte() !== null);
+  protected readonly peutPasser = computed(() =>
+    this.perte() === null && this.contrat()?.status === 'ACTIVE' && this.droitDePasser());
+
+  protected readonly peutRecouvrer = computed(() => this.perte() !== null && this.droitDeRecouvrer());
 
   constructor() {
     effect(() => {

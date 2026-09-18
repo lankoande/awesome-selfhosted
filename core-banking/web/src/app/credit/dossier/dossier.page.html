@@ -70,9 +70,16 @@
           Le socle vérifiera à nouveau au moment de contracter.
         </p>
         <p class="suite">
-          <button type="button" cbButton="primaire" (click)="ouvrirVolet('contrat')">
-            Établir le contrat
-          </button>
+          @if (droitDeContractualiser()) {
+            <button type="button" cbButton="primaire" (click)="ouvrirVolet('contrat')">
+              Établir le contrat
+            </button>
+          } @else {
+            <cb-interdit>
+              Votre profil ne rédige pas le contrat : l'acte appartient au chargé de crédit
+              de l'agence gestionnaire.
+            </cb-interdit>
+          }
         </p>
       </cb-notice>
     } @else if (obstacles().length > 0 && d.demande.status !== 'CONTRACTED') {
@@ -179,8 +186,9 @@
                   <td class="cb-mono">{{ jour(c.clearedOn) }}</td>
                   <td class="preuve">{{ c.evidence ?? '—' }}</td>
                   <td class="action">
-                    @if (!c.clearedOn) {
-                      <button type="button" cbButton="discret" (click)="ouvrirVolet('condition-levee', c)">
+                    @if (!c.clearedOn && droitDeLeverUneCondition()) {
+                      <button type="button" cbButton="discret"
+                              (click)="ouvrirVolet('condition-levee', c)">
                         Lever
                       </button>
                     }
@@ -247,11 +255,26 @@
 
       @if (peutDecider()) {
         <p class="suite">
-          <button type="button" cbButton="primaire" (click)="ouvrirVolet('decision')">Décider</button>
-          <button type="button" cbButton="discret" (click)="ouvrirVolet('retrait')">
-            Retirer la demande
-          </button>
+          @if (droitDeDecider()) {
+            <button type="button" cbButton="primaire" (click)="ouvrirVolet('decision')">Décider</button>
+          } @else {
+            <cb-interdit>
+              Votre profil instruit le dossier, il ne décide pas : l'octroi engage la banque
+              sur un montant, et se décide à deux.
+            </cb-interdit>
+          }
+          @if (droitDInstruire()) {
+            <button type="button" cbButton="discret" (click)="ouvrirVolet('retrait')">
+              Retirer la demande
+            </button>
+          }
         </p>
+        @if (droitDeDecider() && plafondDeDecision(); as limite) {
+          <p class="nuance">
+            Votre plafond de décision : {{ montantLisible(limite.amount) }} {{ limite.currency }}.
+            Au-delà, le dossier remonte.
+          </p>
+        }
       } @else if (peutInstruire()) {
         <p class="vide">Versez d'abord une analyse : une décision sans analyse ne se motive pas.</p>
       }

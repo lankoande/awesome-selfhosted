@@ -113,6 +113,29 @@ describe('réglementaire — détail d’un état', () => {
     expect(html().textContent).toContain("rien n'est déposé");
   });
 
+  it('ferme la transmission à qui ne la porte pas, et dit ce que son profil fait', async () => {
+    // Produire et transmettre sont deux droits : c'est le cas que l'habilitation
+    // « par écran » rate, et celui que cet écran doit rendre lisible.
+    session.autoriser('REGULATORY_READ', 'REGULATORY_REPORT_PRODUCE');
+    await monter();
+    expect(bouton('Enregistrer le dépôt')).toBeUndefined();
+    expect(html().textContent).toContain('ne transmet pas : il produit');
+  });
+
+  it('ferme la reprise au même profil : reprendre demande le droit de transmettre', async () => {
+    session.autoriser('REGULATORY_READ', 'REGULATORY_REPORT_PRODUCE');
+    await monter();
+    expect(bouton('Annuler cet état')).toBeUndefined();
+    expect(html().textContent).toContain('demande le droit de transmettre');
+  });
+
+  it('ouvre les deux à qui porte la transmission', async () => {
+    session.autoriser('REGULATORY_READ', 'REGULATORY_REPORT_TRANSMIT');
+    await monter();
+    expect(bouton('Enregistrer le dépôt')).toBeDefined();
+    expect(bouton('Annuler cet état')).toBeDefined();
+  });
+
   it('exige un motif pour annuler, et le transmet', async () => {
     await monter();
     bouton('Annuler cet état')?.click();

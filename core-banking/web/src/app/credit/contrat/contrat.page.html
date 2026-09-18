@@ -121,10 +121,22 @@
           sortir l'argent.
         </p>
         <p class="suite">
-          <button type="button" cbButton="primaire" (click)="ouvrirVolet('deblocage')">
-            Débloquer les fonds
-          </button>
+          @if (droitDeDebloquer()) {
+            <button type="button" cbButton="primaire" (click)="ouvrirVolet('deblocage')">
+              Débloquer les fonds
+            </button>
+          } @else {
+            <cb-interdit>
+              Votre profil ne débloque pas : il instruit et contractualise. Le déblocage
+              appartient au chef d'agence ou au responsable du crédit.
+            </cb-interdit>
+          }
         </p>
+        @if (plafondDeblocage(); as limite) {
+          <p class="nuance">
+            Votre plafond de déblocage : {{ montantLisible(limite.amount) }} {{ limite.currency }}.
+          </p>
+        }
       </cb-notice>
     }
 
@@ -132,21 +144,35 @@
       <cb-toolbar>
         <cb-tabs [onglets]="onglets" [(actif)]="onglet" etiquette="Vue du contrat" />
         <span fin class="actes">
-          <button type="button" cbButton="primaire" (click)="ouvrirVolet('reglement')">
-            Enregistrer un règlement
-          </button>
-          <button type="button" cbButton="secondaire" (click)="ouvrirVolet('anticipe')">
-            Remboursement anticipé
-          </button>
-          <button type="button" cbButton="discret" (click)="ouvrirVolet('reechelonnement')">
-            Rééchelonner
-          </button>
-          <button type="button" cbButton="discret" (click)="ouvrirVolet('revision')">
-            Réviser le taux
-          </button>
-          <button type="button" cbButton="discret" (click)="aLaPerte()">
-            Passage en perte
-          </button>
+          <!-- Cinq actes, cinq droits : ce qu'on ne peut pas faire ne s'affiche
+               pas ici, parce que ce n'est qu'une option parmi d'autres. Ce qui
+               est fermé se dit là où l'écran existe pour l'acte — le déblocage
+               ci-dessus, le passage en perte sur son écran. -->
+          @if (droitDeRegler()) {
+            <button type="button" cbButton="primaire" (click)="ouvrirVolet('reglement')">
+              Enregistrer un règlement
+            </button>
+          }
+          @if (droitDAnticiper()) {
+            <button type="button" cbButton="secondaire" (click)="ouvrirVolet('anticipe')">
+              Remboursement anticipé
+            </button>
+          }
+          @if (droitDeReechelonner()) {
+            <button type="button" cbButton="discret" (click)="ouvrirVolet('reechelonnement')">
+              Rééchelonner
+            </button>
+          }
+          @if (droitDeReviser()) {
+            <button type="button" cbButton="discret" (click)="ouvrirVolet('revision')">
+              Réviser le taux
+            </button>
+          }
+          @if (droitDePasserEnPerte()) {
+            <button type="button" cbButton="discret" (click)="aLaPerte()">
+              Passage en perte
+            </button>
+          }
         </span>
       </cb-toolbar>
     }

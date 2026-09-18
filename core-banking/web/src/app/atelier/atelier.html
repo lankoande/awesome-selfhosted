@@ -193,6 +193,18 @@
                 <cb-activity class="activite" [enCours]="travaille()" libelle="Envoi au socle…" />
               </div>
             }
+            @case ('interdit') {
+              <div class="colonne">
+                <cb-interdit>Votre profil ne transmet pas : il produit.</cb-interdit>
+                <cb-interdit>
+                  Reprendre un état est une décision sur ce que la banque déclarera : elle demande
+                  le droit de transmettre.
+                </cb-interdit>
+                <cb-interdit ton="attention">
+                  Fermé tant que les anomalies ci-dessus ne sont pas levées.
+                </cb-interdit>
+              </div>
+            }
           }
         </div>
       </section>

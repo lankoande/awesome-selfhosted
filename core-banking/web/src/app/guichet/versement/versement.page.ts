@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { Droits } from '../../auth/habilitations';
+import { formaterMontant } from '../../core/format/montant';
 import { AppConfig } from '../../core/config/runtime-config';
 import {
   CbActivity,
@@ -63,6 +65,8 @@ export class Versement {
   protected readonly contexte = signal<ContexteCompte | null>(null);
 
   // -------------------------------------------------------------- la saisie
+  private readonly droits = inject(Droits);
+
   protected readonly montant = signal<number | null>(null);
   protected readonly comptage = signal<Comptage>({});
   protected readonly remettant = signal<Remettant>('titulaire');
@@ -96,6 +100,36 @@ export class Versement {
     return compte - annonce;
   });
 
+  /**
+   * Le plafond du profil sur cette opération, quand la politique en pose un.
+   *
+   * **Il s'annonce avant la saisie.** Un guichetier qui apprend son plafond
+   * dans un refus, après avoir compté les billets, a perdu deux minutes et la
+   * face devant le client.
+   */
+  protected readonly plafond = computed(() => this.droits.plafond('CASH_OPERATION', this.devise()));
+
+  /** Le plafond en opération déplacée, plus bas : le dossier n'est pas là. */
+  protected readonly plafondDeplace = computed(
+    () => this.droits.plafond('CASH_OPERATION', this.devise(), true));
+  /**
+   * Ce qu'on dit sous le champ du montant : la devise, et le plafond quand il
+   * y en a un. Les deux comptent avant la frappe, pas après.
+   */
+  protected readonly aideMontant = computed(() => {
+    const parties = [`Devise du compte : ${this.devise()}`];
+    const limite = this.plafond();
+    if (limite) {
+      parties.push(`plafond de votre profil : `
+        + `${formaterMontant(Number(limite.amount))} ${this.devise()}`);
+      const deplace = this.plafondDeplace();
+      if (deplace && deplace.amount !== limite.amount) {
+        parties.push(`${formaterMontant(Number(deplace.amount))} hors de votre agence`);
+      }
+    }
+    return parties.join(' — ');
+  });
+
   /** Ce que l'écran empêche est ergonomique ; ce qui est interdit, le socle le refuse. */
   protected readonly obstacles = computed<readonly string[]>(() => {
     const obstacles: string[] = [];
@@ -104,6 +138,13 @@ export class Versement {
     if (this.ecartBilletage() !== 0) obstacles.push('Le comptage ne retrouve pas le montant annoncé.');
     if (this.remettant() === 'tiers' && this.identite().trim().length < 3) {
       obstacles.push("Un versement par un tiers exige l'identité du remettant.");
+    }
+    // Le plafond en agence est le plus favorable des deux : bloquer dessus ne
+    // peut jamais refuser à tort. Le socle tranche toujours — il connaît
+    // l'agence du compte, que le poste ignore.
+    if (this.droits.depasse('CASH_OPERATION', this.montant(), this.devise())) {
+      obstacles.push(`Le montant dépasse votre plafond de `
+        + `${formaterMontant(Number(this.plafond()?.amount ?? 0))} ${this.devise()} pour cette opération.`);
     }
     return obstacles;
   });

@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { AUTHENTIFICATION } from '../../auth/auth.port';
-import { autorise } from '../../auth/habilitations';
+import { Droits } from '../../auth/habilitations';
 import { AppConfig } from '../../core/config/runtime-config';
 import { RefusMetier } from '../../guichet/modele/guichet.modele';
 import { CbActivity, CbButton, CbNotice, CbSection, CbTable, CbToolbar } from '../../ui';
@@ -45,7 +44,7 @@ interface LigneEcheance {
 export class Echeances {
   private readonly reglementaire = inject(REGLEMENTAIRE);
   private readonly config = inject(AppConfig);
-  private readonly authentification = inject(AUTHENTIFICATION);
+  private readonly droits = inject(Droits);
   private readonly router = inject(Router);
 
   protected readonly LIBELLE_DESTINATAIRE = LIBELLE_DESTINATAIRE;
@@ -80,8 +79,8 @@ export class Echeances {
   protected readonly aDeposer = computed(() => this.lignes().filter((l) => l.echeance.produced));
 
   /** Produire est un travail comptable ; l'écran ne propose pas la porte fermée. */
-  protected readonly peutProduire = computed(() =>
-    autorise(this.authentification.habilitations(), 'REGULATORY_REPORT_PRODUCE'));
+  protected readonly peutProduire = computed(
+    () => this.droits.peut('REGULATORY_REPORT_PRODUCE'));
 
   constructor() {
     void this.charger();
