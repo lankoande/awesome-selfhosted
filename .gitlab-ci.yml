@@ -99,13 +99,10 @@ front:
 # -------------------------------------------------------- la documentation
 #
 # Un lien cassé ne se voit pas à la relecture : il se voit le jour où
-# quelqu'un le suit. Portée : docs/ et core-banking/. Les listes héritées
-# d'awesome-selfhosted à la racine suivent une autre convention d'ancres, et
-# échouer sur du contenu amont rendrait la barrière inutile.
+# quelqu'un le suit. Portée : tout le dépôt.
 documentation:
   stage: verifier
   image: python:3.12-slim
   timeout: 5m
   script:
-    - python3 docs/outils/liens.py docs
-    - python3 docs/outils/liens.py core-banking
+    - python3 docs/outils/liens.py

@@ -219,7 +219,7 @@ pour voir le test tomber, si. Plusieurs commits de ce dépôt le disent explicit
 cd core-banking     && mvn -B test
 cd core-banking/web && npm ci && npm test && npm run build
 npm run servir &     && npm run check:largeurs -- http://127.0.0.1:8181/
-python3 docs/outils/liens.py docs && python3 docs/outils/liens.py core-banking
+python3 docs/outils/liens.py
 ```
 
 C'est exactement ce que joue la [chaîne d'intégration](../../ci/README.md) — ni plus,

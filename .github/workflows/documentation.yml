@@ -17,16 +17,14 @@
 # le suit. Ce contrôle les attrape au moment où on les casse — en déplaçant ou
 # en renommant un fichier, ce qui arrive à chaque réorganisation.
 #
-# Portée : `docs/` et `core-banking/`. Les listes héritées d'awesome-selfhosted
-# à la racine ne sont pas contrôlées — leurs ancres suivent une autre convention,
-# et faire échouer ce dépôt sur du contenu amont rendrait la barrière inutile.
+# Portée : tout le dépôt.
 name: Documentation
 
 on:
   push:
-    paths: ['docs/**', 'core-banking/**/*.md', '.github/workflows/documentation.yml']
+    paths: ['*.md', 'docs/**', 'core-banking/**/*.md', 'ci/**', '.github/workflows/documentation.yml']
   pull_request:
-    paths: ['docs/**', 'core-banking/**/*.md', '.github/workflows/documentation.yml']
+    paths: ['*.md', 'docs/**', 'core-banking/**/*.md', 'ci/**', '.github/workflows/documentation.yml']
   workflow_dispatch:
 
 concurrency:
@@ -43,6 +41,4 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Fichiers et ancres cités
-        run: |
-          python3 docs/outils/liens.py docs
-          python3 docs/outils/liens.py core-banking
+        run: python3 docs/outils/liens.py

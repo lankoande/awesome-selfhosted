@@ -78,8 +78,7 @@ npm run servir &                                  # repli SPA pour les routes pr
 npm run check:largeurs -- http://127.0.0.1:8181/
 
 # La documentation
-python3 docs/outils/liens.py docs
-python3 docs/outils/liens.py core-banking
+python3 docs/outils/liens.py
 ```
 
 ## En attendant la migration : GitHub Actions, temporairement

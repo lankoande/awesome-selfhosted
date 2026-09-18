@@ -11,14 +11,13 @@ les ancres de titres à l'intérieur du dépôt. Les liens http(s) ne sont pas
 suivis — un contrôle qui dépend d'un site tiers échoue le jour où ce site est
 lent, et une barrière qui échoue sans raison est une barrière qu'on désactive.
 
-Il se lance sur une racine à la fois :
+Il couvre tout le dépôt :
 
-    python3 docs/outils/liens.py docs
-    python3 docs/outils/liens.py core-banking
+    python3 docs/outils/liens.py
 
-Les listes héritées d'awesome-selfhosted à la racine du dépôt ne sont pas
-contrôlées : leurs ancres suivent une autre convention, et un contrôle qui
-échoue sur du contenu amont est un contrôle qu'on finit par ignorer.
+Il était restreint à `docs/` et `core-banking/` tant que la racine portait les
+listes héritées d'awesome-selfhosted, dont les ancres suivent une autre
+convention. Ces fichiers sont partis avec le fork ; la restriction aussi.
 """
 import os
 import re
