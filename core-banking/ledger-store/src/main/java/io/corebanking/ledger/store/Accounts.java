@@ -12,8 +12,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -154,5 +156,97 @@ public final class Accounts {
             throw new LedgerStoreException("Chargement des comptes", e);
         }
         return accounts;
+    }
+
+    // ------------------------------------------------------------------ recherche
+
+    /**
+     * Un compte client tel qu'un ecran le presente : ce qu'il faut pour le reconnaitre et
+     * l'ouvrir, pas plus. Le solde n'y est pas — il se lit compte par compte, et il est trace.
+     *
+     * @param branchCode code de l'agence gestionnaire, pour dire ou le compte est tenu
+     * @param holderReference reference du titulaire, telle que le referentiel la donne
+     */
+    public record Summary(UUID id, String code, String currency, String status, UUID branchId,
+                          String branchCode, String productCode, UUID holderId,
+                          String holderReference, String holderName, LocalDate openedOn) {}
+
+    private static final String SEARCH_SELECT = """
+        SELECT a.id, a.code, a.currency, a.status, a.branch_id, b.code, p.product_code,
+               h.party_id, t.reference, t.display_name, a.opened_at
+          FROM account a
+          JOIN branch b ON b.id = a.branch_id
+          LEFT JOIN account_product p ON p.account_id = a.id AND p.valid_to IS NULL
+          LEFT JOIN account_holder h ON h.account_id = a.id AND h.role = 'HOLDER'
+                                    AND h.valid_to IS NULL
+          LEFT JOIN party t ON t.id = h.party_id
+         WHERE a.legal_entity_id = ? AND a.account_kind = 'CUSTOMER'
+           AND (?::uuid IS NULL OR h.party_id = ?::uuid)
+           AND (?::uuid IS NULL OR a.branch_id = ?::uuid)
+           AND (?::text IS NULL OR a.code ILIKE ? OR t.display_name ILIKE ?
+                OR t.reference ILIKE ?)
+        """;
+
+    /**
+     * Les comptes clients de l'entite, filtres par titulaire, par agence, ou par un fragment de
+     * numero, de nom ou de reference client.
+     *
+     * <p>L'ordre est total — numero de compte — pour qu'une pagination ne rende pas deux fois la
+     * meme ligne ni n'en saute une.
+     *
+     * <p>Seuls les comptes <b>clients</b> sont rendus. Les comptes generaux, internes, nostro, de
+     * suspens et de position sont de la comptabilite : ils se lisent par la balance et le grand
+     * livre, pas par un ecran de guichet.
+     */
+    public static List<Summary> search(Connection c, UUID legalEntityId, UUID partyId,
+                                       UUID branchId, String text, int offset, int limit) {
+        String motif = text == null || text.isBlank() ? null : "%" + text.trim() + "%";
+        try (PreparedStatement ps = c.prepareStatement(
+            SEARCH_SELECT + " ORDER BY a.code OFFSET ? LIMIT ?")) {
+            bindSearch(ps, legalEntityId, partyId, branchId, motif);
+            ps.setInt(10, Math.max(0, offset));
+            ps.setInt(11, Math.max(1, limit));
+            List<Summary> comptes = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    comptes.add(new Summary(
+                        rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3),
+                        rs.getString(4), rs.getObject(5, UUID.class), rs.getString(6),
+                        rs.getString(7), rs.getObject(8, UUID.class), rs.getString(9),
+                        rs.getString(10), rs.getObject(11, LocalDate.class)));
+                }
+            }
+            return List.copyOf(comptes);
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Recherche des comptes clients", e);
+        }
+    }
+
+    /** Le nombre de comptes que la meme recherche rend, pour la pagination. */
+    public static long countSearch(Connection c, UUID legalEntityId, UUID partyId, UUID branchId,
+                                   String text) {
+        String motif = text == null || text.isBlank() ? null : "%" + text.trim() + "%";
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT count(*) FROM (" + SEARCH_SELECT + ") q")) {
+            bindSearch(ps, legalEntityId, partyId, branchId, motif);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getLong(1) : 0L;
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Comptage des comptes clients", e);
+        }
+    }
+
+    private static void bindSearch(PreparedStatement ps, UUID legalEntityId, UUID partyId,
+                                   UUID branchId, String motif) throws SQLException {
+        ps.setObject(1, legalEntityId);
+        ps.setObject(2, partyId);
+        ps.setObject(3, partyId);
+        ps.setObject(4, branchId);
+        ps.setObject(5, branchId);
+        ps.setString(6, motif);
+        ps.setString(7, motif);
+        ps.setString(8, motif);
+        ps.setString(9, motif);
     }
 }

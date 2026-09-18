@@ -33,6 +33,41 @@ export interface Tiers {
   readonly riskRating: Risque;
 }
 
+/**
+ * Un compte client, tel qu'une liste le présente.
+ *
+ * Pas de solde : il se lit compte par compte, et sa lecture est tracée. Ce qui
+ * est ici sert à **reconnaître** un compte et à le désigner — c'est ce qui
+ * manquait, et qui obligeait les écrans à faire saisir un identifiant
+ * technique.
+ */
+export interface CompteClient {
+  readonly id: string;
+  readonly code: string;
+  readonly currency: string;
+  readonly status: string;
+  readonly branchId: string | null;
+  readonly branchCode: string | null;
+  readonly productCode: string | null;
+  readonly holderId: string | null;
+  readonly holderReference: string | null;
+  readonly holderName: string | null;
+  readonly openedOn: string | null;
+}
+
+export interface PageComptes {
+  readonly comptes: readonly CompteClient[];
+  readonly page: number;
+  readonly precedent: boolean;
+  readonly suivant: boolean;
+}
+
+/** Ce qu'on demande à la liste des comptes : un titulaire, un texte, ou les deux. */
+export interface QuestionComptes {
+  readonly partyId?: string | null;
+  readonly texte?: string | null;
+}
+
 export interface PageTiers {
   readonly tiers: readonly Tiers[];
   readonly page: number;

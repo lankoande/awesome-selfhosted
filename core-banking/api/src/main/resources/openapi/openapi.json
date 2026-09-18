@@ -167,6 +167,48 @@
         },
         "type" : "object"
       },
+      "Accounts.Summary" : {
+        "properties" : {
+          "branchCode" : {
+            "type" : "string"
+          },
+          "branchId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "holderId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "holderName" : {
+            "type" : "string"
+          },
+          "holderReference" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "openedOn" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "productCode" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ActivityProfiles.Profile" : {
         "properties" : {
           "declaredBy" : {
@@ -5967,6 +6009,99 @@
       }
     },
     "/v1/entities/{legalEntityId}/accounts" : {
+      "get" : {
+        "operationId" : "Account.list",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "partyId",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "branchId",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "$ref" : "#/components/parameters/Page"
+        }, {
+          "$ref" : "#/components/parameters/PageSize"
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "items" : {
+                        "$ref" : "#/components/schemas/Accounts.Summary"
+                      },
+                      "type" : "array"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "$ref" : "#/components/schemas/Page"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Account" ]
+      },
       "post" : {
         "operationId" : "Account.open",
         "parameters" : [ {

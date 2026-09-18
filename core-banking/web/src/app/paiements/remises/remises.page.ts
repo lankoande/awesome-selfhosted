@@ -6,6 +6,7 @@ import {
   CbActivity, CbAmount, CbAmountInput, CbButton, CbField, CbInput, CbNotice, CbPagination,
   CbSection, CbStateBadge, CbTable, CbToolbar, EtatOperation,
 } from '../../ui';
+import { CbChoixCompte } from '../../clients/composants/choix-compte';
 import {
   ACTES_A_MOTIF, ACTES_A_NOSTRO, Acte, actesSurRemise, ATTENTE_REMISE, DemandeRemise, LIBELLE_ACTE,
   LIBELLE_STATUT_REMISE, obstaclesAUneRemise, Remise, StatutRemise,
@@ -31,7 +32,7 @@ const STATUTS: readonly StatutRemise[] = ['DEPOSITED', 'SETTLED', 'RETURNED'];
   selector: 'cb-remises-cheques',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CbActivity, CbAmount, CbAmountInput, CbButton, CbField, CbInput, CbNotice,
-            CbPagination, CbSection, CbStateBadge, CbTable, CbToolbar],
+            CbPagination, CbSection, CbStateBadge, CbTable, CbToolbar, CbChoixCompte],
   templateUrl: './remises.page.html',
   styleUrl: './remises.page.css',
 })

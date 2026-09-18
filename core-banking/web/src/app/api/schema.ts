@@ -43,7 +43,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["Account.list"];
         put?: never;
         post: operations["Account.open"];
         delete?: never;
@@ -2467,6 +2467,23 @@ export interface components {
             code?: string;
             currency?: string;
             current?: components["schemas"]["Money"];
+            status?: string;
+        };
+        "Accounts.Summary": {
+            branchCode?: string;
+            /** Format: uuid */
+            branchId?: string;
+            code?: string;
+            currency?: string;
+            /** Format: uuid */
+            holderId?: string;
+            holderName?: string;
+            holderReference?: string;
+            /** Format: uuid */
+            id?: string;
+            /** Format: date */
+            openedOn?: string;
+            productCode?: string;
             status?: string;
         };
         "ActivityProfiles.Profile": {
@@ -4938,6 +4955,51 @@ export interface operations {
                         error: null;
                         meta: components["schemas"]["Meta"];
                         page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "Account.list": {
+        parameters: {
+            query?: {
+                partyId?: string;
+                branchId?: string;
+                q?: string;
+                /** @description Numero de page, a partir de zero */
+                page?: components["parameters"]["Page"];
+                /** @description Taille de page ; au-dela du maximum, 400 */
+                size?: components["parameters"]["PageSize"];
+            };
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Accounts.Summary"][];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: components["schemas"]["Page"];
                     };
                 };
             };

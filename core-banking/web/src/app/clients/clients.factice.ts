@@ -2,8 +2,8 @@ import { Injectable } from '@angular/core';
 import { RefusMetier } from '../guichet/modele/guichet.modele';
 import { Clients } from './clients.port';
 import {
-  BeneficiaireEffectif, DemandeOuverture, DemandeTiers, Dossier, IssueOuverture,
-  PageTiers, Piece, ProduitOuvrable, Tiers,
+  BeneficiaireEffectif, CompteClient, DemandeOuverture, DemandeTiers, Dossier, IssueOuverture,
+  PageComptes, PageTiers, Piece, ProduitOuvrable, QuestionComptes, Tiers,
 } from './modele/clients.modele';
 
 /**
@@ -131,6 +131,45 @@ const BENEFICIAIRES: Readonly<Record<string, readonly BeneficiaireEffectif[]>> =
   ],
 };
 
+
+/**
+ * Les comptes de démonstration, rattachés aux clients de la source.
+ *
+ * Deux agences, pour que le code guichet du numéro veuille dire quelque chose,
+ * et un compte clos : une liste de comptes qui n'en montrerait que des actifs
+ * ne préparerait pas l'opérateur au jour où il en croise un.
+ */
+const COMPTES: CompteClient[] = [
+  { id: 'cpt-sankara', code: '1001500021000000000018', currency: 'XOF', status: 'ACTIVE',
+    branchId: 'ag-oua2', branchCode: '00021', productCode: 'CPTE-CHQ-PART',
+    holderId: 'p-sankara', holderReference: 'CLI-000417', holderName: 'SANKARA Aminata',
+    openedOn: '2021-03-12' },
+  { id: 'cpt-sankara-ep', code: '1001500021000000000026', currency: 'XOF', status: 'ACTIVE',
+    branchId: 'ag-oua2', branchCode: '00021', productCode: 'EPARGNE-PART',
+    holderId: 'p-sankara', holderReference: 'CLI-000417', holderName: 'SANKARA Aminata',
+    openedOn: '2022-07-04' },
+  { id: 'cpt-ouedraogo', code: '1001500021000000000034', currency: 'XOF', status: 'ACTIVE',
+    branchId: 'ag-oua2', branchCode: '00021', productCode: 'CPTE-CHQ-PART',
+    holderId: 'p-ouedraogo', holderReference: 'CLI-001182', holderName: 'OUEDRAOGO Salif',
+    openedOn: '2019-11-28' },
+  { id: 'cpt-kabore', code: '1001500022000000000042', currency: 'XOF', status: 'ACTIVE',
+    branchId: 'ag-bobo', branchCode: '00022', productCode: 'CPTE-CHQ-ENT',
+    holderId: 'p-kabore-ets', holderReference: 'CLI-002044', holderName: 'ETS KABORE & Fils',
+    openedOn: '2014-02-19' },
+  { id: 'cpt-traore', code: '1001500021000000000059', currency: 'XOF', status: 'ACTIVE',
+    branchId: 'ag-oua2', branchCode: '00021', productCode: 'CPTE-CHQ-PART',
+    holderId: 'p-traore', holderReference: 'CLI-003390', holderName: 'TRAORE Fatimata',
+    openedOn: '2023-05-30' },
+  { id: 'cpt-compaore', code: '1001500021000000000067', currency: 'XOF', status: 'ACTIVE',
+    branchId: 'ag-oua2', branchCode: '00021', productCode: 'CPTE-CHQ-PART',
+    holderId: 'p-compaore', holderReference: 'CLI-004265', holderName: 'COMPAORE Issa',
+    openedOn: '2020-09-15' },
+  { id: 'cpt-nikiema', code: '1001500022000000000075', currency: 'XOF', status: 'CLOSED',
+    branchId: 'ag-bobo', branchCode: '00022', productCode: 'CPTE-CHQ-PART',
+    holderId: 'p-nikiema', holderReference: 'CLI-005108', holderName: 'NIKIEMA Rasmata',
+    openedOn: '2018-01-08' },
+];
+
 @Injectable()
 export class ClientsFactice implements Clients {
   private readonly tiers = [...TIERS];
@@ -179,6 +218,30 @@ export class ClientsFactice implements Clients {
   async beneficiaires(_e: string, partyId: string): Promise<readonly BeneficiaireEffectif[]> {
     await this.attendre();
     return BENEFICIAIRES[partyId] ?? [];
+  }
+
+  async comptes(legalEntityId: string, question: QuestionComptes, page: number,
+                taille: number): Promise<PageComptes> {
+    await this.attendre(200);
+    const cherche = (question.texte ?? '').trim().toLowerCase();
+    const retenus = COMPTES.filter((compte) => {
+      if (question.partyId && compte.holderId !== question.partyId) {
+        return false;
+      }
+      if (!cherche) {
+        return true;
+      }
+      return compte.code.toLowerCase().includes(cherche)
+        || (compte.holderName ?? '').toLowerCase().includes(cherche)
+        || (compte.holderReference ?? '').toLowerCase().includes(cherche);
+    });
+    const debut = page * taille;
+    return {
+      comptes: retenus.slice(debut, debut + taille),
+      page,
+      precedent: page > 0,
+      suivant: debut + taille < retenus.length,
+    };
   }
 
   async creer(demande: DemandeTiers): Promise<Tiers> {

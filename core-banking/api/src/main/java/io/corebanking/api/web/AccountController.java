@@ -2,6 +2,8 @@ package io.corebanking.api.web;
 
 import io.corebanking.api.config.AccountDirectory;
 import io.corebanking.api.usecase.AccountUseCases;
+import io.corebanking.api.usecase.Paging;
+import io.corebanking.ledger.store.Accounts;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.security.Caller;
 import io.corebanking.security.UseCaseExecutor;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Ouverture, consultation, blocages, blocages de montant, cloture. */
@@ -22,6 +25,7 @@ public class AccountController {
 
     private final UseCaseExecutor executor;
     private final MakerChecker makerChecker;
+    private final AccountUseCases.SearchAccounts search;
     private final AccountUseCases.ReadBalance readBalance;
     private final AccountUseCases.ReadJournal readJournal;
     private final AccountUseCases.ReadLedger readLedger;
@@ -30,6 +34,7 @@ public class AccountController {
     public AccountController(UseCaseExecutor executor, Database database,
                              AccountDirectory accounts, MakerChecker makerChecker) {
         this.executor = executor;
+        this.search = new AccountUseCases.SearchAccounts(database);
         this.makerChecker = makerChecker;
         this.readBalance = new AccountUseCases.ReadBalance(database, accounts);
         this.readJournal = new AccountUseCases.ReadJournal(database, accounts);
@@ -48,6 +53,20 @@ public class AccountController {
         return makerChecker.submit(caller, legalEntityId, "ACCOUNT_OPEN", Map.of(
             "code", nz(body.code()), "holderPartyId", nz(body.holderPartyId()),
             "productCode", nz(body.productCode()), "currency", nz(body.currency())));
+    }
+
+    /**
+     * Les comptes clients de l'entite, par pages : tous, ceux d'un titulaire, ceux d'une agence,
+     * ou ceux dont le numero, le nom du titulaire ou sa reference contient {@code q}.
+     */
+    @GetMapping
+    public Paging.Paged<Accounts.Summary> list(
+            Caller caller, @PathVariable UUID legalEntityId,
+            @RequestParam(required = false) UUID partyId,
+            @RequestParam(required = false) UUID branchId,
+            @RequestParam(required = false) String q, Paging.PageRequest page) {
+        return executor.run(caller, search, new AccountUseCases.AccountQuery(
+            legalEntityId, partyId, branchId, q, page));
     }
 
     @GetMapping("/{accountId}/balance")

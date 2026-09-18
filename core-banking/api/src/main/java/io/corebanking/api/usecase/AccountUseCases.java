@@ -5,6 +5,7 @@ import io.corebanking.deposits.AccountLifecycle;
 import io.corebanking.deposits.Holds;
 import io.corebanking.kernel.money.Money;
 import io.corebanking.ledger.domain.account.Account;
+import io.corebanking.ledger.store.Accounts;
 import io.corebanking.ledger.store.Balances;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.security.AccessTarget;
@@ -336,6 +337,53 @@ public final class AccountUseCases {
                 return Paging.Slice.of(fetched, query.cursor(),
                                        line -> JournalCursor.encode(line.position()));
             });
+        }
+    }
+
+    // ------------------------------------------------------------------ recherche
+
+    /**
+     * Ce qu'on demande a la liste des comptes : un titulaire, une agence, ou un fragment de
+     * numero, de nom ou de reference client. Les trois se combinent.
+     */
+    public record AccountQuery(UUID legalEntityId, UUID partyId, UUID branchId, String text,
+                               Paging.PageRequest page) {}
+
+    /**
+     * Les comptes clients de l'entite, par pages.
+     *
+     * <p>Sans cette liste, aucun ecran ne pouvait designer un compte autrement qu'en faisant
+     * saisir son identifiant technique — ce qui n'est pas une interface. Le contrat ne publiait
+     * ni les comptes d'un tiers ni ceux de la banque.
+     *
+     * <p>La cible est l'entite, comme pour la recherche de tiers : une liste n'a pas d'agence.
+     * La portee d'agence de {@code ACCOUNT_BALANCE_READ} borne les actes sur un compte donne, par
+     * {@code AccessTarget.branchId} ; elle ne filtre pas une liste. Un ecran qui veut ne montrer
+     * qu'une agence le demande par {@code branchId} — et le dit a son lecteur.
+     */
+    public static final class SearchAccounts
+            implements UseCase<AccountQuery, Paging.Paged<Accounts.Summary>> {
+        private final Database database;
+
+        public SearchAccounts(Database database) {
+            this.database = database;
+        }
+
+        @Override public Operation operation() { return Operation.ACCOUNT_BALANCE_READ; }
+
+        @Override
+        public AccessTarget targetOf(AccountQuery query) {
+            return AccessTarget.inEntity(query.legalEntityId());
+        }
+
+        @Override
+        public Paging.Paged<Accounts.Summary> execute(AccountQuery query) {
+            return database.inTransaction(c -> new Paging.Paged<>(
+                Accounts.search(c, query.legalEntityId(), query.partyId(), query.branchId(),
+                                query.text(), query.page().offset(), query.page().size()),
+                query.page(),
+                Accounts.countSearch(c, query.legalEntityId(), query.partyId(), query.branchId(),
+                                     query.text())));
         }
     }
 }

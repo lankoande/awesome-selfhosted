@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Droits, OPERATION_PAR_ECRAN } from '../auth/habilitations';
+import { PROVIDERS_CLIENTS } from '../clients/clients.providers';
 import { PROVIDERS_PAIEMENTS } from './paiements.providers';
 
 /**
@@ -15,7 +16,10 @@ import { PROVIDERS_PAIEMENTS } from './paiements.providers';
   selector: 'cb-paiements',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
-  providers: [...PROVIDERS_PAIEMENTS],
+  // Le référentiel client vient avec : un ordre part d'un compte, et un compte
+  // se choisit par son numéro ou son titulaire, pas par son identifiant
+  // technique. Les deux coques sont chargées paresseusement.
+  providers: [...PROVIDERS_PAIEMENTS, ...PROVIDERS_CLIENTS],
   template: `
     <nav class="ecrans" aria-label="Écrans des moyens de paiement">
       @for (ecran of visibles(); track ecran.chemin) {

@@ -132,6 +132,48 @@
       </cb-section>
     }
 
+    <cb-section titre="Ses comptes"
+                [indication]="comptes().length + ' ouvert(s)'">
+      @if (comptes().length > 0) {
+        <div class="cb-table-scroll">
+          <table cbTable>
+            <caption class="cb-visually-hidden">Comptes du client</caption>
+            <thead>
+              <tr>
+                <th scope="col">Numéro</th>
+                <th scope="col">Produit</th>
+                <th scope="col">Agence</th>
+                <th scope="col">Devise</th>
+                <th scope="col">Ouvert le</th>
+                <th scope="col">État</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (compte of comptes(); track compte.id) {
+                <tr [class.clos]="compte.status !== 'ACTIVE'">
+                  <td class="cb-mono">{{ compte.code }}</td>
+                  <td>{{ compte.productCode || '—' }}</td>
+                  <td class="cb-mono">{{ compte.branchCode || '—' }}</td>
+                  <td class="cb-mono">{{ compte.currency }}</td>
+                  <td class="cb-mono">{{ jour(compte.openedOn) }}</td>
+                  <td>{{ compte.status === 'ACTIVE' ? 'Actif' : compte.status }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <p class="sans-solde">
+          Les soldes ne figurent pas ici : ils se lisent compte par compte, et cette lecture
+          laisse une trace. Le relevé est au guichet.
+        </p>
+      } @else {
+        <p class="vide">
+          Aucun compte ouvert. Un client sans compte n'est pas une anomalie — il peut porter un
+          crédit, ou n'être qu'un bénéficiaire effectif.
+        </p>
+      }
+    </cb-section>
+
     <p class="retour">
       <button type="button" cbButton="discret" (click)="retour()">← Revenir à la recherche</button>
     </p>

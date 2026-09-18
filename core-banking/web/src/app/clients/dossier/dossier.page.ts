@@ -6,7 +6,7 @@ import { CbActivity, CbButton, CbNotice, CbSection, CbStateBadge, CbTable } from
 import { CLIENTS } from '../clients.port';
 import { IdentiteTiers } from '../composants/identite-tiers';
 import {
-  BeneficiaireEffectif, Dossier, LIBELLE_PIECE, Piece, Tiers,
+  BeneficiaireEffectif, CompteClient, Dossier, LIBELLE_PIECE, Piece, Tiers,
   obstaclesAOuverture,
 } from '../modele/clients.modele';
 
@@ -41,6 +41,16 @@ export class DossierClient {
   protected readonly dossier = signal<Dossier | null>(null);
   protected readonly pieces = signal<readonly Piece[]>([]);
   protected readonly beneficiaires = signal<readonly BeneficiaireEffectif[]>([]);
+
+  /**
+   * Ses comptes.
+   *
+   * Le dossier répondait à « puis-je ouvrir un compte à cette personne ? » sans
+   * jamais dire ce qu'elle en avait déjà. Un chargé de clientèle devait aller
+   * les chercher ailleurs — et, jusqu'à ce que le socle publie la liste, il
+   * n'avait nulle part où aller.
+   */
+  protected readonly comptes = signal<readonly CompteClient[]>([]);
   protected readonly chargement = signal(true);
   protected readonly refus = signal<RefusMetier | null>(null);
 
@@ -76,16 +86,18 @@ export class DossierClient {
     try {
       const tiers = await this.clients.lire(entite, id);
       this.tiers.set(tiers);
-      // Le dossier, les pièces et les bénéficiaires sont trois lectures
-      // indépendantes : les enchaîner tripleraient l'attente pour rien.
-      const [dossier, pieces, beneficiaires] = await Promise.all([
+      // Le dossier, les pièces, les bénéficiaires et les comptes sont quatre
+      // lectures indépendantes : les enchaîner quadruplerait l'attente pour rien.
+      const [dossier, pieces, beneficiaires, comptes] = await Promise.all([
         this.clients.dossier(entite, id),
         this.clients.pieces(entite, id),
         this.clients.beneficiaires(entite, id),
+        this.clients.comptes(entite, { partyId: id }, 0, 50),
       ]);
       this.dossier.set(dossier);
       this.pieces.set(pieces);
       this.beneficiaires.set(beneficiaires);
+      this.comptes.set(comptes.comptes);
     } catch (erreur) {
       this.refus.set(erreur instanceof RefusMetier
         ? erreur

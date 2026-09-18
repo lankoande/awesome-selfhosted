@@ -1487,11 +1487,68 @@ bouton. Le correctif est dans la primitive, donc pour les quarante écrans.
 
 ### Ce qui reste
 
+Voir §24, qui a levé le blocage de ce prochain pas.
+
+Les **sûretés** et la **consolidation** restent bloquées par les lacunes de contrat nommées au
+§20. Le **profil d'activité déclaré** et le **consentement au bureau d'information du crédit**
+appartiennent au dossier client et n'y sont pas encore. Le reste du paramétrage du siège —
+produits, agences, calendrier, barèmes — existe dans le socle avec son API et n'a pas encore
+d'écran.
+
+---
+
+## 24. Les comptes se désignent enfin
+
+Un écran par compte — le guichet des chèques, les mandats — supposait de **désigner un compte**.
+Le contrat ne le permettait pas : aucune route ne listait les comptes d'un client, ni ceux de la
+banque. Le seul moyen restant était de faire saisir un identifiant technique, ce que §20 avait
+déjà refusé pour les sûretés — *« ce qui n'est pas une interface »*.
+
+Le manque se voyait déjà dans le travail livré : les deux formulaires de l'espace Paiements
+demandaient l'identifiant du compte en toutes lettres. C'était le même trou, et il fallait le
+combler avant de construire dessus.
+
+### `GET /v1/entities/{id}/accounts`
+
+Les comptes **clients** de l'entité, par pages : ceux d'un titulaire (`partyId`), ceux d'une
+agence (`branchId`), ou ceux dont le numéro, le nom du titulaire ou sa référence contient `q`.
+Les trois filtres se combinent.
+
+Trois décisions dans cette route :
+
+**Seuls les comptes clients.** Les comptes généraux, internes, nostro, de suspens et de position
+sont de la comptabilité : ils se lisent par la balance et le grand livre, pas par un écran de
+guichet. Les mélanger donnerait à un guichetier une liste où le compte de caisse de l'agence
+voisine côtoie celui de son client.
+
+**Pas de solde.** Un solde se lit compte par compte, et cette lecture **laisse une trace**
+(`tracedOnRead`). En mettre un dans une liste ferait tracer cinquante lectures que personne n'a
+demandées, et noierait les traces qui comptent.
+
+**La cible est l'entité, comme pour la recherche de tiers.** Une liste n'a pas d'agence. C'est le
+corollaire direct de la correction du lot précédent : la portée `OWN_BRANCH` borne les **actes sur
+un objet** qui porte une agence, jamais une liste. Un écran qui veut ne montrer qu'une agence le
+demande par `branchId` — et le dit à son lecteur.
+
+### Ce que le poste en fait
+
+**Le dossier client montre ses comptes.** Il répondait à *« puis-je ouvrir un compte à cette
+personne ? »* sans jamais dire ce qu'elle en avait déjà. Numéro, produit, agence, devise, date
+d'ouverture, état — et **pas de solde**, avec la raison écrite à côté. Un compte clos reste
+visible, en retrait : le faire disparaître ferait croire qu'il n'a jamais existé, et un client
+s'en souvient.
+
+**Le choix d'un compte remplace la saisie d'un identifiant.** `cb-choix-compte` cherche par numéro,
+par nom ou par référence client, puis **montre en clair ce qui a été retenu** — numéro, titulaire,
+agence, devise. Ce qui part au socle doit se relire avant de partir. Les deux formulaires de
+l'espace Paiements s'en servent ; la coque des paiements fournit donc aussi le référentiel client,
+les deux étant chargées paresseusement.
+
+### Ce qui reste
+
 Les actes **par compte** des chèques — délivrer un chéquier, payer un chèque au guichet, faire
-opposition — et les **mandats** de prélèvement n'ont pas encore d'écran : le socle les expose par
-compte (`/accounts/{id}/cheque-books`, `/accounts/{id}/mandates`), sans liste à l'échelle de la
-banque, donc ils appartiennent au dossier client plutôt qu'à une file de compensation. C'est le
-prochain pas.
+opposition — et les **mandats** de prélèvement : le blocage est levé, ils n'attendent plus que
+leur écran.
 
 Les **sûretés** et la **consolidation** restent bloquées par les lacunes de contrat nommées au
 §20. Le **profil d'activité déclaré** et le **consentement au bureau d'information du crédit**

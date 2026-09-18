@@ -5,8 +5,8 @@ import { Socle } from '../api/socle';
 import { RefusMetier } from '../guichet/modele/guichet.modele';
 import { Clients } from './clients.port';
 import {
-  BeneficiaireEffectif, DemandeOuverture, DemandeTiers, Dossier, IssueOuverture,
-  PageTiers, Piece, ProduitOuvrable, Tiers,
+  BeneficiaireEffectif, CompteClient, DemandeOuverture, DemandeTiers, Dossier, IssueOuverture,
+  PageComptes, PageTiers, Piece, ProduitOuvrable, QuestionComptes, Tiers,
 } from './modele/clients.modele';
 
 interface Enveloppe<T> {
@@ -115,6 +115,46 @@ export class ClientsApi implements Clients {
     // Le socle rend l'identifiant, pas le tiers : on le relit pour disposer de
     // son état réel — connaissance client comprise — plutôt que de le supposer.
     return this.lire(demande.legalEntityId, cree.id ?? '');
+  }
+
+  async comptes(legalEntityId: string, question: QuestionComptes, page: number,
+                taille: number): Promise<PageComptes> {
+    const url = this.socle.url('/v1/entities/{legalEntityId}/accounts', { legalEntityId });
+    let parametres = new HttpParams().set('page', String(page)).set('size', String(taille));
+    if (question.partyId) {
+      parametres = parametres.set('partyId', question.partyId);
+    }
+    if (question.texte?.trim()) {
+      parametres = parametres.set('q', question.texte.trim());
+    }
+    try {
+      const enveloppe = await firstValueFrom(this.http.get<Enveloppe<Record<string, unknown>[]>>(
+        url, { params: parametres }));
+      return {
+        comptes: (enveloppe.data ?? []).map((brut) => this.compte(brut)),
+        page: enveloppe.page?.number ?? page,
+        precedent: enveloppe.page?.hasPrevious ?? page > 0,
+        suivant: enveloppe.page?.hasNext ?? false,
+      };
+    } catch (erreur) {
+      throw this.refus(erreur);
+    }
+  }
+
+  private compte(brut: Record<string, unknown>): CompteClient {
+    return {
+      id: texte(brut['id']) ?? '',
+      code: texte(brut['code']) ?? '',
+      currency: texte(brut['currency']) ?? '',
+      status: texte(brut['status']) ?? '',
+      branchId: texte(brut['branchId']),
+      branchCode: texte(brut['branchCode']),
+      productCode: texte(brut['productCode']),
+      holderId: texte(brut['holderId']),
+      holderReference: texte(brut['holderReference']),
+      holderName: texte(brut['holderName']),
+      openedOn: texte(brut['openedOn']),
+    };
   }
 
   async ouvrirCompte(demande: DemandeOuverture, cleIdempotence: string): Promise<IssueOuverture> {

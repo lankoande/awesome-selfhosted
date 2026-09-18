@@ -67,6 +67,19 @@ particulier, et une rubrique vide ferait croire à un oubli.
 On y lit qui détient l'entreprise et dans quelle proportion. Un bénéficiaire non vérifié empêche
 l'ouverture d'un compte, et le dossier le dit en haut.
 
+### Ses comptes
+
+Le dossier liste les comptes du client : numéro, produit, agence, devise, date d'ouverture et
+état. Un compte **clos** y reste, en retrait — le faire disparaître ferait croire qu'il n'a jamais
+existé, et un client s'en souvient.
+
+> **Les soldes n'y sont pas.** Un solde se lit compte par compte, au guichet, et cette lecture
+> laisse une trace. Une liste qui les afficherait tracerait cinquante consultations que personne
+> n'a demandées.
+
+Un client **sans compte** n'est pas une anomalie : il peut porter un crédit, ou n'être qu'un
+bénéficiaire effectif.
+
 ## Créer un client
 
 *Nouveau client* ne recueille que l'**identité** : nature (personne physique ou morale), nom ou

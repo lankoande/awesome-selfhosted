@@ -108,9 +108,10 @@
         </p>
 
         <div class="grille">
-          <cb-field etiquette="Compte à créditer" pour="compte" requis>
-            <input cbInput id="compte" name="compte" autocomplete="off" class="cb-mono"
-                   [value]="compte()" (input)="compte.set($any($event.target).value)" />
+          <cb-field etiquette="Compte à créditer" pour="compte" requis
+                    aide="Cherchez par numéro de compte, par nom ou par référence du client.">
+            <cb-choix-compte champId="compte" [compteId]="compte()"
+                             (compteIdChange)="compte.set($event)" />
           </cb-field>
 
           <cb-field etiquette="Montant" pour="montant" requis>

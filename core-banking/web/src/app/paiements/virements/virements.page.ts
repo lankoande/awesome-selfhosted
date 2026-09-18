@@ -6,6 +6,7 @@ import {
   CbActivity, CbAmount, CbAmountInput, CbButton, CbField, CbInput, CbNotice, CbPagination,
   CbSection, CbStateBadge, CbTable, CbToolbar, EtatOperation,
 } from '../../ui';
+import { CbChoixCompte } from '../../clients/composants/choix-compte';
 import {
   ACTES_A_MOTIF, ACTES_A_NOSTRO, Acte, actesSurOrdre, ATTENTE_ORDRE, DemandeOrdre, LIBELLE_ACTE,
   LIBELLE_STATUT_ORDRE, obstaclesAUnOrdre, OrdrePaiement, StatutOrdre,
@@ -37,7 +38,7 @@ const STATUTS: readonly StatutOrdre[] = ['ORDERED', 'SENT', 'SETTLED', 'RETURNED
   selector: 'cb-virements-emis',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CbActivity, CbAmount, CbAmountInput, CbButton, CbField, CbInput, CbNotice,
-            CbPagination, CbSection, CbStateBadge, CbTable, CbToolbar],
+            CbPagination, CbSection, CbStateBadge, CbTable, CbToolbar, CbChoixCompte],
   templateUrl: './virements.page.html',
   styleUrl: './virements.page.css',
 })

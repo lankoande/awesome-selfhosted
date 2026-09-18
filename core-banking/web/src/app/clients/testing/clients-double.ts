@@ -1,7 +1,7 @@
 import { Clients } from '../clients.port';
 import {
-  BeneficiaireEffectif, DemandeOuverture, DemandeTiers, Dossier, IssueOuverture,
-  PageTiers, Piece, ProduitOuvrable, Tiers,
+  BeneficiaireEffectif, CompteClient, DemandeOuverture, DemandeTiers, Dossier, IssueOuverture,
+  PageComptes, PageTiers, Piece, ProduitOuvrable, QuestionComptes, Tiers,
 } from '../modele/clients.modele';
 
 export const TIERS_DOUBLE_ID = '33333333-3333-4333-8333-000000004217';
@@ -47,11 +47,27 @@ export const DOSSIER_DOUBLE: Dossier = {
  * utile en test : on part de « rien ne bloque » et on ajoute l'obstacle qu'on
  * veut voir apparaître.
  */
+export const COMPTE_DOUBLE: CompteClient = {
+  id: 'cpt-1', code: '1001500021000000000018', currency: 'XOF', status: 'ACTIVE',
+  branchId: 'ag-1', branchCode: '00021', productCode: 'CPTE-CHQ-PART',
+  holderId: TIERS_DOUBLE_ID, holderReference: 'CLI-004217', holderName: 'SANKARA Aminata',
+  openedOn: '2021-03-12',
+};
+
 export class ClientsDouble implements Clients {
   readonly creations: DemandeTiers[] = [];
   readonly ouvertures: DemandeOuverture[] = [];
   readonly clesOuverture: string[] = [];
   readonly recherches: { q: string; page: number }[] = [];
+  readonly questionsComptes: QuestionComptes[] = [];
+
+  comptesRendus: readonly CompteClient[] = [COMPTE_DOUBLE];
+
+  async comptes(legalEntityId: string, question: QuestionComptes, page: number): Promise<PageComptes> {
+    this.questionsComptes.push(question);
+    return { comptes: this.comptesRendus, page, precedent: false, suivant: false };
+  }
+
 
   tiers: Tiers = TIERS_DOUBLE;
   dossierRendu: Dossier = DOSSIER_DOUBLE;

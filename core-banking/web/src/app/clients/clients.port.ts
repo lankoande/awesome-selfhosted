@@ -1,7 +1,7 @@
 import { InjectionToken } from '@angular/core';
 import {
   BeneficiaireEffectif, DemandeOuverture, DemandeTiers, Dossier, IssueOuverture,
-  PageTiers, Piece, ProduitOuvrable, Tiers,
+  PageComptes, PageTiers, Piece, ProduitOuvrable, QuestionComptes, Tiers,
 } from './modele/clients.modele';
 
 /**
@@ -39,6 +39,16 @@ export interface Clients {
    * second regard. Le refus, lui, remonte en exception.
    */
   ouvrirCompte(demande: DemandeOuverture, cleIdempotence: string): Promise<IssueOuverture>;
+
+  /**
+   * Les comptes clients : ceux d'un titulaire, ou ceux dont le numéro, le nom
+   * du titulaire ou sa référence contient le texte cherché.
+   *
+   * Sans cette lecture, un écran ne pouvait désigner un compte qu'en faisant
+   * saisir son identifiant technique — ce qui n'est pas une interface.
+   */
+  comptes(legalEntityId: string, question: QuestionComptes, page: number,
+          taille: number): Promise<PageComptes>;
 
   /**
    * Les produits ouvrables aujourd'hui. Le socle ne rend que les versions

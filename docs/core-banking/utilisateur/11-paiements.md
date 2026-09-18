@@ -43,6 +43,10 @@ C'est ce qui rend l'annulation possible — et seulement à ce moment-là.
 **Nouvel ordre** demande le compte à débiter, le montant, et le **bénéficiaire complet** : nom,
 banque, compte. Les trois sont obligatoires.
 
+Le compte à débiter se **cherche** — par son numéro, par le nom du client ou par sa référence —
+puis s'affiche en clair : numéro, titulaire, agence, devise. Relisez-le avant d'envoyer : c'est ce
+compte-là qui sera débité.
+
 Un virement mal adressé ne se perd pas tout de suite : il part, il cherche, et il revient des
 semaines plus tard. Entre-temps le client a cru son fournisseur payé.
 
@@ -77,8 +81,8 @@ Un client qui voit son solde augmenter et son disponible immobile appellera. La 
 
 ### Enregistrer une remise
 
-Le compte à créditer, le montant, la **banque tirée** — celle qui paiera — et le **numéro du
-chèque**. Ce numéro est ce qui distingue deux remises du même montant : sans lui, une recherche
+Le compte à créditer — cherché par numéro, par nom ou par référence, puis affiché en clair —, le
+montant, la **banque tirée** — celle qui paiera — et le **numéro du chèque**. Ce numéro est ce qui distingue deux remises du même montant : sans lui, une recherche
 d'impayé devient un travail d'enquête.
 
 ### Retourner impayée

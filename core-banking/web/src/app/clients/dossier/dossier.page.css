@@ -33,3 +33,15 @@
   .tableau th:nth-child(3), .tableau td:nth-child(3),
   .tableau th:nth-child(6), .tableau td:nth-child(6) { display: none; }
 }
+
+/* Les comptes du client. Un compte clos reste visible, en retrait : le faire
+   disparaître ferait croire qu'il n'a jamais existé, et un client s'en
+   souvient. */
+.clos td { color: var(--cb-muted); }
+
+.sans-solde {
+  margin: var(--cb-space-3) 0 0;
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+  max-width: 64ch;
+}
