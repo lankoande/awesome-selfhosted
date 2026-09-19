@@ -275,6 +275,125 @@ public final class Calendars {
     }
 
     /** Le calendrier rattache a une entite, s'il y en a un. */
+    // ------------------------------------------------------------------ lecture
+
+    /**
+     * Les conditions de banque d'une entite, telles qu'on les relit.
+     *
+     * <h2>Ce que cette lecture ferme</h2>
+     *
+     * <p>Un ferie, une regle de date de valeur et une heure limite se posaient a deux, et ne se
+     * relisaient nulle part. Un client qui demande pourquoi son virement est value au surlendemain
+     * n'obtenait de reponse qu'en interrogeant la base ; et celui qui parametre ajoutait une regle
+     * sans voir celles qui existaient deja — dont celle qu'il allait contredire.
+     *
+     * @param weekend jours de la semaine chomes, de 1 (lundi) a 7 (dimanche)
+     */
+    public record Conditions(String calendarCode, String calendarLabel, LocalDate coversFrom,
+                             LocalDate coversTo, java.util.List<Integer> weekend,
+                             java.util.List<Holiday> holidays, java.util.List<Rule> rules,
+                             java.util.List<Cutoff> cutoffs) {}
+
+    public record Holiday(LocalDate date, String label) {}
+
+    public record Rule(UUID id, String operationType, String channel, String direction, int offset,
+                       String unit, String convention, LocalDate validFrom, LocalDate validTo) {}
+
+    public record Cutoff(UUID id, String channel, String cutoffTime, boolean closesChannel,
+                         LocalDate validFrom, LocalDate validTo) {}
+
+    /** Les conditions de banque : calendrier, feries, regles de date de valeur, heures limites. */
+    public static Conditions conditions(Connection c, UUID legalEntityId) {
+        java.util.Optional<UUID> calendrier = calendarIdOf(c, legalEntityId);
+        String code = null;
+        String label = null;
+        LocalDate du = null;
+        LocalDate au = null;
+        java.util.List<Integer> weekend = new java.util.ArrayList<>();
+        java.util.List<Holiday> feries = new java.util.ArrayList<>();
+        if (calendrier.isPresent()) {
+            try (PreparedStatement ps = c.prepareStatement(
+                "SELECT code, label, covers_from, covers_to FROM business_calendar WHERE id = ?")) {
+                ps.setObject(1, calendrier.get());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        code = rs.getString(1);
+                        label = rs.getString(2);
+                        du = rs.getObject(3, LocalDate.class);
+                        au = rs.getObject(4, LocalDate.class);
+                    }
+                }
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Lecture du calendrier", e);
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                "SELECT day_of_week FROM calendar_weekend WHERE calendar_id = ?"
+                + " ORDER BY day_of_week")) {
+                ps.setObject(1, calendrier.get());
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        weekend.add(rs.getInt(1));
+                    }
+                }
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Lecture du week-end", e);
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                "SELECT holiday_date, label FROM calendar_holiday WHERE calendar_id = ?"
+                + " ORDER BY holiday_date")) {
+                ps.setObject(1, calendrier.get());
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        feries.add(new Holiday(rs.getObject(1, LocalDate.class), rs.getString(2)));
+                    }
+                }
+            } catch (SQLException e) {
+                throw new LedgerStoreException("Lecture des jours feries", e);
+            }
+        }
+
+        java.util.List<Rule> regles = new java.util.ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, operation_type, channel, direction, offset_days, offset_unit, convention,"
+            + " valid_from, valid_to FROM value_date_rule WHERE legal_entity_id = ?"
+            + " ORDER BY operation_type, direction, valid_from DESC")) {
+            ps.setObject(1, legalEntityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    regles.add(new Rule(
+                        rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3),
+                        rs.getString(4), rs.getInt(5), rs.getString(6), rs.getString(7),
+                        rs.getObject(8, LocalDate.class), rs.getObject(9, LocalDate.class)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des regles de date de valeur", e);
+        }
+
+        java.util.List<Cutoff> heures = new java.util.ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, channel, cutoff_time, closes_channel, valid_from, valid_to"
+            + "  FROM channel_cutoff WHERE legal_entity_id = ?"
+            + " ORDER BY COALESCE(channel, ''), valid_from DESC")) {
+            ps.setObject(1, legalEntityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    java.time.LocalTime heure = rs.getObject(3, java.time.LocalTime.class);
+                    heures.add(new Cutoff(
+                        rs.getObject(1, UUID.class), rs.getString(2),
+                        heure == null ? null : heure.toString(), rs.getBoolean(4),
+                        rs.getObject(5, LocalDate.class), rs.getObject(6, LocalDate.class)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des heures limites", e);
+        }
+
+        return new Conditions(code, label, du, au, java.util.List.copyOf(weekend),
+                              java.util.List.copyOf(feries), java.util.List.copyOf(regles),
+                              java.util.List.copyOf(heures));
+    }
+
     public static java.util.Optional<UUID> calendarIdOf(Connection c, UUID legalEntityId) {
         try (PreparedStatement ps = c.prepareStatement(
             "SELECT business_calendar_id FROM legal_entity WHERE id = ?")) {

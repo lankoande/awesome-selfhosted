@@ -5,6 +5,10 @@ import {
 import {
   CompteGeneral, EnteteVersion, FamilleProduit, Tranche, VersionComplete, VersionProduit,
 } from './modele/produits.modele';
+import {
+  Agence, ConditionsDeBanque, DemandeAgence, DemandeFerie, DemandeHeureLimite,
+  DemandeRegleDateValeur,
+} from './modele/reseau.modele';
 import { FiltreBalance, PageBalance, RunTfj, TotauxBalance } from './modele/siege.modele';
 
 /** Ce que rend une action soumise à un second regard. */
@@ -106,6 +110,41 @@ export interface Siege {
 
   /** Le plan comptable : les comptes qu'un paramétrage peut désigner. Sans solde. */
   comptesGeneraux(legalEntityId: string, texte: string): Promise<readonly CompteGeneral[]>;
+
+  // ---------------------------------------------------------------- réseau et calendrier
+
+  /** Les agences de l'entité, siège compris. */
+  agences(legalEntityId: string): Promise<readonly Agence[]>;
+
+  /**
+   * Crée une agence, à deux.
+   *
+   * Le code figure dans les numéros de compte qu'elle ouvrira : il ne se change plus ensuite, et
+   * c'est pourquoi une création se valide comme une opération.
+   */
+  creerAgence(legalEntityId: string, demande: DemandeAgence,
+              cleIdempotence: string): Promise<EnAttenteSiege>;
+
+  /**
+   * Les conditions de banque : calendrier, fériés, règles de date de valeur, heures limites.
+   *
+   * Une seule lecture pour les quatre : une date de valeur est le produit d'une règle, d'une heure
+   * limite et d'un calendrier — les lire séparément n'expliquerait aucune des dates qu'un client
+   * conteste.
+   */
+  conditions(legalEntityId: string): Promise<ConditionsDeBanque>;
+
+  /** Un férié déplace des dates de valeur et des échéances : à deux. */
+  ajouterFerie(legalEntityId: string, demande: DemandeFerie,
+               cleIdempotence: string): Promise<EnAttenteSiege>;
+
+  /** Une règle de date de valeur déplace des intérêts : à deux. */
+  ajouterRegle(legalEntityId: string, demande: DemandeRegleDateValeur,
+               cleIdempotence: string): Promise<EnAttenteSiege>;
+
+  /** Une heure limite décide de ce qui passe aujourd'hui et de ce qui passe demain : à deux. */
+  ajouterHeureLimite(legalEntityId: string, demande: DemandeHeureLimite,
+                     cleIdempotence: string): Promise<EnAttenteSiege>;
 }
 
 export const SIEGE = new InjectionToken<Siege>('Siege');

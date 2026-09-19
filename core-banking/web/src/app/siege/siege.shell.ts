@@ -73,6 +73,8 @@ export class SiegeShell {
     { chemin: 'balance', libelle: 'Balance générale' },
     { chemin: 'etablissement', libelle: 'Établissement' },
     { chemin: 'produits', libelle: 'Produits' },
+    { chemin: 'agences', libelle: 'Agences' },
+    { chemin: 'calendrier', libelle: 'Calendrier' },
     { chemin: 'numerotation', libelle: 'Numérotation' },
   ];
 }

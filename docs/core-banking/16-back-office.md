@@ -1769,3 +1769,61 @@ numérotation. Restent sans écran, avec API : **agences**, **calendrier** (jour
 valeur, heures limites), **schémas comptables**, **maquettes** (relevé et états financiers),
 **politiques** (KYC, crédit, risque, sûretés, suspens) et **change**. Après les produits, ce sont
 les agences et le calendrier qui bloquent le démarrage d'un établissement.
+
+
+## 27. Le réseau et les conditions de banque
+
+Les deux paramétrages qui bloquent le démarrage d'un établissement, après les produits. Même
+diagnostic que §26, à l'identique : le socle savait les **écrire**, il ne savait pas les **relire**.
+
+- `GET /branches` : une agence se créait par l'API et n'apparaissait ensuite nulle part — ni pour
+  vérifier qu'elle avait bien été créée, ni pour savoir à quoi elle était rattachée.
+- `GET /calendar` : un férié, une règle de date de valeur et une heure limite se posaient à deux et
+  ne se relisaient pas. Celui qui paramétrait ajoutait une règle **sans voir celles qui existaient
+  déjà** — dont celle qu'il allait contredire.
+
+Deux opérations nouvelles, `BRANCH_READ` et `CALENDAR_READ`, largement ouvertes et **non tracées** :
+un guichetier lit un code d'agence sur chaque compte, un chargé de clientèle explique une date de
+valeur à un client qui la conteste. Ce n'est pas de la donnée clientèle, et cela ne porte aucun
+montant.
+
+### Une seule lecture pour les conditions de banque
+
+`GET /calendar` rend le calendrier, les fériés, les règles de date de valeur et les heures limites
+**ensemble**. Ce n'est pas un raccourci : une date de valeur est le produit des quatre.
+
+> Un virement reçu à 15 h par la compensation, un jeudi veille de férié : la règle dit +2 jours
+> ouvrés, l'heure limite de 14 h 30 le repousse au lendemain, le calendrier saute le férié puis le
+> week-end. Les paramétrer sur quatre écrans séparés, c'est garantir qu'on ne saura jamais
+> expliquer la date qu'un client conteste.
+
+### Trois décisions d'écran
+
+**Une règle se lit en une phrase, pas en six colonnes.** *« TRANSFER (par CLEARING), au crédit :
++2 jours ouvrés, jour ouvré suivant. »* C'est la phrase qu'on répète au client ; six colonnes
+disent la même chose et personne ne les recompose de tête.
+
+**Le chevauchement d'heures limites est refusé avant l'envoi.** Le socle a une contrainte
+d'exclusion — deux heures de même portée sur des périodes qui se croisent rendraient la date de
+valeur dépendante de l'ordre de lecture. Son refus arriverait *après* le second regard : l'écran le
+dit à la saisie.
+
+**Le compte de liaison est exigé, avec sa raison.** Une écriture entre deux agences ne passe pas
+d'un compte client à l'autre : elle transite par un compte de liaison tenu au siège, dans la devise
+de l'opération. Sans lui, la première opération déplacée échoue — en agence, devant un client.
+L'écran en exige au moins un, et propose d'abord la devise de tenue.
+
+### Un défaut trouvé par une spécification
+
+L'arbre du réseau perdait des agences. Une agence dont le parent manque se rattachait déjà à la
+racine, mais **deux agences liées l'une à l'autre par erreur n'avaient aucune racine** : l'arbre
+les faisait disparaître toutes les deux. On aurait cherché l'agence au lieu de chercher le cycle.
+Toute agence non atteinte par la descente est maintenant ajoutée en fin de liste ; une spécification
+vérifie que le nombre de lignes rendues égale le nombre d'agences, toujours.
+
+### Le siège compte sept écrans
+
+Exploitation, balance, établissement, produits, **agences**, **calendrier**, numérotation. Restent
+sans écran, avec API : **schémas comptables**, **maquettes** (relevé et états financiers),
+**politiques** (KYC, crédit, risque, sûretés, suspens) et **change**. Aucun ne bloque plus le
+démarrage d'un établissement — ce sont des paramétrages qu'on affine, pas des préalables.

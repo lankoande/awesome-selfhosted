@@ -2,6 +2,10 @@ import { Injectable } from '@angular/core';
 import { Montant, RefusMetier } from '../guichet/modele/guichet.modele';
 import { FAMILLES_DEMONSTRATION } from './modele/produits.demonstration';
 import {
+  Agence, ConditionsDeBanque, DemandeAgence, DemandeFerie, DemandeHeureLimite,
+  DemandeRegleDateValeur, HeureLimite, JourFerie, RegleDateValeur,
+} from './modele/reseau.modele';
+import {
   actesSurVersion, CompteGeneral, EnteteVersion, FamilleProduit, manquesDuParametrage, Tranche,
   VersionComplete, VersionProduit,
 } from './modele/produits.modele';
@@ -220,6 +224,54 @@ const PARAMETRES: Record<string, Record<string, string>> = {
   'pv-ep-2027': { ...PARAMETRES_EPARGNE, 'interest.rate': '3' },
   'pv-dat-retire': {},
 };
+
+/** Un réseau à trois niveaux : le siège, deux régions, quatre agences. */
+const AGENCES: Agence[] = [
+  { id: 'siege', code: 'SIEGE', name: 'Siège', kind: 'HEAD_OFFICE', parentId: null,
+    status: 'ACTIVE', openedOn: '2014-01-02', closedOn: null },
+  { id: 'reg-centre', code: 'REG-CENTRE', name: 'Direction régionale du Centre', kind: 'REGION',
+    parentId: 'siege', status: 'ACTIVE', openedOn: '2016-04-01', closedOn: null },
+  { id: 'reg-ouest', code: 'REG-OUEST', name: 'Direction régionale de l’Ouest', kind: 'REGION',
+    parentId: 'siege', status: 'ACTIVE', openedOn: '2018-09-03', closedOn: null },
+  { id: 'ag-oua1', code: '00011', name: 'Ouagadougou Centre', kind: 'BRANCH',
+    parentId: 'reg-centre', status: 'ACTIVE', openedOn: '2014-01-02', closedOn: null },
+  { id: 'ag-oua2', code: '00021', name: 'Ouagadougou Gounghin', kind: 'BRANCH',
+    parentId: 'reg-centre', status: 'ACTIVE', openedOn: '2019-06-17', closedOn: null },
+  { id: 'ag-bobo', code: '00022', name: 'Bobo-Dioulasso', kind: 'BRANCH', parentId: 'reg-ouest',
+    status: 'ACTIVE', openedOn: '2018-09-03', closedOn: null },
+  { id: 'ag-banfora', code: '00031', name: 'Banfora', kind: 'BRANCH', parentId: 'reg-ouest',
+    status: 'CLOSED', openedOn: '2020-02-10', closedOn: '2025-03-31' },
+];
+
+const FERIES: JourFerie[] = [
+  { date: '2026-01-01', label: 'Jour de l’an' },
+  { date: '2026-01-03', label: 'Journée du soulèvement populaire' },
+  { date: '2026-05-01', label: 'Fête du travail' },
+  { date: '2026-08-05', label: 'Fête nationale' },
+  { date: '2026-11-01', label: 'Toussaint' },
+  { date: '2026-12-11', label: 'Proclamation de l’indépendance' },
+  { date: '2026-12-25', label: 'Noël' },
+];
+
+const REGLES_VALEUR: RegleDateValeur[] = [
+  { id: 'vd-1', operationType: 'CASH_DEPOSIT', channel: null, direction: 'CREDIT', offset: 0,
+    unit: 'CALENDAR_DAYS', convention: 'UNADJUSTED', validFrom: '2026-01-01', validTo: null },
+  { id: 'vd-2', operationType: 'CASH_WITHDRAWAL', channel: null, direction: 'DEBIT', offset: 0,
+    unit: 'CALENDAR_DAYS', convention: 'UNADJUSTED', validFrom: '2026-01-01', validTo: null },
+  { id: 'vd-3', operationType: 'TRANSFER', channel: 'CLEARING', direction: 'CREDIT', offset: 2,
+    unit: 'BUSINESS_DAYS', convention: 'FOLLOWING', validFrom: '2026-01-01', validTo: null },
+  { id: 'vd-4', operationType: 'TRANSFER', channel: 'CLEARING', direction: 'DEBIT', offset: 1,
+    unit: 'BUSINESS_DAYS', convention: 'FOLLOWING', validFrom: '2026-01-01', validTo: null },
+  { id: 'vd-5', operationType: 'CHEQUE_DEPOSIT', channel: null, direction: 'CREDIT', offset: 4,
+    unit: 'BUSINESS_DAYS', convention: 'FOLLOWING', validFrom: '2026-01-01', validTo: null },
+];
+
+const HEURES: HeureLimite[] = [
+  { id: 'co-1', channel: 'CLEARING', cutoffTime: '14:30', closesChannel: false,
+    validFrom: '2026-01-01', validTo: null },
+  { id: 'co-2', channel: 'BRANCH', cutoffTime: '16:00', closesChannel: false,
+    validFrom: '2026-01-01', validTo: null },
+];
 
 /**
  * Source de démonstration du siège.
@@ -624,6 +676,60 @@ export class SiegeFactice implements Siege {
         `La version est ${etat} : ${acte.toLowerCase()} n'est plus possible dans cet état.`);
     }
   }
+
+  // ------------------------------------------------------------ réseau et calendrier
+
+  private agencesEnCours: readonly Agence[] = AGENCES;
+  private feriesEnCours: readonly JourFerie[] = FERIES;
+  private reglesValeurEnCours: readonly RegleDateValeur[] = REGLES_VALEUR;
+  private heuresEnCours: readonly HeureLimite[] = HEURES;
+
+  async agences(): Promise<readonly Agence[]> {
+    await this.latence();
+    return this.agencesEnCours;
+  }
+
+  async creerAgence(legalEntityId: string, demande: DemandeAgence): Promise<EnAttenteSiege> {
+    await this.latence();
+    // Comme au socle : la création part à la validation, et l'agence n'existe pas avant.
+    this.derniereAgence = demande;
+    return { operationId: `op-agence-${Date.now()}` };
+  }
+
+  async conditions(): Promise<ConditionsDeBanque> {
+    await this.latence();
+    return {
+      calendarCode: 'BF', calendarLabel: 'Jours ouvrés — Burkina Faso',
+      coversFrom: '2026-01-01', coversTo: '2026-12-31', weekend: [6, 7],
+      holidays: this.feriesEnCours, rules: this.reglesValeurEnCours, cutoffs: this.heuresEnCours,
+    };
+  }
+
+  async ajouterFerie(legalEntityId: string, demande: DemandeFerie): Promise<EnAttenteSiege> {
+    await this.latence();
+    this.dernierFerie = demande;
+    return { operationId: `op-ferie-${Date.now()}` };
+  }
+
+  async ajouterRegle(legalEntityId: string,
+                     demande: DemandeRegleDateValeur): Promise<EnAttenteSiege> {
+    await this.latence();
+    this.derniereRegleValeur = demande;
+    return { operationId: `op-regle-valeur-${Date.now()}` };
+  }
+
+  async ajouterHeureLimite(legalEntityId: string,
+                           demande: DemandeHeureLimite): Promise<EnAttenteSiege> {
+    await this.latence();
+    this.derniereHeure = demande;
+    return { operationId: `op-heure-${Date.now()}` };
+  }
+
+  /** Ce que la démonstration a reçu : les écrans de bout en bout s'en servent. */
+  derniereAgence: DemandeAgence | null = null;
+  dernierFerie: DemandeFerie | null = null;
+  derniereRegleValeur: DemandeRegleDateValeur | null = null;
+  derniereHeure: DemandeHeureLimite | null = null;
 
   private latence(): Promise<void> {
     return this.latenceMs === 0 ? Promise.resolve() : new Promise((r) => setTimeout(r, this.latenceMs));

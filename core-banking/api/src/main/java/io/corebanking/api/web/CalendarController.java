@@ -1,8 +1,13 @@
 package io.corebanking.api.web;
 
+import io.corebanking.api.usecase.NetworkUseCases;
+import io.corebanking.calendar.Calendars;
+import io.corebanking.ledger.store.Database;
 import io.corebanking.security.Caller;
+import io.corebanking.security.UseCaseExecutor;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,9 +25,25 @@ import org.springframework.web.bind.annotation.RestController;
 public class CalendarController {
 
     private final MakerChecker makerChecker;
+    private final UseCaseExecutor executor;
+    private final NetworkUseCases.ReadCalendar conditions;
 
-    public CalendarController(MakerChecker makerChecker) {
+    public CalendarController(MakerChecker makerChecker, UseCaseExecutor executor,
+                              Database database) {
         this.makerChecker = makerChecker;
+        this.executor = executor;
+        this.conditions = new NetworkUseCases.ReadCalendar(database);
+    }
+
+    /**
+     * Les conditions de banque, ensemble.
+     *
+     * <p>Une date de valeur est le produit d'une regle, d'une heure limite et d'un calendrier :
+     * les lire separement ne permettrait d'expliquer aucune des dates que les clients contestent.
+     */
+    @GetMapping
+    public Calendars.Conditions conditions(Caller caller, @PathVariable UUID legalEntityId) {
+        return executor.run(caller, conditions, new NetworkUseCases.Query(legalEntityId));
     }
 
     @PostMapping("/value-date-rules")

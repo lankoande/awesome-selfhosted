@@ -121,7 +121,7 @@ class OperationCoverageTest {
         Operation.PARTY_FILE_READ, Operation.STANDING_ORDER_READ, Operation.TERM_DEPOSIT_READ,
         Operation.AML_READ, Operation.REGULATORY_READ, Operation.AUDIT_READ,
         Operation.PRODUCT_READ, Operation.ESTABLISHMENT_READ, Operation.NUMBERING_READ,
-        Operation.CHART_OF_ACCOUNTS_READ);
+        Operation.CHART_OF_ACCOUNTS_READ, Operation.BRANCH_READ, Operation.CALENDAR_READ);
 
     @Test
     @DisplayName("toute operation est reclamee par un point d'entree, ou est une consultation")

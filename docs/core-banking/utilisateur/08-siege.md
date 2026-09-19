@@ -1,10 +1,10 @@
 # 8. L'espace siège — exploitation, balance et paramétrage
 
-Cinq écrans, réservés aux profils d'exploitation comptable et de paramétrage. Deux servent tous
-les jours : **Fin de journée** (le traitement de clôture) et **Balance générale**. Trois servent
-au paramétrage : **Établissement** — la fiche de la banque —, **Produits** — ce que la banque vend
-et à quelles conditions — et **Numérotation** — comment se composent les numéros de clients et de
-comptes.
+Sept écrans, réservés aux profils d'exploitation comptable et de paramétrage. Deux servent tous
+les jours : **Fin de journée** (le traitement de clôture) et **Balance générale**. Cinq servent au
+paramétrage : **Établissement** — la fiche de la banque —, **Produits** — ce que la banque vend et
+à quelles conditions —, **Agences** — le réseau —, **Calendrier** — les conditions de banque — et
+**Numérotation** — comment se composent les numéros de clients et de comptes.
 
 L'ordre de la barre suit cet usage : ce qui se touche tous les jours vient devant.
 
@@ -290,3 +290,90 @@ montants.
 
 Seul acte du paramétrage produit qui ne se fasse pas à deux : un brouillon n'engage rien. Il n'est
 pas supprimé pour autant — il passe en *Retirée*, et reste lisible.
+
+
+---
+
+## Les agences
+
+![Le réseau : le siège, les régions, les agences.](captures/08-agences.png)
+
+Le réseau décide de l'imputation : chaque compte appartient à une agence, chaque solde se tient par
+agence, et une opération entre deux agences transite par un **compte de liaison** tenu au siège.
+
+La table se lit comme un arbre : le siège en tête, puis les directions régionales, puis leurs
+agences, décalées d'un cran à chaque niveau.
+
+### Créer une agence
+
+*Nouvelle agence*, puis le code, le nom, la nature (agence ou direction régionale), le rattachement
+et la date d'ouverture.
+
+> **Le code ne se change plus.** Il figure dans les numéros de compte que cette agence ouvrira.
+> C'est pourquoi une création se valide **à deux**, comme une opération.
+
+Une agence se rattache au siège ou à une région — jamais à une autre agence. Seul le siège n'a pas
+de parent.
+
+### Le compte de liaison
+
+C'est le champ qu'on oublie, et celui qui coûte le plus cher à oublier.
+
+> Une écriture entre deux agences ne passe pas d'un compte client à l'autre : elle transite par un
+> **compte de liaison** tenu au siège, **dans la devise de l'opération**. Sans lui, la première
+> opération déplacée échoue — en agence, devant un client.
+
+L'écran en exige au moins un, et propose d'abord la devise de tenue de la banque. Une banque qui
+opère en plusieurs devises en ajoute autant qu'elle en tient.
+
+---
+
+## Le calendrier et les conditions de banque
+
+![Les trois choses qui décident d'une date de valeur.](captures/08-calendrier.png)
+
+Une date de valeur est le produit de **trois** choses : une règle, une heure limite et le
+calendrier. C'est pourquoi elles sont sur le même écran.
+
+> Un virement reçu à 15 h par la compensation, un jeudi veille de férié : la règle dit +2 jours
+> ouvrés, l'heure limite de 14 h 30 le repousse au lendemain, le calendrier saute le férié puis le
+> week-end. Séparées sur trois écrans, ces trois choses ne permettraient jamais d'expliquer la date
+> qu'un client conteste.
+
+En tête : le calendrier rattaché, le week-end et la **période couverte**.
+
+> Hors de cette période, le calendrier **refuse de répondre** plutôt que de présumer qu'un jour non
+> saisi est ouvré. Il se prolonge avant d'arriver au bout — pas après.
+
+### Jours fériés
+
+Date et libellé. Le libellé est ce qui explique, des années après, pourquoi une échéance a été
+reportée.
+
+Un férié hors de la période couverte est refusé : il ne servirait à rien.
+
+### Dates de valeur
+
+Chaque règle s'affiche en **une phrase** — celle qu'on répète au client :
+
+> *TRANSFER (par CLEARING), au crédit : +2 jours ouvrés, jour ouvré suivant.*
+
+Une règle vise un **type d'opération**, un **sens** et éventuellement un **canal**.
+
+> **Le sens compte.** Les conditions de banque décalent rarement le débit et le crédit de la même
+> façon, et c'est précisément cette asymétrie qui se facture.
+
+Le décalage se compte en jours ouvrés ou calendaires ; la **convention** dit ce qui se passe quand
+la date tombe un jour chômé — reporter au jour ouvré suivant, au précédent, ou ne rien ajuster.
+
+Une règle déplace des intérêts : un jour de valeur sur un solde, c'est un jour d'intérêts gagné ou
+perdu, sur tous les comptes concernés. Elle se valide donc **à deux**.
+
+### Heures limites
+
+Au-delà de l'heure limite, l'opération prend la date de valeur du **jour ouvré suivant**. Une heure
+limite peut aussi **fermer le canal** : l'opération est alors refusée, et non reportée.
+
+> **Deux heures limites de même portée ne peuvent pas se chevaucher.** La date de valeur
+> dépendrait de l'ordre de lecture. L'écran refuse le chevauchement à la saisie — le système
+> central le refuserait aussi, mais après le second regard.

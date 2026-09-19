@@ -411,6 +411,162 @@
         },
         "type" : "object"
       },
+      "Branches.Branch" : {
+        "properties" : {
+          "closedOn" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "kind" : {
+            "enum" : [ "HEAD_OFFICE", "REGION", "BRANCH" ],
+            "type" : "string"
+          },
+          "legalEntityId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "openedOn" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "parentId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Calendars.Conditions" : {
+        "properties" : {
+          "calendarCode" : {
+            "type" : "string"
+          },
+          "calendarLabel" : {
+            "type" : "string"
+          },
+          "coversFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "coversTo" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "cutoffs" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Calendars.Cutoff"
+            },
+            "type" : "array"
+          },
+          "holidays" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Calendars.Holiday"
+            },
+            "type" : "array"
+          },
+          "rules" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Calendars.Rule"
+            },
+            "type" : "array"
+          },
+          "weekend" : {
+            "items" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "Calendars.Cutoff" : {
+        "properties" : {
+          "channel" : {
+            "type" : "string"
+          },
+          "closesChannel" : {
+            "type" : "boolean"
+          },
+          "cutoffTime" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "validFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "validTo" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Calendars.Holiday" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Calendars.Rule" : {
+        "properties" : {
+          "channel" : {
+            "type" : "string"
+          },
+          "convention" : {
+            "type" : "string"
+          },
+          "direction" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "offset" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "operationType" : {
+            "type" : "string"
+          },
+          "unit" : {
+            "type" : "string"
+          },
+          "validFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "validTo" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ChequeService.Book" : {
         "properties" : {
           "accountId" : {
@@ -8787,6 +8943,72 @@
       }
     },
     "/v1/entities/{legalEntityId}/branches" : {
+      "get" : {
+        "operationId" : "Branch.list",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "items" : {
+                        "$ref" : "#/components/schemas/Branches.Branch"
+                      },
+                      "type" : "array"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Branch" ]
+      },
       "post" : {
         "operationId" : "Branch.create",
         "parameters" : [ {
@@ -8861,6 +9083,71 @@
           }
         },
         "tags" : [ "Branch" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/calendar" : {
+      "get" : {
+        "operationId" : "Calendar.conditions",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/Calendars.Conditions"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "Calendar" ]
       }
     },
     "/v1/entities/{legalEntityId}/calendar/cutoffs" : {

@@ -12,6 +12,10 @@ import {
   BAREME_INTERETS, CompteGeneral, EnteteVersion, FamilleProduit, StatutVersion, Tranche,
   VersionComplete, VersionProduit,
 } from './modele/produits.modele';
+import {
+  Agence, ConditionsDeBanque, Convention, DemandeAgence, DemandeFerie, DemandeHeureLimite,
+  DemandeRegleDateValeur, HeureLimite, NatureAgence, RegleDateValeur, SensOperation, UniteDecalage,
+} from './modele/reseau.modele';
 import { EnAttenteSiege, Siege } from './siege.port';
 
 function texte(valeur: unknown): string | null {
@@ -386,6 +390,111 @@ export class SiegeApi implements Siege {
       approvedBy: texte(brute['approvedBy']),
       approvedAt: texte(brute['approvedAt']),
     };
+  }
+
+  // ------------------------------------------------------------ réseau et calendrier
+
+  async agences(legalEntityId: string): Promise<readonly Agence[]> {
+    const brutes = await this.lire<Record<string, unknown>[]>(
+      this.socle.url('/v1/entities/{legalEntityId}/branches', { legalEntityId }));
+    return (brutes ?? []).map((brute) => ({
+      id: texte(brute['id']) ?? '',
+      code: texte(brute['code']) ?? '',
+      name: texte(brute['name']) ?? '',
+      kind: (texte(brute['kind']) as NatureAgence | null) ?? 'BRANCH',
+      parentId: texte(brute['parentId']),
+      status: texte(brute['status']) ?? '',
+      openedOn: texte(brute['openedOn']),
+      closedOn: texte(brute['closedOn']),
+    }));
+  }
+
+  async creerAgence(legalEntityId: string, demande: DemandeAgence,
+                    cleIdempotence: string): Promise<EnAttenteSiege> {
+    return this.soumettre(
+      this.socle.url('/v1/entities/{legalEntityId}/branches', { legalEntityId }), {
+        code: demande.code,
+        name: demande.name,
+        kind: demande.kind,
+        parentId: demande.parentId,
+        openedOn: demande.openedOn,
+        liaisonAccounts: demande.liaisonAccounts,
+      }, cleIdempotence);
+  }
+
+  async conditions(legalEntityId: string): Promise<ConditionsDeBanque> {
+    const brut = await this.lire<Record<string, unknown>>(
+      this.socle.url('/v1/entities/{legalEntityId}/calendar', { legalEntityId }));
+    const liste = (valeur: unknown): Record<string, unknown>[] =>
+      Array.isArray(valeur) ? (valeur as Record<string, unknown>[]) : [];
+    return {
+      calendarCode: texte(brut?.['calendarCode']),
+      calendarLabel: texte(brut?.['calendarLabel']),
+      coversFrom: texte(brut?.['coversFrom']),
+      coversTo: texte(brut?.['coversTo']),
+      weekend: Array.isArray(brut?.['weekend'])
+        ? (brut['weekend'] as unknown[]).map((j) => Number(j))
+        : [],
+      holidays: liste(brut?.['holidays']).map((f) => ({
+        date: texte(f['date']) ?? '',
+        label: texte(f['label']) ?? '',
+      })),
+      rules: liste(brut?.['rules']).map<RegleDateValeur>((r) => ({
+        id: texte(r['id']) ?? '',
+        operationType: texte(r['operationType']) ?? '',
+        channel: texte(r['channel']),
+        direction: (texte(r['direction']) as SensOperation | null) ?? 'DEBIT',
+        offset: Number(r['offset'] ?? 0),
+        unit: (texte(r['unit']) as UniteDecalage | null) ?? 'CALENDAR_DAYS',
+        convention: (texte(r['convention']) as Convention | null) ?? 'UNADJUSTED',
+        validFrom: texte(r['validFrom']) ?? '',
+        validTo: texte(r['validTo']),
+      })),
+      cutoffs: liste(brut?.['cutoffs']).map<HeureLimite>((h) => ({
+        id: texte(h['id']) ?? '',
+        channel: texte(h['channel']),
+        // Le socle rend une heure locale : HH:mm:ss quand elle porte des secondes.
+        cutoffTime: (texte(h['cutoffTime']) ?? '').slice(0, 5),
+        closesChannel: h['closesChannel'] === true,
+        validFrom: texte(h['validFrom']) ?? '',
+        validTo: texte(h['validTo']),
+      })),
+    };
+  }
+
+  async ajouterFerie(legalEntityId: string, demande: DemandeFerie,
+                     cleIdempotence: string): Promise<EnAttenteSiege> {
+    return this.soumettre(
+      this.socle.url('/v1/entities/{legalEntityId}/calendar/holidays', { legalEntityId }),
+      { date: demande.date, label: demande.label }, cleIdempotence);
+  }
+
+  async ajouterRegle(legalEntityId: string, demande: DemandeRegleDateValeur,
+                     cleIdempotence: string): Promise<EnAttenteSiege> {
+    return this.soumettre(
+      this.socle.url('/v1/entities/{legalEntityId}/calendar/value-date-rules', { legalEntityId }),
+      {
+        operationType: demande.operationType,
+        channel: demande.channel,
+        direction: demande.direction,
+        offset: demande.offset,
+        unit: demande.unit,
+        convention: demande.convention,
+        validFrom: demande.validFrom,
+        validTo: demande.validTo,
+      }, cleIdempotence);
+  }
+
+  async ajouterHeureLimite(legalEntityId: string, demande: DemandeHeureLimite,
+                           cleIdempotence: string): Promise<EnAttenteSiege> {
+    return this.soumettre(
+      this.socle.url('/v1/entities/{legalEntityId}/calendar/cutoffs', { legalEntityId }), {
+        channel: demande.channel,
+        cutoffTime: demande.cutoffTime,
+        closesChannel: demande.closesChannel,
+        validFrom: demande.validFrom,
+        validTo: demande.validTo,
+      }, cleIdempotence);
   }
 
   private async soumettre(url: string, corps: unknown,

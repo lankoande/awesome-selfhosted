@@ -1,0 +1,182 @@
+<div class="ecran">
+  <cb-toolbar>
+    <h1>Agences</h1>
+    <span class="compte">
+      {{ ouvertes() }} ouverte{{ ouvertes() > 1 ? 's' : '' }} sur {{ agences().length }}
+    </span>
+    @if (droitDeCreer() && !saisie()) {
+      <button type="button" cbButton="primaire" (click)="ouvrirLaSaisie()">Nouvelle agence</button>
+    }
+    <button fin type="button" cbButton="secondaire" [disabled]="travaille()" (click)="charger()">
+      Rafraîchir
+    </button>
+  </cb-toolbar>
+
+  <p class="rappel">
+    Le réseau décide de l'imputation : chaque compte appartient à une agence, chaque solde se tient
+    par agence, et une opération entre deux agences transite par un <strong>compte de
+    liaison</strong> tenu au siège.
+  </p>
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+      @if (r.detail) { {{ r.detail }} }
+    </cb-notice>
+  }
+
+  @if (acquitte(); as message) {
+    <cb-notice nature="succes" titre="Demandé">{{ message }}</cb-notice>
+  }
+
+  <cb-activity [enCours]="travaille()" libelle="Lecture du réseau…" />
+
+  <div class="cb-table-scroll">
+    <table cbTable>
+      <caption class="cb-visually-hidden">Agences de l'établissement</caption>
+      <thead>
+        <tr>
+          <th scope="col">Code</th>
+          <th scope="col">Nom</th>
+          <th scope="col">Nature</th>
+          <th scope="col">Rattachement</th>
+          <th scope="col">Ouverte le</th>
+          <th scope="col">État</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (noeud of arbre(); track noeud.agence.id) {
+          <tr [class.close]="noeud.agence.status !== 'ACTIVE'">
+            <td class="cb-ref cb-mono">
+              <span class="decalage" [style.padding-left.rem]="noeud.profondeur * 1.25">
+                {{ noeud.agence.code }}
+              </span>
+            </td>
+            <td>{{ noeud.agence.name }}</td>
+            <td>{{ LIBELLE_NATURE_AGENCE[noeud.agence.kind] }}</td>
+            <td>{{ nomDuParent(noeud.agence) }}</td>
+            <td class="cb-mono">{{ noeud.agence.openedOn || '—' }}</td>
+            <td>
+              <cb-state-badge [etat]="etatDe(noeud.agence)" [mot]="libelleEtat(noeud.agence)" />
+            </td>
+          </tr>
+        } @empty {
+          @if (phase() === 'prete') {
+            <tr><td colspan="6" class="vide">
+              Aucune agence. Un établissement se crée avec son siège ; tant qu'il n'y a pas
+              d'agence, aucun compte client ne peut s'ouvrir.
+            </td></tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  @if (saisie()) {
+    <cb-section titre="Nouvelle agence" indication="création soumise à validation">
+      <p class="pourquoi">
+        Le <strong>code</strong> figure dans les numéros de compte que cette agence ouvrira : il ne
+        se change plus ensuite. C'est pourquoi une création se valide comme une opération.
+      </p>
+
+      <div class="grille">
+        <cb-field etiquette="Code" pour="code-agence" requis
+                  aide="Celui qui apparaîtra dans les numéros de compte.">
+          <input cbInput id="code-agence" name="code-agence" autocomplete="off" class="cb-mono"
+                 [value]="code()" (input)="code.set($any($event.target).value)" />
+        </cb-field>
+
+        <cb-field etiquette="Nom" pour="nom-agence" requis aide="Ce que lira le guichet.">
+          <input cbInput id="nom-agence" name="nom-agence" autocomplete="off" [value]="nom()"
+                 (input)="nom.set($any($event.target).value)" />
+        </cb-field>
+
+        <cb-field etiquette="Nature" pour="nature-agence" requis>
+          <select cbInput id="nature-agence" name="nature-agence" [value]="nature()"
+                  (change)="nature.set($any($event.target).value)">
+            @for (n of NATURES; track n) {
+              <option [value]="n">{{ LIBELLE_NATURE_AGENCE[n] }}</option>
+            }
+          </select>
+        </cb-field>
+
+        <cb-field etiquette="Rattachée à" pour="parent-agence" requis
+                  aide="Le siège, ou la région dont elle dépend.">
+          <select cbInput id="parent-agence" name="parent-agence" [value]="parent()"
+                  (change)="parent.set($any($event.target).value)">
+            <option value="">—</option>
+            @for (p of parents(); track p.id) {
+              <option [value]="p.id">{{ p.code }} · {{ p.name }}</option>
+            }
+          </select>
+        </cb-field>
+
+        <cb-field etiquette="Ouverte le" pour="ouverte-le" requis
+                  aide="C'est elle qui borne ce qu'on pourra lui imputer.">
+          <cb-date-input champId="ouverte-le" [valeur]="ouverteLe()"
+                         (valeurChange)="ouverteLe.set($event)" />
+        </cb-field>
+      </div>
+
+      <fieldset class="section">
+        <legend>Comptes de liaison</legend>
+        <p class="pourquoi">
+          Une écriture entre deux agences ne passe pas d'un compte client à l'autre : elle transite
+          par un compte de liaison tenu au siège, <strong>dans la devise de l'opération</strong>.
+          Sans lui, la première opération déplacée échoue — en agence, devant un client.
+        </p>
+
+        @for (ligne of lignesLiaison(); track ligne.devise) {
+          <cb-field [etiquette]="'Compte de liaison ' + ligne.devise"
+                    [pour]="'liaison-' + ligne.devise" requis>
+            <div class="liaison">
+              <cb-choix-compte-general [champId]="'liaison-' + ligne.devise"
+                                       [compteId]="ligne.compte"
+                                       (compteIdChange)="majLiaison(ligne.devise, $event)" />
+              @if (lignesLiaison().length > 1) {
+                <button type="button" cbButton="discret" (click)="retirerDevise(ligne.devise)">
+                  Retirer {{ ligne.devise }}
+                </button>
+              }
+            </div>
+          </cb-field>
+        }
+
+        <div class="ajout">
+          <input cbInput id="devise-neuve" name="devise-neuve" autocomplete="off" class="cb-mono"
+                 placeholder="EUR" maxlength="3"
+                 [attr.aria-label]="'Ajouter un compte de liaison dans une autre devise'"
+                 [value]="deviseNeuve()"
+                 (input)="deviseNeuve.set($any($event.target).value)"
+                 (keydown.enter)="$event.preventDefault(); ajouterDevise()" />
+          <button type="button" cbButton="secondaire" (click)="ajouterDevise()">
+            Ajouter une devise
+          </button>
+        </div>
+      </fieldset>
+
+      @if (creationADeux()) {
+        <cb-notice nature="information" titre="Cet acte part à la validation">
+          L'agence n'existera qu'après la validation d'un second. Rien ne peut lui être imputé
+          avant.
+        </cb-notice>
+      }
+
+      @if (obstacles().length > 0) {
+        <cb-notice nature="avertissement" titre="Cette agence ne peut pas être créée">
+          <ul class="obstacles">
+            @for (obstacle of obstacles(); track obstacle) { <li>{{ obstacle }}</li> }
+          </ul>
+        </cb-notice>
+      }
+
+      <div class="actions">
+        <button type="button" cbButton="primaire"
+                [disabled]="travaille() || obstacles().length > 0" (click)="creer()">
+          Créer l'agence
+        </button>
+        <button type="button" cbButton="discret" [disabled]="travaille()"
+                (click)="fermerLaSaisie()">Annuler</button>
+      </div>
+    </cb-section>
+  }
+</div>

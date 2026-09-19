@@ -1,0 +1,362 @@
+<div class="ecran">
+  <cb-toolbar>
+    <h1>Calendrier et conditions de banque</h1>
+    @if (conditions().calendarLabel; as nom) {
+      <span class="compte">{{ nom }}</span>
+    }
+    <button fin type="button" cbButton="secondaire" [disabled]="travaille()" (click)="charger()">
+      Rafraîchir
+    </button>
+  </cb-toolbar>
+
+  <p class="rappel">
+    Une date de valeur est le produit de trois choses : une <strong>règle</strong>, une
+    <strong>heure limite</strong> et le <strong>calendrier</strong>. Un virement reçu à 15 h par la
+    compensation, un jeudi veille de férié, ne prend pas la même valeur qu'un virement reçu le
+    matin — et c'est ici que cela se décide.
+  </p>
+
+  @if (conditions().calendarCode) {
+    <dl class="fiche">
+      <dt>Calendrier</dt>
+      <dd>{{ conditions().calendarCode }} · {{ conditions().calendarLabel }}</dd>
+      <dt>Week-end</dt><dd>{{ weekend() || '—' }}</dd>
+      <dt>Période couverte</dt>
+      <dd class="cb-mono">{{ conditions().coversFrom }} → {{ conditions().coversTo }}</dd>
+    </dl>
+    <p class="rappel">
+      Hors de cette période, le calendrier <strong>refuse de répondre</strong> plutôt que de
+      présumer qu'un jour non saisi est ouvré. Il se prolonge avant d'arriver au bout.
+    </p>
+  } @else if (phase() === 'prete') {
+    <cb-notice nature="avertissement" titre="Aucun calendrier n'est rattaché à cet établissement">
+      Sans calendrier, aucune règle de date de valeur en jours ouvrés ne peut s'appliquer : le
+      socle ne sait pas quels jours sont ouvrés. C'est un paramétrage de démarrage.
+    </cb-notice>
+  }
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+      @if (r.detail) { {{ r.detail }} }
+    </cb-notice>
+  }
+
+  @if (acquitte(); as message) {
+    <cb-notice nature="succes" titre="Demandé">{{ message }}</cb-notice>
+  }
+
+  <cb-activity [enCours]="travaille()" libelle="Lecture des conditions de banque…" />
+
+  <cb-tabs [onglets]="onglets()" [(actif)]="onglet" etiquette="Conditions de banque" />
+
+  <!-- ------------------------------------------------------------ jours fériés -->
+  @if (onglet() === 'feries') {
+    <section class="panneau" role="tabpanel" aria-labelledby="onglet-feries">
+      <div class="tete">
+        <p class="pourquoi">
+          Un férié déplace les dates de valeur et les échéances qui tombent dessus. Le libellé est
+          ce qui explique, des années après, pourquoi une échéance a été reportée.
+        </p>
+        @if (droitDeParametrer() && saisie() !== 'ferie') {
+          <button type="button" cbButton="primaire" (click)="ouvrirLaSaisie('ferie')">
+            Déclarer un férié
+          </button>
+        }
+      </div>
+
+      @if (saisie() === 'ferie') {
+        <cb-section titre="Nouveau jour férié" indication="soumis à validation">
+          <div class="grille">
+            <cb-field etiquette="Date" pour="date-ferie" requis>
+              <cb-date-input champId="date-ferie" [valeur]="dateFerie()"
+                             (valeurChange)="dateFerie.set($event)" />
+            </cb-field>
+            <cb-field etiquette="Libellé" pour="libelle-ferie" requis
+                      aide="Fête nationale, Tabaski, Lundi de Pâques…">
+              <input cbInput id="libelle-ferie" name="libelle-ferie" autocomplete="off"
+                     [value]="libelleFerie()"
+                     (input)="libelleFerie.set($any($event.target).value)" />
+            </cb-field>
+          </div>
+
+          @if (aDeux()) {
+            <cb-notice nature="information" titre="Cet acte part à la validation">
+              Le jour ne sera férié qu'après validation d'un second.
+            </cb-notice>
+          }
+
+          @if (obstaclesFerie().length > 0) {
+            <cb-notice nature="avertissement" titre="Ce férié ne peut pas être déclaré">
+              <ul class="obstacles">
+                @for (obstacle of obstaclesFerie(); track obstacle) { <li>{{ obstacle }}</li> }
+              </ul>
+            </cb-notice>
+          }
+
+          <div class="actions">
+            <button type="button" cbButton="primaire"
+                    [disabled]="travaille() || obstaclesFerie().length > 0"
+                    (click)="ajouterFerie()">Déclarer le férié</button>
+            <button type="button" cbButton="discret" [disabled]="travaille()"
+                    (click)="fermerLaSaisie()">Annuler</button>
+          </div>
+        </cb-section>
+      }
+
+      <div class="cb-table-scroll">
+        <table cbTable>
+          <caption class="cb-visually-hidden">Jours fériés</caption>
+          <thead>
+            <tr><th scope="col">Date</th><th scope="col">Libellé</th></tr>
+          </thead>
+          <tbody>
+            @for (ferie of conditions().holidays; track ferie.date) {
+              <tr>
+                <td class="cb-mono cb-ref">{{ ferie.date }}</td>
+                <td>{{ ferie.label }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="2" class="vide">
+                Aucun jour férié déclaré. Seul le week-end est chômé — ce qui est rarement exact.
+              </td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+
+  <!-- ------------------------------------------------------------ dates de valeur -->
+  @if (onglet() === 'regles') {
+    <section class="panneau" role="tabpanel" aria-labelledby="onglet-regles">
+      <div class="tete">
+        <p class="pourquoi">
+          Une règle décale la date de valeur d'une opération. Elle vise un type d'opération, un
+          sens, et éventuellement un canal — <strong>les conditions de banque décalent rarement le
+          débit et le crédit de la même façon</strong>, et c'est précisément cette asymétrie qui se
+          facture.
+        </p>
+        @if (droitDeParametrer() && saisie() !== 'regle') {
+          <button type="button" cbButton="primaire" (click)="ouvrirLaSaisie('regle')">
+            Nouvelle règle
+          </button>
+        }
+      </div>
+
+      @if (saisie() === 'regle') {
+        <cb-section titre="Nouvelle règle de date de valeur" indication="soumise à validation">
+          <p class="pourquoi">
+            Une règle déplace des intérêts : un jour de valeur sur un solde, c'est un jour
+            d'intérêts gagné ou perdu, sur tous les comptes concernés.
+          </p>
+
+          <div class="grille">
+            <cb-field etiquette="Type d'opération" pour="type-operation" requis
+                      aide="TRANSFER, CASH_DEPOSIT, CHEQUE_DEPOSIT…">
+              <input cbInput id="type-operation" name="type-operation" autocomplete="off"
+                     class="cb-mono" [value]="typeOperation()"
+                     (input)="typeOperation.set($any($event.target).value)" />
+            </cb-field>
+
+            <cb-field etiquette="Canal" pour="canal-regle"
+                      aide="Vide : la règle vaut pour tous les canaux.">
+              <input cbInput id="canal-regle" name="canal-regle" autocomplete="off" class="cb-mono"
+                     placeholder="CLEARING" [value]="canalRegle()"
+                     (input)="canalRegle.set($any($event.target).value)" />
+            </cb-field>
+
+            <cb-field etiquette="Sens" pour="sens-regle" requis>
+              <select cbInput id="sens-regle" name="sens-regle" [value]="sens()"
+                      (change)="sens.set($any($event.target).value)">
+                @for (s of SENS; track s) {
+                  <option [value]="s">{{ LIBELLE_SENS_OPERATION[s] }}</option>
+                }
+              </select>
+            </cb-field>
+
+            <cb-field etiquette="Décalage" pour="decalage" requis
+                      aide="Zéro pour une valeur du jour ; négatif pour une valeur antérieure.">
+              <input cbInput id="decalage" name="decalage" autocomplete="off" class="cb-mono"
+                     inputmode="numeric" [value]="decalage() ?? ''"
+                     (input)="majDecalage($any($event.target).value)" />
+            </cb-field>
+
+            <cb-field etiquette="Unité" pour="unite" requis>
+              <select cbInput id="unite" name="unite" [value]="unite()"
+                      (change)="unite.set($any($event.target).value)">
+                @for (u of UNITES; track u) {
+                  <option [value]="u">{{ LIBELLE_UNITE[u] }}</option>
+                }
+              </select>
+            </cb-field>
+
+            <cb-field etiquette="Si la date tombe un jour chômé" pour="convention" requis>
+              <select cbInput id="convention" name="convention" [value]="convention()"
+                      (change)="convention.set($any($event.target).value)">
+                @for (c of CONVENTIONS; track c) {
+                  <option [value]="c">{{ LIBELLE_CONVENTION[c] }}</option>
+                }
+              </select>
+            </cb-field>
+
+            <cb-field etiquette="En vigueur du" pour="regle-du" requis>
+              <cb-date-input champId="regle-du" [valeur]="regleDu()"
+                             (valeurChange)="regleDu.set($event)" />
+            </cb-field>
+
+            <cb-field etiquette="Jusqu'au" pour="regle-au" aide="Vide : sans terme.">
+              <cb-date-input champId="regle-au" [valeur]="regleAu()"
+                             (valeurChange)="regleAu.set($event)" />
+            </cb-field>
+          </div>
+
+          @if (aDeux()) {
+            <cb-notice nature="information" titre="Cet acte part à la validation">
+              La règle ne s'appliquera qu'après validation d'un second.
+            </cb-notice>
+          }
+
+          @if (obstaclesRegle().length > 0) {
+            <cb-notice nature="avertissement" titre="Cette règle ne peut pas être posée">
+              <ul class="obstacles">
+                @for (obstacle of obstaclesRegle(); track obstacle) { <li>{{ obstacle }}</li> }
+              </ul>
+            </cb-notice>
+          }
+
+          <div class="actions">
+            <button type="button" cbButton="primaire"
+                    [disabled]="travaille() || obstaclesRegle().length > 0"
+                    (click)="ajouterRegle()">Poser la règle</button>
+            <button type="button" cbButton="discret" [disabled]="travaille()"
+                    (click)="fermerLaSaisie()">Annuler</button>
+          </div>
+        </cb-section>
+      }
+
+      <ul class="regles">
+        @for (regle of conditions().rules; track regle.id) {
+          <li [class.close]="estClose(regle.validTo)">
+            <p class="phrase">{{ phraseDeLaRegle(regle) }}</p>
+            <p class="validite cb-mono">
+              {{ regle.validFrom }} → {{ regle.validTo || 'sans terme' }}
+            </p>
+          </li>
+        } @empty {
+          <li class="vide">
+            Aucune règle. Toute opération prend alors la valeur du jour de son enregistrement.
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
+  <!-- ------------------------------------------------------------ heures limites -->
+  @if (onglet() === 'heures') {
+    <section class="panneau" role="tabpanel" aria-labelledby="onglet-heures">
+      <div class="tete">
+        <p class="pourquoi">
+          Au-delà de l'heure limite, l'opération prend la date de valeur du <strong>jour ouvré
+          suivant</strong>. Une heure limite peut aussi <strong>fermer le canal</strong> : plus rien
+          ne passe jusqu'au lendemain.
+        </p>
+        @if (droitDeParametrer() && saisie() !== 'heure') {
+          <button type="button" cbButton="primaire" (click)="ouvrirLaSaisie('heure')">
+            Nouvelle heure limite
+          </button>
+        }
+      </div>
+
+      @if (saisie() === 'heure') {
+        <cb-section titre="Nouvelle heure limite" indication="soumise à validation">
+          <div class="grille">
+            <cb-field etiquette="Canal" pour="canal-heure"
+                      aide="Vide : l'heure vaut pour tous les canaux.">
+              <input cbInput id="canal-heure" name="canal-heure" autocomplete="off" class="cb-mono"
+                     placeholder="CLEARING" [value]="canalHeure()"
+                     (input)="canalHeure.set($any($event.target).value)" />
+            </cb-field>
+
+            <cb-field etiquette="Heure limite" pour="heure-limite" requis aide="Au format HH:mm.">
+              <input cbInput id="heure-limite" name="heure-limite" autocomplete="off"
+                     class="cb-mono" placeholder="14:30" [value]="heure()"
+                     (input)="heure.set($any($event.target).value)" />
+            </cb-field>
+
+            <cb-field etiquette="En vigueur du" pour="heure-du" requis>
+              <cb-date-input champId="heure-du" [valeur]="heureDu()"
+                             (valeurChange)="heureDu.set($event)" />
+            </cb-field>
+
+            <cb-field etiquette="Jusqu'au" pour="heure-au" aide="Vide : sans terme.">
+              <cb-date-input champId="heure-au" [valeur]="heureAu()"
+                             (valeurChange)="heureAu.set($event)" />
+            </cb-field>
+          </div>
+
+          <label class="bascule">
+            <input type="checkbox" [checked]="fermeLeCanal()"
+                   (change)="fermeLeCanal.set($any($event.target).checked)" />
+            <span>
+              Au-delà, <strong>fermer le canal</strong> — l'opération est refusée, et non reportée
+            </span>
+          </label>
+
+          @if (aDeux()) {
+            <cb-notice nature="information" titre="Cet acte part à la validation">
+              L'heure limite ne s'appliquera qu'après validation d'un second.
+            </cb-notice>
+          }
+
+          @if (obstaclesHeure().length > 0) {
+            <cb-notice nature="avertissement" titre="Cette heure limite ne peut pas être posée">
+              <ul class="obstacles">
+                @for (obstacle of obstaclesHeure(); track obstacle) { <li>{{ obstacle }}</li> }
+              </ul>
+            </cb-notice>
+          }
+
+          <div class="actions">
+            <button type="button" cbButton="primaire"
+                    [disabled]="travaille() || obstaclesHeure().length > 0"
+                    (click)="ajouterHeureLimite()">Poser l'heure limite</button>
+            <button type="button" cbButton="discret" [disabled]="travaille()"
+                    (click)="fermerLaSaisie()">Annuler</button>
+          </div>
+        </cb-section>
+      }
+
+      <div class="cb-table-scroll">
+        <table cbTable>
+          <caption class="cb-visually-hidden">Heures limites par canal</caption>
+          <thead>
+            <tr>
+              <th scope="col">Canal</th>
+              <th scope="col">Heure</th>
+              <th scope="col">Au-delà</th>
+              <th scope="col">Validité</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (limite of conditions().cutoffs; track limite.id) {
+              <tr [class.close]="estClose(limite.validTo)">
+                <td class="cb-mono cb-ref">{{ limite.channel || 'tous canaux' }}</td>
+                <td class="cb-mono">{{ limite.cutoffTime }}</td>
+                <td>
+                  {{ limite.closesChannel ? 'Canal fermé — l’opération est refusée'
+                                          : 'Valeur du jour ouvré suivant' }}
+                </td>
+                <td class="cb-mono">{{ limite.validFrom }} → {{ limite.validTo || 'sans terme' }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="4" class="vide">
+                Aucune heure limite. Toute opération de la journée prend la valeur du jour, quelle
+                que soit l'heure à laquelle elle arrive.
+              </td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+</div>

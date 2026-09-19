@@ -5,7 +5,29 @@ import {
 import {
   CompteGeneral, EnteteVersion, FamilleProduit, Tranche, VersionComplete, VersionProduit,
 } from '../modele/produits.modele';
+import {
+  Agence, ConditionsDeBanque, DemandeAgence, DemandeFerie, DemandeHeureLimite,
+  DemandeRegleDateValeur,
+} from '../modele/reseau.modele';
 import { FiltreBalance, PageBalance, RunTfj, TotauxBalance } from '../modele/siege.modele';
+
+export const RESEAU_DOUBLE: readonly Agence[] = [
+  { id: 'siege', code: 'SIEGE', name: 'Siège', kind: 'HEAD_OFFICE', parentId: null,
+    status: 'ACTIVE', openedOn: '2014-01-02', closedOn: null },
+  { id: 'ag-1', code: '00021', name: 'Ouagadougou Gounghin', kind: 'BRANCH', parentId: 'siege',
+    status: 'ACTIVE', openedOn: '2019-06-17', closedOn: null },
+];
+
+export const CONDITIONS_DOUBLE: ConditionsDeBanque = {
+  calendarCode: 'BF', calendarLabel: 'Jours ouvrés — Burkina Faso', coversFrom: '2026-01-01',
+  coversTo: '2026-12-31', weekend: [6, 7],
+  holidays: [{ date: '2026-08-05', label: 'Fête nationale' }],
+  rules: [{ id: 'vd-1', operationType: 'TRANSFER', channel: 'CLEARING', direction: 'CREDIT',
+            offset: 2, unit: 'BUSINESS_DAYS', convention: 'FOLLOWING', validFrom: '2026-01-01',
+            validTo: null }],
+  cutoffs: [{ id: 'co-1', channel: 'CLEARING', cutoffTime: '14:30', closesChannel: false,
+              validFrom: '2026-01-01', validTo: null }],
+};
 import { EnAttenteSiege, Siege } from '../siege.port';
 
 /** Une famille taillée au plus court : intérêts obligatoires, agios exigeants dès qu'on y touche. */
@@ -203,6 +225,43 @@ export class SiegeDouble implements Siege {
   }
 
   versionsRendues: readonly VersionProduit[] = [VERSION_EN_VIGUEUR, VERSION_BROUILLON];
+
+  // -------------------------------------------------------------- réseau et calendrier
+
+  async agences(): Promise<readonly Agence[]> {
+    return RESEAU_DOUBLE;
+  }
+
+  async creerAgence(legalEntityId: string, demande: DemandeAgence): Promise<EnAttenteSiege> {
+    this.derniereAgence = demande;
+    return { operationId: 'op-agence' };
+  }
+
+  async conditions(): Promise<ConditionsDeBanque> {
+    return CONDITIONS_DOUBLE;
+  }
+
+  async ajouterFerie(legalEntityId: string, demande: DemandeFerie): Promise<EnAttenteSiege> {
+    this.dernierFerie = demande;
+    return { operationId: 'op-ferie' };
+  }
+
+  async ajouterRegle(legalEntityId: string,
+                     demande: DemandeRegleDateValeur): Promise<EnAttenteSiege> {
+    this.derniereRegleValeur = demande;
+    return { operationId: 'op-regle-valeur' };
+  }
+
+  async ajouterHeureLimite(legalEntityId: string,
+                           demande: DemandeHeureLimite): Promise<EnAttenteSiege> {
+    this.derniereHeure = demande;
+    return { operationId: 'op-heure' };
+  }
+
+  derniereAgence: DemandeAgence | null = null;
+  dernierFerie: DemandeFerie | null = null;
+  derniereRegleValeur: DemandeRegleDateValeur | null = null;
+  derniereHeure: DemandeHeureLimite | null = null;
 
   /** Ce que la spec vient vérifier : le poste a-t-il envoyé ce qu'il fallait ? */
   derniereCorrection: DemandeEtablissement | null = null;

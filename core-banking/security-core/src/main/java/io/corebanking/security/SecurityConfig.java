@@ -512,6 +512,20 @@ public final class SecurityConfig {
             AccessRule.allow(PRODUCT_MANAGER, RISK_OFFICER)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
+        // Le reseau et les conditions de banque sont du referentiel : tout le monde en a besoin.
+        // Un guichetier lit un code d'agence sur chaque compte ; un charge de clientele explique
+        // une date de valeur a un client qui la conteste. Aucune trace a la lecture : ce ne sont
+        // pas des donnees de clientele, et elles ne portent aucun montant.
+        policy.put(Operation.BRANCH_READ,
+            AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER, ACCOUNTANT, AUDITOR,
+                             PRODUCT_MANAGER, RISK_OFFICER, OPERATOR)
+                .within(Scope.OWN_ENTITY).build());
+
+        policy.put(Operation.CALENDAR_READ,
+            AccessRule.allow(TELLER, CUSTOMER_OFFICER, BRANCH_MANAGER, ACCOUNTANT, AUDITOR,
+                             PRODUCT_MANAGER, RISK_OFFICER, OPERATOR)
+                .within(Scope.OWN_ENTITY).build());
+
         // Designer un compte d'imputation est le prealable a tout parametrage : un taux se porte
         // sur un compte de charges, une commission sur un compte de produits. Sans cette lecture,
         // ces champs se remplissent avec un identifiant technique recopie d'ailleurs.

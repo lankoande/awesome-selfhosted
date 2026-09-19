@@ -231,8 +231,12 @@ public enum Operation {
     NUMBERING_ACTIVATE,
     /** Calendriers, jours feries, regles de date de valeur. */
     CALENDAR_MANAGE,
+    /** Lecture des conditions de banque : feries, regles de date de valeur, heures limites. */
+    CALENDAR_READ,
     /** Creation d'une agence ou d'une region, avec ses comptes de liaison. */
     BRANCH_MANAGE,
+    /** Lecture du reseau : les agences de l'entite et leur rattachement. */
+    BRANCH_READ,
     /** Creation d'une caisse : compte de caisse, guichetier titulaire, compte d'ecart. */
     TILL_MANAGE,
     /**

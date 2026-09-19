@@ -2593,6 +2593,21 @@ class ApiIT {
                                Map.of());
         assertThat(refusee.status()).as(String.valueOf(refusee.body())).isNotEqualTo(200);
 
+        // ------------------------------------------------------------------ reseau et calendrier
+        // Les deux se posaient a deux et ne se relisaient nulle part : une agence creee
+        // n'apparaissait dans aucun ecran, et un ferie ou une regle de date de valeur ne se
+        // verifiaient qu'en interrogeant la base.
+        List<Map<String, Object>> reseau = get(officer, "/branches").items();
+        assertThat(reseau).as("le siege figure dans le reseau")
+            .extracting(b -> b.get("kind")).contains("HEAD_OFFICE");
+        assertThat(reseau).extracting(b -> b.get("code")).isNotEmpty();
+
+        Reponse calendrier = get(officer, "/calendar");
+        assertThat(calendrier.status()).as(String.valueOf(calendrier.body())).isEqualTo(200);
+        // Une seule lecture pour les quatre : une date de valeur est le produit d'une regle,
+        // d'une heure limite et d'un calendrier.
+        assertThat(calendrier.body()).containsKeys("holidays", "rules", "cutoffs", "weekend");
+
         // ------------------------------------------------------------------ le plan comptable
         // Un parametrage designe des comptes d'imputation. Sans cette lecture, ces champs se
         // remplissaient avec un identifiant technique recopie d'ailleurs.

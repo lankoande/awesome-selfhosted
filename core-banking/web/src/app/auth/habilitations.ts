@@ -62,6 +62,11 @@ export const OPERATION_PAR_ECRAN: Readonly<Record<string, string>> = {
   // ce qui est ouvrable. Rédiger, activer et fermer portent chacun leur droit, et ce sont les
   // boutons qui les voient, pas la navigation.
   'siege/produits': 'PRODUCT_READ',
+  // Le réseau et les conditions de banque se lisent largement — un guichetier lit un code
+  // d'agence sur chaque compte, un chargé de clientèle explique une date de valeur. Créer une
+  // agence ou poser une règle porte son propre droit, et ce sont les boutons qui le voient.
+  'siege/agences': 'BRANCH_READ',
+  'siege/calendrier': 'CALENDAR_READ',
   'guichet/versement': 'CASH_OPERATION',
   'guichet/retrait': 'CASH_OPERATION',
   'guichet/virement': 'TRANSFER',

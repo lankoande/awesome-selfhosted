@@ -68,6 +68,17 @@ export const routes: Routes = [
         loadComponent: () => import('./siege/produits/produits.page').then((m) => m.Produits),
       },
       {
+        path: 'agences',
+        title: 'Siège — agences',
+        loadComponent: () => import('./siege/agences/agences.page').then((m) => m.Agences),
+      },
+      {
+        path: 'calendrier',
+        title: 'Siège — calendrier et conditions de banque',
+        loadComponent: () => import('./siege/calendrier/calendrier.page')
+          .then((m) => m.Calendrier),
+      },
+      {
         path: 'numerotation',
         title: 'Siège — numérotation',
         loadComponent: () => import('./siege/numerotation/numerotation.page')

@@ -427,9 +427,25 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["Branch.list"];
         put?: never;
         post: operations["Branch.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entities/{legalEntityId}/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["Calendar.conditions"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2664,6 +2680,66 @@ export interface components {
             ownershipPercent?: number;
             /** Format: uuid */
             partyId?: string;
+            /** Format: date */
+            validTo?: string;
+        };
+        "Branches.Branch": {
+            /** Format: date */
+            closedOn?: string;
+            code?: string;
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            kind?: "HEAD_OFFICE" | "REGION" | "BRANCH";
+            /** Format: uuid */
+            legalEntityId?: string;
+            name?: string;
+            /** Format: date */
+            openedOn?: string;
+            /** Format: uuid */
+            parentId?: string;
+            status?: string;
+        };
+        "Calendars.Conditions": {
+            calendarCode?: string;
+            calendarLabel?: string;
+            /** Format: date */
+            coversFrom?: string;
+            /** Format: date */
+            coversTo?: string;
+            cutoffs?: components["schemas"]["Calendars.Cutoff"][];
+            holidays?: components["schemas"]["Calendars.Holiday"][];
+            rules?: components["schemas"]["Calendars.Rule"][];
+            weekend?: number[];
+        };
+        "Calendars.Cutoff": {
+            channel?: string;
+            closesChannel?: boolean;
+            cutoffTime?: string;
+            /** Format: uuid */
+            id?: string;
+            /** Format: date */
+            validFrom?: string;
+            /** Format: date */
+            validTo?: string;
+        };
+        "Calendars.Holiday": {
+            /** Format: date */
+            date?: string;
+            label?: string;
+        };
+        "Calendars.Rule": {
+            channel?: string;
+            convention?: string;
+            direction?: string;
+            /** Format: uuid */
+            id?: string;
+            /** Format: int32 */
+            offset?: number;
+            operationType?: string;
+            unit?: string;
+            /** Format: date */
+            validFrom?: string;
             /** Format: date */
             validTo?: string;
         };
@@ -6424,6 +6500,43 @@ export interface operations {
             500: components["responses"]["500"];
         };
     };
+    "Branch.list": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Branches.Branch"][];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
     "Branch.create": {
         parameters: {
             query?: never;
@@ -6452,6 +6565,43 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["MakerChecker.View"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "Calendar.conditions": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Calendars.Conditions"];
                         error: null;
                         meta: components["schemas"]["Meta"];
                         page: null;
