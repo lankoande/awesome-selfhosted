@@ -96,7 +96,8 @@ public final class DualControlHandlers {
                        new ActivateCollateralPolicy(database), new ActivateRiskProfile(database),
                        new ActivateAccountingSchema(database),
                        new CloseAccountingSchema(database),
-                       new ActivateStatementLayout(database), new SetAccountLimit(database, accounts),
+                       new ActivateStatementLayout(database), new CloseStatementLayout(database),
+                       new SetAccountLimit(database, accounts),
                        new IssueChequeBook(cheques, accounts),
                        new RegisterMandate(directDebits, accounts),
                        new SetSuspensePolicy(database), new QuoteFxRate(database),
@@ -2234,6 +2235,59 @@ public final class DualControlHandlers {
     }
 
     /** Activation d'une maquette d'etat financier : jamais par son redacteur. */
+    /**
+     * Fermeture de la validite d'une maquette.
+     *
+     * <p>C'est ainsi qu'une maquette cesse de s'appliquer : un etat se produit a une date, y
+     * compris passee, et seule une maquette active se resout — la suspendre changerait la
+     * presentation d'un bilan deja transmis au superviseur.
+     *
+     * <p>C'est surtout ce qui permet d'en activer une suivante : une seule maquette active par
+     * nature d'etat et par date.
+     */
+    static final class CloseStatementLayout implements MakerChecker.Handler {
+        private final Database database;
+
+        CloseStatementLayout(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "STATEMENT_LAYOUT_CLOSE"; }
+        @Override public Operation operation() { return Operation.STATEMENT_LAYOUT_CLOSE; }
+
+        private io.corebanking.ledger.store.StatementLayouts.Layout require(
+                Map<String, Object> payload) {
+            UUID id = uuid(payload, "layoutId");
+            return database.inTransaction(
+                    c -> io.corebanking.ledger.store.StatementLayouts.find(c, id))
+                .filter(layout -> layout.legalEntityId().equals(uuid(payload, "legalEntityId")))
+                .orElseThrow(() -> new ParameterUseCases.UnknownParameterException(
+                    "Maquette d'etat", id));
+        }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(require(payload).legalEntityId());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "layoutId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            io.corebanking.ledger.store.StatementLayouts.Layout layout = require(payload);
+            LocalDate validTo = date(payload, "validTo");
+            database.inTransaction(c -> {
+                io.corebanking.ledger.store.StatementLayouts.close(
+                    c, layout.legalEntityId(), layout.id(), validTo);
+                return null;
+            });
+            return Map.of("layoutId", layout.id(), "code", layout.code(), "validTo", validTo);
+        }
+    }
+
     static final class ActivateStatementLayout implements MakerChecker.Handler {
         private final Database database;
 

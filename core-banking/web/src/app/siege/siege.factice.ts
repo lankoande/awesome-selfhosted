@@ -16,6 +16,13 @@ import {
 import {
   EtapeRun, FiltreBalance, LigneBalance, PageBalance, RunTfj, TotauxBalance,
 } from './modele/siege.modele';
+import {
+  DemandeFermetureMaquette, EnteteMaquette, EtatProduit, Maquette,
+  MaquetteComplete, NatureEtat, RegleSaisie, RubriqueSaisie,
+} from './modele/maquettes.modele';
+import {
+  MAQUETTES_COMPLETES, MAQUETTES_DEMONSTRATION, ORPHELINS_DEMONSTRATION,
+} from './modele/maquettes.demonstration';
 import { CATALOGUE_DEMONSTRATION } from './modele/schemas.demonstration';
 import { essaiDeDemonstration } from './modele/schemas.essai-demonstration';
 import {
@@ -730,6 +737,122 @@ export class SiegeFactice implements Siege {
     this.derniereHeure = demande;
     return { operationId: `op-heure-${Date.now()}` };
   }
+
+  // ------------------------------------------------------------ maquettes d'états financiers
+
+  private maquettesEnCours: readonly Maquette[] = MAQUETTES_DEMONSTRATION;
+
+  async maquettes(legalEntityId: string, nature: NatureEtat | null,
+                  statut: string | null): Promise<readonly Maquette[]> {
+    await this.latence();
+    return this.maquettesEnCours.filter((maquette) =>
+      (!nature || maquette.kind === nature) && (!statut || maquette.status === statut));
+  }
+
+  async maquette(legalEntityId: string, layoutId: string): Promise<MaquetteComplete> {
+    await this.latence();
+    const trouvee = MAQUETTES_COMPLETES[layoutId];
+    if (!trouvee) {
+      throw new RefusMetier(404, 'MAQUETTE_INCONNUE', 'Maquette introuvable.',
+                            'Aucune maquette ne porte cet identifiant.');
+    }
+    return trouvee;
+  }
+
+  /**
+   * L'essai : la maquette appliquée au journal de démonstration.
+   *
+   * Les montants sont ceux de la démonstration ; ce qui compte ici est le **contrôle** — une
+   * maquette incomplète laisse des comptes sans rubrique, et l'état ne s'équilibre pas.
+   */
+  async essayerMaquette(legalEntityId: string, layoutId: string, du: string | null,
+                        au: string | null): Promise<EtatProduit> {
+    await this.latence();
+    const maquette = MAQUETTES_COMPLETES[layoutId];
+    if (!maquette) {
+      throw new RefusMetier(404, 'MAQUETTE_INCONNUE', 'Maquette introuvable.',
+                            'Aucune maquette ne porte cet identifiant.');
+    }
+    const complete = maquette.rules.length > 1;
+    const orphelins = complete ? [] : ORPHELINS_DEMONSTRATION;
+    const montants: Readonly<Record<string, string>> = complete
+      ? { A1: '42500000', A2: '18400000', A3: '350000', TA: '61250000',
+          P1: '96250000', P2: '-35125000', PR: '125000', TP: '61250000',
+          C1: '1850000', R1: '1975000', RES: '125000' }
+      : { A1: '42500000', P1: '0' };
+    return {
+      kind: maquette.kind,
+      layoutId,
+      layoutCode: maquette.code,
+      layoutLabel: maquette.label,
+      currency: 'XOF',
+      from: maquette.kind === 'INCOME_STATEMENT' ? (du ?? '2026-01-01') : null,
+      to: au ?? '2026-09-18',
+      lines: maquette.lines.map((rubrique) => ({
+        ordinal: rubrique.ordinal,
+        code: rubrique.code,
+        label: rubrique.label,
+        level: rubrique.level,
+        kind: rubrique.kind,
+        side: rubrique.side,
+        amount: { amount: montants[rubrique.code] ?? '0', currency: 'XOF' },
+      })),
+      totalDebit: { amount: complete ? '61250000' : '42500000', currency: 'XOF' },
+      totalCredit: { amount: complete ? '61250000' : '0', currency: 'XOF' },
+      net: { amount: complete ? '0' : '-42500000', currency: 'XOF' },
+      // Comme le socle : les comptes sans rubrique ont leur propre liste, et `anomalies` ne
+      // porte que ce qui ne va pas dans l'état lui-même.
+      consistent: complete,
+      anomalies: complete ? [] : ["L'etat ne s'equilibre pas : 42500000 XOF de plus au debit "
+                                  + "qu'au credit"],
+      unassigned: orphelins,
+    };
+  }
+
+  async redigerMaquette(legalEntityId: string, entete: EnteteMaquette,
+                        rubriques: readonly RubriqueSaisie[],
+                        regles: readonly RegleSaisie[]): Promise<{ readonly id: string }> {
+    await this.latence();
+    this.derniereMaquette = { entete, rubriques, regles };
+    const id = `mq-${this.maquettesEnCours.length + 1}`;
+    this.maquettesEnCours = [...this.maquettesEnCours, {
+      id, kind: entete.kind, code: entete.code, label: entete.label,
+      validFrom: entete.validFrom ?? '', validTo: entete.validTo, status: 'DRAFT',
+      createdBy: null, createdAt: new Date().toISOString(), approvedBy: null, approvedAt: null,
+      withdrawnBy: null, withdrawnAt: null,
+    }];
+    return { id };
+  }
+
+  async activerMaquette(legalEntityId: string, layoutId: string): Promise<EnAttenteSiege> {
+    await this.latence();
+    this.derniereActivationMaquette = layoutId;
+    return { operationId: 'op-maquette' };
+  }
+
+  async fermerMaquette(legalEntityId: string, layoutId: string,
+                       demande: DemandeFermetureMaquette): Promise<EnAttenteSiege> {
+    await this.latence();
+    this.derniereFermetureMaquette = { layoutId, validTo: demande.validTo };
+    return { operationId: 'op-fermeture-maquette' };
+  }
+
+  async retirerMaquette(legalEntityId: string, layoutId: string): Promise<void> {
+    await this.latence();
+    this.dernierRetraitMaquette = layoutId;
+    this.maquettesEnCours = this.maquettesEnCours.map((maquette) => maquette.id === layoutId
+      ? { ...maquette, status: 'WITHDRAWN' as const, withdrawnAt: new Date().toISOString() }
+      : maquette);
+  }
+
+  derniereMaquette: {
+    entete: EnteteMaquette;
+    rubriques: readonly RubriqueSaisie[];
+    regles: readonly RegleSaisie[];
+  } | null = null;
+  derniereActivationMaquette: string | null = null;
+  derniereFermetureMaquette: { layoutId: string; validTo: string | null } | null = null;
+  dernierRetraitMaquette: string | null = null;
 
   // ------------------------------------------------------------ schémas comptables
 

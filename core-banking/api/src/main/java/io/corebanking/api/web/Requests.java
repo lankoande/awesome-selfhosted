@@ -447,6 +447,9 @@ public final class Requests {
                                        LocalDate validTo, List<StatementLineRequest> lines,
                                        List<StatementRuleRequest> rules) {}
 
+    /** Fermeture de la validite d'une maquette : ce qui libere la place pour la suivante. */
+    public record StatementLayoutClosure(LocalDate validTo) {}
+
     // ------------------------------------------------------------------ schemas comptables
 
     public record SchemaLine(String account, String direction, String amount, String label,

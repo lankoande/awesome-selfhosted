@@ -1,11 +1,12 @@
 # 8. L'espace siège — exploitation, balance et paramétrage
 
-Huit écrans, réservés aux profils d'exploitation comptable et de paramétrage. Deux servent tous
-les jours : **Fin de journée** (le traitement de clôture) et **Balance générale**. Six servent au
+Neuf écrans, réservés aux profils d'exploitation comptable et de paramétrage. Deux servent tous
+les jours : **Fin de journée** (le traitement de clôture) et **Balance générale**. Sept servent au
 paramétrage : **Établissement** — la fiche de la banque —, **Produits** — ce que la banque vend et
 à quelles conditions —, **Agences** — le réseau —, **Calendrier** — les conditions de banque —,
-**Schémas comptables** — la traduction de chaque événement en écritures — et **Numérotation** —
-comment se composent les numéros de clients et de comptes.
+**Schémas comptables** — la traduction de chaque événement en écritures —, **États financiers** —
+ce que la banque présente au superviseur — et **Numérotation** — comment se composent les numéros
+de clients et de comptes.
 
 L'ordre de la barre suit cet usage : ce qui se touche tous les jours vient devant.
 
@@ -483,3 +484,91 @@ de servir dans deux filiales aux plans comptables différents.
 > un acte à part entière plutôt qu'un détail.
 
 ![L'écran des schémas comptables](captures/08-schemas.png)
+
+---
+
+## Les maquettes d'états financiers
+
+Une **maquette** décide de ce que la banque **présente** : les rubriques d'un bilan, d'un compte de
+résultat ou d'un hors bilan, et les **règles** qui affectent chaque compte du plan interne à l'une
+d'elles.
+
+> C'est la table de correspondance entre le plan comptable interne et l'état présenté au
+> superviseur — généralisée au sens du solde, parce qu'un compte de client débiteur est une
+> créance et le même compte créditeur un dépôt.
+
+### Les règles se lisent dans l'ordre
+
+**La première règle qui reconnaît un compte l'emporte.** C'est l'auteur qui écrit la précédence,
+pas le hasard d'un chevauchement. Chaque règle s'affiche en une phrase :
+
+> *Affecte à « Créances sur la clientèle » : les comptes de clients dont le solde est débiteur.*
+
+À la rédaction, les règles se **déplacent** — leur rang est l'ordre de la liste, il ne se saisit
+pas. Et l'écran signale une règle qu'une précédente recouvre entièrement : elle ne s'appliquera
+jamais.
+
+> **Ce défaut-là ne se voit pas autrement.** Une règle morte ne fait rien échouer : elle laisse
+> simplement une rubrique vide dans le bilan, et on cherche longtemps pourquoi.
+
+### Essayer avant d'activer
+
+C'est le cœur de l'écran. **« Essayer sur le journal »** applique la maquette aux écritures
+réelles et montre l'état qu'elle produirait — sans rien produire d'officiel, et sans rien écrire.
+
+Les contrôles sont ceux de la production :
+
+| Contrôle | Ce qu'il veut dire |
+|---|---|
+| Comptes sans rubrique | Aucune règle ne les reconnaît. L'état les ignore : il est donc faux. |
+| L'état ne s'équilibre pas | L'actif diffère du passif — presque toujours une conséquence du précédent. |
+| Résultat antérieur non clos | L'exercice précédent n'est pas clos ; le bilan ne le présente pas. |
+| Résultat de l'exercice non présenté | La maquette n'a pas de rubrique de résultat, et il y en a un. |
+
+> **Sans l'essai, on activait à deux une maquette qui laisse quarante comptes de côté, et on
+> l'apprenait en lisant un bilan faux — après l'avoir transmis.**
+
+### Un compte sans rubrique se corrige d'un geste
+
+Chaque compte resté sans rubrique porte un bouton **« Ajouter la règle »**. Il ouvre la rédaction
+sur la maquette essayée — on ne la réécrit pas pour ajouter une règle — et remplit la règle
+manquante avec la **nature du compte** et le **sens de son solde** déjà repris.
+
+> Le sens compte : un compte de client débiteur est une créance, créditeur un dépôt. Une règle qui
+> ignore le sens enverrait les deux dans la même rubrique.
+
+### Rédiger une maquette
+
+Trois natures d'état, et chacune présente autre chose :
+
+- **Bilan** — les soldes des comptes de bilan à une date, plus le résultat de l'exercice en cours.
+  L'actif doit égaler le passif.
+- **Compte de résultat** — les mouvements des comptes de charges et de produits sur une période,
+  l'exercice en cours par défaut. Son solde est le résultat.
+- **Hors bilan** — les engagements donnés et reçus à une date.
+
+Une rubrique est de **détail** (elle reçoit des comptes), de **total** (elle somme des rubriques
+qui la précèdent) ou porte le **résultat de l'exercice** — cette dernière n'existe qu'au bilan, se
+présente au crédit, et reçoit un montant que le socle calcule seul.
+
+L'écran signale **tous** les défauts de la saisie en même temps : deux rubriques au même code, un
+total qui somme une rubrique absente ou postérieure, une règle qui vise un total. Le système
+central, lui, s'arrête au premier — corriger quarante rubriques une erreur à la fois serait un
+supplice.
+
+### Activer, fermer, retirer
+
+- **Activer** se fait à deux, et jamais par le rédacteur.
+- **Retirer** ne vaut que sur un brouillon, et se fait seul.
+- **Fermer la validité** est le seul acte possible sur une maquette en vigueur, et il se fait à
+  deux.
+
+> **Une maquette en vigueur ne se retire pas.** Un état se produit à une date, y compris passée, et
+> seule une maquette active se résout : la sortir de cet état changerait la présentation d'un bilan
+> déjà transmis au superviseur.
+
+> **Une seule maquette active par nature d'état et par date.** Tant que le bilan en vigueur n'a pas
+> de terme, aucune maquette de bilan suivante ne peut être activée — l'écran le dit dès la
+> rédaction, plutôt que de laisser écrire quarante rubriques pour rien.
+
+![L'écran des maquettes d'états financiers](captures/08-maquettes.png)

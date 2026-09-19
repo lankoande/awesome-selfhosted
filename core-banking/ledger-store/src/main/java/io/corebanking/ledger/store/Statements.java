@@ -43,16 +43,31 @@ public final class Statements {
                              Direction side, Money amount) {}
 
     /**
+     * Un compte qu'aucune regle n'affecte a une rubrique.
+     *
+     * <p>Rendu en donnee, et pas seulement dans la phrase d'anomalie : c'est ce qui permet a un
+     * ecran de proposer la regle manquante sur le compte lui-meme. Une anomalie qu'on peut
+     * corriger d'un geste vaut mieux qu'une anomalie qu'on doit recopier.
+     *
+     * @param side sens du solde ; une regle peut viser ce sens-la seulement
+     */
+    public record Unassigned(String code, AccountKind accountKind, Direction side, Money amount) {}
+
+    /**
      * @param from       premier jour des mouvements presentes ; nul pour un etat de soldes
      * @param to         date de l'etat
      * @param net        credit moins debit des rubriques de detail : le resultat d'un compte de
      *                   resultat, et zero pour un bilan ou un hors bilan qui se tiennent
-     * @param consistent aucune anomalie : tout compte affecte, l'etat equilibre s'il doit l'etre
+     * @param anomalies  ce qui ne va pas dans l'etat lui-meme : desequilibre, resultat anterieur
+     *                   non clos, rubrique du resultat absente
+     * @param consistent ni anomalie ni compte sans rubrique
+     * @param unassigned les comptes que la maquette laisse de cote, avec de quoi ecrire la regle
      */
     public record Statement(Kind kind, UUID layoutId, String layoutCode, String layoutLabel,
                             UUID legalEntityId, String currency, LocalDate from, LocalDate to,
                             List<LineAmount> lines, Money totalDebit, Money totalCredit, Money net,
-                            boolean consistent, List<String> anomalies) {}
+                            boolean consistent, List<String> anomalies,
+                            List<Unassigned> unassigned) {}
 
     public static Statement balanceSheet(Connection c, UUID legalEntityId, LocalDate asOf) {
         return produce(c, legalEntityId, Kind.BALANCE_SHEET, null,
@@ -74,6 +89,31 @@ public final class Statements {
         return produce(c, legalEntityId, Kind.INCOME_STATEMENT, from, to);
     }
 
+    /**
+     * Le meme etat, produit avec une maquette <b>nommee</b> plutot que celle en vigueur.
+     *
+     * <p>C'est la seule facon d'eprouver un brouillon. Sans elle, on activait a deux une maquette
+     * qui laisse quarante comptes sans rubrique, et on l'apprenait en lisant un bilan faux —
+     * apres l'avoir transmis. Les controles sont les memes : aucune indulgence pour un essai,
+     * sinon l'essai ne vaut rien.
+     *
+     * <p>Aucune ecriture : un essai lit le journal, il ne le touche pas.
+     */
+    public static Statement preview(Connection c, UUID legalEntityId, Layout layout,
+                                    LocalDate from, LocalDate to) {
+        Objects.requireNonNull(layout, "layout");
+        Objects.requireNonNull(to, "to");
+        if (layout.kind() == Kind.INCOME_STATEMENT) {
+            Objects.requireNonNull(from, "from");
+            if (from.isAfter(to)) {
+                throw new IllegalArgumentException(
+                    "Plage de dates inversee : du " + from + " au " + to);
+            }
+            return produce(c, legalEntityId, layout, from, to);
+        }
+        return produce(c, legalEntityId, layout, null, to);
+    }
+
     // ------------------------------------------------------------------ production
 
     /** Un compte et son solde en contre-valeur, positif au debit. */
@@ -81,10 +121,17 @@ public final class Statements {
 
     private static Statement produce(Connection c, UUID legalEntityId, Kind kind, LocalDate from,
                                      LocalDate to) {
-        Layout layout = StatementLayouts.resolveAt(c, legalEntityId, kind, to);
+        return produce(c, legalEntityId, StatementLayouts.resolveAt(c, legalEntityId, kind, to),
+                       from, to);
+    }
+
+    private static Statement produce(Connection c, UUID legalEntityId, Layout layout,
+                                     LocalDate from, LocalDate to) {
+        Kind kind = layout.kind();
         CurrencyRef functional = Entities.functionalCurrency(c, legalEntityId);
         Money zero = Money.zero(functional);
         List<String> anomalies = new ArrayList<>();
+        List<Unassigned> unassigned = new ArrayList<>();
         Map<String, Money> amounts = new LinkedHashMap<>();
         for (Line line : layout.lines()) {
             amounts.put(line.code(), zero);
@@ -96,10 +143,11 @@ public final class Statements {
             Optional<Rule> rule = layout.rules().stream()
                 .filter(r -> r.matches(account.code(), account.kind(), side)).findFirst();
             if (rule.isEmpty()) {
-                anomalies.add("Compte " + account.code() + " : solde "
-                              + account.debitSigned().abs().roundToCurrency()
-                              + (side == Direction.DEBIT ? " debiteur" : " crediteur")
-                              + " qu'aucune regle n'affecte a une rubrique");
+                // Le compte sans rubrique n'entre pas dans anomalies : il a sa propre liste, en
+                // donnee. Melanger quarante comptes a un desequilibre donne une liste que
+                // personne ne lit, et un ecran qui dit deux fois la meme chose.
+                unassigned.add(new Unassigned(account.code(), account.kind(), side,
+                                              account.debitSigned().abs()));
                 continue;
             }
             Line line = layout.line(rule.get().lineCode()).orElseThrow();
@@ -147,7 +195,8 @@ public final class Statements {
         }
         return new Statement(kind, layout.id(), layout.code(), layout.label(), legalEntityId,
                              functional.code(), from, to, lines, totalDebit, totalCredit, net,
-                             anomalies.isEmpty(), List.copyOf(anomalies));
+                             anomalies.isEmpty() && unassigned.isEmpty(), List.copyOf(anomalies),
+                             List.copyOf(unassigned));
     }
 
     /**

@@ -71,6 +71,10 @@ export const OPERATION_PAR_ECRAN: Readonly<Record<string, string>> = {
   // ses provisions sur des imputations qu'il doit pouvoir lire, l'audit les demande en
   // premier. Rédiger, activer et fermer portent chacun leur droit.
   'siege/schemas': 'ACCOUNTING_SCHEMA_READ',
+  // Une maquette d'état financier ne porte ni montant ni donnée de clientèle : la lire
+  // n'est pas lire le grand livre. L'audit la demande en premier, le risque calibre ses
+  // provisions sur des états qu'il doit pouvoir lire.
+  'siege/maquettes': 'STATEMENT_LAYOUT_READ',
   'guichet/versement': 'CASH_OPERATION',
   'guichet/retrait': 'CASH_OPERATION',
   'guichet/virement': 'TRANSFER',

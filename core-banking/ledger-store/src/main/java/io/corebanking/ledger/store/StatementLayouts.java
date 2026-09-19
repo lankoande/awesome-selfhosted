@@ -9,6 +9,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -282,6 +283,136 @@ public final class StatementLayouts {
         } catch (SQLException e) {
             throw new LedgerStoreException("Recherche de la maquette " + kind + " au " + date, e);
         }
+    }
+
+    /** En-tete d'une maquette : ce qui se lit dans une liste, sans en ouvrir le detail. */
+    public record Summary(UUID id, Kind kind, String code, String label, LocalDate validFrom,
+                          LocalDate validTo, String status, UUID createdBy, Instant createdAt,
+                          UUID approvedBy, Instant approvedAt, UUID withdrawnBy,
+                          Instant withdrawnAt) {}
+
+    /**
+     * Les maquettes de l'entite, brouillons compris.
+     *
+     * <p>Sans cette lecture, l'identifiant d'un brouillon n'existait que dans la reponse du POST
+     * qui l'avait cree : perdu au rechargement, le brouillon devenait inactivable, et la maquette
+     * qui a produit le dernier bilan ne se retrouvait nulle part.
+     */
+    public static List<Summary> summaries(Connection c, UUID legalEntityId, Kind kind,
+                                          String status) {
+        List<Summary> found = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, kind, code, label, valid_from, valid_to, status, created_by, created_at,"
+            + " approved_by, approved_at, withdrawn_by, withdrawn_at"
+            + "  FROM statement_layout"
+            + " WHERE legal_entity_id = ?"
+            + "   AND (?::text IS NULL OR kind = ?::text)"
+            + "   AND (?::text IS NULL OR status = ?::text)"
+            + " ORDER BY kind, valid_from DESC, created_at DESC")) {
+            ps.setObject(1, legalEntityId);
+            ps.setString(2, kind == null ? null : kind.name());
+            ps.setString(3, kind == null ? null : kind.name());
+            ps.setString(4, status);
+            ps.setString(5, status);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    found.add(new Summary(
+                        rs.getObject(1, UUID.class), Kind.valueOf(rs.getString(2)),
+                        rs.getString(3), rs.getString(4), rs.getObject(5, LocalDate.class),
+                        rs.getObject(6, LocalDate.class), rs.getString(7),
+                        rs.getObject(8, UUID.class), instant(rs, 9), rs.getObject(10, UUID.class),
+                        instant(rs, 11), rs.getObject(12, UUID.class), instant(rs, 13)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des maquettes d'etats financiers", e);
+        }
+        return List.copyOf(found);
+    }
+
+    /**
+     * Ferme la validite d'une maquette active.
+     *
+     * <p>C'est ainsi qu'une maquette cesse de s'appliquer, et non par un changement d'etat : un
+     * etat se produit a une date, y compris passee, et seule une maquette active se resout. La
+     * suspendre changerait la presentation d'un bilan deja transmis au superviseur.
+     *
+     * <p>C'est surtout ce qui rend le versionnement possible : la contrainte d'exclusion interdit
+     * deux maquettes actives de meme nature sur des periodes qui se croisent. Tant que le bilan en
+     * vigueur n'a pas de terme, <b>aucun successeur ne peut etre active</b>.
+     *
+     * <p>La fermeture ne peut pas preceder la date comptable : un etat deja produit et transmis
+     * serait presente autrement au rejeu.
+     */
+    public static void close(Connection c, UUID legalEntityId, UUID layoutId, LocalDate validTo) {
+        LocalDate businessDate = businessDateOf(c, legalEntityId);
+        if (validTo.isBefore(businessDate)) {
+            throw new IllegalArgumentException(
+                "Fermeture au " + validTo + " alors que la banque en est au " + businessDate
+                + " : un etat deja produit serait presente autrement au rejeu. La fermeture prend "
+                + "effet a la date comptable ou apres.");
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE statement_layout SET valid_to = ?"
+            + " WHERE id = ? AND legal_entity_id = ? AND status = 'ACTIVE'"
+            + "   AND valid_from <= ? AND (valid_to IS NULL OR valid_to > ?)")) {
+            ps.setObject(1, validTo);
+            ps.setObject(2, layoutId);
+            ps.setObject(3, legalEntityId);
+            ps.setObject(4, validTo);
+            ps.setObject(5, validTo);
+            if (ps.executeUpdate() == 0) {
+                throw new IllegalStateException(
+                    "Maquette " + layoutId + " introuvable, non active, ou deja fermee a cette "
+                    + "date ou avant. Une fermeture ne raccourcit pas une validite en deca de son "
+                    + "entree en vigueur.");
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Fermeture de la maquette " + layoutId, e);
+        }
+    }
+
+    /**
+     * Retire un brouillon abandonne. Il n'est pas supprime : une maquette retiree explique
+     * pourquoi un etat attendu ne se presente pas comme on l'avait prevu.
+     */
+    public static void withdrawDraft(Connection c, UUID legalEntityId, UUID layoutId,
+                                     UUID actorId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE statement_layout"
+            + "   SET status = 'WITHDRAWN', withdrawn_by = ?, withdrawn_at = now()"
+            + " WHERE id = ? AND legal_entity_id = ? AND status = 'DRAFT'")) {
+            ps.setObject(1, java.util.Objects.requireNonNull(actorId, "actorId"));
+            ps.setObject(2, layoutId);
+            ps.setObject(3, legalEntityId);
+            if (ps.executeUpdate() == 0) {
+                throw new IllegalStateException(
+                    "Maquette " + layoutId + " introuvable ou deja sortie de l'etat brouillon. "
+                    + "Une maquette activee ne se retire pas : sa validite se ferme.");
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Retrait du brouillon " + layoutId, e);
+        }
+    }
+
+    private static LocalDate businessDateOf(Connection c, UUID legalEntityId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT current_business_date FROM legal_entity WHERE id = ?")) {
+            ps.setObject(1, legalEntityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new LedgerStoreException("Entite inconnue : " + legalEntityId);
+                }
+                return rs.getObject(1, LocalDate.class);
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture de la date comptable de l'entite", e);
+        }
+    }
+
+    private static Instant instant(ResultSet rs, int column) throws SQLException {
+        java.sql.Timestamp stamp = rs.getTimestamp(column);
+        return stamp == null ? null : stamp.toInstant();
     }
 
     public static Optional<Layout> find(Connection c, UUID layoutId) {

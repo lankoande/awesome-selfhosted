@@ -583,6 +583,19 @@ public final class SecurityConfig {
             AccessRule.allow(ACCOUNTANT)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
+        // Fermer la validite d'une maquette est ce qui permet d'en activer une suivante : meme
+        // regime que l'activation, puisque c'est le meme acte vu de l'autre bout.
+        policy.put(Operation.STATEMENT_LAYOUT_CLOSE,
+            AccessRule.allow(ACCOUNTANT)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        // Lire une maquette, et l'essayer sur le journal avant de l'activer. L'essai ne produit
+        // aucun etat officiel ; l'auditeur, lui, a besoin de savoir sur quelle maquette un bilan
+        // deja transmis a ete produit. Aucune trace a la lecture.
+        policy.put(Operation.STATEMENT_LAYOUT_READ,
+            AccessRule.allow(ACCOUNTANT, AUDITOR, RISK_OFFICER)
+                .within(Scope.OWN_ENTITY).build());
+
         // L'identite de l'etablissement figure en en-tete des etats reglementaires et en tete de
         // chaque RIB. Elle se lit largement — un guichetier la voit sur tout releve qu'il
         // imprime —, elle se corrige a deux.

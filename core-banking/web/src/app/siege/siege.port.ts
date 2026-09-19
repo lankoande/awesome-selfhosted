@@ -10,6 +10,10 @@ import {
   DemandeRegleDateValeur,
 } from './modele/reseau.modele';
 import {
+  DemandeFermetureMaquette, EnteteMaquette, EtatProduit, Maquette, MaquetteComplete, NatureEtat,
+  RegleSaisie, RubriqueSaisie,
+} from './modele/maquettes.modele';
+import {
   DemandeFermetureSchema, EnteteSchema, Essai, EvenementSocle, LigneSaisie, SchemaComplet,
   SchemaComptable,
 } from './modele/schemas.modele';
@@ -207,6 +211,45 @@ export interface Siege {
 
   /** Retirer un brouillon abandonné. Seul acte du paramétrage comptable qui ne soit pas à deux. */
   retirerSchema(legalEntityId: string, schemaId: string): Promise<void>;
+
+  // ---------------------------------------------------------------- maquettes d'états financiers
+
+  /** Les maquettes de l'entité, brouillons compris ; filtrées par nature et par état. */
+  maquettes(legalEntityId: string, nature: NatureEtat | null,
+            statut: string | null): Promise<readonly Maquette[]>;
+
+  /** Une maquette en entier : rubriques dans l'ordre, règles dans l'ordre de lecture. */
+  maquette(legalEntityId: string, layoutId: string): Promise<MaquetteComplete>;
+
+  /**
+   * Essaie une maquette sur le journal, sans rien produire d'officiel.
+   *
+   * C'est la seule façon d'éprouver un brouillon. Les contrôles sont ceux de la production :
+   * comptes qu'aucune règle n'affecte, équilibre, résultat antérieur non clos.
+   */
+  essayerMaquette(legalEntityId: string, layoutId: string, du: string | null,
+                  au: string | null): Promise<EtatProduit>;
+
+  /** Rédige une maquette. Elle est vérifiée avant d'entrer en base. */
+  redigerMaquette(legalEntityId: string, entete: EnteteMaquette,
+                  rubriques: readonly RubriqueSaisie[], regles: readonly RegleSaisie[],
+                  cleIdempotence: string): Promise<{ readonly id: string }>;
+
+  /** Activer : à deux, et jamais par le rédacteur. */
+  activerMaquette(legalEntityId: string, layoutId: string,
+                  cleIdempotence: string): Promise<EnAttenteSiege>;
+
+  /**
+   * Fermer la validité d'une maquette en vigueur : à deux.
+   *
+   * Une seule maquette active par nature d'état et par date : c'est la fermeture qui libère la
+   * place pour la suivante.
+   */
+  fermerMaquette(legalEntityId: string, layoutId: string, demande: DemandeFermetureMaquette,
+                 cleIdempotence: string): Promise<EnAttenteSiege>;
+
+  /** Retirer un brouillon abandonné. Seul acte du paramétrage des états qui ne soit pas à deux. */
+  retirerMaquette(legalEntityId: string, layoutId: string): Promise<void>;
 }
 
 export const SIEGE = new InjectionToken<Siege>('Siege');

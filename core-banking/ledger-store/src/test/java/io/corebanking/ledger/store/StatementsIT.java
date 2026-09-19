@@ -286,10 +286,18 @@ class StatementsIT extends LedgerTestBase {
 
         Statements.Statement etat = database.inTransaction(c -> Statements.balanceSheet(c, ENTITY, D));
         assertThat(etat.consistent()).isFalse();
-        assertThat(etat.anomalies()).hasSize(3);
-        assertThat(etat.anomalies().get(0)).contains("3-DIVERS").contains("7000").contains("debiteur");
-        assertThat(etat.anomalies().get(1)).contains("anterieur").contains("1000");
-        assertThat(etat.anomalies().get(2)).contains("ne s'equilibre pas");
+        // Le compte sans rubrique a sa propre liste, en donnee : un ecran peut proposer la regle
+        // manquante sur le compte lui-meme, au lieu de faire recopier un message.
+        assertThat(etat.unassigned()).singleElement().satisfies(orphelin -> {
+            assertThat(orphelin.code()).isEqualTo("3-DIVERS");
+            assertThat(orphelin.amount()).isEqualTo(xof("7000"));
+            assertThat(orphelin.side()).isEqualTo(io.corebanking.ledger.domain.account.Direction
+                                                      .DEBIT);
+        });
+        // Les anomalies ne portent plus que ce qui ne va pas dans l'etat lui-meme.
+        assertThat(etat.anomalies()).hasSize(2);
+        assertThat(etat.anomalies().get(0)).contains("anterieur").contains("1000");
+        assertThat(etat.anomalies().get(1)).contains("ne s'equilibre pas");
         assertThat(montants(etat).get("PR")).as("le resultat presente est celui de l'exercice")
             .isEqualTo(xof("6000"));
         assertThat(etat.net()).isEqualTo(xof("6000"));
@@ -299,5 +307,48 @@ class StatementsIT extends LedgerTestBase {
             Statements.incomeStatement(c, ENTITY, DEBUT_EXERCICE, D));
         assertThat(resultat.net()).isEqualTo(xof("6000"));
         assertThat(resultat.consistent()).isTrue();
+    }
+
+    /**
+     * L'essai d'un brouillon : la seule facon de savoir ce qu'une maquette presenterait avant de
+     * l'activer a deux. Les controles sont ceux de la production.
+     */
+    @Test
+    @Order(9)
+    @DisplayName("un brouillon s'essaie sur le journal, avec les memes controles, et sans rien ecrire")
+    void a_draft_can_be_previewed() {
+        UUID brouillon = database.inTransaction(c -> StatementLayouts.createDraft(c,
+            new StatementLayouts.Draft(ENTITY, StatementLayouts.Kind.BALANCE_SHEET, "BILAN-ESSAI",
+                "Bilan a l'essai", D.plusYears(3), null,
+                List.of(new StatementLayouts.Line(1, "X1", "Divers", 1,
+                        StatementLayouts.LineKind.DETAIL, Direction.DEBIT, List.of(), List.of())),
+                List.of(new StatementLayouts.Rule(1, "X1", AccountKind.INTERNAL, null, null)),
+                ACTOR)));
+
+        StatementLayouts.Layout maquette = database.inTransaction(
+            c -> StatementLayouts.find(c, brouillon)).orElseThrow();
+        Statements.Statement essai = database.inTransaction(
+            c -> Statements.preview(c, ENTITY, maquette, null, D));
+
+        assertThat(essai.layoutCode()).isEqualTo("BILAN-ESSAI");
+        assertThat(essai.consistent()).as("une maquette partielle laisse des comptes de cote")
+            .isFalse();
+        assertThat(essai.unassigned()).isNotEmpty();
+
+        // L'essai n'ecrit rien : la maquette est toujours un brouillon.
+        StatementLayouts.Layout apres = database.inTransaction(
+            c -> StatementLayouts.find(c, brouillon)).orElseThrow();
+        assertThat(apres.status()).isEqualTo("DRAFT");
+
+        // Et un brouillon retire garde la signature de celui qui l'a retire.
+        database.inTransaction(c -> {
+            StatementLayouts.withdrawDraft(c, ENTITY, brouillon, ACTOR);
+            return null;
+        });
+        List<StatementLayouts.Summary> retirees = database.inTransaction(
+            c -> StatementLayouts.summaries(c, ENTITY, null, "WITHDRAWN"));
+        assertThat(retirees).extracting(StatementLayouts.Summary::code).contains("BILAN-ESSAI");
+        assertThat(retirees.get(0).withdrawnBy()).isEqualTo(ACTOR);
+        assertThat(retirees.get(0).withdrawnAt()).isNotNull();
     }
 }

@@ -1914,3 +1914,92 @@ relivre — et, plus important, il ne l'inventera jamais avant lui.
 Exploitation, balance, établissement, produits, agences, calendrier, **schémas comptables**,
 numérotation. Restent sans écran, avec API : **maquettes** (relevé et états financiers),
 **politiques** (KYC, crédit, risque, sûretés, suspens) et **change**.
+
+---
+
+## 29. Les maquettes d'états financiers
+
+Quatrième fois le même diagnostic — on rédigeait, on activait, on ne relisait pas, on ne fermait
+pas —, avec cette fois une conséquence propre au domaine : **on ne pouvait pas éprouver un
+brouillon**.
+
+Une maquette s'activait à deux. C'est en lisant le bilan qu'on découvrait qu'elle laissait quarante
+comptes sans rubrique. Après l'avoir transmis au superviseur.
+
+### L'essai, et la raison pour laquelle il n'est pas indulgent
+
+`GET /statement-layouts/{id}/preview` applique une maquette **nommée** — quel que soit son état —
+au journal réel, et rend l'état qu'elle produirait. `Statements.produce` a été ouvert : la
+résolution de la maquette active reste au-dessus, la production prend désormais la maquette en
+paramètre.
+
+Les contrôles sont exactement ceux de la production : comptes qu'aucune règle n'affecte, équilibre,
+résultat antérieur non clos, rubrique de résultat absente.
+
+> Un essai indulgent ne vaudrait rien : ce qu'on cherche à savoir avant d'activer est précisément
+> ce qui ne va pas.
+
+L'essai ne produit aucun état officiel et n'écrit rien. Il est ouvert à `STATEMENT_LAYOUT_READ`,
+non tracée — une maquette ne porte ni montant de clientèle ni donnée personnelle.
+
+### Une anomalie devient une donnée, puis un geste
+
+`Statements.Statement` rend désormais les comptes non affectés en **donnée structurée**
+(`unassigned`), et non plus seulement dans la phrase d'anomalie. C'est ce qui permet à l'écran de
+proposer la règle manquante **sur le compte lui-même**, nature et sens du solde déjà repris.
+
+> Une anomalie qu'on corrige d'un geste vaut mieux qu'une anomalie qu'on recopie.
+
+Les deux listes sont désormais séparées : `anomalies` ne porte plus que ce qui ne va pas dans
+l'état lui-même. Une liste qui mélange quarante comptes et un déséquilibre est une liste que
+personne ne lit — et un écran qui dit deux fois la même chose. La liasse réglementaire, elle, les
+réunit : un compte sans rubrique manque à l'état, et on ne déclare pas un actif incomplet.
+
+### La lecture de la maquette a changé d'opération
+
+`ReadStatementLayout` s'exécutait sous `LEDGER_READ`, **tracée à la lecture**. Une maquette ne
+porte ni montant ni donnée de clientèle : la tracer comme une lecture du journal polluait la piste
+d'audit sans rien protéger, et fermait la lecture au risque — qui calibre ses provisions sur des
+états qu'il doit pouvoir lire.
+
+### Fermer, et non retirer
+
+Même raisonnement que les produits et les schémas comptables, et la même contrainte d'exclusion :
+une seule maquette active par nature d'état et par date. Tant que le bilan en vigueur n'a pas de
+terme, **aucun successeur ne peut être activé**. `STATEMENT_LAYOUT_CLOSE` passe à deux ; V60 signe
+le retrait d'un brouillon.
+
+L'écran le dit **dès la rédaction** : écrire quarante rubriques pour découvrir à l'activation que
+la place est occupée serait une perte de temps évitable.
+
+### Ce que le poste vérifie, et ce qu'il laisse au socle
+
+`StatementLayouts.validate` s'arrête au **premier** défaut. Sur une maquette de quarante rubriques,
+corriger à l'aveugle une erreur par aller-retour est un supplice. Le poste vérifie donc ce qui se
+voit dans le formulaire lui-même — codes dupliqués, total qui somme une rubrique absente ou
+postérieure, règle qui vise un total —, et les rend **tous ensemble**. Le socle reste l'autorité, et
+son refus s'affiche tel quel.
+
+Le poste ajoute un contrôle que le socle ne peut pas faire : **une règle qu'une précédente recouvre
+entièrement ne s'appliquera jamais**. Pendant la rédaction, c'est un état transitoire légitime — le
+socle ne peut pas le refuser. Mais une règle morte ne fait rien échouer : elle laisse une rubrique
+vide dans le bilan produit, et on cherche longtemps pourquoi.
+
+### Un défaut de français trouvé par une spécification
+
+La phrase d'une règle mettait la nature du compte au pluriel en ajoutant un *s* : « les compte de
+clients », « les compte générals ». Le pluriel est désormais **écrit, non calculé** — « comptes de
+clients », « comptes généraux ». C'est la phrase qu'on relit à voix haute avant d'activer un bilan.
+
+### La maquette de relevé n'existe pas, et ce n'est pas un oubli
+
+Le relevé de compte n'est pas un état paramétré : c'est le journal du compte, servi tel quel, avec
+l'identité de l'établissement en en-tête. Le socle ne porte aucune maquette de relevé, et il n'y a
+donc rien à paramétrer ici — le dire vaut mieux que d'inventer un domaine pour remplir une ligne de
+plan.
+
+### Le siège compte neuf écrans
+
+Exploitation, balance, établissement, produits, agences, calendrier, schémas comptables,
+**états financiers**, numérotation. Restent sans écran, avec API : les **politiques** (KYC, crédit,
+risque, sûretés, suspens) et le **change**.

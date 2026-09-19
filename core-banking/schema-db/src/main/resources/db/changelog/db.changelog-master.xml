@@ -77,5 +77,6 @@
   <include file="db/V57__idempotence_double_validation.sql" relativeToChangelogFile="false"/>
   <include file="db/V58__numerotation.sql" relativeToChangelogFile="false"/>
   <include file="db/V59__schema_comptable_retrait.sql" relativeToChangelogFile="false"/>
+  <include file="db/V60__maquette_retrait.sql" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

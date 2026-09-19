@@ -227,6 +227,20 @@ public enum Operation {
     STATEMENT_LAYOUT_DRAFT,
     /** Activation d'une maquette d'etat financier : ce que la banque presente, a deux. */
     STATEMENT_LAYOUT_ACTIVATE,
+    /**
+     * Fermeture de la validite d'une maquette.
+     *
+     * <p>Une seule maquette active par nature d'etat et par date : tant que celle en vigueur n'a
+     * pas de terme, aucune suivante ne peut etre activee.
+     */
+    STATEMENT_LAYOUT_CLOSE,
+    /**
+     * Lecture des maquettes et essai d'une maquette sur le journal.
+     *
+     * <p>Un essai ne produit aucun etat officiel et n'ecrit rien : il applique une maquette au
+     * journal pour montrer ce qu'elle presenterait, et ce qu'elle laisserait de cote.
+     */
+    STATEMENT_LAYOUT_READ,
     /** Lecture de l'identite de l'etablissement : denomination, code banque, agrement. */
     ESTABLISHMENT_READ,
     /**

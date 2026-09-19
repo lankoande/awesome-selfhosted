@@ -1,0 +1,533 @@
+<div class="ecran">
+  <cb-toolbar>
+    <h1>Maquettes d'états financiers</h1>
+    <span class="compte">{{ maquettes().length }} maquettes</span>
+    <button fin type="button" cbButton="secondaire" [disabled]="travaille()" (click)="charger()">
+      Rafraîchir
+    </button>
+  </cb-toolbar>
+
+  <p class="rappel">
+    Une maquette décide de ce que la banque <strong>présente</strong> : les rubriques d'un bilan,
+    et les règles qui affectent chaque compte à l'une d'elles. Une maquette qui laisse un compte
+    sans rubrique produit un état faux — et on ne s'en aperçoit qu'en le lisant. L'essai le dit
+    avant.
+  </p>
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+      @if (r.detail) { {{ r.detail }} }
+    </cb-notice>
+  }
+
+  @if (acquitte(); as message) {
+    <cb-notice nature="succes" titre="Demandé">{{ message }}</cb-notice>
+  }
+
+  <cb-activity [enCours]="travaille()" libelle="Lecture des maquettes…" />
+
+  <div class="tete">
+    <nav class="filtres" aria-label="Filtrer par nature d'état">
+      <button type="button" [class.actif]="filtreNature() === null" (click)="filtrerNature(null)">
+        Toutes natures
+      </button>
+      @for (nature of NATURES_ETAT; track nature) {
+        <button type="button" [class.actif]="filtreNature() === nature"
+                (click)="filtrerNature(nature)">{{ LIBELLE_NATURE_ETAT[nature] }}</button>
+      }
+    </nav>
+    @if (droitDeRediger() && !saisie()) {
+      <button type="button" cbButton="primaire" (click)="ouvrirLaSaisie()">
+        Rédiger une maquette
+      </button>
+    }
+  </div>
+
+  <nav class="filtres" aria-label="Filtrer par état">
+    <button type="button" [class.actif]="filtre() === null" (click)="filtrer(null)">Tous</button>
+    @for (statut of STATUTS_MAQUETTE; track statut) {
+      <button type="button" [class.actif]="filtre() === statut"
+              (click)="filtrer(statut)">{{ LIBELLE_ETAT_MAQUETTE[statut] }}</button>
+    }
+  </nav>
+
+  <div class="cb-table-scroll">
+    <table cbTable>
+      <caption class="cb-visually-hidden">Maquettes d'états financiers</caption>
+      <thead>
+        <tr>
+          <th scope="col">Code</th>
+          <th scope="col">Intitulé</th>
+          <th scope="col">Nature</th>
+          <th scope="col">Validité</th>
+          <th scope="col">État</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (maquette of visibles(); track maquette.id) {
+          <tr [class.choisie]="maquette.id === choisie()?.id">
+            <td class="cb-ref">
+              <button type="button" class="lien" (click)="ouvrir(maquette)">
+                {{ maquette.code }}
+              </button>
+            </td>
+            <td>
+              <span class="nom">{{ maquette.label }}</span>
+              @if (bloqueLaSuite(maquette)) {
+                <span class="note">sans terme — aucune maquette suivante possible</span>
+              }
+            </td>
+            <td>{{ LIBELLE_NATURE_ETAT[maquette.kind] }}</td>
+            <td class="cb-mono">
+              {{ maquette.validFrom }} → {{ maquette.validTo || 'sans terme' }}
+            </td>
+            <td>
+              <cb-state-badge [etat]="etatDe(maquette)" [mot]="libelleEtat(maquette)" />
+            </td>
+          </tr>
+        } @empty {
+          @if (phase() === 'prete') {
+            <tr><td colspan="5" class="vide">
+              Aucune maquette. Tant qu'aucune n'est en vigueur, aucun état financier ne se
+              produit : le socle refuse plutôt que de présumer une présentation.
+            </td></tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ------------------------------------------------------------ détail d'une maquette -->
+  @if (choisie(); as maquette) {
+    <cb-section [titre]="maquette.code + ' — ' + maquette.label"
+                [indication]="LIBELLE_NATURE_ETAT[maquette.kind]">
+      @if (enteteChoisie(); as entete) {
+        <p class="attente">{{ ATTENTE_MAQUETTE[entete.status] }}</p>
+        @if (bloqueLaSuite(entete)) {
+          <cb-notice nature="avertissement" titre="Cette maquette n'a pas de terme">
+            Une seule maquette active par nature d'état et par date. Tant que sa validité n'est pas
+            fermée, aucune suivante ne peut être activée.
+          </cb-notice>
+        }
+      }
+
+      <p class="pourquoi">{{ OBJET_NATURE_ETAT[maquette.kind] }}</p>
+
+      <h3>{{ nombreRubriques(maquette.lines.length) }}</h3>
+      <div class="cb-table-scroll">
+        <table cbTable>
+          <caption class="cb-visually-hidden">Rubriques de la maquette</caption>
+          <thead>
+            <tr>
+              <th scope="col">Rang</th>
+              <th scope="col">Code</th>
+              <th scope="col">Rubrique</th>
+              <th scope="col">Nature</th>
+              <th scope="col">Sens</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (rubrique of maquette.lines; track rubrique.code) {
+              <tr>
+                <td class="cb-mono">{{ rubrique.ordinal }}</td>
+                <td class="cb-mono">{{ rubrique.code }}</td>
+                <td [style.padding-left.rem]="rubrique.level">
+                  <span class="nom">{{ rubrique.label }}</span>
+                  @if (rubrique.kind === 'TOTAL') {
+                    <span class="note">{{ calculDuTotal(rubrique.code) }}</span>
+                  }
+                </td>
+                <td>{{ LIBELLE_NATURE_RUBRIQUE[rubrique.kind] }}</td>
+                <td>{{ LIBELLE_SENS[rubrique.side] }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Les règles, dans leur ordre de lecture</h3>
+      <p class="pourquoi">
+        La <strong>première règle qui reconnaît un compte l'emporte</strong>. C'est l'auteur qui
+        écrit la précédence, pas le hasard d'un chevauchement.
+      </p>
+      <ol class="phrases">
+        @for (regle of maquette.rules; track regle.ordinal) {
+          <li>{{ libelleRegle($index) }}</li>
+        }
+      </ol>
+
+      <div class="actes">
+        @for (acte of actes(); track acte) {
+          <button type="button"
+                  [cbButton]="acte === 'RETIRER' ? 'discret' : 'primaire'"
+                  [disabled]="travaille()" (click)="demarrer(acte)">
+            {{ LIBELLE_ACTE_MAQUETTE[acte] }}
+          </button>
+        }
+        @if (droitDeRediger()) {
+          <button type="button" cbButton="secondaire" (click)="repartirDe(maquette)">
+            Repartir de cette maquette
+          </button>
+        }
+      </div>
+
+      <!-- ------------------------------------------------------ l'essai -->
+      <h3>Essayer sur le journal</h3>
+      <p class="pourquoi">
+        L'essai applique cette maquette aux écritures réelles et montre l'état qu'elle
+        produirait — <strong>sans rien produire d'officiel</strong>. Les contrôles sont ceux de la
+        production : c'est ce qu'on cherche à savoir avant d'activer.
+      </p>
+      <div class="periode">
+        @if (maquette.kind === 'INCOME_STATEMENT') {
+          <cb-field etiquette="Du" pour="essai-du"
+                    aide="Vide : le début de l'exercice en cours.">
+            <cb-date-input champId="essai-du" [valeur]="essaiDu()"
+                           (valeurChange)="essaiDu.set($event)" />
+          </cb-field>
+        }
+        <cb-field etiquette="Au" pour="essai-au">
+          <cb-date-input champId="essai-au" [valeur]="essaiAu()"
+                         (valeurChange)="essaiAu.set($event)" />
+        </cb-field>
+        <button type="button" cbButton="secondaire" [disabled]="essaiEnCours()"
+                (click)="essayer()">Essayer</button>
+      </div>
+
+      @if (essai(); as etat) {
+
+      <div class="essai">
+        @if (etat.consistent) {
+          <cb-notice nature="succes" titre="Cette maquette se tient">
+            Tout compte est affecté à une rubrique, et l'état s'équilibre.
+          </cb-notice>
+        } @else {
+          <cb-notice nature="avertissement"
+                     [titre]="etat.unassigned.length > 0
+                       ? nombreOrphelins(etat.unassigned.length)
+                       : 'Cet état ne se tient pas'">
+            @if (etat.unassigned.length > 0) {
+              Ces comptes ne figurent dans aucune rubrique : l'état les ignore, il est donc faux.
+              Ils sont listés plus bas, avec la règle qui leur manque.
+            }
+            @if (etat.anomalies.length > 0) {
+              <ul class="obstacles">
+                @for (anomalie of etat.anomalies; track anomalie) {
+                  <li>{{ anomalie }}</li>
+                }
+              </ul>
+            }
+          </cb-notice>
+        }
+
+        @if (etat.unassigned.length > 0) {
+          <h4>Les comptes restés sans rubrique</h4>
+          <p class="pourquoi">
+            Chacun ouvre la règle qui lui manque : nature et sens du solde déjà repris. Un compte de
+            client débiteur est une créance, créditeur un dépôt — ce n'est jamais la même rubrique.
+          </p>
+          <div class="cb-table-scroll">
+            <table cbTable>
+              <caption class="cb-visually-hidden">Comptes sans rubrique</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Compte</th>
+                  <th scope="col">Nature</th>
+                  <th scope="col">Solde</th>
+                  <th scope="col"><span class="cb-visually-hidden">Corriger</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (compte of etat.unassigned; track compte.code) {
+                  <tr>
+                    <td class="cb-mono">{{ compte.code }}</td>
+                    <td>{{ LIBELLE_NATURE_COMPTE[compte.accountKind] }}</td>
+                    <td class="nombre">
+                      <cb-amount [valeur]="compte.amount.amount" [devise]="compte.amount.currency" />
+                      <span class="note">{{ compte.side === 'DEBIT' ? 'débiteur' : 'créditeur' }}</span>
+                    </td>
+                    <td>
+                      @if (droitDeRediger()) {
+                        <button type="button" cbButton="secondaire" (click)="corriger(compte)">
+                          Ajouter la règle
+                        </button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        <h4>{{ etat.layoutLabel }} au {{ etat.to }}</h4>
+        <div class="cb-table-scroll">
+          <table cbTable>
+            <caption class="cb-visually-hidden">État produit par la maquette</caption>
+            <thead>
+              <tr>
+                <th scope="col">Rubrique</th>
+                <th scope="col">Sens</th>
+                <th scope="col">Montant</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (ligne of etat.lines; track ligne.code) {
+                <tr [class.total]="ligne.kind === 'TOTAL'">
+                  <td [style.padding-left.rem]="ligne.level">{{ ligne.label }}</td>
+                  <td>{{ LIBELLE_SENS[ligne.side] }}</td>
+                  <td class="nombre">
+                    <cb-amount [valeur]="ligne.amount.amount" [devise]="ligne.amount.currency" />
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row">Total débit / crédit</th>
+                <td></td>
+                <td class="nombre">
+                  <cb-amount [valeur]="etat.totalDebit.amount" [devise]="etat.totalDebit.currency" />
+                  /
+                  <cb-amount [valeur]="etat.totalCredit.amount" [devise]="etat.totalCredit.currency" />
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+      }
+
+      <!-- ------------------------------------------------------ fermeture -->
+      @if (fermeture()) {
+        <cb-section titre="Fermer la validité" indication="soumis à validation">
+          <p class="pourquoi">
+            La fermeture ne peut pas précéder la date comptable de la banque ({{ journee() }}) :
+            un état déjà produit et transmis serait présenté autrement au rejeu.
+          </p>
+          <cb-field etiquette="Dernier jour de présentation" pour="fermer-au" requis>
+            <cb-date-input champId="fermer-au" [valeur]="fermerAu()"
+                           (valeurChange)="fermerAu.set($event)" />
+          </cb-field>
+          @if (fermetureADeux()) {
+            <cb-notice nature="information" titre="Cet acte part à la validation">
+              La place sera libre pour la maquette suivante une fois la fermeture validée.
+            </cb-notice>
+          }
+          @if (obstaclesFermeture().length > 0) {
+            <cb-notice nature="avertissement" titre="Cette fermeture ne peut pas être demandée">
+              <ul class="obstacles">
+                @for (obstacle of obstaclesFermeture(); track obstacle) {
+                  <li>{{ obstacle }}</li>
+                }
+              </ul>
+            </cb-notice>
+          }
+          <div class="actes">
+            <button type="button" cbButton="primaire"
+                    [disabled]="travaille() || obstaclesFermeture().length > 0"
+                    (click)="fermer()">Demander la fermeture</button>
+            <button type="button" cbButton="discret" (click)="abandonnerLaFermeture()">
+              Annuler
+            </button>
+          </div>
+        </cb-section>
+      }
+    </cb-section>
+  }
+
+  <!-- ------------------------------------------------------------ rédaction -->
+  @if (saisie()) {
+    <cb-section titre="Rédiger une maquette" indication="brouillon">
+      <div class="grille">
+        <cb-field etiquette="Nature de l'état" pour="nature-maquette" requis
+                  [aide]="OBJET_NATURE_ETAT[nature()]">
+          <select cbInput id="nature-maquette" name="nature-maquette" [value]="nature()"
+                  (change)="changerNature($any($event.target).value)">
+            @for (candidate of NATURES_ETAT; track candidate) {
+              <option [value]="candidate">{{ LIBELLE_NATURE_ETAT[candidate] }}</option>
+            }
+          </select>
+        </cb-field>
+        <cb-field etiquette="Code" pour="code-maquette" requis>
+          <input cbInput id="code-maquette" name="code-maquette" autocomplete="off"
+                 [value]="code()" (input)="code.set($any($event.target).value)" />
+        </cb-field>
+        <cb-field etiquette="Intitulé" pour="libelle-maquette" requis>
+          <input cbInput id="libelle-maquette" name="libelle-maquette" autocomplete="off"
+                 [value]="intitule()" (input)="intitule.set($any($event.target).value)" />
+        </cb-field>
+        <cb-field etiquette="Entrée en vigueur" pour="debut-maquette" requis>
+          <cb-date-input champId="debut-maquette" [valeur]="debutLe()"
+                         (valeurChange)="debutLe.set($event)" />
+        </cb-field>
+        <cb-field etiquette="Fin de validité" pour="fin-maquette"
+                  aide="Laisser vide pour une maquette sans terme.">
+          <cb-date-input champId="fin-maquette" [valeur]="finLe()"
+                         (valeurChange)="finLe.set($event)" />
+        </cb-field>
+      </div>
+
+      <h3>Les rubriques</h3>
+      <p class="pourquoi">
+        Une rubrique de <strong>détail</strong> reçoit des comptes ; un <strong>total</strong>
+        somme des rubriques qui le précèdent ; le <strong>résultat de l'exercice</strong>, propre
+        au bilan, reçoit le résultat calculé par le socle. Le rang est l'ordre de la liste.
+      </p>
+      @for (rubrique of rubriques(); track $index) {
+        <div class="ligne-saisie">
+          <cb-field etiquette="Code" [pour]="'rub-code-' + $index">
+            <input cbInput [id]="'rub-code-' + $index" [name]="'rub-code-' + $index"
+                   autocomplete="off" [value]="rubrique.code"
+                   (input)="majRubrique($index, 'code', $any($event.target).value)" />
+          </cb-field>
+          <cb-field etiquette="Intitulé" [pour]="'rub-lib-' + $index">
+            <input cbInput [id]="'rub-lib-' + $index" [name]="'rub-lib-' + $index"
+                   autocomplete="off" [value]="rubrique.label"
+                   (input)="majRubrique($index, 'label', $any($event.target).value)" />
+          </cb-field>
+          <cb-field etiquette="Nature" [pour]="'rub-nat-' + $index">
+            <select cbInput [id]="'rub-nat-' + $index" [name]="'rub-nat-' + $index"
+                    [value]="rubrique.kind"
+                    (change)="majRubrique($index, 'kind', $any($event.target).value)">
+              @for (candidate of NATURES_RUBRIQUE; track candidate) {
+                <option [value]="candidate">{{ LIBELLE_NATURE_RUBRIQUE[candidate] }}</option>
+              }
+            </select>
+          </cb-field>
+          <cb-field etiquette="Sens" [pour]="'rub-sens-' + $index">
+            <select cbInput [id]="'rub-sens-' + $index" [name]="'rub-sens-' + $index"
+                    [value]="rubrique.side"
+                    (change)="majRubrique($index, 'side', $any($event.target).value)">
+              @for (candidate of SENS; track candidate) {
+                <option [value]="candidate">{{ LIBELLE_SENS[candidate] }}</option>
+              }
+            </select>
+          </cb-field>
+          <cb-field etiquette="Niveau" [pour]="'rub-niv-' + $index"
+                    aide="0 pour un total, 1 pour une rubrique.">
+            <input cbInput [id]="'rub-niv-' + $index" [name]="'rub-niv-' + $index"
+                   inputmode="numeric" autocomplete="off" [value]="rubrique.level"
+                   (input)="majRubrique($index, 'level', $any($event.target).value)" />
+          </cb-field>
+          @if (rubrique.kind === 'TOTAL') {
+            <cb-field etiquette="Ajoute" [pour]="'rub-plus-' + $index"
+                      aide="Codes séparés par des virgules.">
+              <input cbInput [id]="'rub-plus-' + $index" [name]="'rub-plus-' + $index"
+                     autocomplete="off" [value]="rubrique.plus.join(', ')"
+                     (input)="majTotal($index, 'plus', $any($event.target).value)" />
+            </cb-field>
+            <cb-field etiquette="Retranche" [pour]="'rub-minus-' + $index">
+              <input cbInput [id]="'rub-minus-' + $index" [name]="'rub-minus-' + $index"
+                     autocomplete="off" [value]="rubrique.minus.join(', ')"
+                     (input)="majTotal($index, 'minus', $any($event.target).value)" />
+            </cb-field>
+          }
+          <button type="button" cbButton="discret" (click)="retirerRubrique($index)">Retirer</button>
+        </div>
+      }
+      <button type="button" cbButton="secondaire" (click)="ajouterRubrique()">
+        Ajouter une rubrique
+      </button>
+
+      @if (obstaclesRubriques().length > 0) {
+        <cb-notice nature="avertissement" titre="Les rubriques ne se tiennent pas encore">
+          <ul class="obstacles">
+            @for (obstacle of obstaclesRubriques(); track obstacle) {
+              <li>{{ obstacle }}</li>
+            }
+          </ul>
+        </cb-notice>
+      }
+
+      <h3>Les règles d'affectation</h3>
+      <p class="pourquoi">
+        L'ordre décide : la première règle qui reconnaît un compte l'emporte. Les règles se
+        <strong>déplacent</strong>, elles ne se numérotent pas.
+      </p>
+      @for (regle of regles(); track $index) {
+        <div class="ligne-saisie" [class.morte]="estMorte($index)">
+          <cb-field etiquette="Affecte à" [pour]="'reg-cible-' + $index">
+            <select cbInput [id]="'reg-cible-' + $index" [name]="'reg-cible-' + $index"
+                    [value]="regle.lineCode"
+                    (change)="majRegle($index, 'lineCode', $any($event.target).value)">
+              @for (cible of cibles(); track cible.code) {
+                <option [value]="cible.code">{{ cible.label || cible.code }}</option>
+              }
+            </select>
+          </cb-field>
+          <cb-field etiquette="Nature du compte" [pour]="'reg-nat-' + $index">
+            <select cbInput [id]="'reg-nat-' + $index" [name]="'reg-nat-' + $index"
+                    [value]="regle.accountKind"
+                    (change)="majRegle($index, 'accountKind', $any($event.target).value)">
+              <option value="">indifférente</option>
+              @for (candidate of NATURES_COMPTE; track candidate) {
+                <option [value]="candidate">{{ LIBELLE_NATURE_COMPTE[candidate] }}</option>
+              }
+            </select>
+          </cb-field>
+          <cb-field etiquette="Préfixe du code" [pour]="'reg-pre-' + $index">
+            <input cbInput [id]="'reg-pre-' + $index" [name]="'reg-pre-' + $index"
+                   autocomplete="off" [value]="regle.codePrefix"
+                   (input)="majRegle($index, 'codePrefix', $any($event.target).value)" />
+          </cb-field>
+          <cb-field etiquette="Sens du solde" [pour]="'reg-sens-' + $index">
+            <select cbInput [id]="'reg-sens-' + $index" [name]="'reg-sens-' + $index"
+                    [value]="regle.balanceSide"
+                    (change)="majRegle($index, 'balanceSide', $any($event.target).value)">
+              <option value="">indifférent</option>
+              @for (candidate of SENS; track candidate) {
+                <option [value]="candidate">{{ LIBELLE_SENS[candidate] }}</option>
+              }
+            </select>
+          </cb-field>
+          <p class="phrase">{{ phraseSaisie(regle) }}</p>
+          @if (estMorte($index)) {
+            <p class="morte-note">
+              Une règle précédente reconnaît déjà tous ces comptes : celle-ci ne s'appliquera
+              jamais. Déplacez-la avant elle, ou resserrez la précédente.
+            </p>
+          }
+          <div class="rang">
+            <button type="button" cbButton="discret" [disabled]="$index === 0"
+                    (click)="deplacerRegle($index, -1)" aria-label="Monter la règle">↑</button>
+            <button type="button" cbButton="discret" [disabled]="$index === regles().length - 1"
+                    (click)="deplacerRegle($index, 1)" aria-label="Descendre la règle">↓</button>
+            <button type="button" cbButton="discret" (click)="retirerRegle($index)">Retirer</button>
+          </div>
+        </div>
+      }
+      <button type="button" cbButton="secondaire" (click)="ajouterRegle()">
+        Ajouter une règle
+      </button>
+
+      @if (obstaclesIdentite().length > 0 || obstaclesRegles().length > 0) {
+        <cb-notice nature="avertissement" titre="Cette maquette ne peut pas être enregistrée">
+          <ul class="obstacles">
+            @for (obstacle of obstaclesIdentite(); track obstacle) {
+              <li>{{ obstacle }}</li>
+            }
+            @for (obstacle of obstaclesRegles(); track obstacle) {
+              <li>{{ obstacle }}</li>
+            }
+          </ul>
+        </cb-notice>
+      }
+
+      @if (activationADeux()) {
+        <cb-notice nature="information" titre="L'activation partira à la validation">
+          Le brouillon ne présente rien. Essayez-le sur le journal, puis faites-le activer par un
+          second — et ce ne peut pas être son rédacteur.
+        </cb-notice>
+      }
+
+      <div class="actes">
+        <button type="button" cbButton="primaire"
+                [disabled]="travaille() || !peutEnregistrer()" (click)="enregistrer()">
+          Enregistrer le brouillon
+        </button>
+        <button type="button" cbButton="discret" (click)="fermerLaSaisie()">Annuler</button>
+      </div>
+    </cb-section>
+  }
+</div>

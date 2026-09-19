@@ -56,8 +56,9 @@ src/app/siege/   exploitation comptable, restitutions, et le paramétrage : iden
                  l'établissement, produits (saisie pilotée par le contrat servi par le
                  socle), réseau d'agences, conditions de banque (fériés, dates de
                  valeur, heures limites), schémas comptables (ce que le socle impute,
-                 essayé sur un cas au socle — le poste ne lit aucune expression), plan
-                 de numérotation
+                 essayé sur un cas au socle — le poste ne lit aucune expression),
+                 maquettes d'états financiers (rubriques, règles d'affectation, essai
+                 sur le journal avant activation), plan de numérotation
 src/app/auth/    session OAuth2 PKCE, jeton porté, verrouillage, habilitations
                  (droits complets : portée, second regard, plafonds — voir plus bas)
 src/app/api/    le contrat : types générés (`schema.ts`, ne jamais éditer), chemins

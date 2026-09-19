@@ -84,6 +84,11 @@ export const routes: Routes = [
         loadComponent: () => import('./siege/schemas/schemas.page').then((m) => m.Schemas),
       },
       {
+        path: 'maquettes',
+        title: 'Siège — maquettes d’états financiers',
+        loadComponent: () => import('./siege/maquettes/maquettes.page').then((m) => m.Maquettes),
+      },
+      {
         path: 'numerotation',
         title: 'Siège — numérotation',
         loadComponent: () => import('./siege/numerotation/numerotation.page')

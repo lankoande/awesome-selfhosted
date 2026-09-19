@@ -1,23 +1,28 @@
 package io.corebanking.api.web;
 
+import io.corebanking.api.usecase.LayoutUseCases;
 import io.corebanking.api.usecase.LedgerUseCases;
 import io.corebanking.api.usecase.ParameterUseCases;
 import io.corebanking.ledger.domain.account.AccountKind;
 import io.corebanking.ledger.domain.account.Direction;
 import io.corebanking.ledger.store.Database;
 import io.corebanking.ledger.store.StatementLayouts;
+import io.corebanking.ledger.store.Statements;
 import io.corebanking.security.Caller;
 import io.corebanking.security.UseCaseExecutor;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -33,6 +38,9 @@ public class StatementLayoutController {
     private final MakerChecker makerChecker;
     private final ParameterUseCases.DraftStatementLayout draft;
     private final LedgerUseCases.ReadStatementLayout read;
+    private final LayoutUseCases.ListLayouts layouts;
+    private final LayoutUseCases.PreviewStatement preview;
+    private final LayoutUseCases.WithdrawDraft withdraw;
 
     public StatementLayoutController(UseCaseExecutor executor, Database database,
                                      MakerChecker makerChecker) {
@@ -40,6 +48,28 @@ public class StatementLayoutController {
         this.makerChecker = makerChecker;
         this.draft = new ParameterUseCases.DraftStatementLayout(database);
         this.read = new LedgerUseCases.ReadStatementLayout(database);
+        this.layouts = new LayoutUseCases.ListLayouts(database);
+        this.preview = new LayoutUseCases.PreviewStatement(database);
+        this.withdraw = new LayoutUseCases.WithdrawDraft(database);
+    }
+
+    /**
+     * Les maquettes de l'entite, brouillons compris.
+     *
+     * <p>Sans cette lecture, l'identifiant d'un brouillon n'existait que dans la reponse du POST
+     * qui l'avait cree : perdu au rechargement, le brouillon devenait inactivable, et la maquette
+     * qui a produit le dernier bilan transmis ne se retrouvait nulle part.
+     */
+    @GetMapping
+    public java.util.List<StatementLayouts.Summary> layouts(
+            Caller caller, @PathVariable UUID legalEntityId,
+            @RequestParam(required = false) String kind,
+            @RequestParam(required = false) String status) {
+        return executor.run(caller, layouts, new LayoutUseCases.LayoutQuery(
+            legalEntityId,
+            kind == null || kind.isBlank() ? null
+                : enumOf(StatementLayouts.Kind.class, kind, "kind"),
+            status));
     }
 
     @PostMapping
@@ -62,6 +92,52 @@ public class StatementLayoutController {
     public StatementLayouts.Layout read(Caller caller, @PathVariable UUID legalEntityId,
                                         @PathVariable UUID layoutId) {
         return executor.run(caller, read, new LedgerUseCases.LayoutLookup(legalEntityId, layoutId));
+    }
+
+    /**
+     * Essaie une maquette sur le journal, sans rien produire d'officiel.
+     *
+     * <p>C'est la seule facon d'eprouver un brouillon. Sans elle, on activait a deux une maquette
+     * qui laisse des comptes sans rubrique, et on l'apprenait en lisant un bilan faux — apres
+     * l'avoir transmis. Les controles sont ceux de la production : un essai indulgent ne vaudrait
+     * rien.
+     */
+    @GetMapping("/{layoutId}/preview")
+    public Statements.Statement preview(
+            Caller caller, @PathVariable UUID legalEntityId, @PathVariable UUID layoutId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate to) {
+        return executor.run(caller, preview,
+                            new LayoutUseCases.Trial(legalEntityId, layoutId, from, to));
+    }
+
+    /**
+     * Ferme la validite d'une maquette active, a deux.
+     *
+     * <p>Une seule maquette active par nature d'etat et par date : c'est la fermeture qui libere
+     * la place pour la suivante.
+     */
+    @PostMapping("/{layoutId}/closure")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MakerChecker.View close(Caller caller, @PathVariable UUID legalEntityId,
+                                   @PathVariable UUID layoutId,
+                                   @RequestBody Requests.StatementLayoutClosure body) {
+        if (body.validTo() == null) {
+            throw new IllegalArgumentException("Champ obligatoire absent : validTo");
+        }
+        return makerChecker.submit(caller, legalEntityId, "STATEMENT_LAYOUT_CLOSE", Payloads.of(
+            "layoutId", layoutId, "validTo", body.validTo()));
+    }
+
+    /** Retire un brouillon abandonne. Seul acte du parametrage des etats qui ne soit pas a deux. */
+    @PostMapping("/{layoutId}/withdrawal")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void withdraw(Caller caller, @PathVariable UUID legalEntityId,
+                         @PathVariable UUID layoutId) {
+        executor.run(caller, withdraw, new LayoutUseCases.Withdrawal(
+            legalEntityId, layoutId, Callers.actorId(caller)));
     }
 
     /** La maquette telle que le socle la verifie ; une valeur inconnue est une requete fausse. */

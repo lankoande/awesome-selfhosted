@@ -225,7 +225,14 @@ public final class LedgerUseCases {
             this.database = database;
         }
 
-        @Override public Operation operation() { return Operation.LEDGER_READ; }
+        /**
+         * Lire une maquette n'est pas lire le grand livre.
+         *
+         * <p>Une maquette ne porte ni montant ni donnee de clientele : la tracer comme une lecture
+         * du journal polluait la piste d'audit sans rien proteger, et fermait la lecture au risque,
+         * qui calibre ses provisions sur des etats qu'il doit pouvoir lire.
+         */
+        @Override public Operation operation() { return Operation.STATEMENT_LAYOUT_READ; }
 
         @Override
         public AccessTarget targetOf(LayoutLookup query) {

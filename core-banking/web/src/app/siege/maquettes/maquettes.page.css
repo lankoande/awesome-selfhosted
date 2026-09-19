@@ -1,0 +1,161 @@
+:host { display: block; }
+
+.ecran {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-4);
+  padding: var(--cb-space-4) var(--cb-gutter) var(--cb-space-6);
+  max-width: 100rem;
+}
+
+.compte { color: var(--cb-muted); font-size: var(--cb-fs-sm); }
+
+.rappel, .pourquoi {
+  margin: 0;
+  color: var(--cb-muted);
+  font-size: var(--cb-fs-sm);
+  max-width: 82ch;
+}
+
+.tete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cb-space-3);
+}
+
+.filtres { display: flex; flex-wrap: wrap; gap: var(--cb-space-1); }
+
+.filtres button {
+  flex-shrink: 0;
+  height: var(--cb-tap-h);
+  padding: 0 var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  background: var(--cb-panel);
+  color: var(--cb-muted);
+  font: inherit;
+  font-size: var(--cb-fs-sm);
+  cursor: pointer;
+}
+
+.filtres button:hover { color: var(--cb-ink); }
+
+.filtres button.actif {
+  background: var(--cb-accent);
+  border-color: var(--cb-accent);
+  color: var(--cb-accent-contraste);
+  font-weight: 600;
+}
+
+.lien {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cb-row-h);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cb-accent);
+  font: inherit;
+  font-family: var(--cb-font-mono);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.nom { display: block; }
+.note { display: block; font-size: var(--cb-fs-xs); color: var(--cb-muted); }
+.choisie { background: var(--cb-surface-choisie, var(--cb-panel)); }
+.vide { color: var(--cb-muted); padding: var(--cb-space-4); }
+
+.attente {
+  margin: 0 0 var(--cb-space-3);
+  padding-left: var(--cb-space-3);
+  border-left: 2px solid var(--cb-accent);
+  color: var(--cb-ink);
+  font-size: var(--cb-fs-sm);
+  max-width: 68ch;
+}
+
+h3 {
+  margin: var(--cb-space-4) 0 var(--cb-space-2);
+  font-size: var(--cb-fs-sm);
+  font-weight: 600;
+  color: var(--cb-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+h4 {
+  margin: var(--cb-space-3) 0 var(--cb-space-2);
+  font-size: var(--cb-fs-base);
+  font-weight: 600;
+}
+
+.phrases { margin: 0; padding-left: var(--cb-space-5); }
+.phrases li { margin-bottom: var(--cb-space-1); }
+
+.obstacles { margin: 0; padding-left: var(--cb-space-4); }
+
+.grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: var(--cb-space-3) var(--cb-space-4);
+}
+
+.periode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--cb-space-3);
+}
+
+/* Une rubrique porte jusqu'à sept champs, une règle quatre. En large ils tiennent côte à côte ;
+   sous 60 rem ils passent l'un sous l'autre plutôt que de se réduire à des boîtes illisibles. */
+.ligne-saisie {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  align-items: end;
+  gap: var(--cb-space-2) var(--cb-space-3);
+  padding: var(--cb-space-3) 0;
+  border-bottom: var(--cb-border) dashed var(--cb-rule);
+}
+
+/* La phrase et la note occupent toute la largeur : c'est la lecture de la règle, pas un champ. */
+.ligne-saisie .phrase,
+.ligne-saisie .morte-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--cb-fs-sm);
+  color: var(--cb-muted);
+}
+
+.ligne-saisie .morte-note { color: var(--cb-avertissement, var(--cb-ink)); }
+
+/* Une règle morte reste lisible et modifiable : la masquer ferait croire qu'elle n'existe pas. */
+.ligne-saisie.morte { border-left: 2px solid var(--cb-avertissement, var(--cb-rule)); padding-left: var(--cb-space-3); }
+
+.rang { display: flex; flex-wrap: wrap; gap: var(--cb-space-2); }
+
+.actes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cb-space-3);
+  margin-top: var(--cb-space-4);
+}
+
+.essai {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cb-space-3);
+  margin-top: var(--cb-space-3);
+  padding: var(--cb-space-3);
+  border: var(--cb-border) solid var(--cb-rule);
+  border-radius: var(--cb-radius);
+  background: var(--cb-panel);
+}
+
+.nombre { text-align: right; font-variant-numeric: tabular-nums; }
+.total { font-weight: 600; }

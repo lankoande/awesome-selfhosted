@@ -90,7 +90,7 @@ public final class GroupReporting {
                 case INCOME_STATEMENT ->
                     Statements.incomeStatement(c, legalEntityId, depuis, periodEnd);
             };
-            anomalies.addAll(statement.anomalies());
+            ajouterAnomalies(anomalies, kind, statement);
             for (Statements.LineAmount line : statement.lines()) {
                 lines.add(new ReportFilings.Line(ReportFilings.SubjectKind.GL_ACCOUNT,
                     pack.id(), kind.name() + "/" + line.code(), line.label(), line.amount(),
@@ -183,7 +183,7 @@ public final class GroupReporting {
                     Statements.Statement statement = kind == StatementLayouts.Kind.BALANCE_SHEET
                         ? Statements.balanceSheet(c, member.entityId(), periodEnd)
                         : Statements.incomeStatement(c, member.entityId(), depuis, periodEnd);
-                    anomalies.addAll(statement.anomalies());
+                    ajouterAnomalies(anomalies, kind, statement);
                     for (Statements.LineAmount line : statement.lines()) {
                         if (line.kind() != StatementLayouts.LineKind.DETAIL) {
                             continue;
@@ -270,5 +270,24 @@ public final class GroupReporting {
                     "Solde du compte " + accountId, e);
             }
         });
+    }
+
+    /**
+     * Les anomalies d'un etat, comptes sans rubrique compris.
+     *
+     * <p>{@link Statements} rend les deux separement — un ecran ne dit pas deux fois la meme
+     * chose. Pour une liasse, la distinction n'a pas lieu d'etre : un compte qu'aucune regle
+     * n'affecte manque a l'etat, et on ne declare pas un actif incomplet.
+     */
+    private static void ajouterAnomalies(List<String> anomalies, StatementLayouts.Kind kind,
+                                         Statements.Statement statement) {
+        anomalies.addAll(statement.anomalies());
+        for (Statements.Unassigned orphelin : statement.unassigned()) {
+            anomalies.add(kind.name() + " : compte " + orphelin.code() + ", solde "
+                          + orphelin.amount().roundToCurrency()
+                          + (orphelin.side() == io.corebanking.ledger.domain.account.Direction.DEBIT
+                                 ? " debiteur" : " crediteur")
+                          + " qu'aucune regle n'affecte a une rubrique");
+        }
     }
 }

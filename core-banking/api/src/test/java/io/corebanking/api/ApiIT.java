@@ -1206,6 +1206,54 @@ class ApiIT {
         assertThat(get(accountant, "/statement-layouts/" + UUID.randomUUID()).status())
             .isEqualTo(404);
 
+        // Les maquettes se retrouvent : sans cette lecture, l'identifiant d'un brouillon
+        // n'existait que dans la reponse du POST qui l'avait cree.
+        Reponse maquettes = get(accountant, "/statement-layouts?kind=BALANCE_SHEET");
+        assertThat(maquettes.status()).as(String.valueOf(maquettes.envelope())).isEqualTo(200);
+        assertThat(maquettes.items()).extracting(vue -> vue.get("code")).contains("BILAN-API");
+        assertThat(maquettes.items()).allSatisfy(
+            vue -> assertThat(vue.get("kind")).isEqualTo("BALANCE_SHEET"));
+
+        // L'essai d'une maquette : la seule facon d'eprouver un brouillon. Celle-ci n'a qu'une
+        // rubrique de detail et une seule regle : elle laisse des comptes de cote, et le dit.
+        Reponse partielle = post(accountant, "/statement-layouts", null, Map.of(
+            "kind", "BALANCE_SHEET", "code", "BILAN-ESSAI", "label", "Bilan a l'essai",
+            "validFrom", J.plusYears(5).toString(),
+            "lines", List.of(Map.of("ordinal", 1, "code", "D1", "label", "Divers", "kind",
+                                    "DETAIL", "side", "DEBIT")),
+            "rules", List.of(Map.of("ordinal", 1, "lineCode", "D1", "accountKind", "INTERNAL"))));
+        assertThat(partielle.status()).as(String.valueOf(partielle.envelope())).isEqualTo(201);
+        UUID essaiId = UUID.fromString((String) partielle.body().get("id"));
+
+        Reponse essai = get(accountant, "/statement-layouts/" + essaiId + "/preview?to=" + J);
+        assertThat(essai.status()).as(String.valueOf(essai.envelope())).isEqualTo(200);
+        assertThat(essai.body().get("consistent")).isEqualTo(false);
+        // Le compte non affecte est rendu en donnee, pas seulement dans la phrase : c'est ce qui
+        // permet de proposer la regle manquante sur le compte lui-meme.
+        List<?> orphelins = (List<?>) essai.body().get("unassigned");
+        assertThat(orphelins).isNotEmpty();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> orphelin = (Map<String, Object>) orphelins.get(0);
+        assertThat(orphelin).containsKeys("code", "accountKind", "side", "amount");
+        // L'essai n'ecrit rien : la maquette est toujours un brouillon.
+        assertThat(get(accountant, "/statement-layouts/" + essaiId).body().get("status"))
+            .isEqualTo("DRAFT");
+
+        // Un brouillon abandonne se retire seul, et garde la signature de qui l'a retire.
+        assertThat(post(accountant, "/statement-layouts/" + essaiId + "/withdrawal", null,
+                        Map.of()).status()).isEqualTo(204);
+        Reponse retirees = get(accountant, "/statement-layouts?status=WITHDRAWN");
+        assertThat(retirees.items()).extracting(vue -> vue.get("code")).contains("BILAN-ESSAI");
+
+        // Fermer la validite est ce qui permet d'activer la maquette suivante sous la meme nature.
+        Reponse fermeture = post(accountant, "/statement-layouts/" + bilanId + "/closure", null,
+                                 Map.of("validTo", J.plusDays(30).toString()));
+        assertThat(fermeture.status()).as(String.valueOf(fermeture.envelope())).isEqualTo(202);
+        assertThat(post(accountant2, "/pending-operations/" + attente(fermeture) + "/approve",
+                        null, Map.of()).status()).isEqualTo(200);
+        assertThat(get(accountant, "/statement-layouts/" + bilanId).body().get("validTo"))
+            .isEqualTo(J.plusDays(30).toString());
+
         // Le bilan a la date de cloture : tout compte affecte, actif egal au passif ; le
         // resultat de l'exercice clos est au compte de resultat, la rubrique en cours a zero.
         Reponse bilan = get(accountant, "/statements/balance-sheet?asOf=" + J);

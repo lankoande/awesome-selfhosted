@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { Socle } from '../api/socle';
-import { RefusMetier } from '../guichet/modele/guichet.modele';
+import { Montant, RefusMetier } from '../guichet/modele/guichet.modele';
 import {
   AlgorithmeCle, DemandeEtablissement, DemandeRegle, DomaineNumerotation, Etablissement,
   NatureSegment, PorteeCompteur, RegleNumerotation, RemiseAZero, Segment, StatutRegle,
@@ -16,6 +16,11 @@ import {
   Agence, ConditionsDeBanque, Convention, DemandeAgence, DemandeFerie, DemandeHeureLimite,
   DemandeRegleDateValeur, HeureLimite, NatureAgence, RegleDateValeur, SensOperation, UniteDecalage,
 } from './modele/reseau.modele';
+import {
+  CompteNonAffecte, DemandeFermetureMaquette, EnteteMaquette, EtatProduit, Maquette,
+  MaquetteComplete, MontantRubrique, NatureCompte, NatureEtat, NatureRubrique, RegleAffectation,
+  RegleSaisie, Rubrique, RubriqueSaisie, Sens, StatutMaquette,
+} from './modele/maquettes.modele';
 import {
   Derivation, DemandeFermetureSchema, EnteteSchema, Essai, EvenementSocle, LigneEssai, LigneSaisie,
   LigneSchema, OrigineSchema, SchemaComplet, SchemaComptable, StatutSchema, ValeurDerivee,
@@ -706,6 +711,199 @@ export class SiegeApi implements Siege {
       approvedAt: texte(brut['approvedAt']),
       withdrawnBy: texte(brut['withdrawnBy']),
       withdrawnAt: texte(brut['withdrawnAt']),
+    };
+  }
+
+  // ---------------------------------------------------------------- maquettes d'états financiers
+
+  async maquettes(legalEntityId: string, nature: NatureEtat | null,
+                  statut: string | null): Promise<readonly Maquette[]> {
+    let parametres = new HttpParams();
+    if (nature) {
+      parametres = parametres.set('kind', nature);
+    }
+    if (statut) {
+      parametres = parametres.set('status', statut);
+    }
+    const bruts = await this.lire<Record<string, unknown>[]>(this.socle.url(
+      '/v1/entities/{legalEntityId}/statement-layouts', { legalEntityId }), parametres);
+    return (bruts ?? []).map((brut) => this.maquetteDe(brut));
+  }
+
+  async maquette(legalEntityId: string, layoutId: string): Promise<MaquetteComplete> {
+    const brut = await this.lire<Record<string, unknown>>(this.socle.url(
+      '/v1/entities/{legalEntityId}/statement-layouts/{layoutId}', { legalEntityId, layoutId }));
+    return {
+      id: texte(brut['id']) ?? '',
+      kind: (texte(brut['kind']) as NatureEtat | null) ?? 'BALANCE_SHEET',
+      code: texte(brut['code']) ?? '',
+      label: texte(brut['label']) ?? '',
+      validFrom: texte(brut['validFrom']) ?? '',
+      validTo: texte(brut['validTo']),
+      status: (texte(brut['status']) as StatutMaquette | null) ?? 'DRAFT',
+      lines: this.rubriquesDe(brut['lines']),
+      rules: this.reglesDe(brut['rules']),
+    };
+  }
+
+  async essayerMaquette(legalEntityId: string, layoutId: string, du: string | null,
+                        au: string | null): Promise<EtatProduit> {
+    let parametres = new HttpParams();
+    if (du) {
+      parametres = parametres.set('from', du);
+    }
+    if (au) {
+      parametres = parametres.set('to', au);
+    }
+    const brut = await this.lire<Record<string, unknown>>(this.socle.url(
+      '/v1/entities/{legalEntityId}/statement-layouts/{layoutId}/preview',
+      { legalEntityId, layoutId }), parametres);
+    const lignes: MontantRubrique[] = ((brut?.['lines'] ?? []) as Record<string, unknown>[])
+      .map((ligne) => ({
+        ordinal: nombre(ligne['ordinal']) ?? 0,
+        code: texte(ligne['code']) ?? '',
+        label: texte(ligne['label']) ?? '',
+        level: nombre(ligne['level']) ?? 0,
+        kind: (texte(ligne['kind']) as NatureRubrique | null) ?? 'DETAIL',
+        side: (texte(ligne['side']) as Sens | null) ?? 'DEBIT',
+        amount: this.argent(ligne['amount']),
+      }));
+    const orphelins: CompteNonAffecte[] =
+      ((brut?.['unassigned'] ?? []) as Record<string, unknown>[]).map((compte) => ({
+        code: texte(compte['code']) ?? '',
+        accountKind: (texte(compte['accountKind']) as NatureCompte | null) ?? 'GL',
+        side: (texte(compte['side']) as Sens | null) ?? 'DEBIT',
+        amount: this.argent(compte['amount']),
+      }));
+    return {
+      kind: (texte(brut?.['kind']) as NatureEtat | null) ?? 'BALANCE_SHEET',
+      layoutId: texte(brut?.['layoutId']) ?? layoutId,
+      layoutCode: texte(brut?.['layoutCode']) ?? '',
+      layoutLabel: texte(brut?.['layoutLabel']) ?? '',
+      currency: this.deviseDe(brut?.['currency']),
+      from: texte(brut?.['from']),
+      to: texte(brut?.['to']) ?? '',
+      lines: lignes,
+      totalDebit: this.argent(brut?.['totalDebit']),
+      totalCredit: this.argent(brut?.['totalCredit']),
+      net: this.argent(brut?.['net']),
+      consistent: brut?.['consistent'] === true,
+      anomalies: (brut?.['anomalies'] ?? []) as readonly string[],
+      unassigned: orphelins,
+    };
+  }
+
+  async redigerMaquette(legalEntityId: string, entete: EnteteMaquette,
+                        rubriques: readonly RubriqueSaisie[], regles: readonly RegleSaisie[],
+                        cleIdempotence: string): Promise<{ readonly id: string }> {
+    const corps = {
+      kind: entete.kind,
+      code: entete.code,
+      label: entete.label,
+      validFrom: entete.validFrom,
+      validTo: entete.validTo,
+      // Le rang est l'ordre de saisie : c'est lui qui porte la précédence des règles, et il ne
+      // se saisit pas — le déplacer dans la liste suffit à le changer.
+      lines: rubriques.map((rubrique, index) => ({
+        ordinal: index + 1,
+        code: rubrique.code,
+        label: rubrique.label,
+        level: rubrique.level,
+        kind: rubrique.kind,
+        side: rubrique.side,
+        plus: rubrique.plus,
+        minus: rubrique.minus,
+      })),
+      rules: regles.map((regle, index) => ({
+        ordinal: index + 1,
+        lineCode: regle.lineCode,
+        accountKind: regle.accountKind || null,
+        codePrefix: regle.codePrefix.trim() || null,
+        balanceSide: regle.balanceSide || null,
+      })),
+    };
+    const entetes = new HttpHeaders({
+      'Idempotency-Key': cleIdempotence,
+      'X-Request-Id': crypto.randomUUID(),
+    });
+    try {
+      const enveloppe = await firstValueFrom(this.http.post<Enveloppe<{ id?: string }>>(
+        this.socle.url('/v1/entities/{legalEntityId}/statement-layouts', { legalEntityId }),
+        corps, { headers: entetes }));
+      return { id: texte(enveloppe.data?.id) ?? '' };
+    } catch (erreur) {
+      throw this.refus(erreur);
+    }
+  }
+
+  async activerMaquette(legalEntityId: string, layoutId: string,
+                        cleIdempotence: string): Promise<EnAttenteSiege> {
+    return this.soumettre(this.socle.url(
+      '/v1/entities/{legalEntityId}/statement-layouts/{layoutId}/activation',
+      { legalEntityId, layoutId }), {}, cleIdempotence);
+  }
+
+  async fermerMaquette(legalEntityId: string, layoutId: string,
+                       demande: DemandeFermetureMaquette,
+                       cleIdempotence: string): Promise<EnAttenteSiege> {
+    return this.soumettre(this.socle.url(
+      '/v1/entities/{legalEntityId}/statement-layouts/{layoutId}/closure',
+      { legalEntityId, layoutId }), { validTo: demande.validTo }, cleIdempotence);
+  }
+
+  async retirerMaquette(legalEntityId: string, layoutId: string): Promise<void> {
+    await this.poster<void>(this.socle.url(
+      '/v1/entities/{legalEntityId}/statement-layouts/{layoutId}/withdrawal',
+      { legalEntityId, layoutId }), {});
+  }
+
+  private rubriquesDe(brutes: unknown): readonly Rubrique[] {
+    return ((brutes ?? []) as Record<string, unknown>[]).map((rubrique) => ({
+      ordinal: nombre(rubrique['ordinal']) ?? 0,
+      code: texte(rubrique['code']) ?? '',
+      label: texte(rubrique['label']) ?? '',
+      level: nombre(rubrique['level']) ?? 0,
+      kind: (texte(rubrique['kind']) as NatureRubrique | null) ?? 'DETAIL',
+      side: (texte(rubrique['side']) as Sens | null) ?? 'DEBIT',
+      plus: (rubrique['plus'] ?? []) as readonly string[],
+      minus: (rubrique['minus'] ?? []) as readonly string[],
+    }));
+  }
+
+  private reglesDe(brutes: unknown): readonly RegleAffectation[] {
+    return ((brutes ?? []) as Record<string, unknown>[]).map((regle) => ({
+      ordinal: nombre(regle['ordinal']) ?? 0,
+      lineCode: texte(regle['lineCode']) ?? '',
+      accountKind: texte(regle['accountKind']) as NatureCompte | null,
+      codePrefix: texte(regle['codePrefix']),
+      balanceSide: texte(regle['balanceSide']) as Sens | null,
+    }));
+  }
+
+  private maquetteDe(brut: Record<string, unknown>): Maquette {
+    return {
+      id: texte(brut['id']) ?? '',
+      kind: (texte(brut['kind']) as NatureEtat | null) ?? 'BALANCE_SHEET',
+      code: texte(brut['code']) ?? '',
+      label: texte(brut['label']) ?? '',
+      validFrom: texte(brut['validFrom']) ?? '',
+      validTo: texte(brut['validTo']),
+      status: (texte(brut['status']) as StatutMaquette | null) ?? 'DRAFT',
+      createdBy: texte(brut['createdBy']),
+      createdAt: texte(brut['createdAt']),
+      approvedBy: texte(brut['approvedBy']),
+      approvedAt: texte(brut['approvedAt']),
+      withdrawnBy: texte(brut['withdrawnBy']),
+      withdrawnAt: texte(brut['withdrawnAt']),
+    };
+  }
+
+  /** Le socle rend un montant comme un couple ; l'écran l'affiche tel quel. */
+  private argent(valeur: unknown): Montant {
+    const objet = (valeur ?? {}) as Record<string, unknown>;
+    return {
+      amount: texte(objet['amount']) ?? '0',
+      currency: this.deviseDe(objet['currency']),
     };
   }
 

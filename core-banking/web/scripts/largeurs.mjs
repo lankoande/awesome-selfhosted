@@ -57,7 +57,7 @@ const CHEMINS = [
   'siege/exploitation', 'siege/balance', 'siege/etablissement', 'siege/numerotation',
   // Le paramétrage produit : le catalogue, et la rédaction d'une version — le formulaire le plus
   // long du poste, puisque c'est la famille qui décide de sa longueur.
-  'siege/produits', 'siege/agences', 'siege/calendrier', 'siege/schemas',
+  'siege/produits', 'siege/agences', 'siege/calendrier', 'siege/schemas', 'siege/maquettes',
   'validation',
 ];
 const LARGEURS = [1920, 1440, 1366, 1100, 1024, 768, 390];
