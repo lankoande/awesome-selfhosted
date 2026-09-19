@@ -3435,6 +3435,15 @@
         },
         "type" : "object"
       },
+      "Requests.AccountingSchemaClosure" : {
+        "properties" : {
+          "validTo" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Requests.AccountingSchemaDraft" : {
         "properties" : {
           "code" : {
@@ -4991,6 +5000,36 @@
         },
         "type" : "object"
       },
+      "Requests.SchemaTrial" : {
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "eventType" : {
+            "type" : "string"
+          },
+          "events" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Requests.SchemaEvent"
+            },
+            "type" : "array"
+          },
+          "schemaId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "values" : {
+            "additionalProperties" : {
+              "type" : "number"
+            },
+            "type" : "object"
+          }
+        },
+        "type" : "object"
+      },
       "Requests.Settlement" : {
         "properties" : {
           "nostroAccountId" : {
@@ -5396,6 +5435,266 @@
           "verifiedOn" : {
             "format" : "date",
             "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "SchemaCatalog.DerivationView" : {
+        "properties" : {
+          "expression" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "SchemaCatalog.Detail" : {
+        "properties" : {
+          "events" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SchemaCatalog.EventView"
+            },
+            "type" : "array"
+          },
+          "header" : {
+            "$ref" : "#/components/schemas/SchemaCatalog.Summary"
+          }
+        },
+        "type" : "object"
+      },
+      "SchemaCatalog.EventView" : {
+        "properties" : {
+          "derivations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SchemaCatalog.DerivationView"
+            },
+            "type" : "array"
+          },
+          "eventType" : {
+            "type" : "string"
+          },
+          "lines" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SchemaCatalog.LineView"
+            },
+            "type" : "array"
+          },
+          "variables" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "SchemaCatalog.LineView" : {
+        "properties" : {
+          "account" : {
+            "type" : "string"
+          },
+          "amount" : {
+            "type" : "string"
+          },
+          "condition" : {
+            "type" : "string"
+          },
+          "direction" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "SchemaCatalog.Summary" : {
+        "properties" : {
+          "approvedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "approvedBy" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "createdBy" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "validFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "validTo" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "withdrawnAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "withdrawnBy" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "SchemaSimulator.Derived" : {
+        "properties" : {
+          "expression" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "SchemaSimulator.Line" : {
+        "properties" : {
+          "account" : {
+            "type" : "string"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "amountExpression" : {
+            "type" : "string"
+          },
+          "direction" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "posted" : {
+            "type" : "boolean"
+          },
+          "skipped" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "SchemaSimulator.Outcome" : {
+        "properties" : {
+          "credit" : {
+            "type" : "number"
+          },
+          "debit" : {
+            "type" : "number"
+          },
+          "derived" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SchemaSimulator.Derived"
+            },
+            "type" : "array"
+          },
+          "eventType" : {
+            "type" : "string"
+          },
+          "imbalance" : {
+            "type" : "number"
+          },
+          "lines" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SchemaSimulator.Line"
+            },
+            "type" : "array"
+          },
+          "rejection" : {
+            "$ref" : "#/components/schemas/SchemaSimulator.Rejection"
+          },
+          "variables" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "SchemaSimulator.Rejection" : {
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "detail" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "StandardSchemas.Event" : {
+        "properties" : {
+          "derivations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SchemaCatalog.DerivationView"
+            },
+            "type" : "array"
+          },
+          "eventType" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "lines" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SchemaCatalog.LineView"
+            },
+            "type" : "array"
+          },
+          "module" : {
+            "type" : "string"
+          },
+          "moduleLabel" : {
+            "type" : "string"
+          },
+          "roles" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "schemaCode" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "variables" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           }
         },
         "type" : "object"
@@ -6288,6 +6587,86 @@
   "openapi" : "3.1.0",
   "paths" : {
     "/v1/entities/{legalEntityId}/accounting-schemas" : {
+      "get" : {
+        "operationId" : "AccountingSchema.schemas",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "code",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "items" : {
+                        "$ref" : "#/components/schemas/SchemaCatalog.Summary"
+                      },
+                      "type" : "array"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "AccountingSchema" ]
+      },
       "post" : {
         "operationId" : "AccountingSchema.draft",
         "parameters" : [ {
@@ -6336,6 +6715,229 @@
               }
             },
             "description" : "Cree"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "AccountingSchema" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/accounting-schemas/standard" : {
+      "get" : {
+        "operationId" : "AccountingSchema.standard",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "currency",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "items" : {
+                        "$ref" : "#/components/schemas/StandardSchemas.Event"
+                      },
+                      "type" : "array"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "AccountingSchema" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/accounting-schemas/trials" : {
+      "post" : {
+        "operationId" : "AccountingSchema.trial",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.SchemaTrial"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/SchemaSimulator.Outcome"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "AccountingSchema" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/accounting-schemas/{schemaId}" : {
+      "get" : {
+        "operationId" : "AccountingSchema.schema",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "schemaId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/SchemaCatalog.Detail"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
           },
           "400" : {
             "$ref" : "#/components/responses/400"
@@ -6411,6 +7013,164 @@
               }
             },
             "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "AccountingSchema" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/accounting-schemas/{schemaId}/closure" : {
+      "post" : {
+        "operationId" : "AccountingSchema.close",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "$ref" : "#/components/parameters/OptionalIdempotencyKey"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "schemaId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Requests.AccountingSchemaClosure"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "$ref" : "#/components/schemas/MakerChecker.View"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/400"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/401"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/403"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/409"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/422"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/500"
+          }
+        },
+        "tags" : [ "AccountingSchema" ]
+      }
+    },
+    "/v1/entities/{legalEntityId}/accounting-schemas/{schemaId}/withdrawal" : {
+      "post" : {
+        "operationId" : "AccountingSchema.withdraw",
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/RequestId"
+        }, {
+          "in" : "path",
+          "name" : "legalEntityId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "schemaId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "properties" : {
+                    "data" : {
+                      "type" : "null"
+                    },
+                    "error" : {
+                      "type" : "null"
+                    },
+                    "meta" : {
+                      "$ref" : "#/components/schemas/Meta"
+                    },
+                    "page" : {
+                      "type" : "null"
+                    }
+                  },
+                  "required" : [ "data", "page", "error", "meta" ],
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Succes"
           },
           "400" : {
             "$ref" : "#/components/responses/400"

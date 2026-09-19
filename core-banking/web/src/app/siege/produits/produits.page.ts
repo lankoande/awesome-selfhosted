@@ -104,8 +104,6 @@ export class Produits {
   protected readonly fermetureADeux = computed(
     () => this.droits.annonceDeuxRegards('PRODUCT_CLOSE'));
 
-  protected readonly dateComptable = computed(() => this.config.valeur().affichage.deviseParDefaut);
-
   /** La date comptable de la banque : c'est elle, et non le jour civil, qui borne une fermeture. */
   protected readonly journee = signal('');
 

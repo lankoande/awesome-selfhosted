@@ -560,6 +560,20 @@ public final class SecurityConfig {
             AccessRule.allow(ACCOUNTANT)
                 .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
 
+        // Fermer la validite d'un schema est ce qui permet d'en activer un suivant : meme regime
+        // que l'activation, puisque c'est le meme acte vu de l'autre bout.
+        policy.put(Operation.ACCOUNTING_SCHEMA_CLOSE,
+            AccessRule.allow(ACCOUNTANT)
+                .within(Scope.OWN_ENTITY).requiringSecondPerson().build());
+
+        // Lire ce que le socle impute est le prealable a tout parametrage comptable, et c'est
+        // aussi ce qu'un auditeur demande en premier. Ouvert au-dela de la seule comptabilite :
+        // le risque calibre ses provisions sur des imputations qu'il doit pouvoir lire.
+        // Aucune trace a la lecture : ni montant, ni donnee de clientele.
+        policy.put(Operation.ACCOUNTING_SCHEMA_READ,
+            AccessRule.allow(ACCOUNTANT, AUDITOR, PRODUCT_MANAGER, RISK_OFFICER)
+                .within(Scope.OWN_ENTITY).build());
+
         // Une maquette d'etat financier fixe ce que la banque presente : la comptabilite la
         // redige, une seconde main comptable l'active.
         policy.put(Operation.STATEMENT_LAYOUT_DRAFT,

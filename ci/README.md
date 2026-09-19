@@ -14,7 +14,7 @@ plutôt que contournée.
 | `documentation` | `python:3.12-slim` | Un lien interne ou une ancre qui ne résout pas |
 
 Mesuré sur une machine de développement, dépôt Maven et `node_modules` déjà peuplés :
-**~215 s** pour les 741 tests du socle, **~100 s** pour le front (494 tests, compilation,
+**~215 s** pour les 760 tests du socle, **~100 s** pour le front (531 tests, compilation,
 trente-cinq adresses à sept largeurs), **< 1 s** pour les liens. Un coureur part d'un cache
 froid et télécharge d'abord ; les délais d'expiration sont posés avec de la marge.
 

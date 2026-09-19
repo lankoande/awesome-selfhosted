@@ -459,6 +459,20 @@ public final class Requests {
                                         LocalDate validFrom, LocalDate validTo, Integer version,
                                         List<SchemaEvent> events) {}
 
+    /** Fermeture de la validite d'un schema actif : ce qui permet d'en activer un suivant. */
+    public record AccountingSchemaClosure(LocalDate validTo) {}
+
+    /**
+     * Essai d'un schema sur un cas.
+     *
+     * <p>Trois provenances possibles du modele, dans cet ordre : un schema en cours de redaction
+     * ({@code events}), un schema enregistre ({@code schemaId}), ou — les deux absents — le schema
+     * du socle qui traduit cet evenement.
+     */
+    public record SchemaTrial(String eventType, String currency, UUID schemaId, String code,
+                              List<SchemaEvent> events,
+                              java.util.Map<String, java.math.BigDecimal> values) {}
+
     /** Reponse d'un ferie declare. */
     public record HolidayDeclared(UUID calendarId, LocalDate date, String label) {}
 

@@ -55,7 +55,9 @@ src/app/caisse/  la caisse du guichetier et son arrêté
 src/app/siege/   exploitation comptable, restitutions, et le paramétrage : identité de
                  l'établissement, produits (saisie pilotée par le contrat servi par le
                  socle), réseau d'agences, conditions de banque (fériés, dates de
-                 valeur, heures limites), plan de numérotation
+                 valeur, heures limites), schémas comptables (ce que le socle impute,
+                 essayé sur un cas au socle — le poste ne lit aucune expression), plan
+                 de numérotation
 src/app/auth/    session OAuth2 PKCE, jeton porté, verrouillage, habilitations
                  (droits complets : portée, second regard, plafonds — voir plus bas)
 src/app/api/    le contrat : types générés (`schema.ts`, ne jamais éditer), chemins

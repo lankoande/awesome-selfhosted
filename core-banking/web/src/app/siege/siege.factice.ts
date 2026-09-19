@@ -16,6 +16,12 @@ import {
 import {
   EtapeRun, FiltreBalance, LigneBalance, PageBalance, RunTfj, TotauxBalance,
 } from './modele/siege.modele';
+import { CATALOGUE_DEMONSTRATION } from './modele/schemas.demonstration';
+import { essaiDeDemonstration } from './modele/schemas.essai-demonstration';
+import {
+  DemandeFermetureSchema, EnteteSchema, Essai, EvenementSocle, LigneSaisie, SchemaComplet,
+  SchemaComptable,
+} from './modele/schemas.modele';
 import { EnAttenteSiege, Siege } from './siege.port';
 
 function segment(kind: Segment['kind'], reglages: Partial<Segment> = {}): Segment {
@@ -724,6 +730,143 @@ export class SiegeFactice implements Siege {
     this.derniereHeure = demande;
     return { operationId: `op-heure-${Date.now()}` };
   }
+
+  // ------------------------------------------------------------ schémas comptables
+
+  /**
+   * Le seul schéma paramétré de la démonstration : une commission de tenue de compte.
+   *
+   * Rédigé, jamais activé — c'est l'état dans lequel un schéma se relit le plus souvent, et celui
+   * qui laisse voir les trois actes : l'essai, l'activation, le retrait.
+   */
+  private schemasEnCours: readonly SchemaComptable[] = [{
+    id: 'sc-1', code: 'FRAIS-TENUE', label: 'Frais de tenue de compte', currency: 'XOF',
+    validFrom: '2026-10-01', validTo: null, status: 'DRAFT',
+    createdBy: null, createdAt: '2026-09-15T09:12:00Z', approvedBy: null, approvedAt: null,
+    withdrawnBy: null, withdrawnAt: null,
+  }];
+
+  private readonly lignesDuSchema: readonly LigneSaisie[] = [
+    { account: 'CONTRACT', direction: 'DEBIT', amount: 'net_booked + tax_booked',
+      condition: '', label: 'Frais de tenue de compte' },
+    { account: 'PARAM:fee_income', direction: 'CREDIT', amount: 'net_booked',
+      condition: '', label: 'Commissions percues' },
+    { account: 'PARAM:fee_tax', direction: 'CREDIT', amount: 'tax_booked',
+      condition: 'tax_booked > 0', label: 'Taxe collectee' },
+  ];
+
+  private readonly derivationsDuSchema: readonly (readonly [string, string])[] = [
+    ['net_booked', 'round(net, 0)'],
+    ['tax_booked', 'round(tax, 0)'],
+  ];
+
+  async evenementsDuSocle(): Promise<readonly EvenementSocle[]> {
+    await this.latence();
+    return CATALOGUE_DEMONSTRATION;
+  }
+
+  async schemas(legalEntityId: string, code: string | null,
+                statut: string | null): Promise<readonly SchemaComptable[]> {
+    await this.latence();
+    return this.schemasEnCours.filter((schema) =>
+      (!code || schema.code === code) && (!statut || schema.status === statut));
+  }
+
+  async schema(legalEntityId: string, schemaId: string): Promise<SchemaComplet> {
+    await this.latence();
+    const entete = this.schemasEnCours.find((candidat) => candidat.id === schemaId);
+    if (!entete) {
+      throw new RefusMetier(404, 'SCHEMA_INCONNU', 'Schéma introuvable.',
+                            'Aucun schéma ne porte cet identifiant.');
+    }
+    return {
+      header: entete,
+      events: [{
+        eventType: 'FEE_CHARGE',
+        derivations: this.derivationsDuSchema.map(([name, expression]) => ({ name, expression })),
+        lines: this.lignesDuSchema.map((ligne) => ({
+          account: ligne.account, direction: ligne.direction, amount: ligne.amount,
+          condition: ligne.condition || null, label: ligne.label || null,
+        })),
+        variables: ['net', 'tax'],
+      }],
+    };
+  }
+
+  async essayer(legalEntityId: string, evenement: string, devise: string | null,
+                lignes: readonly LigneSaisie[],
+                derivations: readonly (readonly [string, string])[],
+                valeurs: Readonly<Record<string, string>>): Promise<Essai> {
+    await this.latence();
+    return essaiDeDemonstration(evenement, this.echelle(devise), lignes, derivations, valeurs);
+  }
+
+  async essayerLeSocle(legalEntityId: string, evenement: string, devise: string | null,
+                       valeurs: Readonly<Record<string, string>>): Promise<Essai> {
+    await this.latence();
+    const modele = CATALOGUE_DEMONSTRATION.find((candidat) => candidat.eventType === evenement);
+    if (!modele) {
+      throw new RefusMetier(422, 'EVENEMENT_INCONNU', 'Événement inconnu du socle.',
+                            'Aucun schéma du socle ne traduit cet événement.');
+    }
+    return essaiDeDemonstration(evenement, this.echelle(devise),
+      modele.lines.map((ligne) => ({
+        account: ligne.account, direction: ligne.direction, amount: ligne.amount,
+        condition: ligne.condition ?? '', label: ligne.label ?? '',
+      })),
+      modele.derivations.map((derivation) => [derivation.name, derivation.expression] as const),
+      valeurs);
+  }
+
+  async redigerSchema(legalEntityId: string, entete: EnteteSchema,
+                      lignes: readonly LigneSaisie[],
+                      derivations: readonly (readonly [string, string])[]): Promise<{ readonly id: string }> {
+    await this.latence();
+    this.dernierSchema = { entete, lignes, derivations };
+    const id = `sc-${this.schemasEnCours.length + 1}`;
+    this.schemasEnCours = [...this.schemasEnCours, {
+      id, code: entete.code, label: entete.label, currency: entete.currency,
+      validFrom: entete.validFrom ?? '', validTo: entete.validTo, status: 'DRAFT',
+      createdBy: null, createdAt: new Date().toISOString(), approvedBy: null, approvedAt: null,
+      withdrawnBy: null, withdrawnAt: null,
+    }];
+    return { id };
+  }
+
+  async activerSchema(legalEntityId: string, schemaId: string): Promise<EnAttenteSiege> {
+    await this.latence();
+    this.derniereActivationSchema = schemaId;
+    return { operationId: `op-schema-${Date.now()}` };
+  }
+
+  async fermerSchema(legalEntityId: string, schemaId: string,
+                     demande: DemandeFermetureSchema): Promise<EnAttenteSiege> {
+    await this.latence();
+    this.derniereFermetureSchema = { schemaId, validTo: demande.validTo };
+    return { operationId: `op-fermeture-schema-${Date.now()}` };
+  }
+
+  async retirerSchema(legalEntityId: string, schemaId: string): Promise<void> {
+    await this.latence();
+    this.dernierRetraitSchema = schemaId;
+    this.schemasEnCours = this.schemasEnCours.map((schema) => schema.id === schemaId
+      ? { ...schema, status: 'WITHDRAWN' as const, withdrawnAt: new Date().toISOString() }
+      : schema);
+  }
+
+  /** L'échelle de la devise : c'est elle qui décide de ce qui est comptabilisable. */
+  private echelle(devise: string | null): number {
+    return devise === 'EUR' || devise === 'USD' ? 2 : 0;
+  }
+
+  dernierSchema: {
+    entete: EnteteSchema;
+    lignes: readonly LigneSaisie[];
+    derivations: readonly (readonly [string, string])[];
+  } | null = null;
+  derniereActivationSchema: string | null = null;
+  derniereFermetureSchema: { schemaId: string; validTo: string | null } | null = null;
+  dernierRetraitSchema: string | null = null;
 
   /** Ce que la démonstration a reçu : les écrans de bout en bout s'en servent. */
   derniereAgence: DemandeAgence | null = null;

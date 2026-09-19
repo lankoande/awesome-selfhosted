@@ -9,7 +9,25 @@ import {
   Agence, ConditionsDeBanque, DemandeAgence, DemandeFerie, DemandeHeureLimite,
   DemandeRegleDateValeur,
 } from '../modele/reseau.modele';
+import { CATALOGUE_DEMONSTRATION } from '../modele/schemas.demonstration';
+import { essaiDeDemonstration } from '../modele/schemas.essai-demonstration';
+import {
+  DemandeFermetureSchema, EnteteSchema, Essai, EvenementSocle, LigneSaisie, SchemaComplet,
+  SchemaComptable,
+} from '../modele/schemas.modele';
 import { FiltreBalance, PageBalance, RunTfj, TotauxBalance } from '../modele/siege.modele';
+
+/** Deux schémas : un brouillon qu'on peut encore activer, un en vigueur qu'on ne peut que fermer. */
+export const SCHEMAS_DOUBLE: readonly SchemaComptable[] = [
+  { id: 'sc-1', code: 'FRAIS-TENUE', label: 'Frais de tenue de compte', currency: 'XOF',
+    validFrom: '2026-10-01', validTo: null, status: 'DRAFT', createdBy: null,
+    createdAt: '2026-09-15T09:12:00Z', approvedBy: null, approvedAt: null,
+    withdrawnBy: null, withdrawnAt: null },
+  { id: 'sc-2', code: 'FRAIS-CARTE', label: 'Frais de carte', currency: 'XOF',
+    validFrom: '2026-01-01', validTo: null, status: 'ACTIVE', createdBy: null,
+    createdAt: '2025-12-20T10:00:00Z', approvedBy: null, approvedAt: '2025-12-21T08:00:00Z',
+    withdrawnBy: null, withdrawnAt: null },
+];
 
 export const RESEAU_DOUBLE: readonly Agence[] = [
   { id: 'siege', code: 'SIEGE', name: 'Siège', kind: 'HEAD_OFFICE', parentId: null,
@@ -257,6 +275,103 @@ export class SiegeDouble implements Siege {
     this.derniereHeure = demande;
     return { operationId: 'op-heure' };
   }
+
+  // ------------------------------------------------------------ schémas comptables
+
+  catalogue: readonly EvenementSocle[] = CATALOGUE_DEMONSTRATION;
+  listeSchemas: readonly SchemaComptable[] = SCHEMAS_DOUBLE;
+
+  async evenementsDuSocle(): Promise<readonly EvenementSocle[]> {
+    return this.catalogue;
+  }
+
+  async schemas(legalEntityId: string, code: string | null,
+                statut: string | null): Promise<readonly SchemaComptable[]> {
+    this.dernierFiltreSchema = { code, statut };
+    return this.listeSchemas.filter((schema) =>
+      (!code || schema.code === code) && (!statut || schema.status === statut));
+  }
+
+  async schema(legalEntityId: string, schemaId: string): Promise<SchemaComplet> {
+    const entete = this.listeSchemas.find((candidat) => candidat.id === schemaId)
+      ?? SCHEMAS_DOUBLE[0]!;
+    return {
+      header: entete,
+      events: [{
+        eventType: 'FEE_CHARGE',
+        derivations: [{ name: 'net_booked', expression: 'round(net, 0)' },
+                      { name: 'tax_booked', expression: 'round(tax, 0)' }],
+        lines: [
+          { account: 'CONTRACT', direction: 'DEBIT', amount: 'net_booked + tax_booked',
+            condition: null, label: 'Frais de tenue' },
+          { account: 'PARAM:fee_income', direction: 'CREDIT', amount: 'net_booked',
+            condition: null, label: 'Commissions percues' },
+          { account: 'PARAM:fee_tax', direction: 'CREDIT', amount: 'tax_booked',
+            condition: 'tax_booked > 0', label: 'Taxe collectee' },
+        ],
+        variables: ['net', 'tax'],
+      }],
+    };
+  }
+
+  async essayer(legalEntityId: string, evenement: string, devise: string | null,
+                lignes: readonly LigneSaisie[],
+                derivations: readonly (readonly [string, string])[],
+                valeurs: Readonly<Record<string, string>>): Promise<Essai> {
+    this.dernierEssai = { evenement, lignes, derivations, valeurs };
+    return essaiDeDemonstration(evenement, devise === 'EUR' ? 2 : 0, lignes, derivations, valeurs);
+  }
+
+  async essayerLeSocle(legalEntityId: string, evenement: string, devise: string | null,
+                       valeurs: Readonly<Record<string, string>>): Promise<Essai> {
+    const modele = this.catalogue.find((candidat) => candidat.eventType === evenement)
+      ?? this.catalogue[0]!;
+    return essaiDeDemonstration(evenement, devise === 'EUR' ? 2 : 0,
+      modele.lines.map((ligne) => ({
+        account: ligne.account, direction: ligne.direction, amount: ligne.amount,
+        condition: ligne.condition ?? '', label: ligne.label ?? '',
+      })),
+      modele.derivations.map((derivation) => [derivation.name, derivation.expression] as const),
+      valeurs);
+  }
+
+  async redigerSchema(legalEntityId: string, entete: EnteteSchema, lignes: readonly LigneSaisie[],
+                      derivations: readonly (readonly [string, string])[]):
+                      Promise<{ readonly id: string }> {
+    this.dernierSchema = { entete, lignes, derivations };
+    return { id: 'sc-neuf' };
+  }
+
+  async activerSchema(legalEntityId: string, schemaId: string): Promise<EnAttenteSiege> {
+    this.derniereActivationSchema = schemaId;
+    return { operationId: 'op-schema' };
+  }
+
+  async fermerSchema(legalEntityId: string, schemaId: string,
+                     demande: DemandeFermetureSchema): Promise<EnAttenteSiege> {
+    this.derniereFermetureSchema = { schemaId, validTo: demande.validTo };
+    return { operationId: 'op-fermeture-schema' };
+  }
+
+  async retirerSchema(legalEntityId: string, schemaId: string): Promise<void> {
+    this.dernierRetraitSchema = schemaId;
+  }
+
+  dernierFiltreSchema: { code: string | null; statut: string | null } | null = null;
+  dernierEssai: {
+    evenement: string;
+    lignes: readonly LigneSaisie[];
+    derivations: readonly (readonly [string, string])[];
+    valeurs: Readonly<Record<string, string>>;
+  } | null = null;
+  dernierSchema: {
+    entete: EnteteSchema;
+    lignes: readonly LigneSaisie[];
+    derivations: readonly (readonly [string, string])[];
+  } | null = null;
+  derniereActivationSchema: string | null = null;
+  derniereFermetureSchema: { schemaId: string; validTo: string | null } | null = null;
+  dernierRetraitSchema: string | null = null;
 
   derniereAgence: DemandeAgence | null = null;
   dernierFerie: DemandeFerie | null = null;

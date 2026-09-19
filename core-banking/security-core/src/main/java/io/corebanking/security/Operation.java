@@ -209,6 +209,20 @@ public enum Operation {
     ACCOUNTING_SCHEMA_DRAFT,
     /** Activation d'un schema comptable. */
     ACCOUNTING_SCHEMA_ACTIVATE,
+    /**
+     * Fermeture de la validite d'un schema comptable.
+     *
+     * <p>Tant que le schema en vigueur n'a pas de fin, la contrainte d'exclusion interdit
+     * d'activer son successeur : fermer est ce qui rend le versionnement possible.
+     */
+    ACCOUNTING_SCHEMA_CLOSE,
+    /**
+     * Lecture des schemas comptables et du catalogue des evenements du socle.
+     *
+     * <p>Un comptable a le droit de savoir ce que la banque impute sur un retrait ou une echeance,
+     * et il ne peut pas le lire dans le code. Aucun montant, aucune donnee de clientele.
+     */
+    ACCOUNTING_SCHEMA_READ,
     /** Redaction d'une maquette d'etat financier : bilan, compte de resultat, hors bilan. */
     STATEMENT_LAYOUT_DRAFT,
     /** Activation d'une maquette d'etat financier : ce que la banque presente, a deux. */

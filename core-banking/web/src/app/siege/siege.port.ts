@@ -9,6 +9,10 @@ import {
   Agence, ConditionsDeBanque, DemandeAgence, DemandeFerie, DemandeHeureLimite,
   DemandeRegleDateValeur,
 } from './modele/reseau.modele';
+import {
+  DemandeFermetureSchema, EnteteSchema, Essai, EvenementSocle, LigneSaisie, SchemaComplet,
+  SchemaComptable,
+} from './modele/schemas.modele';
 import { FiltreBalance, PageBalance, RunTfj, TotauxBalance } from './modele/siege.modele';
 
 /** Ce que rend une action soumise à un second regard. */
@@ -145,6 +149,64 @@ export interface Siege {
   /** Une heure limite décide de ce qui passe aujourd'hui et de ce qui passe demain : à deux. */
   ajouterHeureLimite(legalEntityId: string, demande: DemandeHeureLimite,
                      cleIdempotence: string): Promise<EnAttenteSiege>;
+
+  // ---------------------------------------------------------------- schémas comptables
+
+  /**
+   * Le catalogue de ce que le socle impute, événement par événement.
+   *
+   * Il répond à deux questions qu'on ne pouvait poser qu'au code : ce que la banque impute quand
+   * un client retire de l'argent, et ce qui se paramètre réellement. La seconde est la plus
+   * importante : un schéma rédigé pour un événement que personne ne résout s'activerait à deux et
+   * ne serait lu par personne.
+   */
+  evenementsDuSocle(legalEntityId: string, devise: string | null): Promise<readonly EvenementSocle[]>;
+
+  /** Les schémas de l'entité, brouillons compris ; filtrés par code et par état. */
+  schemas(legalEntityId: string, code: string | null,
+          statut: string | null): Promise<readonly SchemaComptable[]>;
+
+  /** Un schéma en entier : en-tête, dérivations dans l'ordre, lignes, variables attendues. */
+  schema(legalEntityId: string, schemaId: string): Promise<SchemaComplet>;
+
+  /**
+   * Essaie un schéma sur un cas, sans rien imputer.
+   *
+   * Le poste n'interprète aucune expression : il envoie ce qui est écrit et lit ce que le socle
+   * en fait. C'est aussi ainsi qu'il apprend les grandeurs à demander — l'essai les rend.
+   */
+  essayer(legalEntityId: string, evenement: string, devise: string | null,
+          lignes: readonly LigneSaisie[], derivations: readonly (readonly [string, string])[],
+          valeurs: Readonly<Record<string, string>>): Promise<Essai>;
+
+  /** Essaie un schéma du socle : ce que la banque impute sur cet événement, sur un cas. */
+  essayerLeSocle(legalEntityId: string, evenement: string, devise: string | null,
+                 valeurs: Readonly<Record<string, string>>): Promise<Essai>;
+
+  /**
+   * Rédige un schéma. Il est validé par tirage avant d'entrer en base : un schéma déséquilibré
+   * n'y entre jamais.
+   */
+  redigerSchema(legalEntityId: string, entete: EnteteSchema,
+                lignes: readonly LigneSaisie[],
+                derivations: readonly (readonly [string, string])[],
+                cleIdempotence: string): Promise<{ readonly id: string }>;
+
+  /** Activer : à deux, et jamais par le rédacteur. */
+  activerSchema(legalEntityId: string, schemaId: string,
+                cleIdempotence: string): Promise<EnAttenteSiege>;
+
+  /**
+   * Fermer la validité d'un schéma en vigueur : à deux.
+   *
+   * C'est ainsi qu'un schéma cesse de s'appliquer — et c'est aussi ce qui permet d'en activer un
+   * suivant sous le même code.
+   */
+  fermerSchema(legalEntityId: string, schemaId: string, demande: DemandeFermetureSchema,
+               cleIdempotence: string): Promise<EnAttenteSiege>;
+
+  /** Retirer un brouillon abandonné. Seul acte du paramétrage comptable qui ne soit pas à deux. */
+  retirerSchema(legalEntityId: string, schemaId: string): Promise<void>;
 }
 
 export const SIEGE = new InjectionToken<Siege>('Siege');

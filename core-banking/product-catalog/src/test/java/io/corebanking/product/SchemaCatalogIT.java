@@ -2,6 +2,7 @@ package io.corebanking.product;
 
 import static io.corebanking.kernel.money.Currencies.XOF;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.corebanking.kernel.id.IdempotencyKey;
@@ -189,5 +190,134 @@ class SchemaCatalogIT extends ProductTestBase {
             SchemaCatalog.resolveAt(c, ENTITY, "EP-DATE", D)))
             .isInstanceOf(ProductNotFoundException.class)
             .hasMessageContaining("ne peut pas se rabattre");
+    }
+
+    // ------------------------------------------------------------------ relecture et fin de vie
+
+    @Test
+    @DisplayName("un brouillon se retrouve : la liste et le detail rendent ce qui a ete ecrit")
+    void a_draft_can_be_found_again() {
+        UUID created = database.inTransaction(c ->
+            SchemaCatalog.createDraft(c, draft("EP-RELU", commissionSaine())));
+
+        List<SchemaCatalog.Summary> brouillons = database.inTransaction(c ->
+            SchemaCatalog.summaries(c, ENTITY, "EP-RELU", "DRAFT"));
+        assertThat(brouillons).extracting(SchemaCatalog.Summary::id).containsExactly(created);
+        assertThat(brouillons.get(0).status()).isEqualTo("DRAFT");
+
+        SchemaCatalog.Detail detail = database.inTransaction(c ->
+            SchemaCatalog.detail(c, ENTITY, created)).orElseThrow();
+        assertThat(detail.events()).hasSize(1);
+        SchemaCatalog.EventView evenement = detail.events().get(0);
+        assertThat(evenement.eventType()).isEqualTo("MAINTENANCE_FEE");
+        assertThat(evenement.lines()).hasSize(3);
+        assertThat(evenement.lines().get(2).condition()).isEqualTo("tva > 0");
+        // Les grandeurs a fournir sont deduites des expressions, jamais saisies a cote.
+        assertThat(evenement.variables()).containsExactlyInAnyOrder("base", "taux_tva");
+    }
+
+    /** Un schema d'une autre entite ne se lit pas, meme avec son identifiant exact. */
+    @Test
+    @DisplayName("le detail verifie l'entite, il ne la suppose pas")
+    void detail_checks_the_entity() {
+        UUID created = database.inTransaction(c ->
+            SchemaCatalog.createDraft(c, draft("EP-AUTRE", commissionSaine())));
+
+        java.util.Optional<SchemaCatalog.Detail> ailleurs = database.inTransaction(c ->
+            SchemaCatalog.detail(c, UUID.randomUUID(), created));
+        assertThat(ailleurs).isEmpty();
+    }
+
+    /**
+     * Le fait qui justifie l'existence de la fermeture : tant que le schema en vigueur n'a pas de
+     * terme, la contrainte d'exclusion interdit d'activer son successeur. Sans fermeture, un code
+     * de schema est fige pour toujours.
+     */
+    @Test
+    @DisplayName("fermer la validite est ce qui permet d'activer le schema suivant")
+    void closing_is_what_makes_the_next_version_possible() {
+        UUID premier = database.inTransaction(c -> {
+            UUID id = SchemaCatalog.createDraft(c, draft("EP-SUITE", commissionSaine()));
+            SchemaCatalog.activate(c, id, VALIDEUR);
+            return id;
+        });
+        UUID second = database.inTransaction(c -> SchemaCatalog.createDraft(c,
+            new SchemaCatalog.Draft(ENTITY, "EP-SUITE", "Frais", XOF, D.plusDays(20), null,
+                                    commissionSaine(), REDACTEUR)));
+
+        // Sans fermeture du premier, l'activation du second croise une validite active.
+        assertThatThrownBy(() -> database.inTransaction(c -> {
+            SchemaCatalog.activate(c, second, VALIDEUR);
+            return null;
+        })).hasStackTraceContaining("ex_schema_no_overlap");
+
+        database.inTransaction(c -> {
+            SchemaCatalog.close(c, ENTITY, premier, D.plusDays(19));
+            SchemaCatalog.activate(c, second, VALIDEUR);
+            return null;
+        });
+
+        // Chaque date resout desormais le schema de sa periode, et un seul.
+        List<SchemaCatalog.Summary> actifs = database.inTransaction(c ->
+            SchemaCatalog.summaries(c, ENTITY, "EP-SUITE", "ACTIVE"));
+        assertThat(actifs).hasSize(2);
+        assertThatCode(() -> database.inTransaction(c ->
+            SchemaCatalog.resolveAt(c, ENTITY, "EP-SUITE", D.plusDays(25))))
+            .doesNotThrowAnyException();
+    }
+
+    /**
+     * Une fermeture anterieure a la date comptable changerait l'imputation d'un arrete deja
+     * produit : au rejeu, un autre schema se resoudrait, donc d'autres ecritures.
+     */
+    @Test
+    @DisplayName("une fermeture ne peut pas preceder la date comptable de l'entite")
+    void closing_cannot_predate_the_business_date() {
+        UUID id = database.inTransaction(c -> {
+            UUID created = SchemaCatalog.createDraft(c, draft("EP-PASSE", commissionSaine()));
+            SchemaCatalog.activate(c, created, VALIDEUR);
+            return created;
+        });
+
+        assertThatThrownBy(() -> database.inTransaction(c -> {
+            SchemaCatalog.close(c, ENTITY, id, BUSINESS_DATE.minusDays(1));
+            return null;
+        })).isInstanceOf(IllegalArgumentException.class)
+           .hasMessageContaining("arrete deja produit");
+    }
+
+    @Test
+    @DisplayName("un brouillon retire garde la signature de celui qui l'a retire")
+    void a_withdrawn_draft_keeps_its_signature() {
+        UUID id = database.inTransaction(c ->
+            SchemaCatalog.createDraft(c, draft("EP-RETIRE", commissionSaine())));
+
+        database.inTransaction(c -> {
+            SchemaCatalog.withdrawDraft(c, ENTITY, id, REDACTEUR);
+            return null;
+        });
+
+        SchemaCatalog.Summary retire = database.inTransaction(c ->
+            SchemaCatalog.summaries(c, ENTITY, "EP-RETIRE", null)).get(0);
+        assertThat(retire.status()).isEqualTo("WITHDRAWN");
+        assertThat(retire.withdrawnBy()).isEqualTo(REDACTEUR);
+        assertThat(retire.withdrawnAt()).isNotNull();
+    }
+
+    /** Un schema active ne se retire pas : sa validite se ferme, et la nuance est comptable. */
+    @Test
+    @DisplayName("un schema active ne se retire pas")
+    void an_active_schema_cannot_be_withdrawn() {
+        UUID id = database.inTransaction(c -> {
+            UUID created = SchemaCatalog.createDraft(c, draft("EP-ACTIF", commissionSaine()));
+            SchemaCatalog.activate(c, created, VALIDEUR);
+            return created;
+        });
+
+        assertThatThrownBy(() -> database.inTransaction(c -> {
+            SchemaCatalog.withdrawDraft(c, ENTITY, id, REDACTEUR);
+            return null;
+        })).isInstanceOf(IllegalStateException.class)
+           .hasMessageContaining("sa validite se ferme");
     }
 }

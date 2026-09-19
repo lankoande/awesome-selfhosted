@@ -1,0 +1,36 @@
+{
+  "modules": [
+    { "code": "OPERATIONS", "label": "Guichet, virements et moyens de paiement" },
+    { "code": "LOAN",       "label": "Crédit" },
+    { "code": "FEE",        "label": "Commissions" }
+  ],
+  "events": [
+    { "eventType": "CASH_DEPOSIT",        "module": "OPERATIONS", "label": "Versement d'espèces" },
+    { "eventType": "CASH_WITHDRAWAL",     "module": "OPERATIONS", "label": "Retrait d'espèces" },
+    { "eventType": "TRANSFER",            "module": "OPERATIONS", "label": "Virement interne" },
+    { "eventType": "PAYMENT_ORDER",       "module": "OPERATIONS", "label": "Paiement émis" },
+    { "eventType": "CHEQUE_BOOK_FEE",     "module": "OPERATIONS", "label": "Frais de chéquier" },
+    { "eventType": "CHEQUE_PAYMENT",      "module": "OPERATIONS", "label": "Paiement d'un chèque émis" },
+    { "eventType": "CHEQUE_DEPOSIT",      "module": "OPERATIONS", "label": "Remise de chèque" },
+    { "eventType": "DIRECT_DEBIT",        "module": "OPERATIONS", "label": "Prélèvement reçu" },
+    { "eventType": "DIRECT_DEBIT_ISSUE",  "module": "OPERATIONS", "label": "Prélèvement émis" },
+    { "eventType": "DIRECT_DEBIT_FEE",    "module": "OPERATIONS", "label": "Frais de prélèvement émis" },
+
+    { "eventType": "LOAN_DISBURSEMENT",         "module": "LOAN", "label": "Déblocage de crédit" },
+    { "eventType": "LOAN_TRANCHE_RELEASE",      "module": "LOAN", "label": "Déblocage d'une tranche" },
+    { "eventType": "LOAN_INTERIM_INTEREST",     "module": "LOAN", "label": "Intérêts intercalaires" },
+    { "eventType": "LOAN_INSTALMENT_DUE",       "module": "LOAN", "label": "Échéance exigible" },
+    { "eventType": "LOAN_REPAYMENT",            "module": "LOAN", "label": "Règlement d'échéance" },
+    { "eventType": "LOAN_LATE_CHARGES",         "module": "LOAN", "label": "Intérêts de retard et pénalités" },
+    { "eventType": "LOAN_PROVISION_CHARGE",     "module": "LOAN", "label": "Dotation aux provisions" },
+    { "eventType": "LOAN_PROVISION_RELEASE",    "module": "LOAN", "label": "Reprise de provision" },
+    { "eventType": "LOAN_INTEREST_SUSPENSION",  "module": "LOAN", "label": "Intérêts réservés" },
+    { "eventType": "LOAN_PREPAYMENT",           "module": "LOAN", "label": "Remboursement anticipé" },
+    { "eventType": "LOAN_WRITE_OFF",            "module": "LOAN", "label": "Passage en perte" },
+    { "eventType": "LOAN_WRITE_OFF_OFF_BALANCE","module": "LOAN", "label": "Passage en perte : hors bilan" },
+    { "eventType": "LOAN_RECOVERY",             "module": "LOAN", "label": "Recouvrement sur créance passée en perte" },
+    { "eventType": "LOAN_RECOVERY_OFF_BALANCE", "module": "LOAN", "label": "Recouvrement : extourne du hors bilan" },
+
+    { "eventType": "FEE_CHARGE", "module": "FEE", "label": "Perception d'une commission" }
+  ]
+}

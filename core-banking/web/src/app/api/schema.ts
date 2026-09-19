@@ -11,9 +11,57 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["AccountingSchema.schemas"];
         put?: never;
         post: operations["AccountingSchema.draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entities/{legalEntityId}/accounting-schemas/standard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AccountingSchema.standard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entities/{legalEntityId}/accounting-schemas/trials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AccountingSchema.trial"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entities/{legalEntityId}/accounting-schemas/{schemaId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AccountingSchema.schema"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -30,6 +78,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["AccountingSchema.activate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entities/{legalEntityId}/accounting-schemas/{schemaId}/closure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AccountingSchema.close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entities/{legalEntityId}/accounting-schemas/{schemaId}/withdrawal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AccountingSchema.withdraw"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3926,6 +4006,10 @@ export interface components {
             /** Format: date */
             validTo?: string;
         };
+        "Requests.AccountingSchemaClosure": {
+            /** Format: date */
+            validTo?: string;
+        };
         "Requests.AccountingSchemaDraft": {
             code?: string;
             currency?: string;
@@ -4539,6 +4623,17 @@ export interface components {
             direction?: string;
             label?: string;
         };
+        "Requests.SchemaTrial": {
+            code?: string;
+            currency?: string;
+            eventType?: string;
+            events?: components["schemas"]["Requests.SchemaEvent"][];
+            /** Format: uuid */
+            schemaId?: string;
+            values?: {
+                [key: string]: number;
+            };
+        };
         "Requests.Settlement": {
             /** Format: uuid */
             nostroAccountId?: string;
@@ -4696,6 +4791,91 @@ export interface components {
             rating?: string;
             /** Format: date */
             verifiedOn?: string;
+        };
+        "SchemaCatalog.DerivationView": {
+            expression?: string;
+            name?: string;
+        };
+        "SchemaCatalog.Detail": {
+            events?: components["schemas"]["SchemaCatalog.EventView"][];
+            header?: components["schemas"]["SchemaCatalog.Summary"];
+        };
+        "SchemaCatalog.EventView": {
+            derivations?: components["schemas"]["SchemaCatalog.DerivationView"][];
+            eventType?: string;
+            lines?: components["schemas"]["SchemaCatalog.LineView"][];
+            variables?: string[];
+        };
+        "SchemaCatalog.LineView": {
+            account?: string;
+            amount?: string;
+            condition?: string;
+            direction?: string;
+            label?: string;
+        };
+        "SchemaCatalog.Summary": {
+            /** Format: date-time */
+            approvedAt?: string;
+            /** Format: uuid */
+            approvedBy?: string;
+            code?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: uuid */
+            createdBy?: string;
+            currency?: string;
+            /** Format: uuid */
+            id?: string;
+            label?: string;
+            status?: string;
+            /** Format: date */
+            validFrom?: string;
+            /** Format: date */
+            validTo?: string;
+            /** Format: date-time */
+            withdrawnAt?: string;
+            /** Format: uuid */
+            withdrawnBy?: string;
+        };
+        "SchemaSimulator.Derived": {
+            expression?: string;
+            name?: string;
+            value?: number;
+        };
+        "SchemaSimulator.Line": {
+            account?: string;
+            amount?: number;
+            amountExpression?: string;
+            direction?: string;
+            label?: string;
+            posted?: boolean;
+            skipped?: string;
+        };
+        "SchemaSimulator.Outcome": {
+            credit?: number;
+            debit?: number;
+            derived?: components["schemas"]["SchemaSimulator.Derived"][];
+            eventType?: string;
+            imbalance?: number;
+            lines?: components["schemas"]["SchemaSimulator.Line"][];
+            rejection?: components["schemas"]["SchemaSimulator.Rejection"];
+            variables?: string[];
+        };
+        "SchemaSimulator.Rejection": {
+            code?: string;
+            detail?: string;
+        };
+        "StandardSchemas.Event": {
+            derivations?: components["schemas"]["SchemaCatalog.DerivationView"][];
+            eventType?: string;
+            label?: string;
+            lines?: components["schemas"]["SchemaCatalog.LineView"][];
+            module?: string;
+            moduleLabel?: string;
+            roles?: string[];
+            schemaCode?: string;
+            source?: string;
+            variables?: string[];
         };
         "StandingOrderService.Execution": {
             amount?: components["schemas"]["Money"];
@@ -5147,6 +5327,46 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "AccountingSchema.schemas": {
+        parameters: {
+            query?: {
+                code?: string;
+                status?: string;
+            };
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SchemaCatalog.Summary"][];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
     "AccountingSchema.draft": {
         parameters: {
             query?: never;
@@ -5188,6 +5408,124 @@ export interface operations {
             500: components["responses"]["500"];
         };
     };
+    "AccountingSchema.standard": {
+        parameters: {
+            query?: {
+                currency?: string;
+            };
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["StandardSchemas.Event"][];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "AccountingSchema.trial": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Requests.SchemaTrial"];
+            };
+        };
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SchemaSimulator.Outcome"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "AccountingSchema.schema": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+                schemaId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SchemaCatalog.Detail"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
     "AccountingSchema.activate": {
         parameters: {
             query?: never;
@@ -5213,6 +5551,88 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["MakerChecker.View"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "AccountingSchema.close": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+                /** @description Cle d'idempotence de la soumission. Envoyee, la meme cle avec la meme requete rend la demande d'origine au lieu d'en creer une seconde ; avec une requete differente, 409. Omise, un envoi rejoue cree une seconde demande. */
+                "Idempotency-Key"?: components["parameters"]["OptionalIdempotencyKey"];
+            };
+            path: {
+                legalEntityId: string;
+                schemaId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Requests.AccountingSchemaClosure"];
+            };
+        };
+        responses: {
+            /** @description Soumis a double validation : l'operation en attente, a approuver ou rejeter par un second porteur habilite */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["MakerChecker.View"];
+                        error: null;
+                        meta: components["schemas"]["Meta"];
+                        page: null;
+                    };
+                };
+            };
+            400: components["responses"]["400"];
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+            500: components["responses"]["500"];
+        };
+    };
+    "AccountingSchema.withdraw": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Identifiant de requete du client, repris dans meta.requestId et en en-tete de reponse ; attribue s'il est absent ou mal forme */
+                "X-Request-Id"?: components["parameters"]["RequestId"];
+            };
+            path: {
+                legalEntityId: string;
+                schemaId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Succes */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: null;
                         error: null;
                         meta: components["schemas"]["Meta"];
                         page: null;

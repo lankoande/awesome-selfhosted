@@ -67,6 +67,10 @@ export const OPERATION_PAR_ECRAN: Readonly<Record<string, string>> = {
   // agence ou poser une règle porte son propre droit, et ce sont les boutons qui le voient.
   'siege/agences': 'BRANCH_READ',
   'siege/calendrier': 'CALENDAR_READ',
+  // Les schémas comptables se lisent au-delà de la seule comptabilité : le risque calibre
+  // ses provisions sur des imputations qu'il doit pouvoir lire, l'audit les demande en
+  // premier. Rédiger, activer et fermer portent chacun leur droit.
+  'siege/schemas': 'ACCOUNTING_SCHEMA_READ',
   'guichet/versement': 'CASH_OPERATION',
   'guichet/retrait': 'CASH_OPERATION',
   'guichet/virement': 'TRANSFER',

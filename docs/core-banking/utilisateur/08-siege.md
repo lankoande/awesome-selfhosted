@@ -1,10 +1,11 @@
 # 8. L'espace siège — exploitation, balance et paramétrage
 
-Sept écrans, réservés aux profils d'exploitation comptable et de paramétrage. Deux servent tous
-les jours : **Fin de journée** (le traitement de clôture) et **Balance générale**. Cinq servent au
+Huit écrans, réservés aux profils d'exploitation comptable et de paramétrage. Deux servent tous
+les jours : **Fin de journée** (le traitement de clôture) et **Balance générale**. Six servent au
 paramétrage : **Établissement** — la fiche de la banque —, **Produits** — ce que la banque vend et
-à quelles conditions —, **Agences** — le réseau —, **Calendrier** — les conditions de banque — et
-**Numérotation** — comment se composent les numéros de clients et de comptes.
+à quelles conditions —, **Agences** — le réseau —, **Calendrier** — les conditions de banque —,
+**Schémas comptables** — la traduction de chaque événement en écritures — et **Numérotation** —
+comment se composent les numéros de clients et de comptes.
 
 L'ordre de la barre suit cet usage : ce qui se touche tous les jours vient devant.
 
@@ -377,3 +378,108 @@ limite peut aussi **fermer le canal** : l'opération est alors refusée, et non 
 > **Deux heures limites de même portée ne peuvent pas se chevaucher.** La date de valeur
 > dépendrait de l'ordre de lecture. L'écran refuse le chevauchement à la saisie — le système
 > central le refuserait aussi, mais après le second regard.
+
+---
+
+## Les schémas comptables
+
+Un **schéma comptable** traduit un événement métier — un retrait, une échéance de crédit, une
+commission — en **lignes d'écriture**. C'est le pivot entre le métier et la comptabilité : un
+module ne construit jamais d'écriture, il publie un événement, et le schéma le traduit.
+
+L'écran a deux onglets, et la distinction entre les deux est la chose la plus importante à
+comprendre.
+
+### Ce que le socle impute
+
+Le premier onglet montre **les 25 événements que la banque comptabilise**, groupés par module :
+guichet et moyens de paiement, crédit, commissions. Pour chacun : ce que le schéma calcule, les
+lignes qu'il produit, les grandeurs que le module lui fournit, et les comptes qu'il désigne par
+rôle.
+
+> **Un comptable a le droit de savoir ce que la banque impute sur un retrait d'espèces.** Jusqu'ici
+> cela ne se lisait que dans le code. C'est aussi la première question d'un auditeur.
+
+Chaque événement porte une pastille :
+
+- **Imputé par le socle** — le schéma est construit dans le programme. Il se lit ; il ne se
+  remplace pas.
+- **Paramétrable** — un schéma rédigé ici le remplace effectivement.
+
+Aujourd'hui, **un seul** événement est paramétrable : la *perception d'une commission*. Tous les
+autres sont imputés par le socle.
+
+> **Pourquoi cette distinction est capitale.** Avant cet écran, on pouvait rédiger et activer à
+> deux un schéma pour n'importe quel événement — y compris un déblocage de crédit. Le schéma
+> passait la validation, entrait en vigueur, et **n'était lu par personne**. Celui qui l'avait
+> écrit croyait l'imputation changée. L'écart se serait vu au premier rapprochement, des mois plus
+> tard, sans qu'on sache le relier à ce paramétrage-là. L'écran refuse désormais ces schémas, et
+> le système central aussi.
+
+### Essayer un schéma sur un cas
+
+Sous chaque événement, **« Essayer sur un cas »** pose le schéma sur des montants qu'on choisit et
+montre l'écriture produite : les variables calculées avec leur valeur, chaque ligne avec son
+montant, et le motif de celles qui ne sont **pas** imputées — condition fausse, ou montant nul.
+
+> *Un retrait de 5 000 F avec 500 F de frais et 90 F de taxe : le compte du client est débité de
+> 5 590, la caisse créditée de 5 000, le produit de commission de 500 et la taxe de 90. Totaux
+> 5 590 / 5 590 — équilibrée.*
+
+Personne ne lit `round(net, 0) + round(tax, 0)` et n'en déduit l'écriture. On la lit en la posant
+sur un cas. L'essai **n'impute rien** : il se relance autant de fois qu'on veut.
+
+L'essai montre aussi les **refus**, et c'est souvent ce qu'on cherchait :
+
+| Refus | Ce qu'il veut dire |
+|---|---|
+| Moins de deux lignes imputées | Les conditions et les montants nuls ont vidé l'écriture. |
+| Débit et crédit différents | Le schéma se déséquilibre sur ce jeu de valeurs — presque toujours un arrondi. |
+| Montant non comptabilisable | Le montant a plus de décimales que la devise. Le moteur n'arrondit pas à votre place. |
+| Montant négatif | Le sens est porté par la direction de la ligne, jamais par le signe du montant. |
+
+### Rédiger un schéma
+
+Le second onglet liste les schémas rédigés dans l'établissement, brouillons compris, et permet
+d'en écrire un.
+
+La rédaction **part du schéma du socle** plutôt que d'une page blanche : un schéma de commission
+qu'on remplace en change une ligne sur trois, et tout ressaisir serait la meilleure façon
+d'introduire une faute là où il n'y en avait pas.
+
+Un schéma porte :
+
+- un **code** — c'est lui qu'une commission désigne ;
+- une **devise**, qui fixe l'échelle d'arrondi. Le même schéma ne peut pas servir en XOF et en EUR ;
+- une **période de validité** ;
+- des **variables calculées**, évaluées dans l'ordre : chacune peut employer les précédentes ;
+- des **lignes**, chacune avec un compte, un sens, un montant et une condition facultative.
+
+Un compte se désigne par son **rôle**, jamais par son identifiant : `CONTRACT` (le compte du
+contrat), `GL:70611` (un compte général), `PARAM:fee_income` (un compte désigné par le
+paramétrage), `RESOLVE:cash` (un compte résolu à l'exécution). C'est ce qui permet au même schéma
+de servir dans deux filiales aux plans comptables différents.
+
+> **Un schéma déséquilibré n'entre jamais en base.** À l'enregistrement, le système central
+> l'évalue sur **trois cents jeux de valeurs** tirés de façon déterministe, et vérifie l'équilibre
+> **après arrondi à l'échelle de la devise**. C'est l'arrondi qui coûte cher : un schéma qui débite
+> un total et crédite deux composantes arrondies séparément est exact en arithmétique et faux en
+> francs dès que les deux ont des décimales.
+
+### Activer, fermer, retirer
+
+- **Activer** se fait à deux, et jamais par le rédacteur.
+- **Retirer** ne vaut que sur un brouillon, et se fait seul. Le brouillon reste lisible : ce qui a
+  été écrit une fois explique pourquoi un schéma attendu n'existe pas.
+- **Fermer la validité** est le seul acte possible sur un schéma en vigueur.
+
+> **Un schéma en vigueur ne se retire pas.** Les imputations se résolvent à la date de valeur
+> traitée, y compris passée, et seul un schéma actif se résout : le sortir de cet état changerait
+> ce qu'un arrêté rejoué produirait. Sa validité se **ferme**, et pas avant la date comptable de
+> la banque.
+
+> **Fermer est ce qui rend le versionnement possible.** Tant que le schéma en vigueur n'a pas de
+> terme, aucun successeur ne peut être activé sous le même code. C'est pourquoi la fermeture est
+> un acte à part entière plutôt qu'un détail.
+
+![L'écran des schémas comptables](captures/08-schemas.png)

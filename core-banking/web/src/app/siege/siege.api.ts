@@ -16,6 +16,10 @@ import {
   Agence, ConditionsDeBanque, Convention, DemandeAgence, DemandeFerie, DemandeHeureLimite,
   DemandeRegleDateValeur, HeureLimite, NatureAgence, RegleDateValeur, SensOperation, UniteDecalage,
 } from './modele/reseau.modele';
+import {
+  Derivation, DemandeFermetureSchema, EnteteSchema, Essai, EvenementSocle, LigneEssai, LigneSaisie,
+  LigneSchema, OrigineSchema, SchemaComplet, SchemaComptable, StatutSchema, ValeurDerivee,
+} from './modele/schemas.modele';
 import { EnAttenteSiege, Siege } from './siege.port';
 
 function texte(valeur: unknown): string | null {
@@ -495,6 +499,214 @@ export class SiegeApi implements Siege {
         validFrom: demande.validFrom,
         validTo: demande.validTo,
       }, cleIdempotence);
+  }
+
+  // ---------------------------------------------------------------- schémas comptables
+
+  async evenementsDuSocle(legalEntityId: string,
+                          devise: string | null): Promise<readonly EvenementSocle[]> {
+    let parametres = new HttpParams();
+    if (devise) {
+      parametres = parametres.set('currency', devise);
+    }
+    const bruts = await this.lire<Record<string, unknown>[]>(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounting-schemas/standard', { legalEntityId }), parametres);
+    return (bruts ?? []).map((brut) => ({
+      eventType: texte(brut['eventType']) ?? '',
+      label: texte(brut['label']) ?? '',
+      module: texte(brut['module']) ?? '',
+      moduleLabel: texte(brut['moduleLabel']) ?? '',
+      source: (texte(brut['source']) as OrigineSchema | null) ?? 'SOCLE',
+      schemaCode: texte(brut['schemaCode']),
+      variables: (brut['variables'] ?? []) as readonly string[],
+      roles: (brut['roles'] ?? []) as readonly string[],
+      derivations: this.derivationsDe(brut['derivations']),
+      lines: this.lignesDe(brut['lines']),
+    }));
+  }
+
+  async schemas(legalEntityId: string, code: string | null,
+                statut: string | null): Promise<readonly SchemaComptable[]> {
+    let parametres = new HttpParams();
+    if (code) {
+      parametres = parametres.set('code', code);
+    }
+    if (statut) {
+      parametres = parametres.set('status', statut);
+    }
+    const bruts = await this.lire<Record<string, unknown>[]>(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounting-schemas', { legalEntityId }), parametres);
+    return (bruts ?? []).map((brut) => this.schemaDe(brut));
+  }
+
+  async schema(legalEntityId: string, schemaId: string): Promise<SchemaComplet> {
+    const brut = await this.lire<Record<string, unknown>>(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounting-schemas/{schemaId}', { legalEntityId, schemaId }));
+    const evenements = ((brut?.['events'] ?? []) as Record<string, unknown>[]).map((evt) => ({
+      eventType: texte(evt['eventType']) ?? '',
+      derivations: this.derivationsDe(evt['derivations']),
+      lines: this.lignesDe(evt['lines']),
+      variables: (evt['variables'] ?? []) as readonly string[],
+    }));
+    return {
+      header: this.schemaDe((brut?.['header'] ?? {}) as Record<string, unknown>),
+      events: evenements,
+    };
+  }
+
+  async essayer(legalEntityId: string, evenement: string, devise: string | null,
+                lignes: readonly LigneSaisie[],
+                derivations: readonly (readonly [string, string])[],
+                valeurs: Readonly<Record<string, string>>): Promise<Essai> {
+    return this.essai(legalEntityId, {
+      eventType: evenement,
+      currency: devise,
+      events: [this.evenementEnvoye(evenement, lignes, derivations)],
+      values: valeurs,
+    });
+  }
+
+  async essayerLeSocle(legalEntityId: string, evenement: string, devise: string | null,
+                       valeurs: Readonly<Record<string, string>>): Promise<Essai> {
+    return this.essai(legalEntityId,
+                      { eventType: evenement, currency: devise, values: valeurs });
+  }
+
+  async redigerSchema(legalEntityId: string, entete: EnteteSchema,
+                      lignes: readonly LigneSaisie[],
+                      derivations: readonly (readonly [string, string])[],
+                      cleIdempotence: string): Promise<{ readonly id: string }> {
+    const corps = {
+      code: entete.code,
+      label: entete.label,
+      currency: entete.currency,
+      validFrom: entete.validFrom,
+      validTo: entete.validTo,
+      version: 1,
+      events: [this.evenementEnvoye(entete.eventType, lignes, derivations)],
+    };
+    const entetes = new HttpHeaders({
+      'Idempotency-Key': cleIdempotence,
+      'X-Request-Id': crypto.randomUUID(),
+    });
+    try {
+      const enveloppe = await firstValueFrom(this.http.post<Enveloppe<{ id?: string }>>(
+        this.socle.url('/v1/entities/{legalEntityId}/accounting-schemas', { legalEntityId }),
+        corps, { headers: entetes }));
+      return { id: texte(enveloppe.data?.id) ?? '' };
+    } catch (erreur) {
+      throw this.refus(erreur);
+    }
+  }
+
+  async activerSchema(legalEntityId: string, schemaId: string,
+                      cleIdempotence: string): Promise<EnAttenteSiege> {
+    return this.soumettre(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounting-schemas/{schemaId}/activation',
+      { legalEntityId, schemaId }), {}, cleIdempotence);
+  }
+
+  async fermerSchema(legalEntityId: string, schemaId: string, demande: DemandeFermetureSchema,
+                     cleIdempotence: string): Promise<EnAttenteSiege> {
+    return this.soumettre(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounting-schemas/{schemaId}/closure',
+      { legalEntityId, schemaId }), { validTo: demande.validTo }, cleIdempotence);
+  }
+
+  async retirerSchema(legalEntityId: string, schemaId: string): Promise<void> {
+    await this.poster<void>(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounting-schemas/{schemaId}/withdrawal',
+      { legalEntityId, schemaId }), {});
+  }
+
+  private async essai(legalEntityId: string, corps: unknown): Promise<Essai> {
+    const brut = await this.poster<Record<string, unknown>>(this.socle.url(
+      '/v1/entities/{legalEntityId}/accounting-schemas/trials', { legalEntityId }), corps);
+    const derivees: ValeurDerivee[] = ((brut?.['derived'] ?? []) as Record<string, unknown>[])
+      .map((valeur) => ({
+        name: texte(valeur['name']) ?? '',
+        expression: texte(valeur['expression']) ?? '',
+        value: nombre(valeur['value']) ?? 0,
+      }));
+    const lignes: LigneEssai[] = ((brut?.['lines'] ?? []) as Record<string, unknown>[])
+      .map((ligne) => ({
+        account: texte(ligne['account']) ?? '',
+        direction: texte(ligne['direction']) ?? '',
+        amountExpression: texte(ligne['amountExpression']) ?? '',
+        amount: nombre(ligne['amount']),
+        label: texte(ligne['label']),
+        posted: ligne['posted'] === true,
+        skipped: texte(ligne['skipped']),
+      }));
+    const refus = (brut?.['rejection'] ?? null) as Record<string, unknown> | null;
+    return {
+      eventType: texte(brut?.['eventType']) ?? '',
+      variables: (brut?.['variables'] ?? []) as readonly string[],
+      derived: derivees,
+      lines: lignes,
+      debit: nombre(brut?.['debit']) ?? 0,
+      credit: nombre(brut?.['credit']) ?? 0,
+      imbalance: nombre(brut?.['imbalance']) ?? 0,
+      rejection: refus === null ? null : {
+        code: texte(refus['code']) ?? '',
+        detail: texte(refus['detail']) ?? '',
+      },
+    };
+  }
+
+  /** Le format que le socle attend : les dérivations dans leur ordre d'évaluation. */
+  private evenementEnvoye(evenement: string, lignes: readonly LigneSaisie[],
+                          derivations: readonly (readonly [string, string])[]): unknown {
+    const calculees: Record<string, string> = {};
+    for (const [nom, expression] of derivations) {
+      calculees[nom] = expression;
+    }
+    return {
+      eventType: evenement,
+      derivations: calculees,
+      lines: lignes.map((ligne) => ({
+        account: ligne.account,
+        direction: ligne.direction,
+        amount: ligne.amount,
+        label: ligne.label || null,
+        condition: ligne.condition || null,
+      })),
+    };
+  }
+
+  private derivationsDe(brutes: unknown): readonly Derivation[] {
+    return ((brutes ?? []) as Record<string, unknown>[]).map((derivation) => ({
+      name: texte(derivation['name']) ?? '',
+      expression: texte(derivation['expression']) ?? '',
+    }));
+  }
+
+  private lignesDe(brutes: unknown): readonly LigneSchema[] {
+    return ((brutes ?? []) as Record<string, unknown>[]).map((ligne) => ({
+      account: texte(ligne['account']) ?? '',
+      direction: texte(ligne['direction']) ?? '',
+      amount: texte(ligne['amount']) ?? '',
+      condition: texte(ligne['condition']),
+      label: texte(ligne['label']),
+    }));
+  }
+
+  private schemaDe(brut: Record<string, unknown>): SchemaComptable {
+    return {
+      id: texte(brut['id']) ?? '',
+      code: texte(brut['code']) ?? '',
+      label: texte(brut['label']) ?? '',
+      currency: this.deviseDe(brut['currency']),
+      validFrom: texte(brut['validFrom']) ?? '',
+      validTo: texte(brut['validTo']),
+      status: (texte(brut['status']) as StatutSchema | null) ?? 'DRAFT',
+      createdBy: texte(brut['createdBy']),
+      createdAt: texte(brut['createdAt']),
+      approvedBy: texte(brut['approvedBy']),
+      approvedAt: texte(brut['approvedAt']),
+      withdrawnBy: texte(brut['withdrawnBy']),
+      withdrawnAt: texte(brut['withdrawnAt']),
+    };
   }
 
   private async soumettre(url: string, corps: unknown,

@@ -15,10 +15,13 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -105,6 +108,213 @@ public final class SchemaCatalog {
             throw new LedgerStoreException("Resolution du schema " + code, e);
         }
         return load(c, code, id);
+    }
+
+    // ------------------------------------------------------------------ relecture du parametrage
+
+    /** En-tete d'un schema : ce qui se lit dans une liste, sans ouvrir le detail. */
+    public record Summary(UUID id, String code, String label, String currency,
+                          LocalDate validFrom, LocalDate validTo, String status,
+                          UUID createdBy, Instant createdAt, UUID approvedBy, Instant approvedAt,
+                          UUID withdrawnBy, Instant withdrawnAt) {}
+
+    /** Une derivation telle qu'elle a ete ecrite, dans son ordre d'evaluation. */
+    public record DerivationView(String name, String expression) {}
+
+    /** Une ligne telle qu'elle a ete ecrite, expressions comprises. */
+    public record LineView(String account, String direction, String amount, String condition,
+                           String label) {}
+
+    /**
+     * Un evenement du schema.
+     *
+     * @param variables grandeurs que le module doit fournir : referencees et non calculees. Elles
+     *                  sont <b>deduites des expressions</b>, jamais saisies : une liste tenue a la
+     *                  main a cote des expressions finirait par ne plus les decrire.
+     */
+    public record EventView(String eventType, List<DerivationView> derivations,
+                            List<LineView> lines, List<String> variables) {}
+
+    /** Un schema en entier : son en-tete et ses evenements. */
+    public record Detail(Summary header, List<EventView> events) {}
+
+    /**
+     * Les schemas de l'entite, brouillons compris.
+     *
+     * <p>Sans cette lecture, l'identifiant d'un brouillon n'existait que dans la reponse du POST
+     * qui l'avait cree : perdu au rechargement, le brouillon devenait inactivable, et le schema
+     * en vigueur ne se relisait nulle part.
+     */
+    public static List<Summary> summaries(Connection c, UUID legalEntityId, String code,
+                                          String status) {
+        List<Summary> found = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, code, label, currency, valid_from, valid_to, status, created_by,"
+            + " created_at, approved_by, approved_at, withdrawn_by, withdrawn_at"
+            + "  FROM accounting_schema"
+            + " WHERE legal_entity_id = ?"
+            + "   AND (?::text IS NULL OR code = ?::text)"
+            + "   AND (?::text IS NULL OR status = ?::text)"
+            + " ORDER BY code, valid_from DESC, created_at DESC")) {
+            ps.setObject(1, legalEntityId);
+            ps.setString(2, code);
+            ps.setString(3, code);
+            ps.setString(4, status);
+            ps.setString(5, status);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    found.add(new Summary(
+                        rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3),
+                        rs.getString(4), rs.getObject(5, LocalDate.class),
+                        rs.getObject(6, LocalDate.class), rs.getString(7),
+                        rs.getObject(8, UUID.class), instant(rs, 9),
+                        rs.getObject(10, UUID.class), instant(rs, 11),
+                        rs.getObject(12, UUID.class), instant(rs, 13)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture des schemas comptables", e);
+        }
+        return List.copyOf(found);
+    }
+
+    /** Un schema en entier, quel que soit son etat. L'entite est verifiee, jamais supposee. */
+    public static Optional<Detail> detail(Connection c, UUID legalEntityId, UUID schemaId) {
+        List<Summary> found = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT id, code, label, currency, valid_from, valid_to, status, created_by,"
+            + " created_at, approved_by, approved_at, withdrawn_by, withdrawn_at"
+            + "  FROM accounting_schema WHERE id = ? AND legal_entity_id = ?")) {
+            ps.setObject(1, schemaId);
+            ps.setObject(2, legalEntityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return Optional.empty();
+                }
+                found.add(new Summary(
+                    rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3),
+                    rs.getString(4), rs.getObject(5, LocalDate.class),
+                    rs.getObject(6, LocalDate.class), rs.getString(7),
+                    rs.getObject(8, UUID.class), instant(rs, 9),
+                    rs.getObject(10, UUID.class), instant(rs, 11),
+                    rs.getObject(12, UUID.class), instant(rs, 13)));
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture du schema comptable " + schemaId, e);
+        }
+
+        Summary header = found.get(0);
+        AccountingSchema schema = load(c, header.code(), schemaId);
+        List<EventView> events = new ArrayList<>(schema.templates().size());
+        for (EventTemplate template : schema.templates().values()) {
+            List<DerivationView> derivations = new ArrayList<>();
+            template.derivations().forEach((name, expression) ->
+                derivations.add(new DerivationView(name, expression.source())));
+            List<LineView> lines = new ArrayList<>(template.lines().size());
+            for (TemplateLine line : template.lines()) {
+                lines.add(new LineView(line.account().toString(), line.direction().name(),
+                                       line.amount().source(),
+                                       line.condition() == null ? null : line.condition().source(),
+                                       line.label()));
+            }
+            events.add(new EventView(template.eventType(), List.copyOf(derivations),
+                                     List.copyOf(lines), List.copyOf(template.freeVariables())));
+        }
+        return Optional.of(new Detail(header, List.copyOf(events)));
+    }
+
+    // ------------------------------------------------------------------ fin de vie
+
+    /**
+     * Ferme la validite d'un schema actif.
+     *
+     * <p>C'est ainsi qu'un schema cesse de s'appliquer, et non par un changement d'etat. Deux
+     * raisons, la seconde etant la plus contraignante :
+     *
+     * <ul>
+     *   <li>{@link #resolveAt} ne resout qu'un schema <b>actif</b>, a une date qui peut etre
+     *       passee : suspendre un schema changerait l'imputation d'un arrete rejoue ;</li>
+     *   <li>la contrainte d'exclusion interdit deux validites actives qui se croisent sous le meme
+     *       code. Tant que le schema en vigueur n'a pas de fin, <b>aucun successeur ne peut etre
+     *       active</b> : la fermeture est ce qui rend le versionnement possible.</li>
+     * </ul>
+     *
+     * <p>La fermeture ne peut pas preceder la date comptable, pour la meme raison qu'un produit :
+     * un arrete deja produit resoudrait un autre parametrage au rejeu, donc d'autres montants.
+     *
+     * <p>Aucun acteur n'est enregistre ici : la fermeture passe par un second regard, et
+     * {@code pending_operation} garde le redacteur comme l'approbateur.
+     */
+    public static void close(Connection c, UUID legalEntityId, UUID schemaId,
+                             LocalDate validTo) {
+        LocalDate businessDate = businessDateOf(c, legalEntityId);
+        if (validTo.isBefore(businessDate)) {
+            throw new IllegalArgumentException(
+                "Fermeture au " + validTo + " alors que la banque en est au " + businessDate
+                + " : un arrete deja produit resoudrait un autre schema au rejeu, donc d'autres "
+                + "imputations. La fermeture prend effet a la date comptable ou apres.");
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE accounting_schema SET valid_to = ?"
+            + " WHERE id = ? AND legal_entity_id = ? AND status = 'ACTIVE'"
+            + "   AND valid_from <= ? AND (valid_to IS NULL OR valid_to > ?)")) {
+            ps.setObject(1, validTo);
+            ps.setObject(2, schemaId);
+            ps.setObject(3, legalEntityId);
+            ps.setObject(4, validTo);
+            ps.setObject(5, validTo);
+            if (ps.executeUpdate() == 0) {
+                throw new IllegalStateException(
+                    "Schema " + schemaId + " introuvable, non actif, ou deja ferme a cette date ou "
+                    + "avant. Une fermeture ne raccourcit pas une validite en deca de son entree "
+                    + "en vigueur.");
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Fermeture du schema " + schemaId, e);
+        }
+    }
+
+    /**
+     * Retire un brouillon abandonne. Il n'est pas supprime : ce qui a ete saisi une fois se relit,
+     * et un brouillon retire explique pourquoi un schema attendu n'existe pas.
+     */
+    public static void withdrawDraft(Connection c, UUID legalEntityId, UUID schemaId,
+                                     UUID actorId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "UPDATE accounting_schema"
+            + "   SET status = 'WITHDRAWN', withdrawn_by = ?, withdrawn_at = now()"
+            + " WHERE id = ? AND legal_entity_id = ? AND status = 'DRAFT'")) {
+            ps.setObject(1, java.util.Objects.requireNonNull(actorId, "actorId"));
+            ps.setObject(2, schemaId);
+            ps.setObject(3, legalEntityId);
+            if (ps.executeUpdate() == 0) {
+                throw new IllegalStateException(
+                    "Schema " + schemaId + " introuvable ou deja sorti de l'etat brouillon. Un "
+                    + "schema active ne se retire pas : sa validite se ferme.");
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Retrait du brouillon " + schemaId, e);
+        }
+    }
+
+    private static Instant instant(ResultSet rs, int column) throws SQLException {
+        java.sql.Timestamp stamp = rs.getTimestamp(column);
+        return stamp == null ? null : stamp.toInstant();
+    }
+
+    private static LocalDate businessDateOf(Connection c, UUID legalEntityId) {
+        try (PreparedStatement ps = c.prepareStatement(
+            "SELECT current_business_date FROM legal_entity WHERE id = ?")) {
+            ps.setObject(1, legalEntityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new LedgerStoreException("Entite inconnue : " + legalEntityId);
+                }
+                return rs.getObject(1, LocalDate.class);
+            }
+        } catch (SQLException e) {
+            throw new LedgerStoreException("Lecture de la date comptable de l'entite", e);
+        }
     }
 
     // ------------------------------------------------------------------ interne

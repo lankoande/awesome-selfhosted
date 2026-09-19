@@ -1827,3 +1827,90 @@ Exploitation, balance, établissement, produits, **agences**, **calendrier**, nu
 sans écran, avec API : **schémas comptables**, **maquettes** (relevé et états financiers),
 **politiques** (KYC, crédit, risque, sûretés, suspens) et **change**. Aucun ne bloque plus le
 démarrage d'un établissement — ce sont des paramétrages qu'on affine, pas des préalables.
+
+---
+
+## 28. Les schémas comptables
+
+Le paramétrage le plus critique du socle — il décide de la traduction de **chaque** événement en
+écritures — et le seul qui ne se relisait pas. On pouvait le rédiger et l'activer ; on ne pouvait
+ni le retrouver, ni le lire, ni en fermer la validité, ni savoir ce qu'il produirait.
+
+Mais le manque de lecture n'était pas le pire.
+
+### Le piège : un paramétrage que personne ne lit
+
+L'API laissait rédiger puis activer un schéma sous **n'importe quel code**, pour n'importe quel
+type d'événement. Or un seul schéma est aujourd'hui résolu depuis le catalogue : celui de la
+commission, quand une commission nomme un code autre que `FEE_STANDARD`. Tout le reste — guichet,
+virements, moyens de paiement, crédit — est construit en code.
+
+Un schéma rédigé sous `LOAN_STANDARD` passait donc la validation par tirage, s'activait à deux, et
+**n'était lu par personne**.
+
+> Pire que sans effet : celui qui l'avait rédigé croyait l'imputation changée. L'écart se serait vu
+> au premier rapprochement, des mois plus tard, sans qu'on sache le relier à ce paramétrage-là.
+
+`GET /accounting-schemas/standard` ferme le piège des deux côtés. Il **montre** les 25 schémas du
+socle — un comptable a le droit de savoir ce que la banque impute sur un retrait, et il ne peut pas
+le lire dans le code — et il **marque** ce qui se remplace. `StandardSchemas.requireOverridable` est
+appelé avant toute écriture : un schéma pour un événement que personne ne résoudrait est refusé à
+la rédaction, avec sa raison, et non découvert des mois plus tard.
+
+Le catalogue est construit à partir des **mêmes fabriques que la production** : variables libres et
+rôles de compte sont déduits des modèles, jamais saisis à côté. Seuls les libellés viennent d'une
+ressource, et un test vérifie que les deux ensembles se recouvrent exactement — un libellé sans
+modèle désignerait un événement qui n'existe plus.
+
+### L'essai : la seule question que la validation ne pose pas
+
+`SchemaValidator` répond à une question de déploiement — *ce schéma est-il équilibré pour toute
+valeur ?* — et sa réponse est un oui ou un contre-exemple chiffré. Ce n'est pas la question que se
+pose celui qui rédige. La sienne est : *pour cette opération-là, quelles lignes cela produit-il ?*
+
+`POST /accounting-schemas/trials` y répond. Il rend les variables dérivées avec leur valeur, les
+lignes retenues et celles qui ne le sont pas **avec leur raison**, puis les totaux — et il porte
+les mêmes refus que le moteur, montant négatif et montant non comptabilisable compris.
+
+> Un essai qui arrondirait là où la production refuse montrerait une écriture que personne
+> n'obtiendrait. Sur de la comptabilité, ce serait pire qu'inutile.
+
+L'essai porte aussi bien sur un schéma en cours de saisie que sur un schéma du socle : le premier
+usage sert à mettre au point, le second à comprendre une imputation passée.
+
+### Le poste ne lit aucune expression
+
+`round(net, 0) + tax` n'est jamais interprété côté navigateur. L'essai part au socle et revient avec
+les **grandeurs attendues**, que l'écran prend telles quelles pour construire ses champs de saisie.
+
+Deux analyseurs à tenir en accord auraient fini par diverger. La règle vaut aussi pour la
+démonstration : son évaluateur existe, mais il tient le rôle **du socle**, pas celui du poste — en
+mode `api`, il n'est pas chargé.
+
+### Fermer, et non retirer
+
+Même raisonnement que pour les produits, et même conséquence. Un schéma en vigueur ne se retire pas :
+les imputations se résolvent à la date de valeur traitée, y compris passée, et seul un schéma actif
+se résout. Et la contrainte d'exclusion de V5 interdit deux validités actives qui se croisent sous
+le même code : **tant que le schéma en vigueur n'a pas de terme, aucun successeur ne peut être
+activé**. La fermeture n'est pas une commodité, c'est ce qui rend le versionnement possible.
+
+Le retrait d'un brouillon, lui, se fait seul — il n'engage rien. V59 lui ajoute sa signature :
+sans trace, un schéma attendu qui n'existe pas n'a aucune explication, et on le réécrit au lieu de
+comprendre pourquoi il avait été abandonné.
+
+### Deux décisions d'écran
+
+**Une ligne se lit comme une phrase**, expressions en caractère fixe : *« Débite le compte du
+contrat de `total`. »* « de total » se lit comme un mot français ; « de `total` » se lit comme une
+variable — et c'en est une.
+
+**Le refus d'un événement se lit dans le catalogue servi**, jamais dans une liste tenue par
+l'écran. Le jour où un module deviendra paramétrable, le poste l'apprendra du socle sans qu'on le
+relivre — et, plus important, il ne l'inventera jamais avant lui.
+
+### Le siège compte huit écrans
+
+Exploitation, balance, établissement, produits, agences, calendrier, **schémas comptables**,
+numérotation. Restent sans écran, avec API : **maquettes** (relevé et états financiers),
+**politiques** (KYC, crédit, risque, sûretés, suspens) et **change**.

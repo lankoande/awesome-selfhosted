@@ -44,6 +44,19 @@ public final class FeeSchemas {
     private FeeSchemas() {}
 
     /**
+     * Le seul schema que le parametrage peut aujourd'hui remplacer.
+     *
+     * <p>{@link io.corebanking.schema.AccountingSchema} sert deux usages qu'il faut distinguer :
+     * les schemas du guichet et du credit sont <b>construits en code</b> et se lisent ; celui de
+     * la commission est le seul que {@code SchemaCatalog.resolveAt} resout, lorsque la commission
+     * nomme un code autre que {@link #STANDARD_CODE}. Un schema redige sous un autre code ne
+     * serait lu par personne.
+     */
+    public static java.util.Map<String, EventTemplate> all(CurrencyRef currency) {
+        return java.util.Map.of(EVENT_FEE_CHARGE, feeCharge(currency));
+    }
+
+    /**
      * Schema standard pour une devise. L'echelle d'arrondi est celle de la devise : le meme
      * schema ne peut pas servir en XOF et en EUR, et c'est pourquoi il est construit par devise
      * plutot qu'ecrit une fois pour toutes.

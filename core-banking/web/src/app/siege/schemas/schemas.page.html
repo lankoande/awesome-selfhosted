@@ -1,0 +1,495 @@
+<div class="ecran">
+  <cb-toolbar>
+    <h1>Schémas comptables</h1>
+    <span class="compte">{{ nombreEvenements(catalogue().length) }}</span>
+    <button fin type="button" cbButton="secondaire" [disabled]="travaille()" (click)="charger()">
+      Rafraîchir
+    </button>
+  </cb-toolbar>
+
+  <p class="rappel">
+    Un schéma traduit un <strong>événement métier</strong> en lignes d'écriture. La plupart sont
+    imputés par le socle lui-même et se <strong>lisent</strong> ; un seul se remplace aujourd'hui
+    par du paramétrage. Un schéma rédigé pour les autres s'activerait à deux et ne serait lu par
+    personne.
+  </p>
+
+  @if (refus(); as r) {
+    <cb-notice nature="refus" [titre]="r.titre" [code]="r.code">
+      @if (r.detail) { {{ r.detail }} }
+    </cb-notice>
+  }
+
+  @if (acquitte(); as message) {
+    <cb-notice nature="succes" titre="Demandé">{{ message }}</cb-notice>
+  }
+
+  <cb-activity [enCours]="travaille()" libelle="Lecture des schémas comptables…" />
+
+  <cb-tabs [onglets]="ONGLETS" [(actif)]="onglet" etiquette="Schémas comptables" />
+
+  <!-- ------------------------------------------------------------ ce que le socle impute -->
+  @if (onglet() === 'socle') {
+    <section class="panneau" role="tabpanel" aria-labelledby="onglet-socle">
+      <p class="pourquoi">
+        Ce que la banque impute, événement par événement. Un comptable a le droit de le savoir
+        sans lire le code ; un auditeur le demande. « Essayer » pose le schéma sur un cas et
+        montre l'écriture produite.
+      </p>
+
+      @for (module of modules(); track module.code) {
+        <cb-section [titre]="module.label"
+                    [indication]="nombreEvenements(module.evenements.length)">
+          <ul class="evenements">
+            @for (evenement of module.evenements; track evenement.eventType) {
+              <li class="evenement" [class.remplacable]="evenement.source === 'PARAMETRABLE'">
+                <div class="entete">
+                  <button type="button" class="titre" [attr.aria-expanded]="deplie() === evenement.eventType"
+                          (click)="deplier(evenement.eventType)">
+                    <span class="nom">{{ evenement.label }}</span>
+                    <span class="cb-mono cle">{{ evenement.eventType }}</span>
+                  </button>
+                  <cb-state-badge [etat]="evenement.source === 'PARAMETRABLE' ? 'en-attente' : 'approuve'"
+                                  [mot]="LIBELLE_ORIGINE[evenement.source]" />
+                </div>
+
+                @if (deplie() === evenement.eventType) {
+                  <div class="detail">
+                    @if (evenement.source === 'PARAMETRABLE') {
+                      <cb-notice nature="information" titre="Cet événement se paramètre">
+                        Un schéma rédigé sous le code <strong>{{ evenement.schemaCode }}</strong>,
+                        ou sous un autre code qu'une commission désigne, remplace celui-ci.
+                      </cb-notice>
+                    } @else {
+                      <cb-notice nature="information" titre="Ce schéma se lit, il ne se remplace pas">
+                        Le socle l'impute lui-même. Le rédiger en paramétrage n'aurait aucun effet :
+                        personne ne le résoudrait.
+                      </cb-notice>
+                    }
+
+                    @if (evenement.derivations.length > 0) {
+                      <h3>Ce que le schéma calcule</h3>
+                      <ul class="derivations">
+                        @for (derivation of evenement.derivations; track derivation.name) {
+                          <li>
+                            <span class="cb-mono">{{ derivation.name }}</span> =
+                            <span class="cb-mono">{{ derivation.expression }}</span>
+                          </li>
+                        }
+                      </ul>
+                    }
+
+                    <h3>L'écriture</h3>
+                    <ul class="phrases">
+                      @for (ligne of evenement.lines; track $index) {
+                        <li>
+                          {{ phrase(ligne).debut }}
+                          <code class="cb-mono">{{ phrase(ligne).montant }}</code>@if (phrase(ligne).condition; as condition) {, si <code class="cb-mono">{{ condition }}</code>}.
+                        </li>
+                      }
+                    </ul>
+
+                    <dl class="fiche">
+                      <dt>Grandeurs fournies</dt>
+                      <dd class="cb-mono">{{ evenement.variables.join(', ') || '—' }}</dd>
+                      <dt>Comptes désignés par rôle</dt>
+                      <dd class="cb-mono">{{ evenement.roles.join(', ') || '—' }}</dd>
+                    </dl>
+
+                    <button type="button" cbButton="secondaire" [disabled]="essaiEnCours()"
+                            (click)="essayerLeSocle(evenement)">
+                      Essayer sur un cas
+                    </button>
+
+                    @if (essaiDuSocle() === evenement.eventType) {
+                      <ng-container *ngTemplateOutlet="panneauEssai" />
+                    }
+                  </div>
+                }
+              </li>
+            }
+          </ul>
+        </cb-section>
+      }
+    </section>
+  }
+
+  <!-- ------------------------------------------------------------ schémas paramétrés -->
+  @if (onglet() === 'parametres') {
+    <section class="panneau" role="tabpanel" aria-labelledby="onglet-parametres">
+      <div class="tete">
+        <p class="pourquoi">
+          Les schémas rédigés dans cet établissement, brouillons compris. Un brouillon n'engage
+          rien ; un schéma en vigueur décide de chaque écriture de sa période.
+        </p>
+        @if (droitDeRediger() && !saisie()) {
+          <button type="button" cbButton="primaire" [disabled]="remplacables().length === 0"
+                  (click)="ouvrirLaSaisie()">
+            Rédiger un schéma
+          </button>
+        }
+      </div>
+
+      <div class="filtres" role="group" aria-label="Filtrer par état">
+        <button type="button" cbButton="discret" [class.actif]="filtre() === null"
+                (click)="filtrer(null)">Tous</button>
+        @for (statut of STATUTS; track statut) {
+          <button type="button" cbButton="discret" [class.actif]="filtre() === statut"
+                  (click)="filtrer(statut)">{{ LIBELLE_STATUT_SCHEMA[statut] }}</button>
+        }
+      </div>
+
+      @if (visibles().length === 0 && phase() === 'prete') {
+        <cb-notice nature="information" titre="Aucun schéma paramétré">
+          Le socle impute tout ce que montre le premier onglet sans qu'aucun schéma soit rédigé.
+          Un schéma ne s'écrit que pour remplacer l'un des événements paramétrables.
+        </cb-notice>
+      } @else {
+        <div class="cb-table-scroll">
+          <table cbTable>
+            <caption class="cb-visually-hidden">Schémas comptables</caption>
+            <thead>
+              <tr>
+                <th scope="col">Code</th>
+                <th scope="col">Libellé</th>
+                <th scope="col">Devise</th>
+                <th scope="col">Validité</th>
+                <th scope="col">État</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (schema of visibles(); track schema.id) {
+                <tr [class.ouverte]="choisi()?.header?.id === schema.id">
+                  <td>
+                    <button type="button" class="lien cb-mono" (click)="ouvrir(schema)">
+                      {{ schema.code }}
+                    </button>
+                  </td>
+                  <td>{{ schema.label }}</td>
+                  <td class="cb-mono">{{ schema.currency }}</td>
+                  <td class="cb-mono">
+                    {{ schema.validFrom }} → {{ schema.validTo ?? 'sans terme' }}
+                  </td>
+                  <td>
+                    <cb-state-badge [etat]="etatDe(schema)" [mot]="libelleEtat(schema)" />
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      <!-- ------------------------------------------------------ détail d'un schéma -->
+      @if (choisi(); as schema) {
+        <cb-section [titre]="schema.header.code + ' — ' + schema.header.label"
+                    [indication]="libelleEtat(schema.header)">
+          <p class="pourquoi">{{ ATTENTE_SCHEMA[schema.header.status] }}</p>
+
+          @if (bloqueLaSuite(schema.header)) {
+            <cb-notice nature="avertissement" titre="Ce schéma n'a pas de terme">
+              Tant que sa validité n'est pas fermée, aucun schéma suivant ne peut être activé sous
+              le même code. Fermer est ce qui rend le versionnement possible.
+            </cb-notice>
+          }
+
+          @for (evenement of schema.events; track evenement.eventType) {
+            <h3>{{ libelleEvenement(evenement.eventType) }}</h3>
+            @if (evenement.derivations.length > 0) {
+              <ul class="derivations">
+                @for (derivation of evenement.derivations; track derivation.name) {
+                  <li>
+                    <span class="cb-mono">{{ derivation.name }}</span> =
+                    <span class="cb-mono">{{ derivation.expression }}</span>
+                  </li>
+                }
+              </ul>
+            }
+            <ul class="phrases">
+              @for (ligne of evenement.lines; track $index) {
+                <li>
+                  {{ phrase(ligne).debut }}
+                  <code class="cb-mono">{{ phrase(ligne).montant }}</code>@if (phrase(ligne).condition; as condition) {, si <code class="cb-mono">{{ condition }}</code>}.
+                </li>
+              }
+            </ul>
+            <dl class="fiche">
+              <dt>Grandeurs fournies</dt>
+              <dd class="cb-mono">{{ evenement.variables.join(', ') || '—' }}</dd>
+            </dl>
+          }
+
+          <div class="actes">
+            @for (acte of actes(); track acte) {
+              <button type="button"
+                      [cbButton]="acte === 'RETIRER' ? 'discret' : 'primaire'"
+                      [disabled]="travaille()" (click)="demarrer(acte)">
+                {{ LIBELLE_ACTE_SCHEMA[acte] }}
+              </button>
+            }
+            @if (droitDeRediger()) {
+              <button type="button" cbButton="secondaire" (click)="repartirDe(schema)">
+                Repartir de ce schéma
+              </button>
+            }
+          </div>
+
+          @if (fermeture()) {
+            <cb-section titre="Fermer la validité" indication="soumis à validation">
+              <p class="pourquoi">
+                La fermeture ne peut pas précéder la date comptable de la banque
+                ({{ journee() }}) : un arrêté déjà produit résoudrait un autre schéma au rejeu,
+                donc d'autres imputations.
+              </p>
+              <cb-field etiquette="Dernier jour d'application" pour="fermer-au" requis>
+                <cb-date-input champId="fermer-au" [valeur]="fermerAu()"
+                               (valeurChange)="fermerAu.set($event)" />
+              </cb-field>
+              @if (fermetureADeux()) {
+                <cb-notice nature="information" titre="Cet acte part à la validation">
+                  Le schéma s'appliquera jusqu'à cette date une fois la fermeture validée.
+                </cb-notice>
+              }
+              @if (obstaclesFermeture().length > 0) {
+                <cb-notice nature="avertissement" titre="Cette fermeture ne peut pas être demandée">
+                  <ul class="obstacles">
+                    @for (obstacle of obstaclesFermeture(); track obstacle) {
+                      <li>{{ obstacle }}</li>
+                    }
+                  </ul>
+                </cb-notice>
+              }
+              <div class="actes">
+                <button type="button" cbButton="primaire"
+                        [disabled]="travaille() || obstaclesFermeture().length > 0"
+                        (click)="fermer()">Demander la fermeture</button>
+                <button type="button" cbButton="discret" (click)="abandonnerLaFermeture()">
+                  Annuler
+                </button>
+              </div>
+            </cb-section>
+          }
+        </cb-section>
+      }
+
+      <!-- ------------------------------------------------------ rédaction -->
+      @if (saisie()) {
+        <cb-section titre="Rédiger un schéma" indication="brouillon">
+          <div class="grille">
+            <cb-field etiquette="Code" pour="code-schema" requis
+                      aide="C'est lui qu'une commission désigne.">
+              <input cbInput id="code-schema" name="code-schema" autocomplete="off"
+                     [value]="code()" (input)="code.set($any($event.target).value)" />
+            </cb-field>
+            <cb-field etiquette="Libellé" pour="libelle-schema" requis>
+              <input cbInput id="libelle-schema" name="libelle-schema" autocomplete="off"
+                     [value]="intitule()" (input)="intitule.set($any($event.target).value)" />
+            </cb-field>
+            <cb-field etiquette="Événement" pour="evenement-schema" requis
+                      aide="Seuls les événements que le socle laisse remplacer sont proposés.">
+              <select cbInput id="evenement-schema" name="evenement-schema" [value]="evenement()"
+                      (change)="changerEvenement($any($event.target).value)">
+                @for (candidat of remplacables(); track candidat.eventType) {
+                  <option [value]="candidat.eventType">{{ candidat.label }}</option>
+                }
+              </select>
+            </cb-field>
+            <cb-field etiquette="Devise" pour="devise-schema" requis
+                      aide="Elle fixe l'échelle d'arrondi.">
+              <input cbInput id="devise-schema" name="devise-schema" autocomplete="off"
+                     [value]="devise()" (input)="devise.set($any($event.target).value)" />
+            </cb-field>
+            <cb-field etiquette="Entrée en vigueur" pour="debut-schema" requis>
+              <cb-date-input champId="debut-schema" [valeur]="debutLe()"
+                             (valeurChange)="debutLe.set($event)" />
+            </cb-field>
+            <cb-field etiquette="Fin de validité" pour="fin-schema"
+                      aide="Laisser vide pour un schéma sans terme.">
+              <cb-date-input champId="fin-schema" [valeur]="finLe()"
+                             (valeurChange)="finLe.set($event)" />
+            </cb-field>
+          </div>
+
+          <h3>Ce que le schéma calcule</h3>
+          <p class="pourquoi">
+            Les variables calculées s'évaluent dans l'ordre : chacune peut employer les
+            précédentes. C'est ce qui rend l'écriture cohérente par construction plutôt que par
+            surveillance.
+          </p>
+          @for (derivation of derivations(); track $index) {
+            <div class="ligne-saisie">
+              <cb-field etiquette="Nom" [pour]="'derivation-nom-' + $index">
+                <input cbInput [id]="'derivation-nom-' + $index" [name]="'derivation-nom-' + $index"
+                       autocomplete="off" [value]="derivation[0]"
+                       (input)="majDerivation($index, 0, $any($event.target).value)" />
+              </cb-field>
+              <cb-field etiquette="Expression" [pour]="'derivation-expr-' + $index">
+                <input cbInput [id]="'derivation-expr-' + $index"
+                       [name]="'derivation-expr-' + $index" autocomplete="off"
+                       [value]="derivation[1]"
+                       (input)="majDerivation($index, 1, $any($event.target).value)" />
+              </cb-field>
+              <button type="button" cbButton="discret" (click)="retirerDerivation($index)">
+                Retirer
+              </button>
+            </div>
+          }
+          <button type="button" cbButton="secondaire" (click)="ajouterDerivation()">
+            Ajouter une variable calculée
+          </button>
+
+          <h3>Les lignes</h3>
+          @for (ligne of lignes(); track $index) {
+            <div class="ligne-saisie">
+              <cb-field etiquette="Compte" [pour]="'ligne-compte-' + $index">
+                <input cbInput [id]="'ligne-compte-' + $index" [name]="'ligne-compte-' + $index"
+                       autocomplete="off" [value]="ligne.account"
+                       (input)="majLigne($index, 'account', $any($event.target).value)" />
+              </cb-field>
+              <cb-field etiquette="Sens" [pour]="'ligne-sens-' + $index">
+                <select cbInput [id]="'ligne-sens-' + $index" [name]="'ligne-sens-' + $index"
+                        [value]="ligne.direction"
+                        (change)="majLigne($index, 'direction', $any($event.target).value)">
+                  <option value="DEBIT">Débit</option>
+                  <option value="CREDIT">Crédit</option>
+                </select>
+              </cb-field>
+              <cb-field etiquette="Montant" [pour]="'ligne-montant-' + $index">
+                <input cbInput [id]="'ligne-montant-' + $index" [name]="'ligne-montant-' + $index"
+                       autocomplete="off" [value]="ligne.amount"
+                       (input)="majLigne($index, 'amount', $any($event.target).value)" />
+              </cb-field>
+              <cb-field etiquette="Condition" [pour]="'ligne-condition-' + $index">
+                <input cbInput [id]="'ligne-condition-' + $index"
+                       [name]="'ligne-condition-' + $index" autocomplete="off"
+                       [value]="ligne.condition"
+                       (input)="majLigne($index, 'condition', $any($event.target).value)" />
+              </cb-field>
+              <cb-field etiquette="Libellé" [pour]="'ligne-libelle-' + $index">
+                <input cbInput [id]="'ligne-libelle-' + $index" [name]="'ligne-libelle-' + $index"
+                       autocomplete="off" [value]="ligne.label"
+                       (input)="majLigne($index, 'label', $any($event.target).value)" />
+              </cb-field>
+              <button type="button" cbButton="discret" (click)="retirerLigne($index)">
+                Retirer
+              </button>
+            </div>
+          }
+          <button type="button" cbButton="secondaire" (click)="ajouterLigne()">
+            Ajouter une ligne
+          </button>
+
+          @if (obstaclesIdentite().length > 0 || obstaclesLignes().length > 0) {
+            <cb-notice nature="avertissement" titre="Ce schéma ne peut pas être enregistré">
+              <ul class="obstacles">
+                @for (obstacle of obstaclesIdentite(); track obstacle) {
+                  <li>{{ obstacle }}</li>
+                }
+                @for (obstacle of obstaclesLignes(); track obstacle) {
+                  <li>{{ obstacle }}</li>
+                }
+              </ul>
+            </cb-notice>
+          }
+
+          <h3>Essayer avant d'enregistrer</h3>
+          <p class="pourquoi">
+            Le socle éprouve l'équilibre par tirage à l'enregistrement, et son contre-exemple est
+            un jeu de chiffres. L'essai, lui, montre l'écriture sur le cas qu'on a en tête.
+          </p>
+          <ng-container *ngTemplateOutlet="panneauEssai" />
+
+          @if (activationADeux()) {
+            <cb-notice nature="information" titre="L'activation partira à la validation">
+              Le brouillon n'impute rien. Un second devra l'activer — et ce ne peut pas être son
+              rédacteur.
+            </cb-notice>
+          }
+
+          <div class="actes">
+            <button type="button" cbButton="primaire"
+                    [disabled]="travaille() || !peutEnregistrer()" (click)="enregistrer()">
+              Enregistrer le brouillon
+            </button>
+            <button type="button" cbButton="discret" (click)="fermerLaSaisie()">Annuler</button>
+          </div>
+        </cb-section>
+      }
+    </section>
+  }
+</div>
+
+<!-- ------------------------------------------------------------ l'essai, partagé -->
+<ng-template #panneauEssai>
+  <div class="essai">
+    <div class="valeurs">
+      @for (variable of essai()?.variables ?? []; track variable) {
+        <cb-field [etiquette]="variable" [pour]="'essai-' + variable">
+          <input cbInput [id]="'essai-' + variable" [name]="'essai-' + variable" inputmode="decimal"
+                 autocomplete="off" [value]="valeurDe(variable)"
+                 (input)="saisirValeur(variable, $any($event.target).value)" />
+        </cb-field>
+      }
+    </div>
+
+    <button type="button" cbButton="secondaire" [disabled]="essaiEnCours()"
+            (click)="relancerEssai()">
+      Relancer l'essai
+    </button>
+
+    @if (essai(); as resultat) {
+      @if (resultat.derived.length > 0) {
+        <ul class="derivations">
+          @for (valeur of resultat.derived; track valeur.name) {
+            <li>
+              <span class="cb-mono">{{ valeur.name }}</span> =
+              <span class="cb-mono">{{ valeur.expression }}</span> →
+              <strong class="cb-mono">{{ valeur.value }}</strong>
+            </li>
+          }
+        </ul>
+      }
+
+      <div class="cb-table-scroll">
+        <table cbTable>
+          <caption class="cb-visually-hidden">Écriture produite</caption>
+          <thead>
+            <tr>
+              <th scope="col">Compte</th>
+              <th scope="col">Sens</th>
+              <th scope="col">Montant</th>
+              <th scope="col">Libellé</th>
+              <th scope="col">Imputée</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (ligne of resultat.lines; track $index) {
+              <tr [class.ecartee]="!ligne.posted">
+                <td class="cb-mono">{{ ligne.account }}</td>
+                <td>{{ ligne.direction === 'CREDIT' ? 'Crédit' : 'Débit' }}</td>
+                <td class="cb-mono nombre">{{ ligne.amount ?? '—' }}</td>
+                <td>{{ ligne.label ?? '—' }}</td>
+                <td>{{ ligne.posted ? 'oui' : libelleEcart(ligne.skipped) }}</td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row" colspan="2">Totaux</th>
+              <td class="cb-mono nombre">{{ resultat.debit }} / {{ resultat.credit }}</td>
+              <td colspan="2">
+                {{ resultat.imbalance === 0 ? 'équilibrée' : 'écart de ' + resultat.imbalance }}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      @if (resultat.rejection; as refusEssai) {
+        <cb-notice nature="avertissement" [titre]="libelleRefus()">
+          {{ refusEssai.detail }}
+        </cb-notice>
+      }
+    }
+  </div>
+</ng-template>

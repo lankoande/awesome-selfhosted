@@ -2,6 +2,8 @@ package io.corebanking.deposits;
 
 import io.corebanking.kernel.money.CurrencyRef;
 import io.corebanking.schema.EventTemplate;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import io.corebanking.schema.TemplateLine;
 
 /**
@@ -41,6 +43,29 @@ public final class OperationSchemas {
     public static final String ROLE_TAX = "tax";
 
     private OperationSchemas() {}
+
+    /**
+     * Les schemas des operations, par type d'evenement.
+     *
+     * <p>Sert a les <b>montrer</b> : un comptable a le droit de savoir ce que la banque impute
+     * quand un client retire de l'argent, et il ne peut pas le lire dans le code. Le registre est
+     * construit a partir des memes fabriques que la production — il ne peut donc pas en diverger.
+     *
+     * <p>Tous les evenements du module n'y figurent pas : un reglement de paiement ou un retour
+     * d'impaye construit ses lignes directement, sans schema. N'apparait ici que ce qu'un schema
+     * traduit reellement.
+     */
+    public static Map<String, EventTemplate> all(CurrencyRef currency) {
+        Map<String, EventTemplate> schemas = new LinkedHashMap<>();
+        for (EventTemplate template : java.util.List.of(
+                cashDeposit(currency), cashWithdrawal(currency), transfer(currency),
+                paymentOrder(currency), chequeBookFee(currency), chequePayment(currency),
+                chequeDeposit(currency), directDebit(currency), directDebitIssue(currency),
+                directDebitFee(currency))) {
+            schemas.put(template.eventType(), template);
+        }
+        return java.util.Collections.unmodifiableMap(schemas);
+    }
 
     /** Versement : la caisse entre, le compte du client est credite. */
     public static EventTemplate cashDeposit(CurrencyRef currency) {

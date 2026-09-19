@@ -95,6 +95,7 @@ public final class DualControlHandlers {
                        new AllocateCollateral(database), new ReleaseCollateral(database),
                        new ActivateCollateralPolicy(database), new ActivateRiskProfile(database),
                        new ActivateAccountingSchema(database),
+                       new CloseAccountingSchema(database),
                        new ActivateStatementLayout(database), new SetAccountLimit(database, accounts),
                        new IssueChequeBook(cheques, accounts),
                        new RegisterMandate(directDebits, accounts),
@@ -1703,6 +1704,56 @@ public final class DualControlHandlers {
                 return null;
             });
             return Map.of("profileId", profile.id(), "code", profile.code(), "status", "ACTIVE");
+        }
+    }
+
+    /**
+     * Fermeture de la validite d'un schema comptable.
+     *
+     * <p>C'est ainsi qu'un schema cesse de s'appliquer, et non par un changement d'etat : les
+     * imputations se resolvent a la date de valeur traitee, y compris passee, et seul un schema
+     * actif se resout. Suspendre celui en vigueur changerait l'imputation d'un arrete rejoue.
+     *
+     * <p>C'est aussi ce qui rend le versionnement possible : tant que le schema en vigueur n'a pas
+     * de terme, la contrainte d'exclusion interdit d'activer son successeur sous le meme code.
+     */
+    static final class CloseAccountingSchema implements MakerChecker.Handler {
+        private final Database database;
+
+        CloseAccountingSchema(Database database) {
+            this.database = database;
+        }
+
+        @Override public String name() { return "ACCOUNTING_SCHEMA_CLOSE"; }
+        @Override public Operation operation() { return Operation.ACCOUNTING_SCHEMA_CLOSE; }
+
+        private SchemaCatalog.Header require(Map<String, Object> payload) {
+            UUID id = uuid(payload, "schemaId");
+            return database.inTransaction(c -> SchemaCatalog.find(c, id))
+                .filter(h -> h.legalEntityId().equals(uuid(payload, "legalEntityId")))
+                .orElseThrow(() -> new ParameterUseCases.UnknownParameterException(
+                    "Schema comptable", id));
+        }
+
+        @Override
+        public AccessTarget targetOf(Caller maker, Map<String, Object> payload) {
+            return AccessTarget.inEntity(require(payload).legalEntityId());
+        }
+
+        @Override
+        public String resourceOf(Map<String, Object> payload) {
+            return text(payload, "schemaId");
+        }
+
+        @Override
+        public Object execute(Caller maker, Caller checker, Map<String, Object> payload) {
+            SchemaCatalog.Header schema = require(payload);
+            LocalDate validTo = date(payload, "validTo");
+            database.inTransaction(c -> {
+                SchemaCatalog.close(c, schema.legalEntityId(), schema.id(), validTo);
+                return null;
+            });
+            return Map.of("schemaId", schema.id(), "code", schema.code(), "validTo", validTo);
         }
     }
 

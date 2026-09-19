@@ -79,6 +79,11 @@ export const routes: Routes = [
           .then((m) => m.Calendrier),
       },
       {
+        path: 'schemas',
+        title: 'Siège — schémas comptables',
+        loadComponent: () => import('./siege/schemas/schemas.page').then((m) => m.Schemas),
+      },
+      {
         path: 'numerotation',
         title: 'Siège — numérotation',
         loadComponent: () => import('./siege/numerotation/numerotation.page')

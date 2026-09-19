@@ -1001,14 +1001,58 @@ class ApiIT {
         assertThat(post(accountant, "/pending-operations/" + attente(grilleActivation)
                         + "/approve", null, Map.of()).status()).isEqualTo(200);
 
-        // Le schema comptable : valide avant d'entrer en base, active par une seconde main.
+        // Le catalogue de ce que le socle impute : c'est de la que part toute redaction.
+        Reponse catalogue = get(accountant, "/accounting-schemas/standard");
+        assertThat(catalogue.status()).as(String.valueOf(catalogue.envelope())).isEqualTo(200);
+        assertThat(catalogue.items()).extracting(evt -> evt.get("eventType"))
+            .contains("CASH_WITHDRAWAL", "LOAN_DISBURSEMENT", "FEE_CHARGE");
+        Map<String, Object> commission = catalogue.items().stream()
+            .filter(evt -> "FEE_CHARGE".equals(evt.get("eventType"))).findFirst().orElseThrow();
+        assertThat(commission.get("source")).isEqualTo("PARAMETRABLE");
+        assertThat(commission.get("variables")).isEqualTo(List.of("net", "tax"));
+        Map<String, Object> retrait = catalogue.items().stream()
+            .filter(evt -> "CASH_WITHDRAWAL".equals(evt.get("eventType"))).findFirst().orElseThrow();
+        assertThat(retrait.get("source")).as("le socle l'impute lui-meme").isEqualTo("SOCLE");
+
+        // Un schema redige pour un evenement que le socle impute lui-meme ne serait lu par
+        // personne : il est refuse a la redaction, pas decouvert des mois plus tard.
+        Reponse mort = post(accountant, "/accounting-schemas", null, Map.of(
+            "code", "MORT-API", "label", "Schema mort", "currency", "XOF",
+            "validFrom", J.minusMonths(1).toString(),
+            "events", List.of(Map.of("eventType", "MAINTENANCE_FEE", "lines", List.of(
+                Map.of("account", "CONTRACT", "direction", "DEBIT", "amount", "base"),
+                Map.of("account", "GL:" + frais.code(), "direction", "CREDIT",
+                       "amount", "base"))))));
+        assertThat(mort.status()).as(String.valueOf(mort.envelope())).isEqualTo(422);
+
+        // L'essai : la seule facon de savoir ce que des expressions produisent sur un cas.
         Map<String, Object> evenement = Map.of(
-            "eventType", "MAINTENANCE_FEE", "derivations", Map.of("total", "round(base, 0)"),
+            "eventType", "FEE_CHARGE",
+            "derivations", new java.util.LinkedHashMap<>(Map.of(
+                "net_booked", "round(net, 0)", "tax_booked", "round(tax, 0)")),
             "lines", List.of(
-                Map.of("account", "CONTRACT", "direction", "DEBIT", "amount", "total",
-                       "label", "Frais de tenue de compte"),
-                Map.of("account", "GL:" + frais.code(), "direction", "CREDIT", "amount", "total",
-                       "label", "Commissions percues")));
+                Map.of("account", "CONTRACT", "direction", "DEBIT",
+                       "amount", "net_booked + tax_booked", "label", "Frais de tenue de compte"),
+                Map.of("account", "GL:" + frais.code(), "direction", "CREDIT",
+                       "amount", "net_booked", "label", "Commissions percues"),
+                Map.of("account", "PARAM:fee_tax", "direction", "CREDIT", "amount", "tax_booked",
+                       "label", "Taxe collectee", "condition", "tax_booked > 0")));
+        Reponse essai = post(accountant, "/accounting-schemas/trials", null, Map.of(
+            "eventType", "FEE_CHARGE", "currency", "XOF", "events", List.of(evenement),
+            "values", Map.of("net", "1000", "tax", "180")));
+        assertThat(essai.status()).as(String.valueOf(essai.envelope())).isEqualTo(200);
+        assertThat(essai.body().get("rejection")).isNull();
+        assertThat(essai.body().get("debit")).isEqualTo(1180);
+        assertThat(essai.body().get("credit")).isEqualTo(1180);
+
+        // L'essai d'un schema du socle, sans rien rediger : ce que la banque impute sur un retrait.
+        Reponse essaiSocle = post(accountant, "/accounting-schemas/trials", null, Map.of(
+            "eventType", "CASH_WITHDRAWAL", "values", Map.of("amount", "5000", "fee", "500",
+                                                             "tax", "90")));
+        assertThat(essaiSocle.status()).as(String.valueOf(essaiSocle.envelope())).isEqualTo(200);
+        assertThat(essaiSocle.body().get("debit")).isEqualTo(5590);
+
+        // Le schema comptable : valide avant d'entrer en base, active par une seconde main.
         Reponse schema = post(accountant, "/accounting-schemas", null, Map.of(
             "code", "FRAIS-API", "label", "Frais de tenue", "currency", "XOF",
             "validFrom", J.minusMonths(1).toString(), "version", 1,
@@ -1022,6 +1066,33 @@ class ApiIT {
                         + "/approve", null, Map.of()).status()).isEqualTo(403);
         assertThat(post(accountant2, "/pending-operations/" + attente(schemaActivation)
                         + "/approve", null, Map.of()).status()).isEqualTo(200);
+
+        // Le schema se relit : sans cette lecture, un brouillon perdu au rechargement devenait
+        // inactivable, et le schema en vigueur ne se verifiait nulle part.
+        Reponse schemas = get(accountant, "/accounting-schemas?code=FRAIS-API");
+        assertThat(schemas.status()).isEqualTo(200);
+        assertThat(schemas.items()).singleElement()
+            .satisfies(vue -> assertThat(vue.get("status")).isEqualTo("ACTIVE"));
+        Reponse detail = get(accountant, "/accounting-schemas/" + schema.body().get("id"));
+        assertThat(detail.status()).as(String.valueOf(detail.envelope())).isEqualTo(200);
+
+        // Fermer la validite est ce qui permet d'activer un successeur sous le meme code.
+        Reponse fermeture = post(accountant, "/accounting-schemas/" + schema.body().get("id")
+                                 + "/closure", null, Map.of("validTo", J.plusDays(30).toString()));
+        assertThat(fermeture.status()).as(String.valueOf(fermeture.envelope())).isEqualTo(202);
+        assertThat(post(accountant2, "/pending-operations/" + attente(fermeture)
+                        + "/approve", null, Map.of()).status()).isEqualTo(200);
+
+        // Un brouillon abandonne se retire seul, et garde la signature de qui l'a retire.
+        Reponse abandon = post(accountant, "/accounting-schemas", null, Map.of(
+            "code", "FRAIS-ABANDON", "label", "Frais abandonnes", "currency", "XOF",
+            "validFrom", J.minusMonths(1).toString(), "events", List.of(evenement)));
+        assertThat(abandon.status()).isEqualTo(201);
+        assertThat(post(accountant, "/accounting-schemas/" + abandon.body().get("id")
+                        + "/withdrawal", null, Map.of()).status()).isEqualTo(204);
+        Reponse retires = get(accountant, "/accounting-schemas?code=FRAIS-ABANDON");
+        assertThat(retires.items()).singleElement()
+            .satisfies(vue -> assertThat(vue.get("status")).isEqualTo("WITHDRAWN"));
 
         // La surete : prise par le charge de credit, validee par le responsable credit,
         // affectee au contrat, puis levee — a deux a chaque fois.

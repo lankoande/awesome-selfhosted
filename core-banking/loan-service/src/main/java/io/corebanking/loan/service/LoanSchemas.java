@@ -4,6 +4,8 @@ import io.corebanking.kernel.money.CurrencyRef;
 import io.corebanking.schema.AccountingSchema;
 import io.corebanking.schema.EventTemplate;
 import io.corebanking.schema.TemplateLine;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Schemas comptables du credit.
@@ -75,6 +77,24 @@ public final class LoanSchemas {
     public static final String ROLE_WRITTEN_OFF_COUNTERPART = "written_off_counterpart";
 
     private LoanSchemas() {}
+
+    /**
+     * Les schemas du credit, par type d'evenement. Registre de lecture, construit a partir des
+     * memes fabriques que la production. L'accrual quotidien n'y figure pas : il construit ses
+     * lignes directement.
+     */
+    public static Map<String, EventTemplate> all(CurrencyRef currency) {
+        Map<String, EventTemplate> schemas = new LinkedHashMap<>();
+        for (EventTemplate template : java.util.List.of(
+                disbursement(currency), trancheRelease(currency), interimInterest(currency),
+                instalmentDue(currency), repayment(currency), lateCharges(currency),
+                provisionCharge(currency), provisionRelease(currency),
+                interestSuspension(currency), prepayment(currency), writeOff(currency),
+                writeOffOffBalance(currency), recovery(currency), recoveryOffBalance(currency))) {
+            schemas.put(template.eventType(), template);
+        }
+        return java.util.Collections.unmodifiableMap(schemas);
+    }
 
     /**
      * Deblocage : l'encours nait a l'actif pour le capital entier, mais l'emprunteur ne recoit que

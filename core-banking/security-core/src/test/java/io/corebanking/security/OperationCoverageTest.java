@@ -38,6 +38,7 @@ class OperationCoverageTest {
         Map.entry("ProductCatalog.close", Operation.PRODUCT_CLOSE),
         Map.entry("SchemaCatalog.createDraft", Operation.ACCOUNTING_SCHEMA_DRAFT),
         Map.entry("SchemaCatalog.activate", Operation.ACCOUNTING_SCHEMA_ACTIVATE),
+        Map.entry("SchemaCatalog.close", Operation.ACCOUNTING_SCHEMA_CLOSE),
         Map.entry("StatementLayouts.createDraft", Operation.STATEMENT_LAYOUT_DRAFT),
         Map.entry("StatementLayouts.activate", Operation.STATEMENT_LAYOUT_ACTIVATE),
         Map.entry("Calendars.createCalendar / addHoliday / attachToEntity / addRule",
@@ -121,7 +122,8 @@ class OperationCoverageTest {
         Operation.PARTY_FILE_READ, Operation.STANDING_ORDER_READ, Operation.TERM_DEPOSIT_READ,
         Operation.AML_READ, Operation.REGULATORY_READ, Operation.AUDIT_READ,
         Operation.PRODUCT_READ, Operation.ESTABLISHMENT_READ, Operation.NUMBERING_READ,
-        Operation.CHART_OF_ACCOUNTS_READ, Operation.BRANCH_READ, Operation.CALENDAR_READ);
+        Operation.CHART_OF_ACCOUNTS_READ, Operation.BRANCH_READ, Operation.CALENDAR_READ,
+        Operation.ACCOUNTING_SCHEMA_READ);
 
     @Test
     @DisplayName("toute operation est reclamee par un point d'entree, ou est une consultation")
